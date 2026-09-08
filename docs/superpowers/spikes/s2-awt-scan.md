@@ -38,7 +38,7 @@ Jars scanned:
 | `BaseComposeScene` | **clean** |
 | `PlatformContext` and `PlatformContext.Empty` | **clean** |
 | `FrameRecomposer` | **clean** |
-| `RootNodeOwner` | **clean** |
+| `RootNodeOwner` | **names no AWT, but needs one at runtime — see the correction below** |
 | `ComposeSceneFocusManager`, `ComposeSceneInputHandler` | **clean** |
 | `PlatformTextInputMethodRequest` (the input path we use) | **clean** |
 | Font loading: `FontFamilyResolverImpl`, `SkiaFontLoader`, `PlatformFontLoader`, every `…font.*` adapter | **clean** |
@@ -63,6 +63,26 @@ factory `KeyEvent(key, type, codePoint, …)` lives in the skiko half; `java.awt
 .toComposeEvent()` and `KeyShortcut` live in the desktop half and pull in `java.awt.event.InputEvent`.
 A port splits that facade. Nothing in our call path executes AWT — S1-d confirmed the factory runs
 with no AWT window and no toolkit.
+
+## Correction, from S5
+
+This scan reads constant pools, so it finds classes that *name* AWT. It does not follow a call one
+hop to an implementation that does. `RootNodeOwner` is the case where that matters, and S5 caught
+it by running the suite on a JVM with no `java.desktop` module:
+
+```
+java.lang.NoClassDefFoundError: java/awt/HeadlessException
+  at androidx.compose.ui.node.RootNodeOwner$OwnerImpl.<init>(RootNodeOwner.skiko.kt:471)
+```
+
+Line 471 is `override val clipboardManager = createPlatformClipboardManager()`, whose desktop actual
+reaches `Toolkit.getDefaultToolkit()` inside a `catch (HeadlessException)`. Catching it is enough:
+the class has to resolve. So the scene cannot be *constructed* without AWT on the desktop artifact,
+even though ComposeGL replaces the clipboard a moment later.
+
+Read the table below as "does not name AWT", which is the right question for our own bytecode and
+the CI check, and the wrong question for "will this run on ART". See
+[`s5-no-awt-runtime.md`](s5-no-awt-runtime.md).
 
 ## Where the AWT actually lives
 
