@@ -1,7 +1,7 @@
 # ComposeGL — Design Spec
 
 Date: 2026-09-08
-Status: draft, awaiting review
+Status: amended after spike S1 (see `docs/superpowers/spikes/s1-desktop.md`). Versions pinned.
 
 ## 1. What this is
 
@@ -29,7 +29,6 @@ First engine: LibGDX. Everything engine-specific lives in one adapter module so 
 - Accessibility / screen readers.
 - Android, iOS, web.
 - Editor mode (Compose owns the window, game renders into a Compose node). Roadmap item P2.
-- The new `BasicTextField(TextFieldState)` input path. Only the `TextField(value, onValueChange)` path is supported and tested. Material 3 `TextField` is expected to use that path; confirmed when the Compose version is pinned at M0.
 - Drag and drop, multiple windows.
 - Second engine adapter.
 
@@ -69,9 +68,18 @@ composegl-smoke-lwjgl3  Raw LWJGL3, no LibGDX. ~200 lines. Proves the seam; host
 
 Build rules enforced in CI:
 
-- `composegl-core` fails the build if any class in *our* compiled output references `java.awt`, `javax.swing`, `com.badlogic`, or `org.lwjgl`. Transitive dependencies (compose-ui-desktop, skiko-awt) are not scanned; we only control our own code. One allowlisted file, `DesktopKeyEvents.kt`, exists if spike S1-d shows Compose `KeyEvent` cannot be built without AWT on desktop. It is the only permitted exception and is marked as such.
+- `composegl-core` fails the build if any class in *our* compiled output references `java.awt`, `javax.swing`, `com.badlogic`, or `org.lwjgl`. Transitive dependencies (compose-ui-desktop, skiko-awt) are not scanned; we only control our own code. There are no allowlisted exceptions: S1-d showed Compose `KeyEvent` can be built without AWT, so the `DesktopKeyEvents.kt` escape hatch was never needed.
 - Every `@OptIn(InternalComposeUiApi::class)` lives in `SceneBridge.kt`. Nowhere else.
-- Compose Multiplatform, Kotlin, Skiko, and LibGDX versions are pinned in `gradle/libs.versions.toml`. Compose is pinned to an exact release chosen at spike time.
+- Compose Multiplatform, Kotlin, Skiko, and LibGDX versions are pinned in `gradle/libs.versions.toml`:
+
+| Library | Pin |
+|---|---|
+| Kotlin | 2.4.20 |
+| Compose Multiplatform | 1.12.0 |
+| Skiko | 0.150.1 |
+| Material 3 | 1.9.0 |
+| LibGDX | 1.14.2 |
+| JVM toolchain | 21 |
 
 ## 6. Core API
 
@@ -174,19 +182,23 @@ Threading contract, stated once: **every method on `ComposeGlContext` and `Compo
 
 ## 7. Frame lifecycle
 
-Compose needs a `MonotonicFrameClock` and a `CoroutineDispatcher`. Desktop Compose normally owns both and ties them to vsync. We take both over.
+Compose needs a frame clock and a `CoroutineDispatcher`. Desktop Compose normally owns both and ties them to vsync. We take both over.
 
-- **`BroadcastFrameClock`** (public Compose runtime class). `update()` calls `sendFrame(frameTimeNanos)`. Compose animations therefore tick at the game's frame rate; if the game stops calling `update()`, animations freeze. `sendFrame` is a no-op if nothing is waiting, so it is cheap.
+Compose 1.12.0 ships `FrameRecomposer`, the host-side driver that a platform is expected to own. It bundles a `BroadcastFrameClock`, the `Recomposer`, the two work queues, and a `GlobalSnapshotManager` registration, so we no longer hand-roll any of that.
+
 - **`GameLoopDispatcher`** — a `CoroutineDispatcher` whose `dispatch` appends to a queue. `isDispatchNeeded` always returns true so nothing runs inline mid-render. `update()` drains the queue. It does not implement `Delay`; `delay()` in a `LaunchedEffect` uses the default timer and resumes back on our queue, which is the behaviour we want.
-- Both are passed to `CanvasLayersComposeScene` via its `coroutineContext` parameter, along with `invalidate = { host.requestFrame() }`.
+- **`FrameRecomposer(dispatcher, invalidate = { host.requestFrame() })`** — `performFrame(frameTimeNanos)` drains its trampoline queue and sends the frame. Compose animations therefore tick at the game's frame rate; if the game stops calling `update()`, animations freeze. `hasPendingWork()` reports outstanding recomposition or queued work.
+- The recomposer is passed to `CanvasLayersComposeScene`, along with `invalidateLayout` and `invalidateDraw` callbacks.
+
+`ComposeScene` no longer has `render(canvas, nanos)`. Layout is a host-driven phase: `measureAndLayout()` runs at the end of `update()`, and `draw(canvas)` runs in `render()`, so `needsRedraw` is evaluated after layout has settled.
 
 ```kotlin
 fun update(frameTimeNanos: Long) {
     assertGlThread()
     dispatcher.drain()                    // effects, coroutine resumptions
-    Snapshot.sendApplyNotifications()     // propagate snapshot state writes
-    clock.sendFrame(frameTimeNanos)       // recomposition + layout happen here
+    recomposer.performFrame(frameTimeNanos)  // apply notifications, clock, recomposition
     dispatcher.drain()                    // recomposition may have queued more
+    scene.measureAndLayout()
     stats.frames++
 }
 
@@ -197,14 +209,16 @@ fun render(frameTimeNanos: Long) {
     if (skiaSurface == null) return       // zero-size target (window minimised)
     directContext.resetAll()              // forget cached GL state; the engine changed it
     skiaSurface.canvas.clear(Color.TRANSPARENT)
-    scene.render(skiaSurface.canvas, frameTimeNanos)
+    scene.draw(skiaSurface.canvas.asComposeCanvas())
     directContext.flush()
     targetChanged = false
     stats.composeRenders++
 }
 ```
 
-`ComposeScene` does not run `GlobalSnapshotManager` for us (that is the platform window's job in stock Compose), so we call `Snapshot.sendApplyNotifications()` ourselves each frame. It is idempotent.
+`FrameRecomposer` registers itself with `GlobalSnapshotManager`, so we do not call `Snapshot.sendApplyNotifications()` ourselves.
+
+`hasInvalidations()` is `hasPendingMeasureOrLayout || hasPendingDraw`. It is `false` for untouched static content after the first render (S1-f). A **focused** `TextField` blinks its caret, which invalidates draw every frame; that is the one common case where a HUD is never static.
 
 Resize: `setRenderTarget` with new dimensions disposes the old Skia `Surface` and `BackendRenderTarget`, creates new ones, and sets `scene.size`. If width or height is 0 the surface is left null and `render()` returns early. Density changes (window moved to a different-DPI monitor) go through `setRenderTarget` too; the adapter passes the new density via `HostServices.density`, which core reads at that moment and pushes into `scene.density`.
 
@@ -233,7 +247,7 @@ glPixelStorei(GL_UNPACK_ALIGNMENT, 4)
 
 This list lives in core as a doc comment on `RenderTarget.Gl` so every adapter author sees it. The adapter executes it with the engine's GL binding.
 
-Skia surface: `Surface.makeFromBackendRenderTarget(context, BackendRenderTarget.makeGL(w, h, sampleCount, stencilBits, fboId, GL_RGBA8), origin, SurfaceColorFormat.RGBA_8888, ColorSpace.sRGB)`. Pixels are premultiplied. The blit therefore uses `glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)`. Origin (`TOP_LEFT` vs `BOTTOM_LEFT`) is chosen in spike S1-b so that the LibGDX `TextureRegion` needs no flip; whichever it is, the flip is resolved once in the adapter and never exposed.
+Skia surface: `Surface.makeFromBackendRenderTarget(context, BackendRenderTarget.makeGL(w, h, sampleCount, stencilBits, fboId, GL_RGBA8), origin, SurfaceColorFormat.RGBA_8888, ColorSpace.sRGB)`. Pixels are premultiplied. The blit therefore uses `glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA)`. Origin is `SurfaceOrigin.TOP_LEFT` (S1-b): a plain `TextureRegion(fbo.colorBufferTexture)` is then upright with no flip. The choice is made once in the adapter and never exposed.
 
 Blit: adapter draws the FBO colour texture with its own `SpriteBatch` in premultiplied mode, full screen. One draw call.
 
@@ -243,20 +257,17 @@ Multiple surfaces share one `ComposeGlContext`. Each surface has its own `Compos
 
 Core accepts Compose's public input types. No middle enum.
 
-**Pointer.** `sendPointerEvent` builds a Compose pointer event and calls `scene.sendPointerEvent(...)`. That call returns `Unit`, so consumption is detected by us: core wraps user content in
+**Pointer.** `sendPointerEvent` builds a Compose pointer event and calls `scene.sendPointerEvent(...)`, which returns a `PointerEventResult` synchronously (S1-e). No wrapper composable and no consumption tracker are needed.
+
+`PointerEventResult.anyChangeConsumed` is `internal`, but its constructor is public, so the flag is read by comparing against the constructible values that have it set:
 
 ```kotlin
-Box(Modifier.fillMaxSize().pointerInput(Unit) {
-    awaitPointerEventScope {
-        while (true) {
-            val e = awaitPointerEvent(PointerEventPass.Final)
-            consumptionTracker.record(e)
-        }
-    }
-}) { userContent() }
+internal fun PointerEventResult.changeConsumed(): Boolean =
+    listOf(false, true).any { m -> listOf(false, true).any { d ->
+        this == PointerEventResult(m, true, d) } }
 ```
 
-`record` notes, per pointer id, whether any change in the event was consumed. `sendPointerEvent` returns that flag. Spike S1-e confirms `scene.sendPointerEvent` is synchronous so the flag is readable on return. If it turns out to be asynchronous, the fallback is to return the previous frame's answer for moves and to treat presses as consumed when the previous hover was over a consuming node; this is recorded as a risk, not designed further.
+It is a value class over an `Int`, so this is four integer comparisons.
 
 Rules applied in core:
 
@@ -265,7 +276,7 @@ Rules applied in core:
 - Moves of an uncaptured pointer (hover) are delivered to Compose for hover effects but always return false. The game seeing hover is harmless and keeps crosshairs and picking working.
 - Scroll returns whatever a `scrollable` consumed.
 
-**Keyboard.** `sendKeyEvent` returns false immediately when `!hasKeyboardFocus` — Compose never sees keys the user is aiming at the game. When focused, it builds a Compose `KeyEvent` and returns the scene's answer. `hasKeyboardFocus` is fed by our `PlatformContext.focusManager` wrapper observing focus changes.
+**Keyboard.** `sendKeyEvent` returns false immediately when `!hasKeyboardFocus` — Compose never sees keys the user is aiming at the game. When focused, it builds a Compose `KeyEvent` with the AWT-free `KeyEvent(key, type, codePoint, …)` factory (S1-d) and returns the scene's answer. `hasKeyboardFocus` reads `scene.focusManager.hasFocus` directly.
 
 **Characters.** `sendChar(codePoint)` goes to the text input service (Section 10), never to `scene.sendKeyEvent`. Returns true when a text field is active.
 
@@ -280,8 +291,9 @@ Rules applied in core:
 Core implements `PlatformContext` by delegating to `PlatformContext.Empty` and overriding:
 
 - `setPointerIcon(icon)` — compares against `PointerIcon.Default/Text/Hand/Crosshair` and calls `HostServices.setCursor`. Anything else maps to `Default`.
-- `textInputService` — our `GameTextInputService : PlatformTextInputService`. `startInput` stores `onEditCommand` and calls `host.showSoftKeyboard(true)`; `stopInput` clears it and hides. `sendChar` calls `onEditCommand(listOf(CommitTextCommand(text, 1)))`. Backspace, arrows, selection, and shortcuts arrive as key events and are handled by Compose's own text field key handling. Cut/copy/paste shortcuts route through the clipboard below.
-- `focusManager` — wrapped to observe `hasKeyboardFocus`.
+- `startInputMethod(request)` — the session path, which is what Material 3's `TextField` actually uses (S1-g). It stores the `PlatformTextInputMethodRequest`, calls `host.showSoftKeyboard(true)`, suspends until cancelled, then clears and hides. `sendChar` calls `request.onEditCommand(listOf(CommitTextCommand(text, 1)))`.
+- `textInputService` — the same behaviour behind the legacy `PlatformTextInputService`, kept so content still on the old path works. Both funnel into one holder; `sendChar` uses whichever is live.
+- Backspace, arrows, selection, and shortcuts arrive as key events and are handled by Compose's own text field key handling. Cut/copy/paste shortcuts route through the clipboard below.
 - `viewConfiguration` — touch slop 8dp × density, long press 500ms, double tap 300ms. Plain defaults.
 - `windowInfo` — reports `isWindowFocused = true` always. Game surfaces do not have a focus concept we can honour without AWT.
 - Clipboard — core wraps user content in `CompositionLocalProvider(LocalClipboardManager provides GameClipboardManager(host))`, which forwards to `HostServices.getClipboard/setClipboard`. Providing the local ourselves works regardless of what `PlatformContext` offers in the pinned version.
@@ -376,7 +388,7 @@ Requirements documented in the README and checked at `ComposeGdx.init()`:
 
 ## 14. Testing
 
-**Core, headless, runs in CI without a GPU.** `ComposeScene` will render into a CPU Skia surface (`Surface.makeRasterN32Premul`) exactly as it renders into GL. Core has a test-only `RenderTarget.Raster(width, height)` variant, internal to the test source set, so every core test drives the real scene, real clock, real dispatcher, real input path.
+**Core, headless, runs in CI without a GPU.** `ComposeScene` draws into a CPU Skia surface (`Surface.makeRasterN32Premul`) exactly as it draws into GL. Core has a test-only `RenderTarget.Raster(width, height)` variant, internal to the test source set, so every core test drives the real scene, real clock, real dispatcher, real input path.
 
 - Render a `Button`; assert the pixel at its centre is the Material primary colour.
 - Send press+release at the button; assert `onClick` fired and both events returned true.
@@ -402,6 +414,8 @@ Requirements documented in the README and checked at `ComposeGdx.init()`:
 ## 15. Phase 0 — spikes that gate implementation
 
 Throwaway code in `spikes/`, deleted after findings are recorded in `docs/superpowers/spikes/`. Both run before Milestone 1.
+
+**S1 is done and every sub-check passed — see [`docs/superpowers/spikes/s1-desktop.md`](../spikes/s1-desktop.md).**
 
 **S1 — desktop feasibility (blocking).** LibGDX LWJGL3 app, GL 3.2 core, spinning cube, Skiko `DirectContext.makeGL()` on LibGDX's context, `CanvasLayersComposeScene` with a Material `Button` and `TextField` rendered into a LibGDX `FrameBuffer`, blitted with `SpriteBatch`. Sub-checks, each recorded pass/fail:
 
@@ -432,12 +446,10 @@ Fail on a, c, or h means the offscreen approach needs rework before anything els
 | Risk | Likelihood | Mitigation |
 |---|---|---|
 | `ComposeScene` / `PlatformContext` are `@InternalComposeUiApi` and change between releases | High over time | Exact version pin. All opt-ins in `SceneBridge.kt`. Upgrading Compose is a deliberate task with the integration suite as the gate. |
-| Compose `KeyEvent` needs AWT on desktop (S1-d) | Medium | Allowlisted single file. Cost: that one file needs a rewrite for any non-AWT port. |
-| `sendPointerEvent` is asynchronous (S1-e) | Low | Fallback described in Section 9. |
-| Skiko GL loader and LWJGL both loading GL functions in one process | Low | Both use the platform loader; known to coexist. S1-a confirms. |
+| Skiko GL loader and LWJGL both loading GL functions in one process | Resolved | Confirmed working in S1-a on Mesa/llvmpipe. |
 | macOS: GL is deprecated, capped at 4.1 core, main-thread rules | Medium for mac users | 4.1 core is enough. LWJGL's `-XstartOnFirstThread` is a LibGDX concern already. Metal later via `RenderTarget`. |
-| `hasInvalidations()` reports true too often (e.g. every frame due to some internal effect) | Low | S1-f measures. If true, fall back to a dirty flag set from `invalidate` callback + our own state observation. |
-| Material `TextField` moves to the new `TextFieldState` path in a future Compose release | Medium over time | Pinned version. Supporting the new `PlatformTextInputModifierNode` path is a scoped follow-up. |
+| `hasInvalidations()` reports true too often | Resolved for static content | S1-f: 0 renders over 11 static frames. A focused `TextField` blinks its caret and does redraw every frame; documented, not fixed. |
+| Material `TextField` input path changes again | Medium over time | Pinned version. Both the session (`startInputMethod`) and legacy (`PlatformTextInputService`) paths are implemented, so either works. |
 | Memory: one full-screen RGBA FBO per overlay plus Skia caches | Certain, small | `resourceCacheBytes` configurable; documented. ~8 MB for the FBO at 1080p plus cache. |
 | Android GL context loss on resume | N/A for v1 | Noted for P3: `ComposeGlContext` must be recreatable and surfaces must re-create targets. |
 
