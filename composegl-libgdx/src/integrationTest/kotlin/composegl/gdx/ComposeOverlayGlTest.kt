@@ -17,7 +17,9 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
+import composegl.CursorShape
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -107,6 +109,29 @@ class ComposeOverlayGlTest {
 
         assertEquals(0xFF00FF00.toInt(), afterCompose, "raw GL after a Compose render must still work, got ${hex(afterCompose)}")
         assertEquals(GL20.GL_NO_ERROR, glError)
+    }
+
+    /**
+     * The host services against a real LibGDX application, where Gdx.app and Gdx.graphics exist.
+     * Copy and paste is the user-visible half of this, and it goes through Gdx.app.clipboard.
+     */
+    @Test
+    fun `host services reach the real LibGDX clipboard, cursor and density`() {
+        var roundTrip: String? = null
+        var density = 0f
+        var cursorThrew: Throwable? = null
+
+        runGl(width = 320, height = 240, frames = 3) {
+            val host = ComposeGdx.hostServices
+            host.setClipboard("copied out of the HUD")
+            roundTrip = host.getClipboard()
+            density = host.density
+            cursorThrew = runCatching { CursorShape.entries.forEach { host.setCursor(it) } }.exceptionOrNull()
+        }
+
+        assertEquals("copied out of the HUD", roundTrip, "clipboard must round-trip through Gdx.app")
+        assertTrue(density > 0f, "density must be a real ratio, got $density")
+        assertNull(cursorThrew, "every CursorShape must map to a system cursor LibGDX accepts")
     }
 
     @Test
