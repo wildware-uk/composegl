@@ -25,20 +25,6 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** A host that records what ComposeGL asked it to do. */
-private class RecordingHost(override val density: Float = 1f) : HostServices {
-    var clipboardText: String? = null
-    var frameRequests = 0
-    val cursors = mutableListOf<CursorShape>()
-    var softKeyboardVisible: Boolean? = null
-
-    override fun requestFrame() { frameRequests++ }
-    override fun setCursor(cursor: CursorShape) { cursors += cursor }
-    override fun getClipboard(): String? = clipboardText
-    override fun setClipboard(text: String) { clipboardText = text }
-    override fun showSoftKeyboard(visible: Boolean) { softKeyboardVisible = visible }
-}
-
 @OptIn(ExperimentalComposeUiApi::class)
 class PlatformServicesTest {
 

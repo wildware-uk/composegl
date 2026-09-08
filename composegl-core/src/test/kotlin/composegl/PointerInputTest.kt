@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.input.TextFieldValue
@@ -31,33 +30,16 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class PointerInputTest {
 
-    private val context = ComposeGlContext.createRaster()
-    private val surface = ComposeSurface(context, object : HostServices { override val density = 1f })
-    private var nanos = 0L
+    private val ui = HeadlessSurface(400, 300)
 
     @AfterEach
-    fun tearDown() = context.dispose()
+    fun tearDown() = ui.close()
 
-    private fun show(width: Int = 400, height: Int = 300, content: @Composable () -> Unit) {
-        surface.setContent(content)
-        surface.setRenderTarget(RenderTarget.Raster(width, height))
-        frame()
-    }
-
-    private fun frame() {
-        nanos += 16_666_667
-        surface.update(nanos)
-        if (surface.needsRedraw) surface.render(nanos)
-    }
-
-    private fun press(x: Float, y: Float, id: Int = 0) =
-        surface.sendPointerEvent(PointerEventType.Press, x, y, pointerId = id, button = PointerButton.Primary)
-
-    private fun release(x: Float, y: Float, id: Int = 0) =
-        surface.sendPointerEvent(PointerEventType.Release, x, y, pointerId = id, button = PointerButton.Primary)
-
-    private fun move(x: Float, y: Float, id: Int = 0) =
-        surface.sendPointerEvent(PointerEventType.Move, x, y, pointerId = id)
+    private fun show(content: @Composable () -> Unit) = ui.setContent(content)
+    private fun frame() = ui.frame()
+    private fun press(x: Float, y: Float, id: Int = 0) = ui.press(x, y, id)
+    private fun release(x: Float, y: Float, id: Int = 0) = ui.release(x, y, id)
+    private fun move(x: Float, y: Float, id: Int = 0) = ui.move(x, y, id)
 
     @Test
     fun `clicking a button fires onClick and reports consumed`() {
@@ -97,14 +79,14 @@ class PointerInputTest {
         }
         focus.requestFocus()
         frame()
-        assertTrue(surface.hasKeyboardFocus)
+        assertTrue(ui.hasKeyboardFocus)
 
         press(390f, 290f)
         release(390f, 290f)
         frame()
 
-        assertFalse(surface.hasKeyboardFocus, "otherwise the field would eat the game's next keystroke")
-        assertFalse(surface.sendChar('a'.code))
+        assertFalse(ui.hasKeyboardFocus, "otherwise the field would eat the game's next keystroke")
+        assertFalse(ui.surface.sendChar('a'.code))
     }
 
     @Test
@@ -181,8 +163,8 @@ class PointerInputTest {
                 }
             }
         }
-        val overScrollable = surface.sendPointerEvent(PointerEventType.Scroll, 50f, 50f, scrollY = 1f)
-        val overNothing = surface.sendPointerEvent(PointerEventType.Scroll, 390f, 290f, scrollY = 1f)
+        val overScrollable = ui.scroll(50f, 50f, 1f)
+        val overNothing = ui.scroll(390f, 290f, 1f)
         assertTrue(overScrollable, "a scrollable under the pointer takes the wheel")
         assertFalse(overNothing, "empty HUD lets the wheel through to the game")
     }
@@ -195,7 +177,7 @@ class PointerInputTest {
             }
         }
         assertTrue(press(30f, 20f))
-        surface.cancelPointerInput()
+        ui.surface.cancelPointerInput()
         assertFalse(move(200f, 150f), "the gesture was cancelled, so the game gets the pointer back")
     }
 

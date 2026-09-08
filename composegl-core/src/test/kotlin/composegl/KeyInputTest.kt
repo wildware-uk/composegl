@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -22,29 +21,17 @@ import org.junit.jupiter.api.Test
 
 class KeyInputTest {
 
-    private val context = ComposeGlContext.createRaster()
-    private val surface = ComposeSurface(context, object : HostServices { override val density = 1f })
+    private val ui = HeadlessSurface(400, 300)
     private val first = FocusRequester()
     private var a by mutableStateOf(TextFieldValue(""))
     private var b by mutableStateOf(TextFieldValue(""))
-    private var nanos = 0L
 
     @AfterEach
-    fun tearDown() = context.dispose()
+    fun tearDown() = ui.close()
 
-    private fun frame() {
-        nanos += 16_666_667
-        surface.update(nanos)
-        if (surface.needsRedraw) surface.render(nanos)
-    }
+    private fun frame() = ui.frame()
 
-    private fun show(content: @Composable () -> Unit) {
-        surface.setContent(content)
-        surface.setRenderTarget(RenderTarget.Raster(400, 300))
-        frame()
-    }
-
-    private fun twoFields() = show {
+    private fun twoFields() = ui.setContent {
         Column {
             // singleLine, because a multi-line field treats Tab as a character to insert.
             TextField(a, { a = it }, Modifier.focusRequester(first), singleLine = true)
@@ -52,19 +39,15 @@ class KeyInputTest {
         }
     }
 
-    private fun tap(key: Key, modifiers: PointerKeyboardModifiers = PointerKeyboardModifiers()): Boolean {
-        val down = surface.sendKeyEvent(key, down = true, modifiers = modifiers)
-        surface.sendKeyEvent(key, down = false, modifiers = modifiers)
-        frame()
-        return down
-    }
+    private fun tap(key: Key, modifiers: PointerKeyboardModifiers = PointerKeyboardModifiers()) =
+        ui.tap(key, modifiers)
 
-    private fun type(text: String) = text.forEach { surface.sendChar(it.code); frame() }
+    private fun type(text: String) = ui.type(text)
 
     @Test
     fun `keys are ignored while nothing in the HUD has focus`() {
         twoFields()
-        assertFalse(surface.hasKeyboardFocus)
+        assertFalse(ui.hasKeyboardFocus)
         assertFalse(tap(Key.A), "otherwise WASD would drive a list instead of the player")
         assertFalse(tap(Key.Backspace))
         assertEquals("", a.text)
@@ -109,12 +92,12 @@ class KeyInputTest {
 
         assertEquals("one", a.text, "the first field is done")
         assertEquals("two", b.text, "and the second one now has the keys")
-        assertTrue(surface.hasKeyboardFocus)
+        assertTrue(ui.hasKeyboardFocus)
     }
 
     @Test
     fun `key events before setContent are refused`() {
-        assertFalse(surface.sendKeyEvent(Key.A, down = true))
+        assertFalse(ui.surface.sendKeyEvent(Key.A, down = true))
     }
 
     @Test
@@ -122,12 +105,12 @@ class KeyInputTest {
         twoFields()
         first.requestFocus()
         frame()
-        assertTrue(surface.hasKeyboardFocus)
+        assertTrue(ui.hasKeyboardFocus)
 
-        surface.setContent { Box(Modifier.fillMaxSize()) }
+        ui.setContent { Box(Modifier.fillMaxSize()) }
         frame()
 
-        assertFalse(surface.hasKeyboardFocus)
+        assertFalse(ui.hasKeyboardFocus)
         assertFalse(tap(Key.A))
     }
 }
