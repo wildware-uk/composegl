@@ -1,0 +1,37 @@
+# Every version here is an exact pin. Compose Multiplatform, Skiko and Kotlin move together:
+# see docs/superpowers/spikes/s1-desktop.md for why 1.12.0 is the floor, not just the current release.
+[versions]
+kotlin = "2.4.20"
+compose = "1.12.0"
+# material3 is versioned independently of the Compose Multiplatform release.
+material3 = "1.9.0"
+# Transitive from Compose 1.12.0. Pinned so a Compose bump that moves Skiko is a visible diff.
+skiko = "0.150.1"
+gdx = "1.14.2"
+lwjgl = "3.3.3"
+junit = "5.14.0"
+
+[libraries]
+# --- core: Compose without any windowing host ---
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
+skiko = { module = "org.jetbrains.skiko:skiko-awt", version.ref = "skiko" }
+
+# --- engine adapter: gdx core only, no backend ---
+gdx = { module = "com.badlogicgames.gdx:gdx", version.ref = "gdx" }
+gdx-backend-lwjgl3 = { module = "com.badlogicgames.gdx:gdx-backend-lwjgl3", version.ref = "gdx" }
+gdx-platform = { module = "com.badlogicgames.gdx:gdx-platform", version.ref = "gdx" }
+
+# --- smoke test: raw LWJGL3, no LibGDX ---
+lwjgl = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
+lwjgl-glfw = { module = "org.lwjgl:lwjgl-glfw", version.ref = "lwjgl" }
+lwjgl-opengl = { module = "org.lwjgl:lwjgl-opengl", version.ref = "lwjgl" }
+
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "1.14.0" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
