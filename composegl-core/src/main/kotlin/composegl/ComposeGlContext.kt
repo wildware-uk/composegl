@@ -79,6 +79,9 @@ class ComposeGlContext private constructor(
         }
     }
 
+    /** True when this context was created with [ContextConfig.debugChecks]. */
+    val debugChecks: Boolean get() = config.debugChecks
+
     /** Shared by every surface on this context, so one drain covers all of them. */
     internal val dispatcher = GameLoopDispatcher()
 
