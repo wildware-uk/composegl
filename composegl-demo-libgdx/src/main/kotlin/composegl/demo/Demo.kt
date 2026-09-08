@@ -74,25 +74,35 @@ class Demo : ApplicationAdapter() {
     private val gameInput = object : InputAdapter() {
         private var lastX = 0
         private var lastY = 0
-        private var draggingPanel = false
+        /**
+         * Whether the press landed on the panel at all — not whether Compose consumed it.
+         *
+         * These are different questions and conflating them is a trap: a press on the panel's
+         * background is not consumed, but the pointer is still the panel's until it comes up. Miss
+         * that and Compose never sees the release, so it thinks a finger is still down and the
+         * panel stops responding to everything afterwards.
+         */
+        private var pressedOnPanel = false
 
         override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
             lastX = screenX
             lastY = screenY
             val onPanel = panelPixel(screenX, screenY)
+            pressedOnPanel = onPanel != null
             if (onPanel != null) {
-                draggingPanel = panel.sendPointer(
+                panel.sendPointer(
                     PointerEventType.Press, onPanel.first, onPanel.second, PointerButton.Primary,
                 )
-                if (draggingPanel) return true
             }
             return true
         }
 
         override fun touchDragged(screenX: Int, screenY: Int, pointer: Int): Boolean {
-            if (draggingPanel) {
-                val onPanel = panelPixel(screenX, screenY) ?: return true
-                panel.sendPointer(PointerEventType.Move, onPanel.first, onPanel.second)
+            if (pressedOnPanel) {
+                // Keep feeding the panel even when the ray has wandered off it, so a drag that
+                // starts on the slider survives leaving the quad.
+                val onPanel = panelPixel(screenX, screenY)
+                if (onPanel != null) panel.sendPointer(PointerEventType.Move, onPanel.first, onPanel.second)
                 return true
             }
             spinY += (screenX - lastX) * 0.4f
@@ -103,7 +113,9 @@ class Demo : ApplicationAdapter() {
         }
 
         override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean {
-            if (draggingPanel) {
+            if (pressedOnPanel) {
+                // Always release a press we sent, wherever the pointer ended up. Skipping this
+                // leaves Compose believing the pointer is still down, and the panel goes dead.
                 val onPanel = panelPixel(screenX, screenY)
                 panel.sendPointer(
                     PointerEventType.Release,
@@ -111,7 +123,7 @@ class Demo : ApplicationAdapter() {
                     onPanel?.second ?: 0f,
                     PointerButton.Primary,
                 )
-                draggingPanel = false
+                pressedOnPanel = false
             }
             return true
         }
