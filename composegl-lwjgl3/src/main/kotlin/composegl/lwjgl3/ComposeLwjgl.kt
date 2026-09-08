@@ -66,17 +66,20 @@ class GlfwHostServices(private val window: Long) : HostServices {
 
     private val cursors = HashMap<CursorShape, Long>()
 
+    // Reused: density is read on every mouse move, and this is a hot path.
+    private val frameBufferSize = IntArray(1)
+    private val windowSize = IntArray(1)
+    private val ignored = IntArray(1)
+
     /**
      * Physical pixels per logical pixel: the ratio between the framebuffer and the window. On a
      * retina display that is 2, and getting it wrong puts every click in the wrong place.
      */
     override val density: Float
         get() {
-            val framebuffer = IntArray(1)
-            val window = IntArray(1)
-            GLFW.glfwGetFramebufferSize(this.window, framebuffer, IntArray(1))
-            GLFW.glfwGetWindowSize(this.window, window, IntArray(1))
-            return if (window[0] <= 0) 1f else framebuffer[0].toFloat() / window[0]
+            GLFW.glfwGetFramebufferSize(window, frameBufferSize, ignored)
+            GLFW.glfwGetWindowSize(window, windowSize, ignored)
+            return if (windowSize[0] <= 0) 1f else frameBufferSize[0].toFloat() / windowSize[0]
         }
 
     /** Nothing to do: a GLFW game loop is already drawing every frame. */
