@@ -46,52 +46,58 @@ CI keeps it that way: `composegl-core` fails the build if it references `java.aw
 `javax.swing`, `com.badlogic` or `org.lwjgl`, and `composegl-libgdx` depends on gdx core with no
 backend, so the adapter itself can be reused as-is.
 
-### What is unresolved
+### What is unresolved — now measured, not guessed
 
-1. **A skiko-backed `ComposeScene` on ART.** Compose Multiplatform's Android artifact is the
-   `androidx.compose.ui` one, which has no `ComposeScene`; the scene lives in the skiko source set
-   and ships in the desktop artifact. Getting it onto ART is a repackaging job — build the skiko
-   source set for Android, replace `Key.toString`, split the `KeyEvent_desktopKt` multifile facade,
-   provide a non-AWT `LocaleList` — but it is a build of somebody else's project, not a change to
-   this one.
-2. **Skia for Android with the GL backend.** Skiko publishes Android artifacts; whether the GL
-   backend is enabled in them needs checking before anything else.
-3. **Context loss on resume.** Android throws the GL context away when the app is backgrounded.
-   `ComposeGlContext` would have to be recreatable and every surface would have to re-create its
-   target. The lifecycle is already right for this — dispose and rebuild is a supported path today
-   — but nothing has ever exercised it.
+Spike S4 ([`docs/superpowers/spikes/s4-android-ios-artifacts.md`](superpowers/spikes/s4-android-ios-artifacts.md))
+went through the published artifacts.
+
+**Good news: Skia's GL backend is there, and on Android it is the only backend.**
+`skiko-android` publishes `DirectContext.makeGL()` and `BackendRenderTarget.makeGL()`, and Skiko's
+own configuration hard-codes `OS.Android -> GraphicsApi.OPENGL`. The question the roadmap said to
+answer first is answered, favourably.
+
+**The whole job is one thing: compose-ui's `skikoMain` source set, built for ART.**
+`androidx.compose.ui:ui-android` contains no `ComposeScene`, no `PlatformContext` and no
+`FrameRecomposer` — the scene exists only in the skiko source set, which is published for the
+desktop JVM and for Kotlin/Native, not for Android. There is no shortcut artifact. S2 already
+listed what the build needs: replace `Key.toString`, split the `KeyEvent_desktopKt` multifile
+facade, supply a non-AWT `LocaleList`. All of it is a change to somebody else's build.
+
+**One packaging prerequisite.** The Android skiko aar carries no `.so`; its loader calls
+`System.loadLibrary`, so `libskiko-android-*.so` has to reach the app's `jniLibs` some other way.
+
+**One genuinely ComposeGL-side item.** Android throws the GL context away when the app is
+backgrounded, so `ComposeGlContext` has to be recreatable and every surface has to re-create its
+target. The dispose-and-rebuild path already exists and is tested; nothing has exercised it as a
+*resume*.
 
 ### First day of work
 
-Answer question 2 before touching anything: unpack the Android skiko artifact and look for the GL
-backend. If it is not there, P3 is a Skia build problem, not a ComposeGL problem, and the estimate
-changes by an order of magnitude.
-
----
+Source or build `libskiko-android-*.so`, then try to compile compose-ui's `skikoMain` for Android
+with the three fixes above. If that produces a `ComposeScene` on ART, the rest of P3 is ComposeGL
+code that already exists.
 
 ## P4 — iOS via RoboVM ([#26](https://github.com/wildware-uk/composegl/issues/26))
 
-**Real, expensive, and blocked on somebody else's build.**
+**Research, not a feature, and the real blocker is not the one the spec listed.**
 
-Three things have to be true, and only one of them is about ComposeGL.
+Spike S4 found something more fundamental than the Metal-versus-GL question. Skiko and Compose
+Multiplatform publish iOS as **Kotlin/Native klibs**, and RoboVM is a JVM. A RoboVM app cannot link
+a klib, so Compose Multiplatform's existing iOS support is not reachable from a LibGDX-on-RoboVM
+game at all — not with a shim, not with glue.
 
-1. **Skia for iOS with GL enabled.** Skiko ships Metal for iOS. LibGDX on iOS is GL via RoboVM. So
-   this needs a Skia build that does not currently exist, or a Metal `RenderTarget` and an engine
-   that renders through Metal.
-2. **Compose's skiko source set running on RoboVM's libcore.** That is Android's libcore, so S2's
-   findings apply and the same repackaging that unlocks P3 unlocks this. Whether RoboVM's
-   ahead-of-time compiler copes with Compose's use of reflection and coroutines is unknown.
-3. **The ComposeGL side.** Nothing. `RenderTarget` is a sealed type precisely so a Metal case
-   costs nothing to add, and core makes no GL calls.
+What a RoboVM port needs is:
 
-The order matters: P3 first, and only then this, because P3 answers question 2 for free.
+1. compose-ui's `skikoMain` compiled for RoboVM's libcore — the same job as P3, which is why P3
+   should come first and produces half of this for free.
+2. A Skia build for iOS with the GL backend enabled. The iOS target is Metal today, and LibGDX on
+   iOS is GL.
 
-### Worth saying plainly
+Nothing on the ComposeGL side is in the way: `RenderTarget` is a sealed type precisely so a Metal
+case costs nothing to add, and core makes no GL calls.
 
-There is no prior art for Compose UI inside a RoboVM iOS game. This is a research project, not a
-feature, and it should be scoped as one.
-
----
+There is still no prior art for Compose UI inside a RoboVM iOS game. Two builds of other people's
+projects come before a line of ComposeGL.
 
 ## P5 — A second JVM engine adapter ([#27](https://github.com/wildware-uk/composegl/issues/27))
 
