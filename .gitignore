@@ -5,3 +5,6 @@ build/
 .kotlin/
 local.properties
 demo.png
+
+# Stray output from a headless demo run
+*/tmp/
