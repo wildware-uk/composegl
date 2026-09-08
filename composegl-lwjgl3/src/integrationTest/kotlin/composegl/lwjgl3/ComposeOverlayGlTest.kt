@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import composegl.CursorShape
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import org.junit.jupiter.api.AfterEach
@@ -130,6 +131,18 @@ class ComposeOverlayGlTest {
         ui.onKey(GLFW.GLFW_KEY_BACKSPACE, GLFW.GLFW_RELEASE, 0)
         ui.frame()
         assertEquals("h", value.text)
+    }
+
+    /** The host services against a real GLFW window. Clipboard and cursors are user-visible. */
+    @Test
+    fun `host services reach the real GLFW clipboard, cursor and density`() {
+        window.open()
+        val host = GlfwHostServices(window.handle)
+
+        host.setClipboard("copied out of the HUD")
+        assertEquals("copied out of the HUD", host.getClipboard(), "clipboard must round-trip through GLFW")
+        assertTrue(host.density > 0f, "density must be a real ratio")
+        CursorShape.entries.forEach { host.setCursor(it) }  // must not throw for any shape
     }
 
     @Test

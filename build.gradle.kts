@@ -58,6 +58,30 @@ subprojects {
     extra["lwjglNatives"] = lwjglNatives
     extra["skikoRuntime"] = "org.jetbrains.skiko:skiko-awt-runtime-$skikoTarget:${rootProject.libs.versions.skiko.get()}"
 
+    // Coverage on the modules that ship, so "how is the testing" has a number rather than an
+    // opinion. Reported for the ordinary test task; the GL and no-AWT suites run in their own JVMs.
+    if (name in setOf("composegl-core", "composegl-libgdx", "composegl-lwjgl3")) {
+        apply(plugin = "jacoco")
+        tasks.withType<Test>().configureEach {
+            // noAwtTest re-runs the same tests on a stripped JVM; counting it would double-count.
+            extensions.configure<JacocoTaskExtension> { isEnabled = name != "noAwtTest" }
+        }
+        tasks.register<JacocoReport>("coverage") {
+            dependsOn(tasks.named("test"))
+            // Whatever ran: the ordinary suite always, the GL suite too when there is a display.
+            // Run `xvfb-run ./gradlew integrationTest coverage` for the honest number.
+            executionData(fileTree(layout.buildDirectory.dir("jacoco")) { include("*.exec") })
+            sourceDirectories.from(files("src/main/kotlin"))
+            classDirectories.from(
+                fileTree(layout.buildDirectory.dir("classes/kotlin/main")) {
+                    // Generated Compose lambdas and the shim are not ours to cover.
+                    exclude("**/ComposableSingletons*")
+                },
+            )
+            reports { xml.required.set(true); html.required.set(true) }
+        }
+    }
+
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
         extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension> {
             jvmToolchain(21)
