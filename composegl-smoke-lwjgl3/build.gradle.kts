@@ -1,6 +1,11 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.compose)
+    application
+}
+
+application {
+    mainClass.set("composegl.smoke.MainKt")
 }
 
 description = "Raw LWJGL3 host, no LibGDX. Proves the core/adapter seam and hosts the GL integration tests."
@@ -52,4 +57,10 @@ tasks.register<Test>("integrationTest") {
         if (!hasDisplay) logger.lifecycle("Skipping integrationTest: no DISPLAY.")
         hasDisplay
     }
+}
+
+// Compose pulls a few artifacts in through two coordinates, which collide in the distribution
+// archives. The sample is run with `./gradlew :composegl-smoke-lwjgl3:run`.
+tasks.withType<AbstractArchiveTask>().configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
