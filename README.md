@@ -7,6 +7,12 @@ framebuffer — and blits the result as one quad. ComposeGL is the desk that hol
 
 First engine: LibGDX on desktop JVM.
 
+![A Material 3 HUD over a LibGDX scene, with a second Compose UI on a quad in the world](docs/images/demo-hud.png)
+
+*The demo. Material 3 panel on the left; the tilted quad on the right is a second Compose UI, in
+the 3D world, clicked by raycast. The counters bottom-right are the argument: 69 game frames, 41
+Compose renders, and the gap keeps widening while the HUD sits still.*
+
 ```kotlin
 class MyGame : ApplicationAdapter() {
     lateinit var ui: ComposeOverlay
@@ -42,6 +48,12 @@ A HUD that is not changing costs **zero** Compose work per frame — not a cheap
 
 The exception worth knowing: a text field with the caret blinking in it is an animation, so it
 redraws every frame while it has focus.
+
+![A dropdown menu open over the game](docs/images/demo-dropdown.png)
+
+*A dropdown, open over the game. On desktop, a Compose popup would normally open its own operating
+system window, which would be absurd here. This one is drawn onto our canvas, inside the game's
+frame.*
 
 ## Requirements
 
