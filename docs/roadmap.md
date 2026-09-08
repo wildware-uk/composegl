@@ -68,14 +68,32 @@ facade, supply a non-AWT `LocaleList`. All of it is a change to somebody else's 
 
 **One genuinely ComposeGL-side item.** Android throws the GL context away when the app is
 backgrounded, so `ComposeGlContext` has to be recreatable and every surface has to re-create its
-target. The dispose-and-rebuild path already exists and is tested; nothing has exercised it as a
-*resume*.
+target. There is now a test that does exactly that — dispose everything, build it again, and the UI
+comes back with the state the game kept.
+
+**And the upstream list is now three items, not a vague port.** Spike S5
+([`docs/superpowers/spikes/s5-no-awt-runtime.md`](superpowers/spikes/s5-no-awt-runtime.md)) ran the
+whole core suite on a JVM with no `java.desktop` module. All 63 tests pass once fifteen stubs stand
+in for the AWT that Compose and Skiko touch, and there are exactly three such places — none of them
+ComposeGL's:
+
+1. `RootNodeOwner` eagerly builds an AWT clipboard when a scene is created, before ComposeGL can
+   supply its own. In `skikoMain`, so shared: **this is the one that genuinely blocks Android**, and
+   it is small enough to propose upstream on its own.
+2. Skiko's main dispatcher goes through `javax.swing`. Its file is `MainUIDispatcher.awt.kt`, so
+   Skiko's Android build already has its own.
+3. `PointerIcon`'s desktop actuals wrap `java.awt.Cursor`. Android needs its own actual.
+
+Everything else — recomposition, layout, Skia drawing, all three input paths, focus — already runs
+with no AWT at all. `./gradlew :composegl-core:noAwtTest` is wired into `check`, so if that list
+ever grows, the build says so.
 
 ### First day of work
 
-Source or build `libskiko-android-*.so`, then try to compile compose-ui's `skikoMain` for Android
-with the three fixes above. If that produces a `ComposeScene` on ART, the rest of P3 is ComposeGL
-code that already exists.
+Source or build `libskiko-android-*.so` — it is not published, and that is the hard prerequisite.
+Then compile compose-ui's `skikoMain` for Android with the three fixes above. If that produces a
+`ComposeScene` on ART, the rest of P3 is ComposeGL code that already exists and already passes its
+tests without AWT.
 
 ## P4 — iOS via RoboVM ([#26](https://github.com/wildware-uk/composegl/issues/26))
 

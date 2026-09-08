@@ -1,71 +1,106 @@
-# S5 — running the core suite on a JVM with no AWT
+# S5 — running the whole core suite on a JVM with no AWT
 
 Date: 2026-09-08
 Issue: [#25](https://github.com/wildware-uk/composegl/issues/25)
-Verdict: **ComposeGL's own code is fine. Compose's `RootNodeOwner` is not, and that is now the
-nearest blocker on the Android port.**
+Verdict: **it runs.** All 63 core tests pass on a JVM started without the `java.desktop` module,
+once fifteen stub classes stand in for the AWT that Compose and Skiko touch on the way to a scene.
+There are exactly **three** such places, none of them ComposeGL's, and that list is the real size
+of the Android port's upstream work.
 
 ## Why
 
-S2 scanned constant pools and concluded that everything ComposeGL touches is AWT-free. That
-answers "does our bytecode name AWT", which is the right question for the CI check. It is the
-wrong question for "will this run on ART", because a class can be clean and still call something
-that is not.
+S2 scanned constant pools and concluded everything ComposeGL touches is AWT-free. That answers
+*does our bytecode name AWT* — the right question for the CI check. It is the wrong question for
+*will this run on ART*, because a class can be clean and still call something that is not.
 
-Android and RoboVM share a runtime with no AWT in it. The closest thing this machine has is a JVM
-started with the `java.desktop` module left out of the graph, where any attempt to touch
-`java.awt` fails loudly instead of quietly working:
+Android and RoboVM share a runtime with no AWT. The closest thing this machine has is a JVM with
+`java.desktop` left out of the module graph, where touching `java.awt` fails loudly instead of
+quietly working:
 
 ```kotlin
 jvmArgs("--limit-modules", "java.base,java.logging,java.management,java.instrument,java.naming,java.xml,jdk.unsupported,jdk.zipfs")
 ```
 
-That is the `noAwtTest` task in `composegl-core`.
+That is `./gradlew :composegl-core:noAwtTest`, and it is wired into `check`.
 
-## Result
+## What happened, in order
 
-| | |
-|---|---|
-| Tests that never build a `ComposeScene` (dispatcher, argument checks) | **11 pass** |
-| Every test that builds a `ComposeScene` | **fails, all at the same line** |
+Each run failed at one place, that place got a stub, and the next one appeared. Three iterations
+and it went green.
+
+### 1. `RootNodeOwner` builds an AWT clipboard before anyone can stop it
 
 ```
 java.lang.NoClassDefFoundError: java/awt/HeadlessException
   at androidx.compose.ui.node.RootNodeOwner$OwnerImpl.<init>(RootNodeOwner.skiko.kt:471)
-  at androidx.compose.ui.scene.CanvasLayersComposeSceneImpl.<init>(CanvasLayersComposeScene.skiko.kt:115)
 ```
-
-`RootNodeOwner.skiko.kt:471` is:
 
 ```kotlin
 override val clipboardManager = createPlatformClipboardManager()
 override val clipboard = createPlatformClipboard()
 ```
 
-Both are eager `val`s, and the desktop actuals reach `Toolkit.getDefaultToolkit()` inside a
-`catch (HeadlessException)`. Catching an exception type is enough to require it: the class has to
-resolve when the constructor runs.
+Eager `val`s. The desktop actual reaches `Toolkit.getDefaultToolkit()` inside a
+`catch (HeadlessException)`, and catching a type is enough to require it. So a `ComposeScene`
+could not be constructed at all — long before ComposeGL supplies its own clipboard, which it does
+and which was never reached.
 
-So **the scene cannot be constructed at all without AWT on the desktop artifact** — before
-ComposeGL gets anywhere near providing its own clipboard, which it does a moment later and which
-is then never reached.
+**This one is in `skikoMain`, so it is shared, and it is the one that genuinely blocks Android.**
 
-## What this changes
+### 2. Skiko's main dispatcher goes through Swing
 
-**Nothing in v1.** Every desktop JVM has `java.desktop`. Nothing here is a bug for the platform
-ComposeGL supports today, and no shipped behaviour changes.
+```
+java.lang.NoClassDefFoundError: javax/swing/SwingUtilities
+  at org.jetbrains.skiko.SwingDispatcher.dispatch(MainUIDispatcher.awt.kt:32)
+```
 
-**It sharpens P3.** The Android port's list of upstream fixes gains a concrete, small item: make
-`RootNodeOwner`'s clipboard lazy, or route it through `PlatformContext` the way the rest of the
-platform surface goes. That is a smaller and more specific ask than "port the source set", and it
-is the kind of change that can be proposed upstream on its own.
+`Dispatchers.Main` on desktop is Skiko's Swing dispatcher, and something in the scene launches on
+it. The file name says `awt`, so **Skiko's Android build has its own** — an artifact of running
+the desktop jar rather than a real Android blocker.
 
-**It leaves a detector behind.** `./gradlew :composegl-core:noAwtTest` is not wired into `check`,
-because it fails. It is pointed at somebody else's code on purpose: the day that line becomes lazy,
-the task goes green, and whoever is looking at #25 next learns it from a build rather than from
-reading release notes.
+### 3. `PointerIcon`'s desktop actuals are AWT cursors
 
-## Method note, for the next scan
+```
+java.lang.NoClassDefFoundError: Could not initialize class androidx.compose.ui.input.pointer.PointerIcon
+  at ...TextFieldPointerModifier_desktopKt.textFieldPointer(TextFieldPointerModifier.desktop.kt:35)
+```
+
+`pointerIconDefault` and friends wrap `java.awt.Cursor`. In `desktopMain`, so **Android needs its
+own actual** — very likely a small one, since the Android platform has cursor types of its own.
+
+### Then: green
+
+| | |
+|---|---|
+| Core tests on a JVM with no `java.desktop` | **63 pass, 0 fail** |
+| Stub classes needed | 15, in `composegl-core/src/awtShim` |
+| Places Compose or Skiko needed them | 3 |
+| Places ComposeGL needed them | **0** |
+
+Removing any one stub turns the task red, so it is a real regression detector rather than a
+decoration.
+
+## What this is worth
+
+**Nothing changes for v1.** Every desktop JVM has `java.desktop`. No shipped behaviour is affected
+and the shim is never on the classpath of anything ComposeGL publishes.
+
+**It resizes P3.** "Port compose-ui's `skikoMain` source set to ART, unknown difficulty" becomes a
+list with one genuinely shared item on it:
+
+1. Make `RootNodeOwner`'s clipboard lazy, or route it through `PlatformContext` like the rest of
+   the platform surface. Small, specific, and proposable upstream on its own.
+2. Use Skiko's Android main dispatcher rather than the AWT one. Already exists.
+3. Provide an Android actual for `PointerIcon`. Small.
+
+Everything else in the scene — recomposition, layout, Skia drawing, pointer input, key input, text
+input, focus, the clipboard once ComposeGL provides it — already runs with no AWT anywhere. That
+is now measured rather than assumed.
+
+**It guards the claim.** If a future Compose version reaches for AWT somewhere new on this path,
+`check` goes red and the list above is wrong. Better to learn that from a build than from a phone.
+
+## Method note
 
 S2's answer was right for the question it asked and wrong as a proxy for runtime. When the question
 is "can this run somewhere with no AWT", run it somewhere with no AWT. Reading bytecode finds the
