@@ -3,6 +3,7 @@ package composegl
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
@@ -294,6 +295,39 @@ class ComposeSurface(
         if (disposed) return
         captured.clear()
         guard { bridge.cancelPointerInput() }
+    }
+
+    /**
+     * Delivers a key press or release, and says whether Compose took it.
+     *
+     * When no Compose node holds keyboard focus this returns false without telling Compose
+     * anything: the keys the player is aiming at the game must never reach the HUD, or WASD would
+     * scroll a list instead of moving the character.
+     *
+     * Keys are only half of typing. The character a keystroke produces — after the keyboard
+     * layout, dead keys and modifiers — goes through [sendChar]. Backspace, arrows, selection and
+     * shortcuts, on the other hand, are key events, and Compose's own text field handling deals
+     * with them.
+     *
+     * The Compose `KeyEvent` is built with Compose's own AWT-free factory (S1-d), so this compiles
+     * and runs on a runtime with no AWT at all.
+     *
+     * @param codePoint the character this key produced, when there is one. Compose uses it for
+     *   shortcut matching; it does not insert text.
+     * @return true when Compose consumed the key.
+     */
+    fun sendKeyEvent(
+        key: Key,
+        down: Boolean,
+        modifiers: PointerKeyboardModifiers = PointerKeyboardModifiers(),
+        codePoint: Int = 0,
+    ): Boolean {
+        context.assertGlThread()
+        if (disposed || failed || !hasContent) return false
+        if (!bridge.hasKeyboardFocus) return false
+        var consumed = false
+        guard { consumed = bridge.sendKeyEvent(key, down, codePoint, modifiers) }
+        return consumed
     }
 
     /**
