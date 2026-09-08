@@ -172,6 +172,32 @@ pinned in `gradle/libs.versions.toml` and every use of that API lives in one fil
 | Skiko | 0.150.1 |
 | LibGDX | 1.14.2 |
 
+## Using it in your game
+
+Published to GitHub Packages on every `v*` tag, as `uk.wildware.composegl:composegl-libgdx`
+(which brings `composegl-core` with it). Add the repository, then the dependency and the Skiko
+native artifact for your machine:
+
+```kotlin
+repositories {
+    maven("https://maven.pkg.github.com/wildware-uk/composegl") {
+        credentials {
+            username = providers.gradleProperty("gpr.user").get()
+            password = providers.gradleProperty("gpr.key").get()   // a GitHub token with read:packages
+        }
+    }
+}
+
+dependencies {
+    implementation("uk.wildware.composegl:composegl-libgdx:<version>")
+    runtimeOnly("org.jetbrains.skiko:skiko-awt-runtime-linux-x64:0.150.1")
+}
+```
+
+## Licence
+
+Apache 2.0. See [LICENSE](LICENSE).
+
 ## Design
 
 [`docs/superpowers/specs/2026-09-08-composegl-design.md`](docs/superpowers/specs/2026-09-08-composegl-design.md)
