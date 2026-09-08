@@ -1,6 +1,12 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.compose)
+    `maven-publish`
+}
+
+// Consumers get sources so they can step into the library when something surprises them.
+java {
+    withSourcesJar()
 }
 
 description = "Compose scene, frame driving, input and platform services. No engine, no GL calls, no AWT."
@@ -48,4 +54,45 @@ val checkOptInConfinement by tasks.registering(OptInConfinementCheck::class) {
 
 tasks.named("check") {
     dependsOn(checkNoForbiddenReferences, checkOptInConfinement)
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+            pom {
+                name.set("ComposeGL core")
+                description.set(project.description)
+                url.set("https://github.com/wildware-uk/composegl")
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+                developers {
+                    developer {
+                        id.set("shaun-wild")
+                        name.set("Shaun Wild")
+                        url.set("https://github.com/shaun-wild")
+                    }
+                }
+                scm {
+                    url.set("https://github.com/wildware-uk/composegl")
+                    connection.set("scm:git:https://github.com/wildware-uk/composegl.git")
+                    developerConnection.set("scm:git:ssh://git@github.com/wildware-uk/composegl.git")
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/wildware-uk/composegl")
+            credentials {
+                username = providers.gradleProperty("gpr.user").orNull ?: System.getenv("GITHUB_ACTOR")
+                password = providers.gradleProperty("gpr.key").orNull ?: System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
 }
