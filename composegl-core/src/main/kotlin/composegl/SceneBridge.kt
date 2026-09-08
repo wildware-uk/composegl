@@ -1,9 +1,10 @@
-@file:OptIn(InternalComposeUiApi::class)
+@file:OptIn(InternalComposeUiApi::class, ExperimentalComposeUiApi::class)
 
 package composegl
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asComposeCanvas
@@ -24,15 +25,23 @@ import androidx.compose.ui.platform.FrameRecomposer
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.PlatformContext
+import androidx.compose.ui.platform.PlatformTextInputMethodRequest
 import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.scene.CanvasLayersComposeScene
 import androidx.compose.ui.scene.ComposeScene
 import androidx.compose.ui.scene.PointerEventResult
 import androidx.compose.ui.scene.hasInvalidations
+import androidx.compose.ui.text.input.CommitTextCommand
+import androidx.compose.ui.text.input.EditCommand
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.ImeOptions
+import androidx.compose.ui.text.input.PlatformTextInputService
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.awaitCancellation
 import org.jetbrains.skia.Canvas
 
 /**
@@ -51,7 +60,9 @@ internal class SceneBridge(
     invalidate: () -> Unit,
 ) {
 
-    private val platformContext: PlatformContext = GamePlatformContext(host)
+    private val textInput = GameTextInput(host)
+
+    private val platformContext: PlatformContext = GamePlatformContext(host, textInput)
 
     private val clipboard = GameClipboard(host)
     private val clipboardManager = GameClipboardManager(host)
@@ -158,6 +169,12 @@ internal class SceneBridge(
         ),
     )
 
+    /** Commits one typed character into whatever text field is focused. */
+    fun sendChar(codePoint: Int): Boolean = textInput.sendChar(codePoint)
+
+    /** True while a text field has an input session open. */
+    val isTextInputActive: Boolean get() = textInput.isActive
+
     fun cancelPointerInput() {
         scene.cancelPointerInput()
     }
@@ -196,7 +213,30 @@ private val CONSUMED_11 = PointerEventResult(true, true, true)
  * left at [PlatformContext.Empty]'s default, which is the honest answer for a game surface:
  * no window manager, no accessibility bridge, no screen reader.
  */
-private class GamePlatformContext(private val host: HostServices) : PlatformContext.Empty() {
+private class GamePlatformContext(
+    private val host: HostServices,
+    private val textInput: GameTextInput,
+) : PlatformContext.Empty() {
+
+    /**
+     * The session path. This is the one Material 3's `TextField` actually uses (S1-g); the legacy
+     * [textInputService] below is kept for content that has not moved yet.
+     *
+     * It never returns: Compose cancels the coroutine when the field loses focus, and the
+     * `finally` is how we learn about it.
+     */
+    override suspend fun startInputMethod(request: PlatformTextInputMethodRequest): Nothing {
+        textInput.startSession(request)
+        try {
+            awaitCancellation()
+        } finally {
+            textInput.stopSession(request)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override val textInputService: PlatformTextInputService get() = textInput.legacyService
+
 
     /**
      * `windowInfo.isWindowFocused` stays true. A game surface has no focus concept we could
@@ -222,4 +262,68 @@ private class GamePlatformContext(private val host: HostServices) : PlatformCont
             override val longPressTimeoutMillis: Long get() = 500L
             override val doubleTapTimeoutMillis: Long get() = 300L
         }
+}
+
+/**
+ * Turns typed characters into Compose edit commands.
+ *
+ * Key events alone do not insert text: a `KeyDown` for `A` tells a text field that a key went
+ * down, not that the letter "a" should appear. Every toolkit has a second channel for the
+ * character a keystroke produced after the keyboard layout, dead keys, and modifiers have had
+ * their say. This is ComposeGL's.
+ *
+ * Compose has two shapes for that channel and content in the wild uses both, so both are here.
+ * They cannot be open at once, and whichever is live gets the character.
+ */
+internal class GameTextInput(private val host: HostServices) {
+
+    private var session: PlatformTextInputMethodRequest? = null
+    private var legacyCommands: ((List<EditCommand>) -> Unit)? = null
+
+    val isActive: Boolean get() = session != null || legacyCommands != null
+
+    fun startSession(request: PlatformTextInputMethodRequest) {
+        session = request
+        host.showSoftKeyboard(true)
+    }
+
+    fun stopSession(request: PlatformTextInputMethodRequest) {
+        if (session !== request) return
+        session = null
+        if (!isActive) host.showSoftKeyboard(false)
+    }
+
+    /**
+     * @param codePoint a Unicode code point, so astral characters (emoji) work as one keystroke.
+     * @return false when no text field is focused, which is the adapter's cue to give the
+     *   character to the game instead.
+     */
+    fun sendChar(codePoint: Int): Boolean {
+        val commands = listOf<EditCommand>(CommitTextCommand(String(Character.toChars(codePoint)), 1))
+        session?.let { it.onEditCommand(commands); return true }
+        legacyCommands?.let { it(commands); return true }
+        return false
+    }
+
+    @Suppress("DEPRECATION")
+    val legacyService: PlatformTextInputService = object : PlatformTextInputService {
+        override fun startInput(
+            value: TextFieldValue,
+            imeOptions: ImeOptions,
+            onEditCommand: (List<EditCommand>) -> Unit,
+            onImeActionPerformed: (ImeAction) -> Unit,
+        ) {
+            legacyCommands = onEditCommand
+            host.showSoftKeyboard(true)
+        }
+
+        override fun stopInput() {
+            legacyCommands = null
+            if (!isActive) host.showSoftKeyboard(false)
+        }
+
+        override fun showSoftwareKeyboard() = host.showSoftKeyboard(true)
+        override fun hideSoftwareKeyboard() = host.showSoftKeyboard(false)
+        override fun updateState(oldValue: TextFieldValue?, newValue: TextFieldValue) = Unit
+    }
 }

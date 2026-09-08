@@ -205,6 +205,26 @@ class ComposeSurface(
     }
 
     /**
+     * Commits one typed character into the focused text field.
+     *
+     * This is the character channel, separate from key events: the adapter sends key events for
+     * keys and this for the character those keys produced, after the keyboard layout and any dead
+     * keys have been applied.
+     *
+     * @param codePoint a Unicode code point.
+     * @return false when no text field is focused — the adapter should then give the character to
+     *   the game.
+     */
+    fun sendChar(codePoint: Int): Boolean {
+        context.assertGlThread()
+        if (disposed || failed || !hasContent) return false
+        return bridge.sendChar(codePoint)
+    }
+
+    /** True while a text field has an input session open. */
+    val isTextInputActive: Boolean get() = !disposed && bridge.isTextInputActive
+
+    /**
      * Reads the rendered pixels back as premultiplied ARGB, row by row from the top.
      * Only meaningful for [RenderTarget.Raster]; returns null when there is no surface.
      */
