@@ -2,6 +2,7 @@ package composegl.gdx
 
 import androidx.compose.runtime.Composable
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.InputProcessor
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
@@ -31,11 +32,12 @@ import composegl.SurfaceStats
  * framebuffer as one quad every frame. A HUD that is not changing therefore costs one quad per
  * frame and no Compose work at all — see [stats] if you want to watch that happen.
  */
-class ComposeOverlay(config: SurfaceConfig = SurfaceConfig()) : Disposable {
+class ComposeOverlay(config: SurfaceConfig = SurfaceConfig()) : InputProcessor, Disposable {
 
     private val context = ComposeGdx.context()
     private val surface = ComposeSurface(context, ComposeGdx.hostServices, config)
     private val batch = SpriteBatch()
+    private val input = ComposeInputProcessor(surface)
 
     private var frameBuffer: FrameBuffer? = null
     private var region: TextureRegion? = null
@@ -96,6 +98,23 @@ class ComposeOverlay(config: SurfaceConfig = SurfaceConfig()) : Disposable {
     val hasKeyboardFocus: Boolean get() = surface.hasKeyboardFocus
 
     internal val composeSurface: ComposeSurface get() = surface
+
+    // --- InputProcessor. Every method returns true when Compose consumed the event, so
+    // --- InputMultiplexer(overlay, gameInput) gives the UI first refusal and the game the rest.
+
+    override fun keyDown(keycode: Int) = input.keyDown(keycode)
+    override fun keyUp(keycode: Int) = input.keyUp(keycode)
+    override fun keyTyped(character: Char) = input.keyTyped(character)
+    override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int) =
+        input.touchDown(screenX, screenY, pointer, button)
+    override fun touchUp(screenX: Int, screenY: Int, pointer: Int, button: Int) =
+        input.touchUp(screenX, screenY, pointer, button)
+    override fun touchCancelled(screenX: Int, screenY: Int, pointer: Int, button: Int) =
+        input.touchCancelled(screenX, screenY, pointer, button)
+    override fun touchDragged(screenX: Int, screenY: Int, pointer: Int) =
+        input.touchDragged(screenX, screenY, pointer)
+    override fun mouseMoved(screenX: Int, screenY: Int) = input.mouseMoved(screenX, screenY)
+    override fun scrolled(amountX: Float, amountY: Float) = input.scrolled(amountX, amountY)
 
     override fun dispose() {
         surface.dispose()

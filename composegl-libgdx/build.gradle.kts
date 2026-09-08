@@ -10,7 +10,10 @@ dependencies {
     api(libs.gdx)
 
     testImplementation(libs.junit.jupiter)
+    testImplementation(libs.compose.material3)
     testRuntimeOnly(libs.junit.platform.launcher)
+    // The input bridge is tested against a real raster surface, so it needs Skia.
+    testRuntimeOnly(project.extra["skikoRuntime"] as String)
     // Headless adapter tests (keycode table, modifiers, HDPI scaling) need a LibGDX application.
     testImplementation(libs.gdx.backend.lwjgl3)
     testRuntimeOnly(variantOf(libs.gdx.platform) { classifier("natives-desktop") })
