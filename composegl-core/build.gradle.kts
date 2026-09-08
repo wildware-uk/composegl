@@ -96,3 +96,39 @@ publishing {
         }
     }
 }
+
+/**
+ * The whole core suite, run on a JVM that does not have AWT in it at all.
+ *
+ * `--limit-modules` leaves `java.desktop` out of the module graph, so any attempt to touch
+ * `java.awt` fails with `NoClassDefFoundError` rather than quietly working. That is the closest
+ * thing to Android's runtime this machine can offer: ART and RoboVM's libcore have no AWT either,
+ * and the reason `composegl-core` is written the way it is, is so that it never needs one.
+ *
+ * The bytecode check says core does not *name* AWT. This says whether it can *run* without one.
+ *
+ * **It fails today, at a known line, and that failure is the point.** Everything that does not
+ * build a scene passes; everything that does fails in Compose, not in ComposeGL:
+ *
+ * ```
+ * java.lang.NoClassDefFoundError: java/awt/HeadlessException
+ *   at androidx.compose.ui.node.RootNodeOwner$OwnerImpl.<init>(RootNodeOwner.skiko.kt:471)
+ * ```
+ *
+ * `RootNodeOwner` eagerly builds an AWT-backed clipboard when the scene is created, before
+ * ComposeGL gets to provide its own. So this task is a regression detector pointed at somebody
+ * else's code: the day that becomes lazy, it goes green and the Android port (#25) loses its
+ * nearest blocker. Not wired into `check` for that reason.
+ */
+tasks.register<Test>("noAwtTest") {
+    description = "Runs the core tests on a JVM with no java.desktop module."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    jvmArgs(
+        "--limit-modules",
+        "java.base,java.logging,java.management,java.instrument,java.naming,java.xml,jdk.unsupported,jdk.zipfs",
+    )
+    testLogging { showStandardStreams = true }
+}
