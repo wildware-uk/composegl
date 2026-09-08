@@ -28,7 +28,6 @@ First engine: LibGDX. Everything engine-specific lives in one adapter module so 
 - IME composition (CJK candidate windows). Dead keys work because GLFW composes them before LibGDX sees them.
 - Accessibility / screen readers.
 - Android, iOS, web.
-- Editor mode (Compose owns the window, game renders into a Compose node). Roadmap item P2.
 - Drag and drop, multiple windows.
 - Second engine adapter.
 
@@ -372,7 +371,7 @@ Requirements documented in the README and checked at `ComposeGdx.init()`:
 
 - **A — HUD overlay.** `ComposeOverlay`. Delivered in P1.
 - **B — In-world.** `ComposeTexture`. Delivered in P1. The developer raycasts, converts the hit to texture-space pixels, and calls `sendPointer`. Demo shows a panel on a quad in the 3D scene.
-- **C — Editor.** Compose owns the window, game renders into a Compose node. Not in P1. Would reuse `ComposeGlContext` and the state firewall in the opposite direction.
+- **C — Editor.** Compose owns the window, game renders into a Compose node. Delivered after v1 as `GameTexture` + `GameView` in core and `GameFrameBuffer` in `composegl-lwjgl3`; see [`docs/superpowers/spikes/s3-editor-mode.md`](../spikes/s3-editor-mode.md).
 
 ## 13. Error handling
 
@@ -464,7 +463,7 @@ Fail on a, c, or h means the offscreen approach needs rework before anything els
 
 ## 19. Roadmap after P1
 
-- **P2** — Editor mode (C) on desktop.
+- **P2** — ~~Editor mode (C) on desktop~~. Done: `GameTexture`, `GameView`, `GameFrameBuffer`.
 - **P3** — Android. Overlay is free via `ComposeView` over `GLSurfaceView`; in-frame and in-world need the S2 findings. Same fix unlocks P4.
 - **P4** — iOS via RoboVM, GL. Requires a Skia build for iOS with GL enabled (Skiko ships Metal only), the S2 fix, and RoboVM libcore validation. No prior art. Real but expensive.
 - **P5** — ~~Second JVM engine adapter~~. Done: `composegl-lwjgl3` is the raw LWJGL3 adapter. A jMonkeyEngine one would be the same shape.

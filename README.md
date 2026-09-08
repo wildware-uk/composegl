@@ -108,6 +108,31 @@ is. The demo does it in about thirty lines of plain geometry.
 
 The texture holds premultiplied alpha, so blend it with `GL_ONE, GL_ONE_MINUS_SRC_ALPHA`.
 
+## The other way round: a game inside the UI
+
+For an editor, a level preview, a tool window — anywhere the game is a panel in the UI rather than
+the other way round — the game renders into a framebuffer and a Compose node shows it. Same GL
+context, no copy:
+
+```kotlin
+val viewport = GameFrameBuffer(1280, 720)     // composegl-lwjgl3
+
+ui.setContent {
+    Row {
+        ToolPalette(Modifier.width(240.dp))
+        GameView(viewport.texture, Modifier.weight(1f).fillMaxHeight())
+    }
+}
+
+// each frame
+viewport.bind()
+drawWorld()
+viewport.unbind()      // also tells Compose the viewport has a new frame
+```
+
+Compose cannot see a GL texture change, and a static UI does not redraw, so something has to say
+when a new frame exists. `unbind()` does it; `GameTexture.invalidate()` is the manual version.
+
 ## Click-through
 
 Every input method returns whether Compose took the event. Put the overlay first in an
@@ -133,7 +158,6 @@ While a Compose node has keyboard focus, key events go to it and not to your gam
 - Android, iOS, web. The groundwork is done — `composegl-core` touches no AWT and no engine, which
   is what keeps those ports possible — but they are not built. See
   [`docs/superpowers/spikes/s2-awt-scan.md`](docs/superpowers/spikes/s2-awt-scan.md).
-- Editor mode, where Compose owns the window and the game renders into a Compose node.
 - Drag and drop, multiple windows.
 - A jMonkeyEngine adapter. There are two adapters already — LibGDX and raw LWJGL3 — so the shape
   is established and a third should be small.
