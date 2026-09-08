@@ -18,6 +18,7 @@ dependencyResolutionManagement {
 include(
     "composegl-core",
     "composegl-libgdx",
+    "composegl-lwjgl3",
     "composegl-demo-libgdx",
     "composegl-smoke-lwjgl3",
 )

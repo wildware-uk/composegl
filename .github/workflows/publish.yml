@@ -34,4 +34,5 @@ jobs:
           ./gradlew \
             :composegl-core:publishMavenPublicationToGitHubPackagesRepository \
             :composegl-libgdx:publishMavenPublicationToGitHubPackagesRepository \
+            :composegl-lwjgl3:publishMavenPublicationToGitHubPackagesRepository \
             --stacktrace

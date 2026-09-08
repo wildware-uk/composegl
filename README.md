@@ -135,8 +135,8 @@ While a Compose node has keyboard focus, key events go to it and not to your gam
   [`docs/superpowers/spikes/s2-awt-scan.md`](docs/superpowers/spikes/s2-awt-scan.md).
 - Editor mode, where Compose owns the window and the game renders into a Compose node.
 - Drag and drop, multiple windows.
-- A second engine adapter. The seam is proved by `composegl-smoke-lwjgl3`, which runs ComposeGL on
-  raw LWJGL3 with no LibGDX at all, so a second adapter should be small.
+- A jMonkeyEngine adapter. There are two adapters already — LibGDX and raw LWJGL3 — so the shape
+  is established and a third should be small.
 
 ## Modules
 
@@ -144,6 +144,7 @@ While a Compose node has keyboard focus, key events go to it and not to your gam
 |---|---|
 | `composegl-core` | The scene, the frame driving, input and platform services. No engine, no GL calls, no AWT. |
 | `composegl-libgdx` | The LibGDX adapter: framebuffer, GL state firewall, blit, input bridge. Depends on gdx core only, no backend. |
+| `composegl-lwjgl3` | The raw LWJGL3 adapter, for games written straight against GLFW and OpenGL with no engine. |
 | `composegl-demo-libgdx` | A spinning cube, a Material 3 HUD, and an in-world panel on a turning quad. |
 | `composegl-smoke-lwjgl3` | ComposeGL on raw LWJGL3, with no engine. Keeps the seam honest and hosts the GL tests. |
 
@@ -189,7 +190,7 @@ repositories {
 }
 
 dependencies {
-    implementation("uk.wildware.composegl:composegl-libgdx:<version>")
+    implementation("uk.wildware.composegl:composegl-libgdx:<version>")   // or composegl-lwjgl3
     runtimeOnly("org.jetbrains.skiko:skiko-awt-runtime-linux-x64:0.150.1")
 }
 ```
@@ -197,6 +198,12 @@ dependencies {
 ## Licence
 
 Apache 2.0. See [LICENSE](LICENSE).
+
+## What is next
+
+[`docs/roadmap.md`](docs/roadmap.md) assesses the four roadmap items — editor mode, Android, iOS
+and a third adapter — against the code that now exists: what is already in place, what is genuinely
+unresolved, and what a first day of work on each would be.
 
 ## Design
 
