@@ -8,50 +8,26 @@ Each item says what is known, what is genuinely unresolved, and what a first day
 
 ---
 
-## P2 — Editor mode ([#24](https://github.com/wildware-uk/composegl/issues/24))
+## P2 — Editor mode ([#24](https://github.com/wildware-uk/composegl/issues/24)) — **done**
 
 **Inverted control: Compose owns the window, and the game renders into a Compose node.**
 
-### What is already in place
+Shipped as `GameTexture` and `GameView` in core, plus `GameFrameBuffer` in `composegl-lwjgl3`. The
+game binds a framebuffer, draws its frame, and a node in the Compose layout shows it — same GL
+context, no copy, no upload.
 
-More than the spec assumed. `composegl-smoke-lwjgl3` already has ComposeGL owning a window with no
-engine in sight, and `ComposeGlContext` already holds the Skia context the whole scene draws
-through. Editor mode does not need a second context or a second thread — the game would render
-into a framebuffer on the same context, between the same two calls.
+The two things that looked like blockers were settled by spike S3
+([`docs/superpowers/spikes/s3-editor-mode.md`](superpowers/spikes/s3-editor-mode.md)): a Skia image
+adopted from a GL texture tracks the texture's live contents rather than snapshotting it, and the
+ownership question is answered by ComposeGL simply owning the texture from adoption onwards.
 
-Skiko even exposes the piece that would draw it:
+The piece no API doc would have predicted: Compose cannot see a GL texture change, and a static
+Compose tree does not redraw. `GameTexture.invalidate()` is how the game says a new frame exists,
+and `GameFrameBuffer.unbind()` calls it so games get it for free.
 
-```kotlin
-val texture = BackendTexture.makeGL(width, height, mipmapped = false, textureId, target, format)
-val image = Image.adoptTextureFrom(directContext, texture, SurfaceOrigin.TOP_LEFT, ColorType.RGBA_8888)
-// inside a Composable: drawIntoCanvas { it.nativeCanvas.drawImageRect(image, destination) }
-```
-
-So a `GameViewport()` composable that shows the live game inside a Compose layout is a few dozen
-lines from working.
-
-### What is unresolved
-
-**Ownership and mutability, and both are in the word `adopt`.**
-
-`Image.adoptTextureFrom` is Skia's *adopt*, not *borrow*: Skia takes ownership of the GL texture
-and deletes it when the image dies. Skiko does not expose `BorrowTextureFrom`. So either ComposeGL
-creates the texture and the engine only ever gets a framebuffer id — workable, and probably right
-for editor mode, where ComposeGL owns the window anyway — or two things believe they own one
-texture.
-
-Worse, an `SkImage` is immutable by contract, and a live game viewport is a texture whose contents
-change every frame. Drawing a stale-but-cached image is exactly the kind of bug that works on one
-driver and not another. The honest answer is not known yet: either recreate the image each frame
-(cheap, but needs measuring) or find whether Skia's caching actually bites here.
-
-### First day of work
-
-Write a spike, the way S1 was written: a `GameViewport` composable in
-`composegl-smoke-lwjgl3`, a triangle rendered into a framebuffer by hand, and one question to
-answer — does the viewport show frame N or frame 1? Everything else follows from the answer.
-
----
+Still open if someone wants it: routing input into the viewport in the game's own coordinates, and
+the same helper for the LibGDX adapter — LibGDX's `FrameBuffer` deletes its own colour texture, so
+it needs a hand-built framebuffer rather than that class.
 
 ## P3 — Android ([#25](https://github.com/wildware-uk/composegl/issues/25))
 
