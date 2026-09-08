@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.awaitCancellation
 import org.jetbrains.skia.Canvas
 
@@ -57,6 +58,7 @@ internal class SceneBridge(
     host: HostServices,
     fontScale: Float,
     invalidate: () -> Unit,
+    onFailure: (Throwable) -> Unit,
 ) {
 
     private val textInput = GameTextInput(host)
@@ -71,7 +73,12 @@ internal class SceneBridge(
      * queues, and the `GlobalSnapshotManager` registration. One per surface, so two surfaces
      * cannot advance each other's animations.
      */
-    private val recomposer = FrameRecomposer(dispatcher, invalidate)
+    private val recomposer = FrameRecomposer(
+        // Recomposition runs inside the Recomposer's own coroutine, so content that throws on a
+        // later pass never reaches the game's call stack on its own. This is where we catch it.
+        dispatcher + CoroutineExceptionHandler { _, t -> onFailure(t) },
+        invalidate,
+    )
 
     private val scene: ComposeScene = CanvasLayersComposeScene(
         frameRecomposer = recomposer,
