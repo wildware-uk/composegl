@@ -44,7 +44,7 @@ subprojects {
             jvmToolchain(21)
             compilerOptions {
                 allWarningsAsErrors.set(true)
-                freeCompilerArgs.add("-Xjvm-default=all")
+                freeCompilerArgs.add("-jvm-default=no-compatibility")
             }
         }
         tasks.withType<Test>().configureEach {
