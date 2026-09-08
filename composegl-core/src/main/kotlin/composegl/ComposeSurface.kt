@@ -345,13 +345,19 @@ class ComposeSurface(
      * keys and this for the character those keys produced, after the keyboard layout and any dead
      * keys have been applied.
      *
+     * Control characters are refused. Toolkits differ on this and several deliver Backspace,
+     * Tab, Enter and Escape through their character channel as well as their key channel — and
+     * committing one of those inserts an unprintable glyph rather than doing anything. Those keys
+     * are already handled by [sendKeyEvent], where Compose's own text field logic deals with them.
+     *
      * @param codePoint a Unicode code point.
-     * @return false when no text field is focused — the adapter should then give the character to
-     *   the game.
+     * @return false when no text field is focused, or when the code point is a control character —
+     *   the adapter should then decide whether the game gets it.
      */
     fun sendChar(codePoint: Int): Boolean {
         context.assertGlThread()
         if (disposed || failed || !hasContent) return false
+        if (Character.isISOControl(codePoint)) return false
         return bridge.sendChar(codePoint)
     }
 

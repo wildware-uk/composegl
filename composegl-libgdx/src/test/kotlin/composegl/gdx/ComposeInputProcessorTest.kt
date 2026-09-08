@@ -134,6 +134,46 @@ class ComposeInputProcessorTest {
     }
 
     @Test
+    fun `LibGDX delivers control characters through keyTyped, and they must not be inserted`() {
+        var value by mutableStateOf(TextFieldValue(""))
+        val focus = FocusRequester()
+        show { TextField(value, { value = it }, Modifier.focusRequester(focus)) }
+        focus.requestFocus()
+        frame()
+
+        input.keyTyped('h')
+        frame()
+        assertEquals("h", value.text)
+
+        // This is what LibGDX actually sends when Backspace is pressed: the key event *and*
+        // keyTyped('\b'). Committing the control character puts an unprintable glyph in the
+        // field — the "squares" a real user sees, one per repeat while the key is held.
+        input.keyDown(Input.Keys.BACKSPACE)
+        input.keyTyped('\b')
+        input.keyUp(Input.Keys.BACKSPACE)
+        frame()
+
+        assertEquals("", value.text, "Backspace should delete, not insert")
+    }
+
+    @Test
+    fun `every control character LibGDX can send is refused`() {
+        var value by mutableStateOf(TextFieldValue(""))
+        val focus = FocusRequester()
+        show { TextField(value, { value = it }, Modifier.focusRequester(focus)) }
+        focus.requestFocus()
+        frame()
+
+        // Backspace, tab, enter, escape, delete: LibGDX routes all of them through keyTyped.
+        listOf('\b', '\t', '\r', '\n', '\u001b', '\u007f').forEach {
+            input.keyTyped(it)
+            frame()
+        }
+
+        assertEquals("", value.text, "no control character should reach the text field as text")
+    }
+
+    @Test
     fun `keys the HUD is not listening for go to the game`() {
         cornerButton()
         assertFalse(input.keyDown(Input.Keys.W), "nothing focused, so WASD belongs to the game")
