@@ -57,11 +57,14 @@ class ComposeSurface(
     private val config: SurfaceConfig = SurfaceConfig(),
 ) {
 
-    private val bridge = SceneBridge(
+    private var bridge = newBridge()
+
+    private fun newBridge() = SceneBridge(
         dispatcher = context.dispatcher,
         host = host,
         fontScale = config.fontScale,
         invalidate = host::requestFrame,
+        onFailure = ::recordFailure,
     )
 
     private var skiaSurface: Surface? = null
@@ -73,6 +76,7 @@ class ComposeSurface(
 
     private var hasContent = false
     private var failed = false
+    private var pendingFailure: Throwable? = null
     private var disposed = false
 
     /** Pointer ids whose press Compose consumed; they belong to Compose until they release. */
@@ -96,7 +100,11 @@ class ComposeSurface(
     fun setContent(content: @Composable () -> Unit) {
         context.assertGlThread()
         checkOpen()
+        // A scene whose recomposer has already failed cannot be reused, so recovering from a
+        // failure means building a fresh one. That is what makes setContent a real way back.
+        if (failed) rebuildScene()
         failed = false
+        pendingFailure = null
         hasContent = true
         targetChanged = true
         // Composition runs here, so content that throws on its very first pass is caught too.
@@ -394,6 +402,16 @@ class ComposeSurface(
         context.unregister(this)
     }
 
+    private fun rebuildScene() {
+        bridge.close()
+        captured.clear()
+        bridge = newBridge()
+        target?.let {
+            bridge.setDensity(host.density, config.fontScale)
+            bridge.setSize(it.width, it.height)
+        }
+    }
+
     private fun releaseSkiaSurface() {
         skiaSurface?.close()
         skiaSurface = null
@@ -413,9 +431,29 @@ class ComposeSurface(
         try {
             block()
         } catch (t: Throwable) {
-            failed = true
-            config.onError(t)
+            recordFailure(t)
         }
+        flushFailure()
+    }
+
+    /**
+     * Records the first failure and stops the surface. Called both from [guard] and from the
+     * recomposer's exception handler, which fires on a different call stack.
+     */
+    private fun recordFailure(throwable: Throwable) {
+        if (failed) return
+        failed = true
+        pendingFailure = throwable
+    }
+
+    /**
+     * Hands the failure to the game on the game's own stack, so the default `onError` — rethrow —
+     * surfaces where the game can see it rather than on some coroutine's uncaught handler.
+     */
+    private fun flushFailure() {
+        val throwable = pendingFailure ?: return
+        pendingFailure = null
+        config.onError(throwable)
     }
 
     private companion object {
