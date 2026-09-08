@@ -64,6 +64,7 @@ composegl-core          Kotlin/JVM. Deps: compose-runtime, compose-ui, compose-f
 composegl-libgdx        Kotlin/JVM. Deps: core, gdx. No backend dependency, so the same adapter can serve Android later.
 composegl-demo-libgdx   Runnable sample: spinning cube + Material HUD + in-world panel.
 composegl-smoke-lwjgl3  Raw LWJGL3, no LibGDX. ~200 lines. Proves the seam; hosts GL integration tests.
+composegl-lwjgl3        Added after v1 shipped: the raw LWJGL3 adapter, for games with no engine at all.
 ```
 
 Build rules enforced in CI:
@@ -466,4 +467,6 @@ Fail on a, c, or h means the offscreen approach needs rework before anything els
 - **P2** — Editor mode (C) on desktop.
 - **P3** — Android. Overlay is free via `ComposeView` over `GLSurfaceView`; in-frame and in-world need the S2 findings. Same fix unlocks P4.
 - **P4** — iOS via RoboVM, GL. Requires a Skia build for iOS with GL enabled (Skiko ships Metal only), the S2 fix, and RoboVM libcore validation. No prior art. Real but expensive.
-- **P5** — Second JVM engine adapter (jMonkeyEngine or raw LWJGL) once someone wants it.
+- **P5** — ~~Second JVM engine adapter~~. Done: `composegl-lwjgl3` is the raw LWJGL3 adapter. A jMonkeyEngine one would be the same shape.
+
+Each of P2, P3 and P4 is re-assessed against the shipped code in [`docs/roadmap.md`](../../roadmap.md).
