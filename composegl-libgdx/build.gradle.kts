@@ -20,6 +20,26 @@ dependencies {
 }
 
 /**
+ * The adapter is allowed to know about LibGDX, and nothing else. No AWT, because the same adapter
+ * should serve Android later; no LWJGL, because it must not be tied to one backend.
+ */
+val checkNoForbiddenReferences by tasks.registering(BytecodeReferenceCheck::class) {
+    description = "Fails if composegl-libgdx references AWT, Swing or LWJGL."
+    group = "verification"
+    classDirectories.from(sourceSets.main.get().output.classesDirs)
+    forbiddenPackages.set(listOf("java/awt", "javax/swing", "org/lwjgl"))
+    reason.set(
+        "composegl-libgdx depends on gdx core only. A backend-specific or AWT reference here " +
+            "would stop the same adapter serving Android.",
+    )
+    dependsOn(tasks.named("classes"))
+}
+
+tasks.named("check") {
+    dependsOn(checkNoForbiddenReferences)
+}
+
+/**
  * Tests that need a real GL context and a real driver. They boot an LWJGL3 window, so they are
  * skipped unless there is a display — on CI that is Xvfb with Mesa's llvmpipe. `./gradlew build`
  * does not run them; `./gradlew integrationTest` does.
