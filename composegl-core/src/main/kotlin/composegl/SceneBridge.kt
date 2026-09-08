@@ -3,6 +3,7 @@
 package composegl
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asComposeCanvas
@@ -12,6 +13,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerButtons
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
 import androidx.compose.ui.input.pointer.isAltPressed
 import androidx.compose.ui.input.pointer.isCtrlPressed
@@ -19,7 +21,10 @@ import androidx.compose.ui.input.pointer.isMetaPressed
 import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.platform.FrameRecomposer
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.PlatformContext
+import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.scene.CanvasLayersComposeScene
 import androidx.compose.ui.scene.ComposeScene
 import androidx.compose.ui.scene.PointerEventResult
@@ -46,8 +51,10 @@ internal class SceneBridge(
     invalidate: () -> Unit,
 ) {
 
-    /** ComposeGL's answer to "what platform am I on". Filled in by [GamePlatformContext]. */
-    private val platformContext: PlatformContext = PlatformContext.Empty()
+    private val platformContext: PlatformContext = GamePlatformContext(host)
+
+    private val clipboard = GameClipboard(host)
+    private val clipboardManager = GameClipboardManager(host)
 
     /**
      * Compose's own host-side driver: it owns the frame clock, the `Recomposer`, the two work
@@ -68,8 +75,21 @@ internal class SceneBridge(
 
     private var closed = false
 
+    /**
+     * Compose's desktop defaults for the clipboard go through AWT, so ComposeGL provides its own
+     * on the way in. Doing it here, rather than hoping [PlatformContext] offers a hook, keeps it
+     * working whatever the pinned Compose version does.
+     */
+    @Suppress("DEPRECATION")
     fun setContent(content: @Composable () -> Unit) {
-        scene.setContent(content = content)
+        scene.setContent {
+            CompositionLocalProvider(
+                LocalClipboard provides clipboard,
+                LocalClipboardManager provides clipboardManager,
+            ) {
+                content()
+            }
+        }
     }
 
     /** Applies state writes, ticks the clock, and lets recomposition run. */
@@ -170,3 +190,36 @@ private val CONSUMED_10 = PointerEventResult(true, true, false)
 
 @OptIn(InternalComposeUiApi::class)
 private val CONSUMED_11 = PointerEventResult(true, true, true)
+
+/**
+ * What Compose asks about the platform it is running on. Everything ComposeGL cannot answer is
+ * left at [PlatformContext.Empty]'s default, which is the honest answer for a game surface:
+ * no window manager, no accessibility bridge, no screen reader.
+ */
+private class GamePlatformContext(private val host: HostServices) : PlatformContext.Empty() {
+
+    /**
+     * `windowInfo.isWindowFocused` stays true. A game surface has no focus concept we could
+     * honour without a window toolkit, and reporting false would grey out the UI and hide the
+     * text caret forever.
+     */
+
+    override fun setPointerIcon(pointerIcon: PointerIcon) {
+        host.setCursor(
+            when (pointerIcon) {
+                PointerIcon.Text -> CursorShape.Text
+                PointerIcon.Hand -> CursorShape.Hand
+                PointerIcon.Crosshair -> CursorShape.Crosshair
+                else -> CursorShape.Default
+            },
+        )
+    }
+
+    override val viewConfiguration: ViewConfiguration =
+        object : ViewConfiguration by PlatformContext.DefaultViewConfiguration {
+            /** 8dp, read live so a monitor change is picked up without rebuilding the scene. */
+            override val touchSlop: Float get() = 8f * host.density
+            override val longPressTimeoutMillis: Long get() = 500L
+            override val doubleTapTimeoutMillis: Long get() = 300L
+        }
+}
