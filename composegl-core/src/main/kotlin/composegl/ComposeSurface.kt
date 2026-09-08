@@ -3,6 +3,10 @@ package composegl
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
+import androidx.compose.ui.input.pointer.PointerType
 import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
@@ -69,6 +73,9 @@ class ComposeSurface(
     private var hasContent = false
     private var failed = false
     private var disposed = false
+
+    /** Pointer ids whose press Compose consumed; they belong to Compose until they release. */
+    private val captured = mutableSetOf<Int>()
 
     private var composeRenders = 0L
     private var frames = 0L
@@ -205,6 +212,91 @@ class ComposeSurface(
     }
 
     /**
+     * Delivers a pointer event and says whether Compose took it.
+     *
+     * **The return value is the click-through rule.** True means Compose used the event and the
+     * game must ignore it; false means the pointer was over empty HUD space and the game should
+     * act on it. Feed the result straight into the engine's input chain.
+     *
+     * Three behaviours are worth knowing:
+     *
+     * - A press Compose consumes **captures** that pointer id. Every move and the release that
+     *   follow go to Compose and return true even if nothing consumes them, so a drag that starts
+     *   on a slider cannot be stolen mid-gesture by the game.
+     * - A press nobody consumes hands keyboard focus back to the game, so a click on the world
+     *   stops a focused text field from eating the next keystroke.
+     * - Uncaptured moves are delivered — hover effects need them — but always return false. The
+     *   game seeing hover is harmless, and it keeps crosshairs and picking working.
+     *
+     * Coordinates are in physical pixels from the top-left of the render target, the same
+     * orientation as Compose. Density is applied by Compose itself.
+     *
+     * @param pointerId which finger or cursor this is. Capture is tracked per id.
+     * @return true when Compose consumed the event.
+     */
+    fun sendPointerEvent(
+        type: PointerEventType,
+        x: Float,
+        y: Float,
+        pointerId: Int = 0,
+        button: PointerButton? = null,
+        pointerType: PointerType = PointerType.Mouse,
+        scrollX: Float = 0f,
+        scrollY: Float = 0f,
+        modifiers: PointerKeyboardModifiers = PointerKeyboardModifiers(),
+        timeMillis: Long = System.nanoTime() / 1_000_000,
+    ): Boolean {
+        context.assertGlThread()
+        if (disposed || failed || !hasContent) return false
+
+        var consumed = false
+        guard {
+            consumed = bridge.sendPointerEvent(
+                type = type,
+                x = x,
+                y = y,
+                button = button,
+                pointerType = pointerType,
+                scrollX = scrollX,
+                scrollY = scrollY,
+                modifiers = modifiers,
+                timeMillis = timeMillis,
+            )
+        }
+
+        return when (type) {
+            PointerEventType.Press -> {
+                if (consumed) {
+                    captured += pointerId
+                } else {
+                    // Nothing in the HUD wanted it, so the game should get the keys back too.
+                    guard { bridge.releaseFocus() }
+                }
+                consumed
+            }
+
+            PointerEventType.Release -> {
+                val wasCaptured = captured.remove(pointerId)
+                wasCaptured || consumed
+            }
+
+            PointerEventType.Move -> pointerId in captured
+
+            // Scroll reports whatever a scrollable took. Enter and Exit are hover bookkeeping and
+            // are never the game's business either way.
+            else -> consumed
+        }
+    }
+
+    /** Drops any in-progress gesture, e.g. when the window loses focus. */
+    fun cancelPointerInput() {
+        context.assertGlThread()
+        if (disposed) return
+        captured.clear()
+        guard { bridge.cancelPointerInput() }
+    }
+
+    /**
      * Commits one typed character into the focused text field.
      *
      * This is the character channel, separate from key events: the adapter sends key events for
@@ -220,6 +312,14 @@ class ComposeSurface(
         if (disposed || failed || !hasContent) return false
         return bridge.sendChar(codePoint)
     }
+
+    /**
+     * True while a Compose node holds keyboard focus.
+     *
+     * The adapter uses it to decide whether the game sees key events at all: while the HUD has
+     * focus the keys belong to the HUD, and while it does not they belong to the game.
+     */
+    val hasKeyboardFocus: Boolean get() = !disposed && !failed && bridge.hasKeyboardFocus
 
     /** True while a text field has an input session open. */
     val isTextInputActive: Boolean get() = !disposed && bridge.isTextInputActive
@@ -254,6 +354,7 @@ class ComposeSurface(
     fun dispose() {
         if (disposed) return
         disposed = true
+        captured.clear()
         bridge.close()
         releaseSkiaSurface()
         context.unregister(this)

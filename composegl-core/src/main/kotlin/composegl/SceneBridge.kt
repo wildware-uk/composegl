@@ -12,7 +12,6 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.pointer.PointerButton
-import androidx.compose.ui.input.pointer.PointerButtons
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
@@ -130,12 +129,16 @@ internal class SceneBridge(
     /** True while a Compose node holds keyboard focus. */
     val hasKeyboardFocus: Boolean get() = scene.focusManager.hasFocus
 
+    /** Hands keyboard focus back to the game. */
+    fun releaseFocus() {
+        scene.focusManager.releaseFocus()
+    }
+
     fun sendPointerEvent(
         type: PointerEventType,
         x: Float,
         y: Float,
         button: PointerButton?,
-        buttons: PointerButtons?,
         pointerType: PointerType,
         scrollX: Float,
         scrollY: Float,
@@ -147,7 +150,8 @@ internal class SceneBridge(
         scrollDelta = Offset(scrollX, scrollY),
         timeMillis = timeMillis,
         type = pointerType,
-        buttons = buttons,
+        // null lets Compose track pressed buttons itself from the event stream.
+        buttons = null,
         keyboardModifiers = modifiers,
         button = button,
     ).changeConsumed()
@@ -254,6 +258,13 @@ private class GamePlatformContext(
             },
         )
     }
+
+    /**
+     * A press that lands outside the focused node takes focus off it. Compose can do this itself
+     * and does it better than we could from outside, because it knows the focused node's bounds.
+     * The flag is off by default only because it changes long-standing desktop behaviour.
+     */
+    override val isClearFocusOnMouseDownEnabled: Boolean get() = true
 
     override val viewConfiguration: ViewConfiguration =
         object : ViewConfiguration by PlatformContext.DefaultViewConfiguration {
