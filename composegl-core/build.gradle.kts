@@ -98,27 +98,43 @@ publishing {
 }
 
 /**
- * The whole core suite, run on a JVM that does not have AWT in it at all.
+ * Stubs for the corner of AWT that Compose's desktop artifact reaches for while building a scene.
+ * Compiled with `java.desktop` hidden, because you cannot declare a class in a package that an
+ * observable module already owns, and put on the boot class path because the JVM will not let an
+ * ordinary class loader define anything under `java.`.
+ */
+val compileAwtShim by tasks.registering(JavaCompile::class) {
+    description = "Compiles the stub java.awt classes used by noAwtTest."
+    source = fileTree("src/awtShim/java") { include("**/*.java") }
+    destinationDirectory.set(layout.buildDirectory.dir("classes/awtShim"))
+    classpath = files()
+    options.release.set(21)
+    options.compilerArgs.addAll(listOf("--limit-modules", "java.base"))
+    javaCompiler.set(javaToolchains.compilerFor { languageVersion.set(JavaLanguageVersion.of(21)) })
+}
+
+val awtShimJar by tasks.registering(Jar::class) {
+    archiveFileName.set("awt-shim.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("libs"))
+    from(compileAwtShim)
+}
+
+/**
+ * The whole core suite, run on a JVM that has no AWT in it at all.
  *
  * `--limit-modules` leaves `java.desktop` out of the module graph, so any attempt to touch
  * `java.awt` fails with `NoClassDefFoundError` rather than quietly working. That is the closest
  * thing to Android's runtime this machine can offer: ART and RoboVM's libcore have no AWT either,
  * and the reason `composegl-core` is written the way it is, is so that it never needs one.
  *
- * The bytecode check says core does not *name* AWT. This says whether it can *run* without one.
+ * The bytecode check says core does not *name* AWT. This says the whole stack can *run* without
+ * one — and it passes, which is the interesting part.
  *
- * **It fails today, at a known line, and that failure is the point.** Everything that does not
- * build a scene passes; everything that does fails in Compose, not in ComposeGL:
- *
- * ```
- * java.lang.NoClassDefFoundError: java/awt/HeadlessException
- *   at androidx.compose.ui.node.RootNodeOwner$OwnerImpl.<init>(RootNodeOwner.skiko.kt:471)
- * ```
- *
- * `RootNodeOwner` eagerly builds an AWT-backed clipboard when the scene is created, before
- * ComposeGL gets to provide its own. So this task is a regression detector pointed at somebody
- * else's code: the day that becomes lazy, it goes green and the Android port (#25) loses its
- * nearest blocker. Not wired into `check` for that reason.
+ * It needs the shim because Compose and Skiko touch AWT in three places on the way to a scene,
+ * none of them ComposeGL's: `RootNodeOwner`'s eager clipboard, skiko's Swing main dispatcher, and
+ * `PointerIcon`'s desktop actuals. Three, and no more — that list is the point of this task, and
+ * if it ever grows, this goes red and somebody should read
+ * `docs/superpowers/spikes/s5-no-awt-runtime.md` before shrugging.
  */
 tasks.register<Test>("noAwtTest") {
     description = "Runs the core tests on a JVM with no java.desktop module."
@@ -130,5 +146,12 @@ tasks.register<Test>("noAwtTest") {
         "--limit-modules",
         "java.base,java.logging,java.management,java.instrument,java.naming,java.xml,jdk.unsupported,jdk.zipfs",
     )
+    val shim = awtShimJar.flatMap { it.archiveFile }
+    inputs.file(shim)
+    doFirst { jvmArgs("-Xbootclasspath/a:${shim.get().asFile.absolutePath}") }
     testLogging { showStandardStreams = true }
+}
+
+tasks.named("check") {
+    dependsOn(tasks.named("noAwtTest"))
 }
