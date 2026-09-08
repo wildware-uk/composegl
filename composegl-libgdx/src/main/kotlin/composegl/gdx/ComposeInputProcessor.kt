@@ -39,8 +39,17 @@ internal class ComposeInputProcessor(
     /**
      * The character a keystroke produced, after the layout and any dead keys. This, not [keyDown],
      * is what puts letters into a text field.
+     *
+     * LibGDX also routes control characters here — Backspace arrives as `\b`, Enter as `\r`,
+     * Escape as `0x1B` — and every one of those already went through [keyDown], where Compose's
+     * text field handled it. Committing them as well inserts an unprintable glyph: one square per
+     * press, and a row of them if the key is held. So they are dropped, and consumed only if the
+     * HUD has focus, because then the whole keystroke was the HUD's.
      */
-    override fun keyTyped(character: Char): Boolean = surface.sendChar(character.code)
+    override fun keyTyped(character: Char): Boolean {
+        if (Character.isISOControl(character)) return surface.hasKeyboardFocus
+        return surface.sendChar(character.code)
+    }
 
     override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean =
         sendPointer(PointerEventType.Press, screenX, screenY, pointer, button)
