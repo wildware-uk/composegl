@@ -2,8 +2,178 @@
 
 Draw your game's UI with Jetpack Compose, inside your game's own OpenGL frame.
 
-First engine: LibGDX (desktop JVM). Compose renders to an offscreen framebuffer only when the UI actually changes; the engine blits it as one quad every frame.
+Compose decides and lays out the UI. Skia draws it. Your engine supplies the paper — an OpenGL
+framebuffer — and blits the result as one quad. ComposeGL is the desk that holds them together.
 
-Design: [docs/superpowers/specs/2026-09-08-composegl-design.md](docs/superpowers/specs/2026-09-08-composegl-design.md)
+First engine: LibGDX on desktop JVM.
 
-Status: design complete, implementation not started. Work is tracked in the issues and milestones.
+```kotlin
+class MyGame : ApplicationAdapter() {
+    lateinit var ui: ComposeOverlay
+
+    override fun create() {
+        ui = ComposeOverlay()
+        ui.setContent { Hud(viewModel) }
+        Gdx.input.inputProcessor = InputMultiplexer(ui, gameInput)  // UI gets first refusal
+    }
+
+    override fun resize(width: Int, height: Int) = ui.resize(width, height)
+
+    override fun render() {
+        drawWorld()
+        ui.update()
+        ui.draw()
+    }
+
+    override fun dispose() {
+        ui.dispose()
+        ComposeGdx.dispose()
+    }
+}
+```
+
+## Why it is cheap
+
+Compose only redraws when the UI actually changes. Everything else is one textured quad.
+
+A HUD that is not changing costs **zero** Compose work per frame — not a cheap redraw, none at all.
+`ComposeOverlay.stats` reports it, and the demo puts the numbers in the corner so you can watch:
+600 game frames, 3 Compose renders.
+
+The exception worth knowing: a text field with the caret blinking in it is an animation, so it
+redraws every frame while it has focus.
+
+## Requirements
+
+**OpenGL 3.0 or newer.** LibGDX defaults to GL 2.0, so you almost certainly have to say:
+
+```kotlin
+Lwjgl3ApplicationConfiguration().apply {
+    setOpenGLEmulation(Lwjgl3ApplicationConfiguration.GLEmulation.GL32, 3, 2)
+}
+```
+
+Skia's GL backend needs it. Without it you get a `ComposeGlUnsupportedException` that says so.
+
+**The Skiko native library for the machine you run on.** Compose brings the Java bindings; the
+native half ships as one artifact per OS and CPU, and you pick it:
+
+```kotlin
+runtimeOnly("org.jetbrains.skiko:skiko-awt-runtime-linux-x64:0.150.1")
+// or macos-arm64, macos-x64, windows-x64, linux-arm64
+```
+
+**Bundle your fonts.** `FontFamily.Default` resolves through whatever font manager the player's
+machine has, so a HUD that relies on it looks different on every computer. Ship the font with the
+game:
+
+```kotlin
+val bytes = Gdx.files.internal("fonts/YourFont.ttf").readBytes()
+val family = FontFamily(Font(identity = "YourFont", data = bytes))
+```
+
+Java 21 or newer.
+
+## Threading
+
+**Every ComposeGL call must happen on the thread your GL context is current on** — the render
+thread. That is one rule and it is the only one.
+
+Set `ContextConfig(debugChecks = true)` while you are developing and a call from the wrong thread
+throws immediately, naming both threads. Without it you get a GL crash several frames later with a
+stack trace that points nowhere useful.
+
+## UI inside the world
+
+For a panel on a screen in the room, a tablet in the player's hands, a sign on a wall — anything
+that is part of the scene rather than on top of it — use `ComposeTexture`. It hands you a texture;
+you draw it, and you tell it where the player pointed:
+
+```kotlin
+val panel = ComposeTexture(512, 384)
+panel.setContent { ControlRoomUi(state) }
+
+// each frame
+panel.update()
+panel.render()
+modelBatch.render(quad)          // its material samples panel.texture
+
+// when the player clicks
+val hit = raycastOntoPanel(ray) ?: return
+panel.sendPointer(PointerEventType.Press, hit.x, hit.y, PointerButton.Primary)
+```
+
+Working out which pixel was clicked is the game's job, because only the game knows where the panel
+is. The demo does it in about thirty lines of plain geometry.
+
+The texture holds premultiplied alpha, so blend it with `GL_ONE, GL_ONE_MINUS_SRC_ALPHA`.
+
+## Click-through
+
+Every input method returns whether Compose took the event. Put the overlay first in an
+`InputMultiplexer` and a click on a button stops at the button, while a click on the world falls
+through to your game.
+
+Three rules come for free:
+
+- A press Compose consumes captures that pointer, so a drag started on a slider cannot be stolen
+  mid-gesture.
+- A press nobody consumes hands keyboard focus back to the game, so a click on the world stops a
+  focused text field eating the next keystroke.
+- Hover is delivered to Compose but never claimed, so crosshairs and picking keep working.
+
+While a Compose node has keyboard focus, key events go to it and not to your game — check
+`ui.hasKeyboardFocus` if you want to know.
+
+## Not in v1
+
+- IME composition and CJK candidate windows. Dead keys work, because the platform composes them
+  before ComposeGL sees them.
+- Accessibility and screen readers.
+- Android, iOS, web. The groundwork is done — `composegl-core` touches no AWT and no engine, which
+  is what keeps those ports possible — but they are not built. See
+  [`docs/superpowers/spikes/s2-awt-scan.md`](docs/superpowers/spikes/s2-awt-scan.md).
+- Editor mode, where Compose owns the window and the game renders into a Compose node.
+- Drag and drop, multiple windows.
+- A second engine adapter. The seam is proved by `composegl-smoke-lwjgl3`, which runs ComposeGL on
+  raw LWJGL3 with no LibGDX at all, so a second adapter should be small.
+
+## Modules
+
+| Module | What it is |
+|---|---|
+| `composegl-core` | The scene, the frame driving, input and platform services. No engine, no GL calls, no AWT. |
+| `composegl-libgdx` | The LibGDX adapter: framebuffer, GL state firewall, blit, input bridge. Depends on gdx core only, no backend. |
+| `composegl-demo-libgdx` | A spinning cube, a Material 3 HUD, and an in-world panel on a turning quad. |
+| `composegl-smoke-lwjgl3` | ComposeGL on raw LWJGL3, with no engine. Keeps the seam honest and hosts the GL tests. |
+
+## Running it
+
+```bash
+./gradlew :composegl-demo-libgdx:run        # the demo
+./gradlew :composegl-smoke-lwjgl3:run       # the same idea with no engine
+./gradlew build                             # headless tests, no GPU needed
+xvfb-run ./gradlew integrationTest          # the tests that need a real driver
+```
+
+The headless tests are the real thing minus the framebuffer: Compose draws into a CPU Skia surface
+by exactly the path it draws into OpenGL, so they run in CI on a machine with no display.
+
+## Versions
+
+Compose Multiplatform's scene API is internal and changes between releases, so every version is
+pinned in `gradle/libs.versions.toml` and every use of that API lives in one file,
+`SceneBridge.kt`. Upgrading Compose is a deliberate job with the integration suite as the gate.
+
+| | |
+|---|---|
+| Kotlin | 2.4.20 |
+| Compose Multiplatform | 1.12.0 |
+| Skiko | 0.150.1 |
+| LibGDX | 1.14.2 |
+
+## Design
+
+[`docs/superpowers/specs/2026-09-08-composegl-design.md`](docs/superpowers/specs/2026-09-08-composegl-design.md)
+is the full design, including the decisions and why they went that way. The two spikes that gated
+it are in [`docs/superpowers/spikes/`](docs/superpowers/spikes/).
