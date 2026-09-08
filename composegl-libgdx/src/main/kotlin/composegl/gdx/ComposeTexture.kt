@@ -80,6 +80,14 @@ class ComposeTexture(
     /**
      * Delivers a pointer event in this texture's own pixels, with (0, 0) at the top-left.
      *
+     * **Release every press you send, whatever this returned for the press.** The return value
+     * answers "did Compose use it", which is a different question from "is this gesture the
+     * panel's". A press on the panel's background is not consumed, but the pointer is still the
+     * panel's until it comes up — and if the release never arrives, Compose goes on believing a
+     * finger is down and the panel stops responding to anything afterwards. Decide once, when the
+     * ray hits the panel, that the gesture is the panel's; use the return value only to decide
+     * whether the *game* should also act.
+     *
      * @return true when Compose consumed it, so the game knows whether the click also counts as
      *   a click on the object the panel is painted on.
      */

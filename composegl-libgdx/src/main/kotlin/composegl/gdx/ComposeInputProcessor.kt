@@ -32,23 +32,50 @@ internal class ComposeInputProcessor(
     private var lastX = 0f
     private var lastY = 0f
 
-    override fun keyDown(keycode: Int): Boolean = sendKey(keycode, down = true)
+    /** The key LibGDX last reported down, so a repeat can be turned back into a key event. */
+    private var keyHeld = -1
 
-    override fun keyUp(keycode: Int): Boolean = sendKey(keycode, down = false)
+    /** Whether the control character that accompanies the initial press has been seen yet. */
+    private var pressCharConsumed = false
+
+    override fun keyDown(keycode: Int): Boolean {
+        keyHeld = keycode
+        pressCharConsumed = false
+        return sendKey(keycode, down = true)
+    }
+
+    override fun keyUp(keycode: Int): Boolean {
+        if (keycode == keyHeld) keyHeld = -1
+        return sendKey(keycode, down = false)
+    }
 
     /**
      * The character a keystroke produced, after the layout and any dead keys. This, not [keyDown],
      * is what puts letters into a text field.
      *
      * LibGDX also routes control characters here — Backspace arrives as `\b`, Enter as `\r`,
-     * Escape as `0x1B` — and every one of those already went through [keyDown], where Compose's
-     * text field handled it. Committing them as well inserts an unprintable glyph: one square per
-     * press, and a row of them if the key is held. So they are dropped, and consumed only if the
-     * HUD has focus, because then the whole keystroke was the HUD's.
+     * Escape as `0x1B`. Committing one inserts an unprintable glyph, so none of them is ever text.
+     *
+     * They still matter, because of how LibGDX reports a held key. It sends `keyDown` once, and
+     * every repeat after that arrives **only** as another `keyTyped` of the same character
+     * (`DefaultLwjgl3Input.keyCallback`, the `GLFW_REPEAT` branch). So the first control character
+     * is the one that came with the press, which [keyDown] has already delivered and which must be
+     * swallowed; every one after it is a repeat, and the only signal that the key is being held.
+     * Those are turned back into key events, which is what makes holding Backspace clear a field.
      */
     override fun keyTyped(character: Char): Boolean {
-        if (Character.isISOControl(character)) return surface.hasKeyboardFocus
-        return surface.sendChar(character.code)
+        if (!Character.isISOControl(character)) return surface.sendChar(character.code)
+
+        if (!pressCharConsumed) {
+            // The character LibGDX synthesises alongside the initial press. keyDown had it.
+            pressCharConsumed = true
+            return surface.hasKeyboardFocus
+        }
+
+        val key = composeKeyFor(keyHeld) ?: return surface.hasKeyboardFocus
+        val consumed = surface.sendKeyEvent(key, down = true, modifiers = modifiers())
+        surface.sendKeyEvent(key, down = false, modifiers = modifiers())
+        return consumed || surface.hasKeyboardFocus
     }
 
     override fun touchDown(screenX: Int, screenY: Int, pointer: Int, button: Int): Boolean =

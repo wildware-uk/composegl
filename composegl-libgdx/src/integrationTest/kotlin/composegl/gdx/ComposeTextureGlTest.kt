@@ -105,6 +105,52 @@ class ComposeTextureGlTest {
         )
     }
 
+    /**
+     * The bug a user found in about a minute: click the panel's background, then its button, and
+     * nothing happens. The background press is not consumed, and a game that only releases
+     * consumed presses leaves Compose believing the pointer is still down.
+     */
+    @Test
+    fun `a panel still works after a press its content did not consume`() {
+        lateinit var panel: ComposeTexture
+        var clicks = 0
+        var backgroundPress = true
+        var buttonPressAfterwards = false
+
+        runGl(width = 300, height = 300, frames = 12, onCreate = {
+            panel = ComposeTexture(200, 200)
+            panel.setContent {
+                Box(Modifier.fillMaxSize().background(Color(0xFF102030))) {
+                    Button(onClick = { clicks++ }, modifier = Modifier.align(Alignment.TopStart)) {
+                        Box(Modifier.size(60.dp, 20.dp))
+                    }
+                }
+            }
+        }) { frame ->
+            Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+            panel.update()
+            panel.render()
+
+            when (frame) {
+                3 -> {
+                    // Empty panel space. Not consumed — and released anyway, which is the rule.
+                    backgroundPress = panel.sendPointer(PointerEventType.Press, 180f, 180f, PointerButton.Primary)
+                    panel.sendPointer(PointerEventType.Release, 180f, 180f, PointerButton.Primary)
+                }
+                6 -> {
+                    buttonPressAfterwards = panel.sendPointer(PointerEventType.Press, 30f, 20f, PointerButton.Primary)
+                    panel.sendPointer(PointerEventType.Release, 30f, 20f, PointerButton.Primary)
+                }
+                12 -> { panel.dispose(); ComposeGdx.dispose() }
+            }
+        }
+
+        assertFalse(backgroundPress, "a press on the panel background belongs to the game")
+        assertTrue(buttonPressAfterwards, "the panel must still take input after an unconsumed press")
+        assertEquals(1, clicks, "and the button must actually fire")
+    }
+
     @Test
     fun `a panel and an overlay share one context`() {
         lateinit var overlay: ComposeOverlay

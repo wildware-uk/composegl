@@ -18,6 +18,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
 import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.badlogic.gdx.Input
@@ -157,6 +158,50 @@ class ComposeInputProcessorTest {
     }
 
     @Test
+    fun `holding Backspace clears the field, one delete per repeat`() {
+        // Caret at the end, where it is after someone has typed. TextFieldValue defaults it to 0,
+        // and Backspace at position 0 correctly does nothing.
+        var value by mutableStateOf(TextFieldValue("player one", TextRange(10)))
+        val focus = FocusRequester()
+        show { TextField(value, { value = it }, Modifier.focusRequester(focus)) }
+        focus.requestFocus()
+        frame()
+
+        // Exactly what LibGDX sends: keyDown once, then a keyTyped per repeat and nothing else.
+        // See DefaultLwjgl3Input.keyCallback, the GLFW_REPEAT branch.
+        input.keyDown(Input.Keys.BACKSPACE)
+        input.keyTyped('\b')        // the character synthesised with the press
+        frame()
+        assertEquals("player on", value.text, "the press deletes exactly one character")
+
+        repeat(9) {
+            input.keyTyped('\b')    // each repeat
+            frame()
+        }
+        input.keyUp(Input.Keys.BACKSPACE)
+        frame()
+
+        assertEquals("", value.text, "holding Backspace should empty the field")
+    }
+
+    @Test
+    fun `a repeat only counts once the key is actually held`() {
+        var value by mutableStateOf(TextFieldValue("ab", TextRange(2)))
+        val focus = FocusRequester()
+        show { TextField(value, { value = it }, Modifier.focusRequester(focus)) }
+        focus.requestFocus()
+        frame()
+
+        // Press and release without holding: one delete, not two.
+        input.keyDown(Input.Keys.BACKSPACE)
+        input.keyTyped('\b')
+        input.keyUp(Input.Keys.BACKSPACE)
+        frame()
+
+        assertEquals("a", value.text, "a tap must not delete twice")
+    }
+
+    @Test
     fun `every control character LibGDX can send is refused`() {
         var value by mutableStateOf(TextFieldValue(""))
         val focus = FocusRequester()
@@ -165,6 +210,7 @@ class ComposeInputProcessorTest {
         frame()
 
         // Backspace, tab, enter, escape, delete: LibGDX routes all of them through keyTyped.
+        // With no key held, none of them is a repeat, so none should become text either.
         listOf('\b', '\t', '\r', '\n', '\u001b', '\u007f').forEach {
             input.keyTyped(it)
             frame()
