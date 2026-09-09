@@ -18,10 +18,6 @@ dependencies {
 
 }
 
-sourceSets.main {
-    resources.srcDir("../../composegl-demo-libgdx/src/main/resources")
-}
-
 application {
     mainClass.set("spike.rt.MainKt")
 }

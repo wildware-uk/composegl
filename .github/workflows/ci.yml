@@ -23,7 +23,7 @@ jobs:
       - run: ./gradlew build --stacktrace
 
   gl:
-    name: GL integration tests (Xvfb + llvmpipe)
+    name: OpenGL (Xvfb + llvmpipe)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,33 +42,18 @@ jobs:
             xvfb libgl1 libglx-mesa0 libgl1-mesa-dri libglu1-mesa \
             libxi6 libxcursor1 libxrandr2 libxinerama1
 
-      - name: Run the GL integration tests
+      - name: Prove the runtime redraws only when something changed
         env:
-          LIBGL_ALWAYS_SOFTWARE: '1'
-          GALLIUM_DRIVER: llvmpipe
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew integrationTest --stacktrace
+          SPIKE_S6_HEADLESS: '1'
+        run: ./gradlew :spikes:s6-runtime-ui:run --stacktrace
 
-      - name: Smoke-test the demo
+      - name: Draw the spike with real OpenGL
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
           GALLIUM_DRIVER: llvmpipe
-          COMPOSEGL_DEMO_FRAMES: '120'
-          COMPOSEGL_DEMO_SCREENSHOT: demo.png
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-demo-libgdx:run
-
-      - name: Play the snake demo
-        env:
-          LIBGL_ALWAYS_SOFTWARE: '1'
-          GALLIUM_DRIVER: llvmpipe
-          COMPOSEGL_SNAKE_FRAMES: '1200'
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-demo-snake:run
-
-      - name: Run the showcase
-        env:
-          LIBGL_ALWAYS_SOFTWARE: '1'
-          GALLIUM_DRIVER: llvmpipe
-          COMPOSEGL_SHOWCASE_FRAMES: '200'
-        run: xvfb-run -a -s "-screen 0 1600x1000x24" ./gradlew :composegl-demo-showcase:run
+          SPIKE_S6_SCRIPT: '1'
+          SPIKE_S6_FRAMES: '300'
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :spikes:s6-runtime-ui:run --stacktrace
 
       - name: Keep what went wrong
         if: failure()
@@ -77,4 +62,3 @@ jobs:
           name: gl-test-output
           path: |
             **/build/reports/tests/**
-            **/src/integrationTest/resources/golden/*-actual.png

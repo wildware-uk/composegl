@@ -16,13 +16,7 @@ dependencyResolutionManagement {
 }
 
 include(
-    "composegl-core",
-    "composegl-libgdx",
-    "composegl-lwjgl3",
-    "composegl-demo-libgdx",
-    "composegl-demo-snake",
-    "composegl-demo-showcase",
-    // Throwaway feasibility spike; see docs/superpowers/spikes/.
+    // Throwaway feasibility spike; see docs/superpowers/spikes/s6-runtime-ui.md.
+    // The v2 modules land here as they are built.
     "spikes:s6-runtime-ui",
-    "composegl-smoke-lwjgl3",
 )
