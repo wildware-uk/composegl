@@ -105,15 +105,43 @@ and "a toolkit for games that happens to be written in Compose".
 ## 6. Modules
 
 ```
-composegl-ui     the toolkit. Pure Kotlin/JVM. compose.runtime + coroutines. Nothing else.
-composegl-gdx    the LibGDX renderer and input adapter.
-demo-snake       ported from v1.
-demo-showcase    ported from v1.
+composegl-ui       the toolkit. Pure Kotlin/JVM. compose.runtime + coroutines. Nothing else, ever.
+composegl-gdx      the LibGDX backend: renderer, input translation, fonts, clipboard, keyboard.
+composegl-lwjgl3   a second backend on raw GLFW and OpenGL. Desktop only. Its job is to keep the
+                   seam honest, not to be used.
+demo-snake         ported from v1.
+demo-showcase      ported from v1.
 ```
 
-Two modules, not four. `composegl-ui` knows nothing about OpenGL or LibGDX and so can be tested
-headlessly and completely — which is the structural answer to "this needs way more tests". In v1,
-anything touching a pixel needed a GPU. Here, only the renderer does.
+`composegl-ui` does not depend on LibGDX, or on OpenGL, or on any engine. It defines what it needs
+from the outside world and a **backend** supplies it:
+
+```kotlin
+interface UiBackend {
+    val canvas: UiCanvas
+    val fonts: FontProvider          // measurement and glyphs
+    val clipboard: Clipboard
+    val softKeyboard: SoftKeyboard   // show, hide; a no-op on desktop
+    fun texture(id: String): TextureHandle
+}
+```
+
+Input goes the same way. The toolkit defines `PointerEvent`, `KeyEvent`, `TextEvent`,
+`GamepadEvent`, its own key codes and its own modifiers; a backend translates whatever its platform
+gives it and pushes events in. No LibGDX type, no GLFW constant and no AWT type appears anywhere in
+`composegl-ui`, and CI fails the build if one does.
+
+The whole toolkit therefore compiles and tests with LibGDX absent from the classpath — a full
+interaction, press through drag through typing through pad navigation, driven by hand-written
+events with no engine present. That is the structural answer to "this needs way more tests": in v1
+anything touching a pixel needed Skia and a GPU; here only a backend does.
+
+**Why LibGDX is still the reference backend.** Being able to leave is not a reason to. LibGDX
+already ships the window, the GL context, input, audio, asset loading, the soft keyboard and the
+FreeType natives — for desktop, Android and iOS, today, built and published by somebody else.
+Replacing it means writing and maintaining that per platform, which is precisely the trap that
+killed the Skia version. The second backend exists to prove we *could*, and to catch assumptions
+leaking into the toolkit, not because we should.
 
 ## 7. The pieces
 
