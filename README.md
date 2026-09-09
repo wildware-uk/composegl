@@ -183,11 +183,13 @@ While a Compose node has keyboard focus, key events go to it and not to your gam
 | `composegl-lwjgl3` | The raw LWJGL3 adapter, for games written straight against GLFW and OpenGL with no engine. |
 | `composegl-demo-libgdx` | A spinning cube, a Material 3 HUD, and an in-world panel on a turning quad. |
 | `composegl-demo-snake` | A whole small game: the board is OpenGL, and the menu, HUD, pause and game over are Compose. |
+| `composegl-demo-showcase` | Game-shaped interfaces: a combat HUD drawn with Canvas, panels tracking objects in 3D, floating damage numbers, and a hologram in the scene. |
 | `composegl-smoke-lwjgl3` | ComposeGL on raw LWJGL3, with no engine. Keeps the seam honest and hosts the GL tests. |
 
 ## Running it
 
 ```bash
+./gradlew :composegl-demo-showcase:run      # the showcase — HUD, particles, hologram
 ./gradlew :composegl-demo-snake:run         # Snake — a game with a real interface
 ./gradlew :composegl-demo-libgdx:run        # the smaller demo
 ./gradlew :composegl-smoke-lwjgl3:run       # the same idea with no engine
@@ -236,6 +238,34 @@ dependencies {
 ## Licence
 
 Apache 2.0. See [LICENSE](LICENSE).
+
+## Showcase
+
+`composegl-demo-showcase` is the answer to "yes, but can it do *game* interfaces".
+
+![A combat HUD over a 3D scene: reticle, radar, ability cooldowns, tracking panels and a hologram](docs/images/showcase.png)
+
+Everything you can see except the grid, the drones and the embers is Compose:
+
+- **A combat HUD** drawn with `Canvas` — a counter-rotating reticle, a radar whose sweep is a
+  rotated `sweepGradient`, ability buttons whose cooldowns are arcs, hull and heat as concentric
+  arcs, and target bars with a damage trail that catches up a beat later. No shaders, no sprite
+  sheets, no texture atlas: it is the same drawing API a phone app uses.
+- **Panels that track objects in the scene.** The game projects each drone's world position to
+  screen pixels once a frame; the panels place themselves there and scale and fade with distance.
+- **Floating damage numbers**, spawned at world positions and projected the same way, so they
+  drift with the thing that was hit rather than with the camera.
+- **A hologram inside the scene** — a `ComposeTexture` on a panel the game draws with
+  `GL_ONE, GL_ONE`. Skia writes premultiplied pixels, so additive blending turns the panel into
+  emitted light and its black background disappears. That is a hologram for the price of one
+  blend attribute.
+- **OpenGL particles** drawn by the game *behind* the interface, which is what makes the
+  compositing obvious: they are additive, they move, and Compose is sitting on top of them without
+  either side interfering with the other.
+
+The switches turn each piece off, so you can see what each was contributing — and watch the render
+counter drop as you do. An animated HUD like this one redraws every frame, which is the honest
+cost of animation; turn the HUD off and the counter almost stops.
 
 ## Snake
 
