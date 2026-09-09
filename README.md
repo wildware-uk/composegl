@@ -182,12 +182,14 @@ While a Compose node has keyboard focus, key events go to it and not to your gam
 | `composegl-libgdx` | The LibGDX adapter: framebuffer, GL state firewall, blit, input bridge. Depends on gdx core only, no backend. |
 | `composegl-lwjgl3` | The raw LWJGL3 adapter, for games written straight against GLFW and OpenGL with no engine. |
 | `composegl-demo-libgdx` | A spinning cube, a Material 3 HUD, and an in-world panel on a turning quad. |
+| `composegl-demo-snake` | A whole small game: the board is OpenGL, and the menu, HUD, pause and game over are Compose. |
 | `composegl-smoke-lwjgl3` | ComposeGL on raw LWJGL3, with no engine. Keeps the seam honest and hosts the GL tests. |
 
 ## Running it
 
 ```bash
-./gradlew :composegl-demo-libgdx:run        # the demo
+./gradlew :composegl-demo-snake:run         # Snake — a game with a real interface
+./gradlew :composegl-demo-libgdx:run        # the smaller demo
 ./gradlew :composegl-smoke-lwjgl3:run       # the same idea with no engine
 ./gradlew build                             # headless tests, no GPU needed
 xvfb-run ./gradlew integrationTest          # the tests that need a real driver
@@ -234,6 +236,27 @@ dependencies {
 ## Licence
 
 Apache 2.0. See [LICENSE](LICENSE).
+
+## Snake
+
+`composegl-demo-snake` is the bigger example, because a HUD over a cube does not answer the
+question people actually have: what does a real interface look like?
+
+![The Snake demo's main menu, drawn by Compose over the game's own framebuffer](docs/images/snake-menu.png)
+
+The board, the snake and the food are OpenGL. The menu, the score panel, the pause screen and the
+game-over card are Compose — a text field, filter chips, a slider, a switch, a lazy list of high
+scores, an animated score, a badge. None of it knows it is inside a game.
+
+![The Snake demo mid-game, with the Compose HUD beside an OpenGL board](docs/images/snake-playing.png)
+
+The input split is the part worth studying. In a menu, Compose has the keyboard and arrow keys move
+between controls. The moment a game starts nothing in the HUD holds focus, so the same arrow keys
+reach the snake — while the Pause button still takes a click, because pointer events and key events
+are decided separately. That is `InputMultiplexer(ui, gameInput)` and about ten lines of game code.
+
+The rules live in `SnakeGame`, which has no LibGDX, no Compose and no clock in it, so they are
+tested without a window — including the double-tap that used to fold the snake into its own neck.
 
 ## What is next
 

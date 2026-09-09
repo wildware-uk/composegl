@@ -56,6 +56,13 @@ jobs:
           COMPOSEGL_DEMO_SCREENSHOT: demo.png
         run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-demo-libgdx:run
 
+      - name: Play the snake demo
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GALLIUM_DRIVER: llvmpipe
+          COMPOSEGL_SNAKE_FRAMES: '1200'
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-demo-snake:run
+
       - name: Keep what went wrong
         if: failure()
         uses: actions/upload-artifact@v4
