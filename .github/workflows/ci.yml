@@ -63,6 +63,13 @@ jobs:
           COMPOSEGL_SNAKE_FRAMES: '1200'
         run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-demo-snake:run
 
+      - name: Run the showcase
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GALLIUM_DRIVER: llvmpipe
+          COMPOSEGL_SHOWCASE_FRAMES: '200'
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" ./gradlew :composegl-demo-showcase:run
+
       - name: Keep what went wrong
         if: failure()
         uses: actions/upload-artifact@v4

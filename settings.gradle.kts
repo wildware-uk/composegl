@@ -21,5 +21,6 @@ include(
     "composegl-lwjgl3",
     "composegl-demo-libgdx",
     "composegl-demo-snake",
+    "composegl-demo-showcase",
     "composegl-smoke-lwjgl3",
 )
