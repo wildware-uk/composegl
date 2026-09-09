@@ -22,5 +22,7 @@ include(
     "composegl-demo-libgdx",
     "composegl-demo-snake",
     "composegl-demo-showcase",
+    // Throwaway feasibility spike; see docs/superpowers/spikes/.
+    "spikes:s6-runtime-ui",
     "composegl-smoke-lwjgl3",
 )
