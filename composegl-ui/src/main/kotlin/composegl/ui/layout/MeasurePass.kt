@@ -27,7 +27,10 @@ class MeasurePass {
         val resolved = node.resolved
         val outer = resolved.applyTo(incoming)
         val padding = resolved.padding
-        val content = outer.shrink(padding.horizontal, padding.vertical).loosen()
+        // Not loosened. A policy has to see the minimum it was given, or a row told to be 200
+        // wide arranges its children inside the 40 they happen to add up to. Loosening for
+        // children is each policy's own decision, and every one of them makes it.
+        val content = outer.shrink(padding.horizontal, padding.vertical)
 
         val measurables = node.children.map { OnceMeasurable(it) }
         val result = with(node.measurePolicy) { scope.measure(measurables, content) }
