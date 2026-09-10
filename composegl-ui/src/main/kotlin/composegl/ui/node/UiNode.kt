@@ -1,6 +1,7 @@
 package composegl.ui.node
 
 import composegl.ui.geometry.Rect
+import composegl.ui.layout.MeasurePolicy
 import composegl.ui.geometry.Size
 import composegl.ui.modifier.Modifier
 import composegl.ui.modifier.ResolvedModifier
@@ -47,6 +48,19 @@ class UiNode(var name: String = "node") {
             if (field == value) return
             field = value
             cachedResolution = null
+            invalidate()
+        }
+
+    /**
+     * How this node arranges its children.
+     *
+     * Defaults to stacking them, so a node that nobody gave a policy to still behaves — the root,
+     * and anything a test builds by hand.
+     */
+    var measurePolicy: MeasurePolicy = MeasurePolicy.Stack
+        set(value) {
+            if (field == value) return
+            field = value
             invalidate()
         }
 
