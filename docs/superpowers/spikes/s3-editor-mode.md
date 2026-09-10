@@ -5,6 +5,9 @@ Issue: [#24](https://github.com/wildware-uk/composegl/issues/24)
 Verdict: **yes, and the feared blocker does not bite.** Editor mode is implemented — see
 `GameTexture`, `GameView` and `composegl-lwjgl3`'s `GameFrameBuffer`.
 
+> Part of the **Skia product**, which was abandoned on 2026-09-09. The code this refers to is at
+> the tag `skia-final`. The finding below still stands; the product it was found for does not.
+
 ## The question
 
 Editor mode inverts ComposeGL: instead of Compose drawing into the game's frame, the game's frame

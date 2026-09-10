@@ -1,8 +1,11 @@
 # S1 — desktop feasibility spike
 
 Date: 2026-09-08
-Issue: [#1](https://github.com/shaun-wild/composegl/issues/1)
+Issue: [#1](https://github.com/wildware-uk/composegl/issues/1)
 Verdict: **all sub-checks pass. Proceed to M1.** No blocking failure (a, c, h all green).
+
+> Part of the **Skia product**, which was abandoned on 2026-09-09. The code this refers to is at
+> the tag `skia-final`. The finding below still stands; the product it was found for does not.
 
 ## What was run
 

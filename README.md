@@ -38,9 +38,10 @@ and nothing else.
 
 | | |
 |---|---|
-| Design | `docs/superpowers/specs/2026-09-09-runtime-ui-design.md` |
-| Spike, and its numbers | `docs/superpowers/spikes/s6-runtime-ui.md` |
-| Work | the GitHub issues, milestones M5 onwards |
+| Design | [`docs/superpowers/specs/2026-09-09-runtime-ui-design.md`](docs/superpowers/specs/2026-09-09-runtime-ui-design.md) |
+| Spike, and its numbers | [`docs/superpowers/spikes/s6-runtime-ui.md`](docs/superpowers/spikes/s6-runtime-ui.md) |
+| Everything else written down | [`docs/`](docs/README.md) |
+| Work | the [issues](https://github.com/wildware-uk/composegl/issues), milestones M5 onwards |
 
 ## The previous version
 
