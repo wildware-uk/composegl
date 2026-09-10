@@ -4,6 +4,7 @@ import composegl.ui.geometry.Rect
 import composegl.ui.geometry.Size
 import composegl.ui.graphics.RecordingCanvas
 import composegl.ui.graphics.TextureHandle
+import composegl.ui.text.FontMetrics
 import composegl.ui.text.FontProvider
 import composegl.ui.text.TextLayout
 import composegl.ui.text.TextStyle
@@ -17,6 +18,15 @@ import composegl.ui.text.TextStyle
  * in a test can be worked out on paper.
  */
 class MonospaceFontProvider(private val advanceRatio: Float = 0.6f) : FontProvider {
+
+    override fun metrics(style: TextStyle) = FontMetrics(
+        size = style.size,
+        ascent = style.size * 0.8f,
+        descent = style.size * 0.2f,
+        capHeight = style.size * 0.7f,
+        lineHeight = style.lineHeight,
+        spaceAdvance = style.size * advanceRatio,
+    )
 
     override fun measure(text: String, style: TextStyle, maxWidth: Float): TextLayout {
         val advance = style.size * advanceRatio
