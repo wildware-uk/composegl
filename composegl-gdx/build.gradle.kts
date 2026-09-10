@@ -15,6 +15,10 @@ dependencies {
 
     // Enough of LibGDX to run without a window: the tests that need real glyph shapes but no GPU.
     testImplementation(libs.gdx.backend.headless)
+
+    // And a real window with a real GL context, for the handful of tests that need one. They skip
+    // themselves when there is no display; CI gives them one with Xvfb.
+    testImplementation(libs.gdx.backend.lwjgl3)
     testRuntimeOnly(variantOf(libs.gdx.platform) { classifier("natives-desktop") })
     testRuntimeOnly(variantOf(libs.gdx.freetype.platform) { classifier("natives-desktop") })
 

@@ -55,9 +55,6 @@ class GdxFonts : FontProvider, Disposable {
 
     private val fonts = LinkedHashMap<Key, Registered>()
 
-    /** A shared scratch layout. Measuring happens on the frame thread, one string at a time. */
-    private val scratch = GlyphLayout()
-
     /**
      * Uses a font the game made and still owns.
      *
@@ -129,14 +126,14 @@ class GdxFonts : FontProvider, Disposable {
 
     override fun measure(text: String, style: TextStyle, maxWidth: Float): TextLayout {
         val font = fontFor(style)
-        val wrapped = layoutOf(font, text, maxWidth)
+        val wrapped = layoutOf(font, text, maxWidth, style)
 
         if (style.maxLines <= 0 || linesIn(wrapped) <= style.maxLines) {
             return finish(text, wrapped, font, style)
         }
 
         val cut = longestPrefixFitting(font, text, maxWidth, style)
-        return finish(text, layoutOf(font, cut + style.ellipsis, maxWidth), font, style)
+        return finish(text, layoutOf(font, cut + style.ellipsis, maxWidth, style), font, style)
     }
 
     /**
@@ -156,13 +153,16 @@ class GdxFonts : FontProvider, Disposable {
         while (low < high) {
             val middle = (low + high + 1) / 2
             val candidate = text.take(middle).trimEnd() + style.ellipsis
-            if (linesIn(layoutOf(font, candidate, maxWidth)) <= style.maxLines) low = middle else high = middle - 1
+            if (linesIn(layoutOf(font, candidate, maxWidth, style)) <= style.maxLines) low = middle else high = middle - 1
         }
         return text.take(low).trimEnd()
     }
 
-    private fun layoutOf(font: BitmapFont, text: String, maxWidth: Float): GlyphLayout {
+    private fun layoutOf(font: BitmapFont, text: String, maxWidth: Float, style: TextStyle): GlyphLayout {
         val wrap = maxWidth.isFinite() && maxWidth > 0f
+        // The style's line spacing goes into the layout, not just into the reported height, so
+        // that what is drawn is spaced the way what was measured said it would be.
+        font.data.setLineHeight(style.lineHeight)
         return GlyphLayout().also {
             it.setText(font, text, 0, text.length, Color.WHITE, if (wrap) maxWidth else 0f, Align.left, wrap, null)
         }
