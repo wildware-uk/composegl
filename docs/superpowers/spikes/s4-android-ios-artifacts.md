@@ -8,6 +8,9 @@ implementable from this repository, and now we know exactly why.
 Offline, artifacts only. S2 asked what compose-ui and skiko *reference*; this asks what they
 *publish*.
 
+> Part of the **Skia product**, which was abandoned on 2026-09-09. The code this refers to is at
+> the tag `skia-final`. The finding below still stands; the product it was found for does not.
+
 ## Android
 
 ### Skia's GL backend is there, and it is the only backend

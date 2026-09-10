@@ -1,7 +1,12 @@
 # ComposeGL — Design Spec
 
 Date: 2026-09-08
-Status: amended after spike S1 (see `docs/superpowers/spikes/s1-desktop.md`). Versions pinned.
+Status: **superseded and abandoned.** This designed the Skia product, which was built, worked, and
+was dropped on 2026-09-09 because skiko publishes no Android or iOS binary. The code is at the tag
+`skia-final`. The current design is
+[`2026-09-09-runtime-ui-design.md`](2026-09-09-runtime-ui-design.md).
+
+Kept because it records why each decision was made, and most of those reasons still apply.
 
 ## 1. What this is
 

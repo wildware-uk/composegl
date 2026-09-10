@@ -5,6 +5,9 @@ Issue: [#2](https://github.com/wildware-uk/composegl/issues/2)
 Verdict: **Android / RoboVM is a repackaging job, not a fork.** Everything ComposeGL's core sits
 on is AWT-free. The AWT is confined to the parts we already do not use.
 
+> Part of the **Skia product**, which was abandoned on 2026-09-09. The code this refers to is at
+> the tag `skia-final`. The finding below still stands; the product it was found for does not.
+
 ## Method
 
 Unpacked the pinned jars and searched every class file's constant pool for `java/awt`,

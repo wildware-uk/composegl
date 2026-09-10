@@ -7,6 +7,9 @@ once fifteen stub classes stand in for the AWT that Compose and Skiko touch on t
 There are exactly **three** such places, none of them ComposeGL's, and that list is the real size
 of the Android port's upstream work.
 
+> Part of the **Skia product**, which was abandoned on 2026-09-09. The code this refers to is at
+> the tag `skia-final`. The finding below still stands; the product it was found for does not.
+
 ## Why
 
 S2 scanned constant pools and concluded everything ComposeGL touches is AWT-free. That answers
