@@ -16,7 +16,8 @@ dependencyResolutionManagement {
 }
 
 include(
+    "composegl-ui",
+    "composegl-gdx",
     // Throwaway feasibility spike; see docs/superpowers/spikes/s6-runtime-ui.md.
-    // The v2 modules land here as they are built.
     "spikes:s6-runtime-ui",
 )
