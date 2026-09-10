@@ -1,6 +1,7 @@
 package composegl.ui.node
 
 import composegl.ui.geometry.Rect
+import composegl.ui.graphics.UiCanvas
 import composegl.ui.layout.MeasurePolicy
 import composegl.ui.geometry.Size
 import composegl.ui.modifier.Modifier
@@ -58,6 +59,23 @@ class UiNode(var name: String = "node") {
      * and anything a test builds by hand.
      */
     var measurePolicy: MeasurePolicy = MeasurePolicy.Stack
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    /**
+     * What this node draws inside itself, under its children — a run of text, a picture, a
+     * nine-patch. Null for a node that is only there to arrange other nodes.
+     *
+     * The rectangle handed over is the content box: the node's bounds with its padding taken off.
+     *
+     * A widget sets this from a `remember`ed lambda. An inline one is a new object every
+     * recomposition and so never compares equal, which would mark the tree changed on every
+     * recomposition whether or not anything about the drawing differed.
+     */
+    var content: (UiCanvas.(Rect) -> Unit)? = null
         set(value) {
             if (field == value) return
             field = value
