@@ -62,13 +62,27 @@ class GdxCanvasTest {
      */
     private fun Pixmap.at(x: Int, y: Int) = Color(getPixel(x, Gl.size - 1 - y))
 
+    /**
+     * Colours are compared with a tolerance.
+     *
+     * Exact equality is the wrong question to ask of a rasteriser. LibGDX squeezes a colour into a
+     * float and loses the bottom bit of alpha doing it, blending rounds, and llvmpipe is entitled
+     * to differ from a real driver by one. A test that fails over that is testing arithmetic.
+     */
+    private fun assertColour(expected: Color, actual: Color, because: String = "") {
+        val close = kotlin.math.abs(expected.r - actual.r) < 0.02f &&
+            kotlin.math.abs(expected.g - actual.g) < 0.02f &&
+            kotlin.math.abs(expected.b - actual.b) < 0.02f
+        assertTrue(close, "$because expected about $expected, got $actual")
+    }
+
     @Test
     fun `a rectangle lands where the toolkit said, with y down from the top`() {
         val frame = draw { rect(Rect.of(10f, 20f, 100f, 50f), red) }
 
-        assertEquals(Color.RED, frame.pixels.at(50, 30))
-        assertEquals(Color.BLACK, frame.pixels.at(50, 10), "20 down should still be background")
-        assertEquals(Color.BLACK, frame.pixels.at(50, 80), "70 down is past the bottom")
+        assertColour(Color.RED, frame.pixels.at(50, 30))
+        assertColour(Color.BLACK, frame.pixels.at(50, 10), "20 down should still be background")
+        assertColour(Color.BLACK, frame.pixels.at(50, 80), "70 down is past the bottom")
     }
 
     @Test
@@ -92,8 +106,8 @@ class GdxCanvasTest {
             popClip()
         }
 
-        assertEquals(Color.RED, frame.pixels.at(25, 25))
-        assertEquals(Color.BLACK, frame.pixels.at(100, 100), "the clip did not hold")
+        assertColour(Color.RED, frame.pixels.at(25, 25))
+        assertColour(Color.BLACK, frame.pixels.at(100, 100), "the clip did not hold")
     }
 
     @Test
@@ -106,9 +120,9 @@ class GdxCanvasTest {
             popClip()
         }
 
-        assertEquals(Color.RED, frame.pixels.at(150, 150), "the overlap should be drawn")
-        assertEquals(Color.BLACK, frame.pixels.at(50, 50), "outside the inner clip")
-        assertEquals(Color.BLACK, frame.pixels.at(250, 250), "outside the outer clip")
+        assertColour(Color.RED, frame.pixels.at(150, 150), "the overlap should be drawn")
+        assertColour(Color.BLACK, frame.pixels.at(50, 50), "outside the inner clip")
+        assertColour(Color.BLACK, frame.pixels.at(250, 250), "outside the outer clip")
     }
 
     @Test
@@ -119,7 +133,7 @@ class GdxCanvasTest {
             rect(Rect.of(100f, 100f, 50f, 50f), blue)
         }
 
-        assertEquals(Color.BLUE, frame.pixels.at(120, 120))
+        assertColour(Color.BLUE, frame.pixels.at(120, 120))
     }
 
     @Test
@@ -138,7 +152,7 @@ class GdxCanvasTest {
     }
 
     @Test
-    fun `the batch is left as it was handed over`() {
+    fun `a game's own batch comes back exactly as it was lent out`() {
         Gl.render {
             val batch = SpriteBatch()
             val canvas = GdxCanvas(batch)
@@ -148,6 +162,9 @@ class GdxCanvasTest {
             try {
                 canvas.begin(viewport)
                 canvas.rect(Rect.of(0f, 0f, 10f, 10f), red)
+                canvas.raw { lent ->
+                    assertTrue(lent is SpriteBatch, "raw() handed over a ${lent::class}")
+                }
                 canvas.end()
 
                 assertArrayEquals(projection.values, batch.projectionMatrix.values)
@@ -158,6 +175,121 @@ class GdxCanvasTest {
                 batch.dispose()
             }
         }
+    }
+
+    @Test
+    fun `raw is refused rather than handing over something unusable`() {
+        Gl.render {
+            val canvas = GdxCanvas()
+            try {
+                canvas.begin(viewport)
+                val error = runCatching { canvas.raw { } }.exceptionOrNull()
+                canvas.end()
+                assertTrue(error is IllegalStateException, "expected a refusal, got $error")
+            } finally {
+                canvas.dispose()
+            }
+        }
+    }
+
+    // --- the shader ---
+
+    @Test
+    fun `a rounded corner is cut away`() {
+        val frame = draw { rect(Rect.of(50f, 50f, 100f, 100f), red, corner = 30f) }
+
+        assertColour(Color.BLACK, frame.pixels.at(52, 52), "the corner should be cut away.")
+        assertColour(Color.RED, frame.pixels.at(100, 100), "the middle should be filled.")
+        assertColour(Color.RED, frame.pixels.at(100, 52), "the flat top should be filled.")
+    }
+
+    @Test
+    fun `a rounded corner is not a staircase`() {
+        val frame = draw { rect(Rect.of(50f, 50f, 100f, 100f), red, corner = 30f) }
+
+        // Along the corner's diagonal there should be partly covered pixels. Without them the
+        // curve is a staircase, which is what a rounded corner drawn by hand always looks like.
+        val partial = (0..30).count { step ->
+            val shade = frame.pixels.at(50 + step, 50 + step).r
+            shade > 0.05f && shade < 0.95f
+        }
+        assertTrue(partial > 0, "no softened pixels anywhere along the corner")
+    }
+
+    @Test
+    fun `a corner is still soft when the interface is scaled up`() {
+        // Half the design resolution on the same screen: everything is drawn at twice the size.
+        val scaled = Viewport(
+            design = Size(Gl.size / 2f, Gl.size / 2f),
+            physical = Size(Gl.size.toFloat(), Gl.size.toFloat()),
+            policy = ScalePolicy.Fit,
+        )
+        val frame = Gl.render {
+            val canvas = GdxCanvas()
+            try {
+                Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
+                Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+                canvas.begin(scaled)
+                canvas.rect(Rect.of(25f, 25f, 50f, 50f), red, corner = 15f)
+                canvas.end()
+                Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.renderCalls)
+            } finally {
+                canvas.dispose()
+            }
+        }
+
+        // The same corner, now 30 screen pixels across. The softened edge must still be about one
+        // screen pixel wide rather than one design unit — two, blurred.
+        val partial = (0..60).count { step ->
+            val shade = frame.pixels.at(50 + step, 50 + step).r
+            shade > 0.05f && shade < 0.95f
+        }
+        assertTrue(partial in 1..4, "softened over $partial pixels; expected about one")
+    }
+
+    @Test
+    fun `a square corner stays square`() {
+        val frame = draw { rect(Rect.of(50f, 50f, 100f, 100f), red, corner = 0f) }
+
+        assertColour(Color.RED, frame.pixels.at(51, 51), "a zero radius should fill its corner.")
+        assertColour(Color.BLACK, frame.pixels.at(48, 48))
+    }
+
+    @Test
+    fun `a border is a ring, not a filled box`() {
+        val frame = draw { border(Rect.of(50f, 50f, 100f, 100f), blue, width = 6f) }
+
+        assertColour(Color.BLUE, frame.pixels.at(52, 100), "the left edge should be drawn.")
+        assertColour(Color.BLACK, frame.pixels.at(100, 100), "the middle should be empty.")
+    }
+
+    @Test
+    fun `a shadow reaches beyond the box and fades`() {
+        val frame = draw { shadow(Rect.of(100f, 100f, 100f, 100f), Colour.argb(0xFF000000), spread = 20f) }
+
+        // Nothing to see against black, so measure against a lit background instead.
+        val lit = draw {
+            rect(Rect.of(0f, 0f, 400f, 400f), Colour.rgb(0xFFFFFF))
+            shadow(Rect.of(100f, 100f, 100f, 100f), Colour.argb(0xFF000000), spread = 20f)
+        }
+
+        val near = lit.pixels.at(96, 150).r
+        val far = lit.pixels.at(85, 150).r
+        assertTrue(near < 0.9f, "the shadow should darken just outside the box, got $near")
+        assertTrue(far > near, "the shadow should fade with distance: $near then $far")
+        assertTrue(frame.renderCalls >= 1)
+    }
+
+    @Test
+    fun `a panel with a corner, a border and a shadow is one draw call`() {
+        val frame = draw {
+            val panel = Rect.of(100f, 100f, 200f, 120f)
+            shadow(panel, Colour.argb(0x80000000), spread = 12f, corner = 10f)
+            rect(panel, blue, corner = 10f)
+            border(panel, red, width = 2f, corner = 10f)
+        }
+
+        assertEquals(1, frame.renderCalls)
     }
 
     @Test
@@ -186,7 +318,7 @@ class GdxCanvasTest {
         val lit = (20 until 90).flatMap { y -> (20 until 200).map { x -> frame.pixels.at(x, y) } }
             .count { it.r > 0.5f }
         assertTrue(lit > 100, "expected letters below the top-left corner, lit $lit pixels")
-        assertEquals(Color.BLACK, frame.pixels.at(200, 300), "nothing should be drawn down there")
+        assertColour(Color.BLACK, frame.pixels.at(200, 300), "nothing should be drawn down there")
     }
 
     @Test
@@ -214,8 +346,8 @@ class GdxCanvasTest {
             }
         }
 
-        assertEquals(Color.BLUE, frame.pixels.at(30, 30))
-        assertEquals(Color.BLACK, frame.pixels.at(60, 60))
+        assertColour(Color.BLUE, frame.pixels.at(30, 30))
+        assertColour(Color.BLACK, frame.pixels.at(60, 60))
     }
 
     @Test
