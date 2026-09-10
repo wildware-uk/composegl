@@ -23,4 +23,12 @@ interface FontProvider {
         style: TextStyle = TextStyle.Default,
         maxWidth: Float = Float.POSITIVE_INFINITY,
     ): TextLayout
+
+    /**
+     * The shape of the font [style] names, at the size it names.
+     *
+     * Separate from [measure] because a caret, an underline and a baseline-aligned icon all need
+     * it without there being any text to measure.
+     */
+    fun metrics(style: TextStyle = TextStyle.Default): FontMetrics
 }
