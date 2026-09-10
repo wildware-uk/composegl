@@ -24,6 +24,9 @@ data class PaintOp(val element: Modifier.Element, val inset: Padding)
  * size, an alignment, a weight — and they accumulate for the ones that are a *quantity*: padding
  * adds up, offsets add up, opacity multiplies. That matches what people expect when they write
  * `Modifier.padding(8f).padding(4f)` and get twelve.
+ *
+ * Sizes and fills settle per axis rather than wholesale, because `width(40f).height(25f)` is two
+ * separate statements and neither one is a reply to the other.
  */
 class ResolvedModifier private constructor(
     val size: SizeElement?,
@@ -60,8 +63,16 @@ class ResolvedModifier private constructor(
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
-                    is SizeElement -> size = element
-                    is FillElement -> fill = element
+                    // Per axis, not wholesale: `width(40f).height(25f)` names two different
+                    // things, and a later element that says nothing about an axis leaves it alone.
+                    is SizeElement -> size = SizeElement(
+                        element.width ?: size?.width,
+                        element.height ?: size?.height,
+                    )
+                    is FillElement -> fill = FillElement(
+                        element.widthFraction ?: fill?.widthFraction,
+                        element.heightFraction ?: fill?.heightFraction,
+                    )
                     is PaddingElement -> padding += element.padding
                     is OffsetElement -> offset += Offset(element.x, element.y)
                     is WeightElement -> weight = element.weight
