@@ -186,6 +186,36 @@ couple either side. `key` and `spacing` do what you expect.
 
 ---
 
+## When it does not fit
+
+A line hands out the room it has, top to bottom, and whoever asks after it has
+run out gets none. That child reports no height — and draws itself anyway,
+because nothing here cuts a widget down to the size it agreed to.
+
+So a column with more in it than it has room for does not get neatly cut off at
+the bottom. It gets **printed on top of itself**, which looks like a bug
+somewhere else entirely. It is worth knowing the shape of it, because the usual
+way to meet it is a phone keyboard taking two thirds of the screen away from a
+menu that used to fit.
+
+The answer is a `ScrollArea`. It offers its contents as much room as they like,
+takes only the room it was given, and clips once around the whole thing:
+
+```kotlin
+ScrollArea {
+    Column(verticalArrangement = Arrangement.spacedBy(16f)) {
+        // …as long as you like
+    }
+}
+```
+
+It is the same size as before when the contents fit, so wrapping a menu in one
+costs nothing on a screen where it was never a problem. Moving focus to a child
+that is off-screen scrolls it into view, which is what makes a text field usable
+with a keyboard over it.
+
+---
+
 ## The one rule that catches people out
 
 **A widget is never measured twice.** Compose UI tolerates it; we do not. Ask a
