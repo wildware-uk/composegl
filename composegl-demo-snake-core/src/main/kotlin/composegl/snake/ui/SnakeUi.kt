@@ -40,6 +40,7 @@ import composegl.ui.widget.LocalFonts
 import composegl.ui.widget.LocalInputSource
 import composegl.ui.widget.LocalSoftKeyboard
 import composegl.ui.widget.Panel
+import composegl.ui.widget.ScrollArea
 import composegl.ui.widget.Slider
 import composegl.ui.widget.Text
 import composegl.ui.widget.TextField
@@ -148,56 +149,61 @@ private fun MenuScreen(session: SnakeSession) {
     Scrim {
         Row(horizontalArrangement = Arrangement.spacedBy(20f)) {
             Panel(Modifier.width(400f)) {
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16f)) {
-                    Text("SNAKE", style = "label.display")
-                    Text("The board is OpenGL. Everything you can click is the toolkit.", style = "label.dim")
+                // Scrolling, because on a phone the keyboard takes two thirds of the screen and
+                // this menu is taller than what is left. Focus scrolls a field into view by itself,
+                // so tapping NAME brings the field up out from under the keyboard.
+                ScrollArea {
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16f)) {
+                        Text("SNAKE", style = "label.display")
+                        Text("The board is OpenGL. Everything you can click is the toolkit.", style = "label.dim")
 
-                    Column(verticalArrangement = Arrangement.spacedBy(6f)) {
-                        Text("NAME", style = "label.dim")
-                        TextField(
-                            value = session.playerName,
-                            onValueChange = { session.playerName = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            maxLength = 16,
-                            onSubmit = { session.startGame() },
-                        )
-                    }
+                        Column(verticalArrangement = Arrangement.spacedBy(6f)) {
+                            Text("NAME", style = "label.dim")
+                            TextField(
+                                value = session.playerName,
+                                onValueChange = { session.playerName = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLength = 16,
+                                onSubmit = { session.startGame() },
+                            )
+                        }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(6f)) {
-                        Text("SPEED", style = "label.dim")
-                        Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
-                            Difficulty.entries.forEach { level ->
-                                Button(
-                                    level.label.uppercase(),
-                                    { session.difficulty = level },
-                                    style = if (session.difficulty == level) "chip.chosen" else "chip",
-                                    initialFocus = level == session.difficulty,
-                                )
+                        Column(verticalArrangement = Arrangement.spacedBy(6f)) {
+                            Text("SPEED", style = "label.dim")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
+                                Difficulty.entries.forEach { level ->
+                                    Button(
+                                        level.label.uppercase(),
+                                        { session.difficulty = level },
+                                        style = if (session.difficulty == level) "chip.chosen" else "chip",
+                                        initialFocus = level == session.difficulty,
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(6f)) {
-                        Text("BOARD: ${session.boardWidth} SQUARES WIDE", style = "label.dim")
-                        Slider(
-                            value = session.boardWidth.toFloat(),
-                            onValueChange = { session.boardWidth = it.roundToInt() },
-                            modifier = Modifier.fillMaxWidth(),
-                            range = 12f..40f,
-                            step = 1f,
-                        )
-                    }
+                        Column(verticalArrangement = Arrangement.spacedBy(6f)) {
+                            Text("BOARD: ${session.boardWidth} SQUARES WIDE", style = "label.dim")
+                            Slider(
+                                value = session.boardWidth.toFloat(),
+                                onValueChange = { session.boardWidth = it.roundToInt() },
+                                modifier = Modifier.fillMaxWidth(),
+                                range = 12f..40f,
+                                step = 1f,
+                            )
+                        }
 
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = VerticalAlignment.Centre,
-                    ) {
-                        Text("Grid lines", style = "label")
-                        Toggle(session.showGrid, { session.showGrid = it })
-                    }
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = VerticalAlignment.Centre,
+                        ) {
+                            Text("Grid lines", style = "label")
+                            Toggle(session.showGrid, { session.showGrid = it })
+                        }
 
-                    Button("PLAY", { session.startGame() }, Modifier.fillMaxWidth().height(46f))
+                        Button("PLAY", { session.startGame() }, Modifier.fillMaxWidth().height(46f))
+                    }
                 }
             }
 
