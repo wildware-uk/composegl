@@ -8,15 +8,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import composegl.ui.animation.Clock
 import composegl.ui.game.DamageNumbers
+import composegl.ui.game.ParticleEmitter
+import composegl.ui.game.ParticleStyle
+import composegl.ui.graphics.Colour
 
 /** One thing on show, and whether it is currently on. */
 enum class Exhibit(val title: String, val blurb: String) {
-    Hud("Combat HUD", "Reticle, radar, cooldowns and a target readout, every one a toolkit widget"),
-    Tracking("World tracking", "Readouts that follow drones in the 3D scene and fade at the edge"),
-    Damage("Floating numbers", "Damage text spawned at world positions and projected to the screen"),
-    Holo("In-world panel", "The toolkit drawn into a texture on a quad in the scene, added as light"),
-    Particles("GL particles", "Embers drawn by the game, behind the interface"),
-    Shaders("Shaders", "Blur, outline, colour grade and dissolve, on live widgets"),
+    Hud("Combat HUD", "Reticle, radar, bars, cooldowns"),
+    Tracking("World tracking", "Tags that follow drones"),
+    Damage("Floating numbers", "Damage text at world positions"),
+    Holo("In-world panel", "The toolkit on a quad in the scene"),
+    Particles("GL particles", "Embers drawn by the game"),
+    Shaders("Shaders", "Blur, outline, grade, dissolve"),
+    Sparks("Hit sparks", "A seeded burst off every hit"),
 }
 
 /** What one of the scene's drones looks like to the interface. */
@@ -84,4 +88,29 @@ class ShowcaseState {
      * `damage.show(...)` from its own loop, and the interface only draws what is in the pool.
      */
     val damage = DamageNumbers(capacity = 96, clock = Clock.World)
+
+    /**
+     * The sparks that come off a hit.
+     *
+     * Seeded, so the same fight looks the same twice — which matters more than it sounds: it is
+     * what makes a burst of particles something a screenshot test can check.
+     */
+    val sparks = ParticleEmitter(capacity = 240, clock = Clock.World, seed = 11L)
 }
+
+/** What a hit throws off: a short, fast, cooling burst. */
+val HitSparks = ParticleStyle(
+    life = 0.55f,
+    lifeSpread = 0.4f,
+    speed = 220f,
+    speedSpread = 0.6f,
+    // Every direction, because a hit does not care which way the shot came from.
+    spread = 180f,
+    gravity = 420f,
+    drag = 1.5f,
+    size = 6f,
+    endSize = 0.2f,
+    colour = Colour.rgb(0xFFD48A),
+    endColour = Colour.argb(0x00FF5A2A),
+    corner = 2.5f,
+)

@@ -57,7 +57,7 @@ A skin that will not parse names the line and suggests the nearest region or key
 worked, and a broken save leaves the last skin that worked on screen. The widget set has started:
 `Text`, `Image`, `Button`, `IconButton`, `Checkbox`, `RadioButton`, `Toggle`, `Slider`,
 `ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog`, `Tabs`, `TextField`, `Bar`, `Hotbar`,
-`RadialCooldown`, `DamageNumberLayer`, `Reticle`, `Tooltip`, `Typewriter`, `PromptGlyph`, `Notifications` and `MinimapFrame` ship with
+`RadialCooldown`, `DamageNumberLayer`, `ParticleLayer`, `Reticle`, `Tooltip`, `Typewriter`, `PromptGlyph`, `Notifications` and `MinimapFrame` ship with
 the toolkit, and the example is built from them. Typing works the whole way through: a caret that blinks
 and stops blinking mid-word, selection by shift or by dragging, double-click for a word, word-wise
 movement, the system clipboard through whichever backend is running, and a field that scrolls
@@ -104,6 +104,15 @@ number to make and throw away, and a test that watches the thread's own allocati
 costs nothing per frame once they are up. Where a number goes is the game's to say: it hands over
 an anchor that writes a world position and a projection that turns it into a screen one, so a
 number over a walking target walks with it, and one behind the camera is simply not drawn.
+
+Sparks are the same idea, one step further: the toolkit makes the pixels rather than moving text
+about. `ParticleLayer` is a bounded pool — a burst takes slots that already exist, a particle that
+dies gives its slot back, and the simulation allocates nothing at all — with gravity, drag, size and
+colour over life, and either a plain quad or a picture. Two ways to feed it: a `burst` for a hit or
+a win, or a source that runs at so many a second and can be moved, which is a trail behind something
+flying. It is seeded, so the same burst comes out the same on every machine and on both backends —
+which is what makes a shower of random sparks something a golden screenshot can actually check. An
+emitter with nothing alive asks the runtime for no frames at all.
 
 The crosshair is the other half of that. It draws at the centre of whatever box it is given, so it
 is right at every window size without the game working out where the middle is; the spread animates
@@ -198,8 +207,8 @@ honestly in [`docs/snake-port.md`](docs/snake-port.md).
 
 *The showcase, in `composegl-demo-showcase`: a 3D scene with the game-widget tier over it and a
 panel standing inside it. The reticle, the hull and heat bars, the ability bar with its cooldown
-sweeps, the radar, the tags stuck to the drones, the damage numbers and the four shader tiles along
-the top are all toolkit widgets reading one object of game state — in the previous version every one of them was hand-written in
+sweeps, the radar, the tags stuck to the drones, the damage numbers, the sparks coming off the drone
+that was just hit and the four shader tiles along the top are all toolkit widgets reading one object of game state — in the previous version every one of them was hand-written in
 the demo. The DOCK TERMINAL on the pedestal is an ordinary composition drawn into a texture and
 added to the frame as light; the mouse is pointing at its NEXT button, and the button is lit,
 because anything the screen interface did not want becomes a ray into the scene and lands on the
