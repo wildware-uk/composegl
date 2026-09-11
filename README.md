@@ -192,6 +192,26 @@ frame of the running game is one draw call and the menu is three. What that port
 gave up — there is no `AnimatedVisibility`, so screens snap rather than fade — is written down
 honestly in [`docs/snake-port.md`](docs/snake-port.md).
 
+![The showcase running](docs/images/showcase.png)
+
+*The showcase, in `composegl-demo-showcase`: a 3D scene with the game-widget tier over it and a
+panel standing inside it. The reticle, the hull and heat bars, the ability bar with its cooldown
+sweeps, the radar, the tags stuck to the drones and the damage numbers are all toolkit widgets
+reading one object of game state — in the previous version every one of them was hand-written in
+the demo. The DOCK TERMINAL on the pedestal is an ordinary composition drawn into a texture and
+added to the frame as light; the mouse is pointing at its NEXT button, and the button is lit,
+because anything the screen interface did not want becomes a ray into the scene and lands on the
+panel through the same router a mouse goes through. The whole frame is three draw calls, and the
+number in the corner says the terminal has been redrawn twice since it started — a panel nobody is
+touching costs a comparison a frame.*
+
+The showcase is the second demo of the pair and it runs on the LibGDX backend, where Snake runs on
+raw OpenGL: between them they prove a game can take either one. Its one interesting file is
+[`PanelPlane.kt`](composegl-demo-showcase/src/main/kotlin/composegl/showcase/world/PanelPlane.kt) —
+the ray-versus-quad arithmetic, pulled out on its own so it can be tested without a window, because
+where a panel hangs in a scene is the game's business and nothing the toolkit should have an
+opinion about. Everything after the hit is `WorldPointer`, and is the same code as a mouse.
+
 | | |
 |---|---|
 | `composegl-ui` | the toolkit. Multiplatform, and depends on the Compose runtime and coroutines |
@@ -200,6 +220,7 @@ honestly in [`docs/snake-port.md`](docs/snake-port.md).
 | `composegl-testing` | the scenes both backends draw, and the golden comparison |
 | `composegl-demo` | the example in the picture |
 | `composegl-demo-snake` | Snake: a whole small game, board in OpenGL, interface in the toolkit |
+| `composegl-demo-showcase` | the game-widget tier over a 3D scene, and an interface standing in it |
 | Design | [`docs/superpowers/specs/2026-09-09-runtime-ui-design.md`](docs/superpowers/specs/2026-09-09-runtime-ui-design.md) |
 | Spike, and its numbers | [`docs/superpowers/spikes/s6-runtime-ui.md`](docs/superpowers/spikes/s6-runtime-ui.md) |
 | Everything else written down | [`docs/`](docs/README.md) |
@@ -248,6 +269,7 @@ work this project can do. Everything it taught us is in `docs/superpowers/spikes
 ./gradlew :composegl-demo:run                             # the example in the picture
 ./gradlew :composegl-demo:runGl                           # the same example, with no LibGDX in it
 ./gradlew :composegl-demo-snake:run                       # Snake: menu, HUD, pause, game over
+./gradlew :composegl-demo-showcase:run                    # the HUD over a 3D scene, and a panel in it
 SPIKE_S6_HEADLESS=1 ./gradlew :spikes:s6-runtime-ui:run   # the redraw experiment, no window needed
 ```
 
