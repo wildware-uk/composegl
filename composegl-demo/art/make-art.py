@@ -85,10 +85,24 @@ def ribbon():
     return over(image, hatch)
 
 
+def crest():
+    """A 24x24 emblem. Not a nine-patch: a picture, drawn at whatever size it is asked for."""
+    image, draw = layer((24, 24))
+
+    # A diamond with a notch out of the bottom, and a bar across it. Nothing here is stretched, so
+    # it can have detail in the middle that a nine-patch could not.
+    draw.polygon([(12, 1), (22, 7), (22, 15), (12, 23), (2, 15), (2, 7)], fill=ACCENT + (54,))
+    draw.line([(12, 1), (22, 7), (22, 15), (12, 23), (2, 15), (2, 7), (12, 1)], fill=ACCENT + (200,))
+    draw.line((7, 11, 17, 11), fill=ACCENT + (200,))
+    draw.polygon([(12, 6), (16, 11), (12, 17), (8, 11)], fill=(232, 244, 255, 120))
+    return image
+
+
 def main():
     atlas = Image.new("RGBA", (ATLAS_W, ATLAS_H), (0, 0, 0, 0))
     atlas.paste(panel(), (0, 0))
     atlas.paste(ribbon(), (52, 0))
+    atlas.paste(crest(), (80, 0))
 
     OUT.mkdir(parents=True, exist_ok=True)
     atlas.save(OUT / "ui.png")
@@ -111,6 +125,9 @@ def main():
                 "  bounds:52,0,24,24",
                 "  split:8,8,10,10",
                 "  pad:14,14,5,6",
+                # No split and no pad: a picture, not a frame. The Image widget scales it.
+                "icon/crest",
+                "  bounds:80,0,24,24",
             ]
         )
         + "\n"

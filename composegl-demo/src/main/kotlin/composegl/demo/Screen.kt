@@ -42,6 +42,10 @@ import composegl.ui.skin.rememberStates
 import composegl.ui.skin.rememberStyle
 import composegl.ui.skin.styled
 import composegl.ui.text.FontProvider
+import composegl.ui.widget.Image
+import composegl.ui.widget.ImageFit
+import composegl.ui.widget.LocalFonts
+import composegl.ui.widget.Text
 
 /**
  * The example interface.
@@ -80,11 +84,11 @@ fun Screen(fonts: FontProvider, skin: Skin, state: DemoState) {
                     Modifier.fillMaxSize().padding(28f),
                     verticalArrangement = Arrangement.spacedBy(20f),
                 ) {
-                    Label("COMPOSEGL", "label.title")
+                    Text("COMPOSEGL", style = "label.title")
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Label("a game interface toolkit on the Compose runtime", "label.dim")
+                        Text("a game interface toolkit on the Compose runtime", style = "label.dim")
                         // Switches the moment the player picks up something else.
-                        Label("input: ${state.source.current}".uppercase(), "label.dim")
+                        Text("input: ${state.source.current}".uppercase(), style = "label.dim")
                     }
 
                     Row(
@@ -112,14 +116,22 @@ fun Screen(fonts: FontProvider, skin: Skin, state: DemoState) {
 private fun StatusPanel(modifier: Modifier, health: Float) {
     Panel(modifier, style = "panel.flat") {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12f)) {
-            Heading("STATUS")
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10f),
+                verticalAlignment = VerticalAlignment.Centre,
+            ) {
+                // A picture rather than a frame: `icon/crest` has no slices, so the Image widget
+                // scales the whole thing and keeps it square whatever size it is asked for.
+                Image("icon/crest", Modifier.size(26f), fit = ImageFit.Contain)
+                Heading("STATUS")
+            }
             Bar("Health", health, "bar.fill")
             Bar("Shield", 0.42f, "bar.fill.shield")
             Bar("Stamina", 0.78f, "bar.fill.stamina")
             Spacer(Modifier.weight(1f))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Label("Level 12", "label.dim")
-                Label("2,480 XP", "label.dim")
+                Text("Level 12", style = "label.dim")
+                Text("2,480 XP", style = "label.dim")
             }
         }
     }
@@ -130,8 +142,8 @@ private fun StatusPanel(modifier: Modifier, health: Float) {
 private fun Bar(label: String, fraction: Float, fill: String) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4f)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Label(label, "label.dim")
-            Label("${(fraction * 100).toInt()}%", "label.dim")
+            Text(label, style = "label.dim")
+            Text("${(fraction * 100).toInt()}%", style = "label.dim")
         }
         Box(Modifier.fillMaxWidth().height(10f).styled("bar.track")) {
             Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().styled(fill))
@@ -145,10 +157,10 @@ private fun LorePanel(modifier: Modifier, state: DemoState) {
     Panel(modifier) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
             Heading("BRIEFING")
-            Label(
+            Text(
                 "The relay went quiet six hours ago. Whatever is down there has already " +
                     "rewritten the door codes, so bring the cutter and do not count on the lift.",
-                "label.body",
+                style = "label.body",
             )
             Spacer(Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(10f)) {
@@ -181,7 +193,7 @@ private fun Chip(label: String, style: String, chosen: Boolean, first: Boolean, 
                 .clickable(onClick = onClick)
                 .styledWith(resolved),
         ) {
-            Text(label, style = resolved.textStyle, colour = resolved.textColour)
+            Text(label, textStyle = resolved.textStyle, colour = resolved.textColour)
         }
     }
 }
@@ -215,7 +227,7 @@ private fun Slot(slot: Int, lit: Boolean, onClick: () -> Unit) {
                 .styledWith(resolved),
             contentAlignment = Alignment.Centre,
         ) {
-            Text("${(slot + 1) % 10}", style = resolved.textStyle, colour = resolved.textColour)
+            Text("${(slot + 1) % 10}", textStyle = resolved.textStyle, colour = resolved.textColour)
         }
     }
 }
