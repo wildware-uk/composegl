@@ -63,8 +63,12 @@ data class Rect(val left: Float, val top: Float, val right: Float, val bottom: F
     /** Shrunk on every side. A negative amount grows it. */
     fun inset(by: Float) = Rect(left + by, top + by, right - by, bottom - by)
 
-    fun inset(left: Float, top: Float, right: Float, bottom: Float) =
-        Rect(this.left + left, this.top + top, this.right - right, this.bottom - bottom)
+    fun inset(left: Float, top: Float, right: Float, bottom: Float): Rect {
+        // Inset by nothing is this rectangle. Worth the line: a draw pass asks this of every node
+        // it paints, every frame, and most nodes have no padding at all.
+        if (left == 0f && top == 0f && right == 0f && bottom == 0f) return this
+        return Rect(this.left + left, this.top + top, this.right - right, this.bottom - bottom)
+    }
 
     /**
      * The overlap of two rectangles.

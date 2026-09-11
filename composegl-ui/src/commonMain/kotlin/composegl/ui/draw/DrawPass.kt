@@ -28,14 +28,23 @@ import composegl.ui.node.UiNode
 class DrawPass(private val canvas: UiCanvas) {
 
     /** Draws [node] and everything under it. [origin] is where its parent's content box starts. */
-    fun draw(node: UiNode, origin: Offset = Offset.Zero) {
+    fun draw(node: UiNode, origin: Offset = Offset.Zero) = draw(node, origin.x, origin.y)
+
+    /**
+     * The same, as two floats.
+     *
+     * What the walk itself uses. A tree is drawn from its parent's corner, and building an [Offset]
+     * to carry two numbers one level down is an object per node per frame for a screen that is
+     * standing still.
+     */
+    fun draw(node: UiNode, originX: Float, originY: Float) {
         val resolved = node.resolved
 
         // Nothing under a fully transparent node can be seen, so nothing under it is drawn. A
         // fading panel costs a comparison instead of a subtree.
         if (resolved.alpha <= 0f) return
 
-        val bounds = Rect.of(origin.x + node.x, origin.y + node.y, node.width, node.height)
+        val bounds = Rect.of(originX + node.x, originY + node.y, node.width, node.height)
         val faded = resolved.alpha < 1f
         if (faded) canvas.pushAlpha(resolved.alpha)
 
@@ -52,25 +61,34 @@ class DrawPass(private val canvas: UiCanvas) {
 
     /** Everything a node draws: what its chain put behind it, itself, its children, what is in front. */
     private fun contents(node: UiNode, resolved: ResolvedModifier, bounds: Rect) {
-        resolved.behind.forEach { paint(it, bounds) }
+        // Index loops rather than `forEach`, here and below: the lambda would capture `bounds`,
+        // which makes a fresh object for it, per list, per node, every frame.
+        val behind = resolved.behind
+        for (index in behind.indices) paint(behind[index], bounds)
 
         // The clip covers this node's content and its children, not its own background — which is
         // the node's own bounds anyway, so clipping it would change nothing.
         val clipped = resolved.clip != null
         if (clipped) canvas.pushClip(bounds)
 
-        val content = bounds.inset(
-            resolved.padding.left,
-            resolved.padding.top,
-            resolved.padding.right,
-            resolved.padding.bottom,
-        )
-        node.content?.invoke(canvas, content)
-        node.children.forEach { draw(it, bounds.topLeft) }
+        // Only when something is actually drawn into it. Most nodes are a box round other boxes
+        // and have no content of their own, and the inset rectangle would be made and dropped.
+        val content = node.content
+        if (content != null) {
+            val padding = resolved.padding
+            content(
+                canvas,
+                bounds.inset(padding.left, padding.top, padding.right, padding.bottom),
+            )
+        }
+
+        val children = node.children
+        for (index in children.indices) draw(children[index], bounds.left, bounds.top)
 
         if (clipped) canvas.popClip()
 
-        resolved.inFront.forEach { paint(it, bounds) }
+        val inFront = resolved.inFront
+        for (index in inFront.indices) paint(inFront[index], bounds)
     }
 
     /**
