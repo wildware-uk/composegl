@@ -244,8 +244,9 @@ Panel(
 ) { … }
 ```
 
-You can put them in any order — a modifier chain is a description of the widget,
-not a list of steps.
+Order matters where you would expect it to. `padding(8f).background(Colour.Blue)`
+paints the blue inside the padding; `background(Colour.Blue).padding(8f)` paints it
+across the whole widget and puts the padding inside.
 
 ---
 
