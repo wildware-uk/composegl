@@ -44,12 +44,14 @@ import composegl.ui.skin.rememberStyle
 import composegl.ui.skin.styled
 import composegl.ui.text.FontProvider
 import composegl.ui.backend.Clipboard
+import composegl.ui.backend.SoftKeyboard
 import composegl.ui.widget.Button
 import composegl.ui.widget.Checkbox
 import composegl.ui.widget.Dialog
 import composegl.ui.widget.Image
 import composegl.ui.widget.ImageFit
 import composegl.ui.widget.LocalClipboard
+import composegl.ui.widget.LocalSoftKeyboard
 import composegl.ui.widget.LocalFonts
 import composegl.ui.widget.ProvideBackStack
 import composegl.ui.widget.rememberLazyListState
@@ -71,11 +73,18 @@ import composegl.ui.widget.Toggle
  * is `ui/demo.skin.json` — saved while the example runs, seen on the next frame.
  */
 @Composable
-fun Screen(fonts: FontProvider, skin: Skin, state: DemoState, clipboard: Clipboard = Clipboard.None) {
+fun Screen(
+    fonts: FontProvider,
+    skin: Skin,
+    state: DemoState,
+    clipboard: Clipboard = Clipboard.None,
+    softKeyboard: SoftKeyboard = SoftKeyboard.None,
+) {
     CompositionLocalProvider(
         LocalFonts provides fonts,
         LocalInputSource provides state.source,
         LocalClipboard provides clipboard,
+        LocalSoftKeyboard provides softKeyboard,
     ) {
         ProvideSkin(skin) {
             ProvideBackStack(state.backs) {

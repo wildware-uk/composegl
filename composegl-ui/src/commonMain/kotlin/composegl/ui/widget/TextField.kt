@@ -2,6 +2,7 @@ package composegl.ui.widget
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.getValue
@@ -12,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import composegl.ui.backend.Clipboard
+import composegl.ui.backend.SoftKeyboard
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
@@ -59,6 +61,18 @@ fun ProvideClipboard(clipboard: Clipboard, content: @Composable () -> Unit) =
     CompositionLocalProvider(LocalClipboard provides clipboard, content = content)
 
 /**
+ * The on-screen keyboard, for the fields inside it. A game provides its backend's.
+ *
+ * The default does nothing, which is the right answer on a desktop: the keyboard is already there.
+ */
+val LocalSoftKeyboard: ProvidableCompositionLocal<SoftKeyboard> =
+    staticCompositionLocalOf { SoftKeyboard.None }
+
+@Composable
+fun ProvideSoftKeyboard(keyboard: SoftKeyboard, content: @Composable () -> Unit) =
+    CompositionLocalProvider(LocalSoftKeyboard provides keyboard, content = content)
+
+/**
  * Somewhere to type.
  *
  * A name box, a seed, a server address, a search. Everything it is made of was built and tested
@@ -98,6 +112,7 @@ fun TextField(
     initialFocus: Boolean = false,
     onSubmit: (() -> Unit)? = null,
     clipboard: Clipboard = LocalClipboard.current,
+    softKeyboard: SoftKeyboard = LocalSoftKeyboard.current,
     interaction: InteractionState = remember { InteractionState() },
 ) {
     val resolved = rememberStyle(style, rememberStates(interaction, enabled))
@@ -125,6 +140,17 @@ fun TextField(
 
     val metrics = remember(value.text, resolved.textStyle, fonts, multiline) {
         FieldMetrics(fonts, resolved.textStyle, value.text, multiline)
+    }
+
+    // A phone's keyboard comes up with the field and goes away with it. On a desktop this is two
+    // calls that do nothing, which is why a field never asks what it is running on.
+    val wantsKeyboard = interaction.isFocused && enabled
+    DisposableEffect(softKeyboard, wantsKeyboard) {
+        if (wantsKeyboard) softKeyboard.show()
+        // Whether it was raised is decided here rather than read back on the way out: by the time
+        // this runs, focus has already gone, and a field leaving the screen while focused — a
+        // dialogue closing over one — has to put the keyboard away on its way out too.
+        onDispose { if (wantsKeyboard) softKeyboard.hide() }
     }
 
     // The caret is solid for a moment after every change, and blinks after that. Restarting the
@@ -233,6 +259,7 @@ fun TextField(
     initialFocus: Boolean = false,
     onSubmit: (() -> Unit)? = null,
     clipboard: Clipboard = LocalClipboard.current,
+    softKeyboard: SoftKeyboard = LocalSoftKeyboard.current,
     interaction: InteractionState = remember { InteractionState() },
 ) {
     // The caret lives here, because a plain string cannot carry one. A game that sets the text from
@@ -255,6 +282,7 @@ fun TextField(
         initialFocus = initialFocus,
         onSubmit = onSubmit,
         clipboard = clipboard,
+        softKeyboard = softKeyboard,
         interaction = interaction,
     )
 }

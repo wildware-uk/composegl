@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import composegl.ui.backend.InMemoryClipboard
 import composegl.ui.backend.MonospaceFontProvider
+import composegl.ui.backend.RecordingSoftKeyboard
 import composegl.ui.draw.DrawPass
 import composegl.ui.focus.FocusManager
 import composegl.ui.geometry.Offset
@@ -430,6 +431,52 @@ class TextFieldTest {
 
         assertEquals("one\ntwo", text)
         assertEquals(listOf("one", "two"), drawn(), "drawn as two lines, not one with a square in it")
+    }
+
+    // --- the phone's keyboard ------------------------------------------------------------------------
+    //
+    // Half of what a phone needs, and the half that can be checked without one. What is left is the
+    // keyboard covering the bottom third of the screen, which needs a height LibGDX does not report
+    // and a device to try it on.
+
+    @Test
+    fun `the keyboard comes up with the field and goes away with it`() {
+        val keyboard = RecordingSoftKeyboard()
+        var focused by mutableStateOf(true)
+        show {
+            Column {
+                Button("ELSEWHERE", onClick = {}, initialFocus = !focused)
+                TextField("", onValueChange = {}, softKeyboard = keyboard, initialFocus = focused)
+            }
+        }
+
+        assertEquals(listOf("show"), keyboard.requests)
+
+        key(Key.Tab)
+
+        assertEquals(listOf("show", "hide"), keyboard.requests, "focus left, so the keyboard should")
+    }
+
+    @Test
+    fun `a field leaving the screen while focused puts the keyboard away`() {
+        val keyboard = RecordingSoftKeyboard()
+        var showing by mutableStateOf(true)
+        show { if (showing) TextField("", onValueChange = {}, softKeyboard = keyboard, initialFocus = true) }
+
+        assertEquals(listOf("show"), keyboard.requests)
+
+        showing = false
+        frames(2)
+
+        assertFalse(keyboard.isVisible, "a dialogue closing over a field left the keyboard up")
+    }
+
+    @Test
+    fun `a disabled field does not raise the keyboard`() {
+        val keyboard = RecordingSoftKeyboard()
+        show { TextField("", onValueChange = {}, enabled = false, softKeyboard = keyboard) }
+
+        assertTrue(keyboard.requests.isEmpty())
     }
 
     @Test
