@@ -30,7 +30,9 @@ import composegl.ui.text.TextStyle
  * keep: measure twice and a line can break in one of them and not the other, and the result is
  * text drawn a word away from the space that was reserved for it.
  *
- * @param style the skin style to take the font and colour from.
+ * @param style the skin style to take the font and colour from. Null takes them from whatever
+ *   widget this is inside — the label in a button is the button's colour, in whichever state the
+ *   button is in — and falls back to `"label"` when nothing is wrapping it.
  * @param textStyle overrides the style's font, for the rare place that needs one.
  * @param colour overrides the style's colour.
  * @param align where the text sits when it was given more room than it needs. This aligns the
@@ -47,7 +49,7 @@ import composegl.ui.text.TextStyle
 fun Text(
     text: String,
     modifier: Modifier = Modifier,
-    style: String = "label",
+    style: String? = null,
     textStyle: TextStyle? = null,
     colour: Colour? = null,
     align: HorizontalAlignment = HorizontalAlignment.Start,
@@ -55,7 +57,9 @@ fun Text(
     maxLines: Int = 0,
     ellipsis: String? = null,
 ) {
-    val resolved = rememberStyle(style)
+    val named = rememberStyle(style ?: "label")
+    val inherited = LocalContentStyle.current
+    val resolved = if (style == null && inherited != null) inherited else named
     val fonts = rememberFonts()
     val ink = colour ?: resolved.textColour
     val face = remember(resolved.textStyle, textStyle, maxLines, ellipsis) {
