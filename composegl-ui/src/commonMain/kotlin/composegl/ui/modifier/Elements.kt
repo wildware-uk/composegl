@@ -127,6 +127,9 @@ data class FocusDirectionElement(val handler: DirectionHandler) : Modifier.Eleme
 /** Asked to bring a descendant into view when focus lands on it. */
 data class RevealElement(val handler: RevealHandler) : Modifier.Element
 
+/** Focus cannot leave this node's subtree while it is in the tree. */
+data class FocusTrapElement(val enabled: Boolean) : Modifier.Element
+
 data class FocusRequesterElement(val requester: FocusRequester) : Modifier.Element
 
 /**
@@ -279,6 +282,16 @@ fun Modifier.onFocusDirection(handler: DirectionHandler) = then(FocusDirectionEl
  * contents can answer it: the toolkit asks, and what "into view" means is the node's own business.
  */
 fun Modifier.onReveal(handler: RevealHandler) = then(RevealElement(handler))
+
+/**
+ * Focus stays inside this node.
+ *
+ * What a dialogue is, as far as the pad is concerned: pressing down at the bottom of it must not
+ * walk out into the screen behind. The innermost trap in the tree wins, so a dialogue over a
+ * dialogue behaves the way a player expects, and when a trap goes away focus returns to whatever
+ * had it before — the button that opened the dialogue, rather than the top of the screen.
+ */
+fun Modifier.focusTrap(enabled: Boolean = true) = then(FocusTrapElement(enabled))
 
 fun Modifier.focusRequester(requester: FocusRequester) = then(FocusRequesterElement(requester))
 

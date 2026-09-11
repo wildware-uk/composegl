@@ -87,6 +87,30 @@
       "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } }
     },
 
+    // --- the tabs and the dialogue ---
+
+    "tab": {
+      "background": { "fill": "#18FFFFFF", "corner": 6, "border": "#30FFFFFF", "padding": [14, 6] },
+      "textColour": "#9AA4B2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 6, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    "tab.selected": {
+      "background": { "fill": "#404CC2FF", "corner": 6, "border": "#4CC2FF", "borderWidth": 2, "padding": [14, 6] },
+      "textColour": "#4CC2FF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#504CC2FF", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+
+    // A dim over the whole screen, so what is behind the question reads as out of reach.
+    "scrim": { "background": { "fill": "#B00E1116" } },
+
+    "dialog": {
+      "background": { "fill": "#F21B1F2A", "corner": 12, "border": "#4CC2FF", "padding": 20 }
+    },
+
     "scrollbar.track": { "background": { "fill": "#30000000", "corner": 4 } },
 
     "scrollbar.thumb": {

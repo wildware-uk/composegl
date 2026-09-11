@@ -36,6 +36,14 @@
       "background": { "fill": "#232A35", "corner": 6, "border": "#39445A", "padding": 12 }
     },
 
+    // A dialogue and the dimming behind it. The scrim is most of the effect: a panel that is
+    // simply on top reads as another panel, and a panel over a darkened screen reads as a question.
+    "dialog": {
+      "background": { "fill": "#232A35", "corner": 8, "border": "#39445A", "padding": 18 }
+    },
+
+    "scrim": { "background": { "fill": "#B00A0D12" } },
+
     "separator": { "background": { "fill": "#2C3545" } },
 
     "tooltip": {
@@ -176,6 +184,26 @@
     "item.selected": {
       "background": { "fill": "#2F53A8", "corner": 4, "padding": [10, 6] },
       "hovered": { "background": { "fill": "#3F6BD6", "corner": 4 } }
+    },
+
+    // --- tabs ---
+    //
+    // A heading rather than a button: flat until it is the chosen one, which is the one thing a
+    // player reads off a row of tabs at a glance.
+
+    "tab": {
+      "background": { "fill": "#00000000", "corner": 4, "padding": [12, 6] },
+      "textColour": "#9BA6B6",
+      "hovered": { "background": { "fill": "#1A1F28", "corner": 4 }, "textColour": "#E6E9EF" },
+      "focused": { "background": { "fill": "#1A1F28", "corner": 4, "border": "#5B8DEF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5E6B7E" }
+    },
+
+    "tab.selected": {
+      "background": { "fill": "#232A35", "corner": 4, "border": "#5B8DEF", "padding": [12, 6] },
+      "textColour": "#E6E9EF",
+      "hovered": { "background": { "fill": "#2C3545", "corner": 4, "border": "#7BA5F5" } },
+      "focused": { "background": { "fill": "#232A35", "corner": 4, "border": "#7BA5F5", "borderWidth": 2 } }
     },
 
     "scrollbar.track": { "background": { "fill": "#1A1F28", "corner": 4 } },

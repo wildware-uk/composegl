@@ -54,7 +54,8 @@ the example's Kotlin. Save the file while the example is running and it changes 
 A skin that will not parse names the line and suggests the nearest region or key that would have
 worked, and a broken save leaves the last skin that worked on screen. The widget set has started:
 `Text`, `Image`, `Button`, `IconButton`, `Checkbox`, `RadioButton`, `Toggle`, `Slider`,
-`ScrollArea`, `LazyColumn` and `LazyRow` ship with the toolkit, and the example is built from them.
+`ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog` and `Tabs` ship with the toolkit, and the
+example is built from them.
 Panels, tabs and dialogues are next.
 
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
