@@ -53,6 +53,9 @@ import composegl.ui.animation.animateFloatAsState
 import composegl.ui.backend.Clipboard
 import androidx.compose.runtime.LaunchedEffect
 import composegl.ui.game.Bar
+import composegl.ui.game.DamageNumberLayer
+import composegl.ui.game.WorldAnchor
+import composegl.ui.game.rememberDamageNumbers
 import androidx.compose.runtime.LaunchedEffect
 import composegl.ui.game.BarThreshold
 import composegl.ui.game.Hotbar
@@ -109,6 +112,29 @@ fun Screen(
                 // is — so they are answered here, above every button, and the bar is handed the
                 // same state to press.
                 val hotbar = remember { HotbarState() }
+
+                // Numbers that float off the health bar every time the game takes a bite out of
+                // it. They are on the world's clock, so opening the confirmation dialogue leaves
+                // them hanging in the air until the game comes back.
+                val numbers = rememberDamageNumbers()
+                var lastHealth by remember { mutableStateOf(state.health) }
+                LaunchedEffect(state.health) {
+                    val lost = lastHealth - state.health
+                    lastHealth = state.health
+                    if (lost > 0.005f) {
+                        val amount = (lost * 1000f).toInt()
+                        val critical = lost > 0.2f
+                        // Two hits in the same place would sit on top of each other, so each one
+                        // is nudged sideways by something about itself.
+                        val spread = (amount % 7) * 10f - 30f
+                        numbers.show(
+                            if (critical) "$amount!" else "$amount",
+                            WorldAnchor.at(DamageAt.x + spread, DamageAt.y),
+                            critical = critical,
+                        )
+                    }
+                }
+
                 Box(Modifier.fillMaxSize().styled("screen").onKeyEvent(hotbar::onKey)) {
                     Column(
                         Modifier.fillMaxSize().padding(28f),
@@ -139,6 +165,10 @@ fun Screen(
                     // Proof that a window coordinate made it all the way to a design coordinate,
                     // through the HDPI scale and the letterbox — and that the same coordinate found the
                     // right node underneath it.
+                    // On top of everything the game drew, and asking for frames only while a
+                    // number is still in the air.
+                    DamageNumberLayer(numbers)
+
                     state.pointer?.let { Reticle(it) }
                 }
             }
@@ -478,6 +508,9 @@ private fun Reticle(at: Offset) {
         },
     )
 }
+
+/** Where a hit on the player lands on screen: over the health bar in the status panel. */
+private val DamageAt = Offset(178f, 300f)
 
 private const val ReticleSize = 18f
 

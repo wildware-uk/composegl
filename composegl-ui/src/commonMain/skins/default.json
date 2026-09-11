@@ -160,6 +160,12 @@
     "bar.trail": { "background": { "fill": "#8E2B2E", "corner": 3 } },
     "bar.segment": { "background": { "fill": "#10131A" } },
 
+    // A number flying off something that was hit. A critical is bigger as well as brighter: a
+    // player reads the size before the colour.
+
+    "damage": { "textColour": "#FFE9A8", "text": { "size": 18 } },
+    "damage.critical": { "textColour": "#FF7A45", "text": { "size": 26 } },
+
     // --- the hotbar ---
     //
     // An empty slot is a hole in the bar: no fill, a dashed-looking groove, nothing in it. A slot

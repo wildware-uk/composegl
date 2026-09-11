@@ -129,8 +129,8 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         recorded += DrawCall.Fan(offsets, colour, state.clip, state.alpha)
     }
 
-    override fun text(layout: TextLayout, at: Offset, colour: Colour) {
-        recorded += DrawCall.Text(layout.text, at, colour, state.clip, state.alpha)
+    override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) {
+        recorded += DrawCall.Text(layout.text, Offset(x, y), colour, state.clip, state.alpha)
     }
 
     override fun image(texture: TextureHandle, destination: Rect, tint: Colour, source: Rect?) {
