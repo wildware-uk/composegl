@@ -128,6 +128,17 @@ the rest at once. An effect can take each character on its own — a shake as it
 colour — and it costs what it costs: with an effect the line is drawn a character at a time rather
 than a line at a time, which is why there is a fast path without one.
 
+An interface can also live *in* the world rather than on top of it — a screen on a wall, a
+terminal, the display on a gun. It is the same tree, laid out the same way, drawn by the same
+passes; the only difference is where the pixels land, and a test asserts the two are call for call
+identical. The backend draws it into a texture the game maps onto whatever quad it likes, and what
+comes out is premultiplied, so `GL_ONE, GL_ONE` gives a hologram for free rather than a grey haze
+over every transparent pixel. Both backends do it, both are checked pixel for pixel against the
+same drawing on the HUD, and resizing one fifty times hands every framebuffer back — asserted by
+the names being handed out again rather than marching upwards. The point of doing it this way at
+all is the last part: **a panel is drawn only when its tree changes**, so a terminal nobody is
+looking at costs one comparison a frame.
+
 The minimap is a frame with a hole in it. A game's map is its own — a texture it renders, a tile
 grid, a mesh — so the toolkit draws the border, clips a rectangle and hands it over, and the game
 either draws with our canvas or reaches the backend underneath with `raw { }`. What is left is the

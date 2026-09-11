@@ -3,6 +3,7 @@ package composegl.lwjgl3
 import composegl.ui.graphics.Colour
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11
+import org.lwjgl.opengl.GL14
 import org.lwjgl.opengl.GL15
 import org.lwjgl.opengl.GL20
 
@@ -72,7 +73,16 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         renderCalls = 0
         projection.copyInto(this.projection)
         GL11.glEnable(GL11.GL_BLEND)
-        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA)
+        // Separate on purpose. The colour half is the ordinary one; the alpha half accumulates
+        // rather than being interpolated, so what lands in a render target is premultiplied and a
+        // game can put it on a quad — or add it, for a hologram — without a shader of its own.
+        // On a window it changes nothing: nobody reads the alpha of the thing on screen.
+        GL14.glBlendFuncSeparate(
+            GL11.GL_SRC_ALPHA,
+            GL11.GL_ONE_MINUS_SRC_ALPHA,
+            GL11.GL_ONE,
+            GL11.GL_ONE_MINUS_SRC_ALPHA,
+        )
     }
 
     fun end() {
