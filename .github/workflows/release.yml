@@ -10,8 +10,8 @@
 #   SIGNING_KEY               a GPG secret key, ASCII-armoured (`gpg --armor --export-secret-keys`)
 #   SIGNING_PASSWORD          its passphrase
 #
-# The namespace `uk.wildware` has to be verified in the Central portal first, by a DNS TXT record on
-# wildware.uk. Until that is done this job will reach Central and be refused.
+# The namespace `dev.wildware` has to be verified in the Central portal first, by a DNS TXT record on
+# wildware.dev. Until that is done this job will reach Central and be refused.
 #
 # `automaticRelease = false` in the root build is deliberate: this uploads and leaves the release
 # sitting in the portal for a human to press the button on. A Central release can never be deleted

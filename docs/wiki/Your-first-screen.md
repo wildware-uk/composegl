@@ -43,9 +43,9 @@ plugins {
 }
 
 dependencies {
-    implementation("uk.wildware.composegl:composegl-ui:0.1.0-SNAPSHOT")
+    implementation("dev.wildware.composegl:composegl-ui:0.1.0-SNAPSHOT")
     // One backend. This one draws through LibGDX.
-    implementation("uk.wildware.composegl:composegl-gdx:0.1.0-SNAPSHOT")
+    implementation("dev.wildware.composegl:composegl-gdx:0.1.0-SNAPSHOT")
 }
 ```
 
