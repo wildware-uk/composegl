@@ -23,14 +23,14 @@ dependencies {
 }
 
 application {
-    mainClass.set("composegl.demo.MainKt")
+    mainClass.set("dev.wildware.composegl.demo.MainKt")
 }
 
 /** The same example on the raw OpenGL backend. `run` is the LibGDX one. */
 tasks.register<JavaExec>("runGl") {
     group = "application"
     description = "Runs the example on the raw OpenGL backend."
-    mainClass.set("composegl.demo.GlMainKt")
+    mainClass.set("dev.wildware.composegl.demo.GlMainKt")
     classpath = sourceSets["main"].runtimeClasspath
 }
 
@@ -43,7 +43,7 @@ tasks.register<JavaExec>("runGl") {
 tasks.register<JavaExec>("docShots") {
     group = "documentation"
     description = "Takes the screenshots the wiki uses."
-    mainClass.set("composegl.demo.docs.MainKt")
+    mainClass.set("dev.wildware.composegl.demo.docs.MainKt")
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = rootDir
 }

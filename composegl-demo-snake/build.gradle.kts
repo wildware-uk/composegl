@@ -20,7 +20,7 @@ sourceSets.main {
 }
 
 application {
-    mainClass.set("composegl.snake.MainKt")
+    mainClass.set("dev.wildware.composegl.snake.MainKt")
 }
 
 /** Never shipped, only run — the same reason the example has none. */

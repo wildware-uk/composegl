@@ -30,7 +30,7 @@ val embedDefaultSkin = tasks.register<EmbedTextAsSource>("embedDefaultSkin") {
     description = "Turns the default skin file into a Kotlin source file."
     group = "build"
     source.set(layout.projectDirectory.file("src/commonMain/skins/default.json"))
-    packageName.set("composegl.ui.skin")
+    packageName.set("dev.wildware.composegl.ui.skin")
     propertyName.set("DEFAULT_SKIN_JSON")
     outputDirectory.set(layout.buildDirectory.dir("generated/skin"))
 }

@@ -125,9 +125,9 @@ about LibGDX, windows, or OpenGL:
 ```kotlin
 // Hello.kt
 import androidx.compose.runtime.*
-import composegl.ui.layout.*
-import composegl.ui.modifier.*
-import composegl.ui.widget.*
+import dev.wildware.composegl.ui.layout.*
+import dev.wildware.composegl.ui.modifier.*
+import dev.wildware.composegl.ui.widget.*
 
 @Composable
 fun Hello() {
@@ -156,12 +156,12 @@ import com.badlogic.gdx.*
 import com.badlogic.gdx.backends.lwjgl3.*
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import composegl.gdx.*
-import composegl.ui.geometry.Size
-import composegl.ui.host.UiHost
-import composegl.ui.host.UiRenderer
-import composegl.ui.input.PointerRouter
-import composegl.ui.layout.*
+import dev.wildware.composegl.gdx.*
+import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.host.UiHost
+import dev.wildware.composegl.ui.host.UiRenderer
+import dev.wildware.composegl.ui.input.PointerRouter
+import dev.wildware.composegl.ui.layout.*
 
 class HelloGame : ApplicationAdapter() {
 

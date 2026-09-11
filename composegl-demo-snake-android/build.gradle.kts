@@ -71,11 +71,11 @@ val copyAndroidNatives = tasks.register<UnpackAndroidNatives>("copyAndroidNative
 }
 
 android {
-    namespace = "composegl.snake.android"
+    namespace = "dev.wildware.composegl.snake.android"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "composegl.snake.android"
+        applicationId = "dev.wildware.composegl.snake.android"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
