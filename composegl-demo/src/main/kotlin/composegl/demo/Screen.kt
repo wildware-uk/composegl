@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
+import composegl.ui.input.BackStack
 import composegl.ui.input.InputSourceTracker
 import composegl.ui.input.InteractionState
 import composegl.ui.input.Key
@@ -44,12 +45,15 @@ import composegl.ui.skin.styled
 import composegl.ui.text.FontProvider
 import composegl.ui.widget.Button
 import composegl.ui.widget.Checkbox
+import composegl.ui.widget.Dialog
 import composegl.ui.widget.Image
 import composegl.ui.widget.ImageFit
 import composegl.ui.widget.LocalFonts
+import composegl.ui.widget.ProvideBackStack
 import composegl.ui.widget.rememberLazyListState
 import composegl.ui.widget.LazyColumn
 import composegl.ui.widget.Slider
+import composegl.ui.widget.Tabs
 import composegl.ui.widget.Text
 import composegl.ui.widget.Toggle
 
@@ -70,91 +74,179 @@ fun Screen(fonts: FontProvider, skin: Skin, state: DemoState) {
         LocalInputSource provides state.source,
     ) {
         ProvideSkin(skin) {
-            // A screen-level shortcut, on the outermost node: the number keys pick a hotbar slot
-            // the way they do in every game that has one. It sits above every button, so it works
-            // wherever focus happens to be — which is exactly what bubbling outwards buys.
-            val hotkeys = remember {
-                Modifier.onKeyEvent { event ->
-                    if (event.type != KeyEventType.Down) false else {
-                        val slot = digits.indexOf(event.key)
-                        if (slot < 0) false else {
-                            state.select(if (slot == 0) 9 else slot - 1)
-                            true
+            ProvideBackStack(state.backs) {
+                // A screen-level shortcut, on the outermost node: the number keys pick a hotbar slot
+                // the way they do in every game that has one. It sits above every button, so it works
+                // wherever focus happens to be — which is exactly what bubbling outwards buys.
+                val hotkeys = remember {
+                    Modifier.onKeyEvent { event ->
+                        if (event.type != KeyEventType.Down) false else {
+                            val slot = digits.indexOf(event.key)
+                            if (slot < 0) false else {
+                                state.select(if (slot == 0) 9 else slot - 1)
+                                true
+                            }
                         }
                     }
                 }
-            }
 
-            Box(Modifier.fillMaxSize().styled("screen").then(hotkeys)) {
-                Column(
-                    Modifier.fillMaxSize().padding(28f),
-                    verticalArrangement = Arrangement.spacedBy(20f),
-                ) {
-                    Text("COMPOSEGL", style = "label.title")
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("a game interface toolkit on the Compose runtime", style = "label.dim")
-                        // Switches the moment the player picks up something else.
-                        Text("input: ${state.source.current}".uppercase(), style = "label.dim")
-                    }
-
-                    Row(
-                        Modifier.fillMaxWidth().weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(20f),
+                Box(Modifier.fillMaxSize().styled("screen").then(hotkeys)) {
+                    Column(
+                        Modifier.fillMaxSize().padding(28f),
+                        verticalArrangement = Arrangement.spacedBy(20f),
                     ) {
-                        StatusPanel(Modifier.width(300f).fillMaxHeight(), state)
-                        LorePanel(Modifier.weight(1f).fillMaxHeight(), state)
+                        Text("COMPOSEGL", style = "label.title")
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("a game interface toolkit on the Compose runtime", style = "label.dim")
+                            // Switches the moment the player picks up something else.
+                            Text("input: ${state.source.current}".uppercase(), style = "label.dim")
+                        }
+
+                        Row(
+                            Modifier.fillMaxWidth().weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(20f),
+                        ) {
+                            StatusPanel(Modifier.width(300f).fillMaxHeight(), state)
+                            LorePanel(Modifier.weight(1f).fillMaxHeight(), state)
+                        }
+
+                        Hotbar(state)
                     }
 
-                    Hotbar(state)
-                }
+                    // A question the player has to answer: focus cannot leave it, nothing behind it
+                    // can be clicked, and Escape or the pad's Back button closes it.
+                    if (state.declining) AbortDialog(state)
 
-                // Proof that a window coordinate made it all the way to a design coordinate,
-                // through the HDPI scale and the letterbox — and that the same coordinate found the
-                // right node underneath it.
-                state.pointer?.let { Reticle(it) }
+                    // Proof that a window coordinate made it all the way to a design coordinate,
+                    // through the HDPI scale and the letterbox — and that the same coordinate found the
+                    // right node underneath it.
+                    state.pointer?.let { Reticle(it) }
+                }
             }
         }
     }
 }
 
-/** Drawn by the shader: a rounded fill, a hairline border, a soft shadow, no art at all. */
+/** The confirmation. Two chips, one of which is the answer nobody should give by accident. */
+@Composable
+private fun AbortDialog(state: DemoState) {
+    Dialog(
+        onDismiss = { state.declining = false },
+        modifier = Modifier.width(380f),
+        dismissOnScrim = true,
+    ) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14f)) {
+            Heading("CONFIRM")
+            Text(
+                "The relay is still transmitting in our own voice. Turn the job down?",
+                style = "label.body",
+            )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10f, Arrangement.End),
+            ) {
+                Chip("STAY", "chip", chosen = false, first = true) { state.declining = false }
+                Chip("DECLINE", "chip.danger", chosen = false, first = false) {
+                    state.declining = false
+                    state.answer("DECLINE")
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Drawn by the shader: a rounded fill, a hairline border, a soft shadow, no art at all.
+ *
+ * Two pages, one at a time. The page that is not showing is still composed, which is why the gear
+ * page's checkboxes and its ammunition slider are exactly as the player left them when they come
+ * back to it.
+ */
 @Composable
 private fun StatusPanel(modifier: Modifier, state: DemoState) {
     Panel(modifier, style = "panel.flat") {
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12f)) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10f),
-                verticalAlignment = VerticalAlignment.Centre,
-            ) {
-                // A picture rather than a frame: `icon/crest` has no slices, so the Image widget
-                // scales the whole thing and keeps it square whatever size it is asked for.
-                Image("icon/crest", Modifier.size(26f), fit = ImageFit.Contain)
-                Heading("STATUS")
-            }
-            Bar("Health", state.health, "bar.fill")
-            Bar("Shield", 0.42f, "bar.fill.shield")
-            Bar("Stamina", 0.78f, "bar.fill.stamina")
-            Spacer(Modifier.weight(1f))
-            // A value the player drags, nudges with the arrow keys, or pushes the stick at — all
-            // three the widget's, and all three landing on the same five-point steps.
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Music", style = "label.dim")
-                Text("${state.music.toInt()}", style = "label.dim")
-            }
-            Slider(
-                value = state.music,
-                onValueChange = { state.music = it },
-                modifier = Modifier.fillMaxWidth(),
-                range = 0f..100f,
-                step = 5f,
-            )
-            Checkbox(state.invertY, onCheckedChange = { state.invertY = it }, label = "Invert Y")
-            Toggle(state.subtitles, onCheckedChange = { state.subtitles = it }, label = "Subtitles")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Level 12", style = "label.dim")
-                Text("2,480 XP", style = "label.dim")
-            }
+        Tabs(
+            selected = state.tab,
+            onSelect = { state.tab = it },
+            titles = listOf("STATUS", "GEAR"),
+            modifier = Modifier.fillMaxSize(),
+            spacing = 10f,
+        ) { page ->
+            if (page == 0) StatusPage(state) else GearPage()
         }
+    }
+}
+
+@Composable
+private fun StatusPage(state: DemoState) {
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12f)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10f),
+            verticalAlignment = VerticalAlignment.Centre,
+        ) {
+            // A picture rather than a frame: `icon/crest` has no slices, so the Image widget
+            // scales the whole thing and keeps it square whatever size it is asked for.
+            Image("icon/crest", Modifier.size(26f), fit = ImageFit.Contain)
+            Heading("VITALS")
+        }
+        Bar("Health", state.health, "bar.fill")
+        Bar("Shield", 0.42f, "bar.fill.shield")
+        Bar("Stamina", 0.78f, "bar.fill.stamina")
+        Spacer(Modifier.weight(1f))
+        // A value the player drags, nudges with the arrow keys, or pushes the stick at — all
+        // three the widget's, and all three landing on the same five-point steps.
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Music", style = "label.dim")
+            Text("${state.music.toInt()}", style = "label.dim")
+        }
+        Slider(
+            value = state.music,
+            onValueChange = { state.music = it },
+            modifier = Modifier.fillMaxWidth(),
+            range = 0f..100f,
+            step = 5f,
+        )
+        Checkbox(state.invertY, onCheckedChange = { state.invertY = it }, label = "Invert Y")
+        Toggle(state.subtitles, onCheckedChange = { state.subtitles = it }, label = "Subtitles")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Level 12", style = "label.dim")
+            Text("2,480 XP", style = "label.dim")
+        }
+    }
+}
+
+/**
+ * The other page, and the point of it.
+ *
+ * Everything on it is remembered here rather than in [DemoState] on purpose: switch to STATUS and
+ * back, and the boxes are still ticked and the slider is still where it was, because a hidden tab
+ * keeps its composition instead of being thrown away and built again.
+ */
+@Composable
+private fun GearPage() {
+    var cutter by remember { mutableStateOf(true) }
+    var flares by remember { mutableStateOf(false) }
+    var rebreather by remember { mutableStateOf(true) }
+    var rounds by remember { mutableStateOf(40f) }
+
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12f)) {
+        Heading("LOADOUT")
+        Checkbox(cutter, onCheckedChange = { cutter = it }, label = "Plasma cutter")
+        Checkbox(flares, onCheckedChange = { flares = it }, label = "Flares")
+        Checkbox(rebreather, onCheckedChange = { rebreather = it }, label = "Rebreather")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Rounds", style = "label.dim")
+            Text("${rounds.toInt()}", style = "label.dim")
+        }
+        Slider(
+            value = rounds,
+            onValueChange = { rounds = it },
+            modifier = Modifier.fillMaxWidth(),
+            range = 0f..60f,
+            step = 10f,
+        )
+        Spacer(Modifier.weight(1f))
+        Text("Mass 18.4 kg of a 24.0 kg allowance", style = "label.dim")
     }
 }
 
@@ -201,7 +293,7 @@ private fun LorePanel(modifier: Modifier, state: DemoState) {
 
             Row(horizontalArrangement = Arrangement.spacedBy(10f)) {
                 Chip("ACCEPT", "chip", state.briefing == "ACCEPT", first = true) { state.answer("ACCEPT") }
-                Chip("DECLINE", "chip.danger", state.briefing == "DECLINE", first = false) { state.answer("DECLINE") }
+                Chip("DECLINE", "chip.danger", state.briefing == "DECLINE", first = false) { state.declining = true }
             }
         }
     }
@@ -340,6 +432,15 @@ class DemoState {
     var subtitles by mutableStateOf(true)
 
     var selected by mutableStateOf(3)
+
+    /** Which page of the status panel is showing. */
+    var tab by mutableStateOf(0)
+
+    /** Whether the "are you sure" is up. */
+    var declining by mutableStateOf(false)
+
+    /** Who answers Back, innermost first. The dialogue puts itself on here while it is open. */
+    val backs = BackStack()
 
     /** Where the pointer is, in design units. Null until it has moved at least once. */
     var pointer: Offset? by mutableStateOf(null)

@@ -68,6 +68,8 @@ class ResolvedModifier private constructor(
     val focusDirections: List<DirectionHandler>,
     /** Asked to bring a descendant into view when focus lands on it. */
     val reveals: List<RevealHandler>,
+    /** Whether focus is confined to this node's subtree. */
+    val focusTrap: Boolean,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
@@ -108,6 +110,7 @@ class ResolvedModifier private constructor(
             var focusOrder: FocusOrderElement? = null
             val focusDirections = mutableListOf<DirectionHandler>()
             val reveals = mutableListOf<RevealHandler>()
+            var focusTrap = false
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -141,6 +144,7 @@ class ResolvedModifier private constructor(
                     is FocusOrderElement -> focusOrder = element
                     is FocusDirectionElement -> focusDirections += element.handler
                     is RevealElement -> reveals += element.handler
+                    is FocusTrapElement -> focusTrap = element.enabled
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
             }
@@ -151,7 +155,7 @@ class ResolvedModifier private constructor(
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click,
                 focusable, focusRequester, focusOrder, focusDirections.toList(),
-                reveals.toList(),
+                reveals.toList(), focusTrap,
             )
         }
     }

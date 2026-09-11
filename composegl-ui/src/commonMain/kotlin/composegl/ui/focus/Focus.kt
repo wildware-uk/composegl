@@ -79,6 +79,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
      * a menu ends up open with nothing selected.
      */
     fun refresh() {
+        settleScope()
         val focusable = focusables()
         if (pressing != null && pressing !in focusable) cancelPress()
         if (current != null && current !in focusable) release(current)
@@ -177,12 +178,67 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         return true
     }
 
+    // --- scopes --------------------------------------------------------------------------------
+    //
+    // A dialogue is a promise that the pad cannot wander behind it. That promise is one rule: the
+    // innermost trap in the tree is the only part of it focus can see. Everything else — the pad,
+    // Tab, the geometry, the reveal — is written against "the focusable nodes", and so all of it
+    // obeys the trap without knowing what one is.
+
+    /** Where focus was, outside each trap that has been entered, so it can be given back. */
+    private class Outside(val scope: UiNode?, val focused: UiNode?)
+
+    private val leftBehind = ArrayDeque<Outside>()
+
+    private var scope: UiNode? = null
+
+    /**
+     * Follows the innermost trap, and puts focus back where it was when one goes away.
+     *
+     * Opening a dialogue over a button and closing it again should leave the player on that button.
+     * Nothing else can do this: by the time the dialogue has gone, the node that had focus before
+     * it opened is the only record of where the player was.
+     */
+    private fun settleScope() {
+        val now = trap()
+        if (now === scope) return
+
+        val returning = leftBehind.lastOrNull()?.scope === now
+        if (returning) {
+            val outside = leftBehind.removeLast()
+            scope = now
+            val back = outside.focused
+            if (back != null && back.isFocusable && back.isInside(now)) take(back)
+            return
+        }
+
+        leftBehind.addLast(Outside(scope, current))
+        scope = now
+    }
+
+    /** The innermost trap: the last one in tree order, which is the one drawn on top. */
+    private fun trap(): UiNode? {
+        var found: UiNode? = null
+        root.forEach { if (it.resolved.focusTrap && it.resolved.alpha > 0f) found = it }
+        return found
+    }
+
+    private fun UiNode.isInside(scope: UiNode?): Boolean {
+        if (scope == null) return true
+        var walk: UiNode? = this
+        while (walk != null) {
+            if (walk === scope) return true
+            walk = walk.parent
+        }
+        return false
+    }
+
     // --- choosing ------------------------------------------------------------------------------
 
-    /** Every focusable node, in tree order — which is the order Tab walks. */
+    /** Every focusable node inside the innermost trap, in tree order — the order Tab walks. */
     private fun focusables(): List<UiNode> {
         val found = mutableListOf<UiNode>()
-        root.forEach { if (it.isFocusable) found += it }
+        (scope ?: root).forEach { if (it.isFocusable) found += it }
         return found
     }
 

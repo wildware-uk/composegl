@@ -42,14 +42,20 @@ internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink
 
     private val router = PointerRouter(root, focus)
 
-    /** The pad's end of the same thing: a direction moves focus, South presses what it is on. */
-    private val pad = GamepadNavigator(focus, onBack = { state.back() })
+    /**
+     * The pad's end of the same thing: a direction moves focus, South presses what it is on.
+     *
+     * Back asks the back stack first, because a pad button does not bubble up the tree the way a
+     * key does: anything open — the confirmation dialogue here — put itself on that stack, and only
+     * if nothing wanted it does the screen itself deal with it.
+     */
+    private val pad = GamepadNavigator(focus, onBack = { if (!state.backs.back()) state.back() })
 
     /** Keys, to whatever has focus and then outwards. */
     private val keyRouter = KeyRouter(focus, root)
 
     /** And the keyboard's own navigation, for the keys nothing wanted. */
-    private val keys = KeyNavigator(focus, onBack = { state.back() })
+    private val keys = KeyNavigator(focus, onBack = { if (!state.backs.back()) state.back() })
 
     /** The toolkit's three halves behind one contract, so a backend sees a single sink. */
     private val toolkit = object : InputSink {
