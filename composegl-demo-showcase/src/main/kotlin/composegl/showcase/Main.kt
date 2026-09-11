@@ -192,6 +192,9 @@ class Showcase : ApplicationAdapter() {
 
         state.hull = (0.55f + 0.3f * kotlin.math.sin(elapsed * 0.21f))
         state.heat = (state.heat - 0.12f * Gdx.graphics.deltaTime).coerceAtLeast(0.05f)
+        // Out and back over six seconds, so the dissolve is always mid-way through when somebody
+        // looks at it — and so a screenshot taken at a fixed moment always shows it happening.
+        state.dissolve = kotlin.math.abs(((elapsed * 0.33f) % 2f) - 1f)
     }
 
     /** Something is always being shot at, because a demo with nothing happening proves nothing. */

@@ -198,8 +198,8 @@ honestly in [`docs/snake-port.md`](docs/snake-port.md).
 
 *The showcase, in `composegl-demo-showcase`: a 3D scene with the game-widget tier over it and a
 panel standing inside it. The reticle, the hull and heat bars, the ability bar with its cooldown
-sweeps, the radar, the tags stuck to the drones and the damage numbers are all toolkit widgets
-reading one object of game state — in the previous version every one of them was hand-written in
+sweeps, the radar, the tags stuck to the drones, the damage numbers and the four shader tiles along
+the top are all toolkit widgets reading one object of game state — in the previous version every one of them was hand-written in
 the demo. The DOCK TERMINAL on the pedestal is an ordinary composition drawn into a texture and
 added to the frame as light; the mouse is pointing at its NEXT button, and the button is lit,
 because anything the screen interface did not want becomes a ray into the scene and lands on the
@@ -255,9 +255,37 @@ keyboard*, because on this emulator the keyboard never draws — and it never dr
 app's own search box either, so what that proves is that the emulator has no working keyboard, not
 that the port has one. Keyboard, frame times and anything to do with a GPU need real hardware.
 
+## Shaders
+
+Anything can be drawn through a fragment shader, and the interesting part is who writes it.
+
+```kotlin
+Panel(Modifier.blur(8f)) { … }                        // one of the four we ship
+Panel(Modifier.effect(ShaderEffect(myGlsl))) { … }    // one of yours, on the same road
+```
+
+A subtree with an effect on it is drawn into an offscreen picture instead of onto the screen, and
+the shader decides what that picture comes out as. The shader is text — a fragment shader in the old
+dialect, `varying` and `texture2D` and `gl_FragColor` — because text is the only thing that crosses
+from common code, where there is no OpenGL, into a backend, where there is. It arrives with the
+picture, its size in real pixels, the widget's size in design units, and the opacity in force;
+whatever else it wants is a named [`Uniform`](composegl-ui/src/commonMain/kotlin/composegl/ui/effect/ShaderEffect.kt).
+
+The four we ship — blur, outline, colour grade, dissolve — live in `composegl-effects`, which is a
+separate module that depends on `composegl-ui` and nothing else, and has a build check that fails if
+that ever stops being true. That is the point of it. If a blur could not be written without reaching
+inside the toolkit, the shader API would be a thing we have and you do not, and the build would say
+so before a release did.
+
+Two details worth knowing. An effect that spreads — a blur, an outline — asks for a `bleed`, so the
+picture is bigger than the widget and the spread has somewhere to go instead of being cut off square.
+And a backend with no offscreen drawing, or no shaders, draws the subtree plainly and says nothing:
+an effect degrades to no effect rather than to a broken frame.
+
 | | |
 |---|---|
 | `composegl-ui` | the toolkit. Multiplatform, and depends on the Compose runtime and coroutines |
+| `composegl-effects` | blur, outline, colour grade, dissolve. Written against the public API, like yours |
 | `composegl-gdx` | the LibGDX backend: renderer, fonts, input. The one to use |
 | `composegl-lwjgl3` | a second backend, on raw OpenGL and stb_truetype. Exists to disagree |
 | `composegl-testing` | the scenes both backends draw, and the golden comparison |

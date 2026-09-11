@@ -19,6 +19,7 @@ dependencyResolutionManagement {
 
 include(
     "composegl-ui",
+    "composegl-effects",
     "composegl-gdx",
     "composegl-lwjgl3",
     "composegl-android",

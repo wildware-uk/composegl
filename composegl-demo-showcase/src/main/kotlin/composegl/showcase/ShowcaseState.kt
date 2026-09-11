@@ -16,6 +16,7 @@ enum class Exhibit(val title: String, val blurb: String) {
     Damage("Floating numbers", "Damage text spawned at world positions and projected to the screen"),
     Holo("In-world panel", "The toolkit drawn into a texture on a quad in the scene, added as light"),
     Particles("GL particles", "Embers drawn by the game, behind the interface"),
+    Shaders("Shaders", "Blur, outline, colour grade and dissolve, on live widgets"),
 }
 
 /** What one of the scene's drones looks like to the interface. */
@@ -61,6 +62,14 @@ class ShowcaseState {
 
     /** How far the camera has turned, for the radar's compass. */
     var heading by mutableFloatStateOf(0f)
+
+    /**
+     * How far through the dissolve the shader shelf is, 0 to 1 and back.
+     *
+     * Driven by the game's own loop rather than by an animation in the composition, because that is
+     * what a real one would be: an effect's numbers usually come from the state of the world.
+     */
+    var dissolve by mutableFloatStateOf(0f)
 
     /** What the in-world panel is showing, changed by pointing at it and pulling the trigger. */
     var holoPage by mutableIntStateOf(0)

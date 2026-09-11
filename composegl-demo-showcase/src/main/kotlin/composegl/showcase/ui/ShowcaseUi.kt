@@ -4,6 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import composegl.effects.blur
+import composegl.effects.colourGrade
+import composegl.effects.dissolve
+import composegl.effects.outline
 import composegl.showcase.Exhibit
 import composegl.showcase.ShowcaseState
 import composegl.showcase.TargetReadout
@@ -34,6 +38,8 @@ import composegl.ui.layout.VerticalAlignment
 import composegl.ui.modifier.Modifier
 import composegl.ui.modifier.align
 import composegl.ui.modifier.alpha
+import composegl.ui.graphics.Colour
+import composegl.ui.modifier.background
 import composegl.ui.modifier.fillMaxSize
 import composegl.ui.modifier.fillMaxWidth
 import composegl.ui.modifier.offset
@@ -84,6 +90,8 @@ fun ShowcaseUi(
 
                 if (state.isOn(Exhibit.Tracking)) TargetTags(state)
 
+                if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
+
                 // The numbers live in the pool the game writes to; this only draws them, through
                 // the game's own camera.
                 if (state.isOn(Exhibit.Damage)) {
@@ -101,6 +109,48 @@ fun ShowcaseUi(
                 }
             }
         }
+    }
+}
+
+
+/**
+ * The four effects the toolkit ships, on four ordinary widgets.
+ *
+ * Nothing here is a special widget. Each tile is the same box and the same text; what differs is one
+ * modifier, and each of those modifiers is a couple of dozen lines of GLSL in `composegl-effects`
+ * written against the same public API a game's own shader uses. That is the claim this exhibit is
+ * making, and it is why the module is separate: if a blur needed something a game could not have,
+ * this would not compile.
+ */
+@Composable
+private fun ShaderShelf(state: ShowcaseState) {
+    Panel(
+        Modifier.align(Alignment.TopCentre).padding(top = 28f),
+        style = "panel.quiet",
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+            Text("SHADERS", style = "label.title")
+            Row(horizontalArrangement = Arrangement.spacedBy(12f)) {
+                ShaderTile("BLUR", Modifier.blur(3f))
+                ShaderTile("LINE", Modifier.outline(Colour.White, width = 2f))
+                ShaderTile("GRADE", Modifier.colourGrade(brightness = 0.7f, saturation = 0f))
+                ShaderTile(
+                    "GONE",
+                    Modifier.dissolve(state.dissolve, scale = 12f, edge = Colour.rgb(0x4CC2FF)),
+                )
+            }
+        }
+    }
+}
+
+/** One tile: a coloured box with a word on it, drawn through whatever [effect] is. */
+@Composable
+private fun ShaderTile(label: String, effect: Modifier) {
+    Box(
+        effect.size(86f, 56f).background(Colour.rgb(0x1E88C7), corner = 8f),
+        contentAlignment = Alignment.Centre,
+    ) {
+        Text(label, style = "label")
     }
 }
 
