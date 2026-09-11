@@ -22,6 +22,7 @@ dependencies {
     testRuntimeOnly(variantOf(libs.gdx.platform) { classifier("natives-desktop") })
     testRuntimeOnly(variantOf(libs.gdx.freetype.platform) { classifier("natives-desktop") })
 
+    testImplementation(project(":composegl-testing"))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

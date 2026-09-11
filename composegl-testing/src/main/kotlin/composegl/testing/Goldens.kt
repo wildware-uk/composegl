@@ -1,6 +1,5 @@
-package composegl.gdx.screenshot
+package composegl.testing
 
-import com.badlogic.gdx.graphics.Pixmap
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
@@ -144,17 +143,17 @@ object Goldens {
 }
 
 /**
- * A frame read back from OpenGL, as an ordinary picture.
+ * A grid of pixels read back from a framebuffer, as an ordinary picture.
  *
- * OpenGL hands back the bottom row first, so the rows are turned over here — once, in the one place
- * that reads a frame, rather than in every test that looks at one.
+ * [rgb] is asked for the colour at a point in the toolkit's coordinates — y downwards from the top
+ * — so each backend turns its own frame the right way up once, here, rather than in every test
+ * that looks at one.
  */
-fun Pixmap.toImage(): BufferedImage {
+fun imageOf(width: Int, height: Int, rgb: (Int, Int) -> Int): BufferedImage {
     val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
     for (y in 0 until height) {
         for (x in 0 until width) {
-            val rgba = getPixel(x, height - 1 - y)
-            image.setRGB(x, y, (rgba ushr 8) and 0xFFFFFF)
+            image.setRGB(x, y, rgb(x, y) and 0xFFFFFF)
         }
     }
     return image

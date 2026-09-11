@@ -1,4 +1,4 @@
-package composegl.gdx.screenshot
+package composegl.testing
 
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect

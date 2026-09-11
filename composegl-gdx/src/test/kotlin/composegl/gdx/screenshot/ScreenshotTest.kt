@@ -6,6 +6,12 @@ import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import composegl.gdx.Gl
+import composegl.testing.Goldens
+import composegl.testing.Scene
+import composegl.testing.SceneArt
+import composegl.testing.SceneSize
+import composegl.testing.imageOf
+import composegl.testing.scenes
 import composegl.gdx.GdxCanvas
 import composegl.gdx.GdxFonts
 import composegl.gdx.ninePatch
@@ -51,10 +57,10 @@ class ScreenshotTest {
             scene.draw(canvas, art)
             canvas.end()
 
-            Pixmap.createFromFrameBuffer(0, 0, SceneSize, SceneSize).let {
-                val image = it.toImage()
-                it.dispose()
-                image
+            Pixmap.createFromFrameBuffer(0, 0, SceneSize, SceneSize).let { frame ->
+                // OpenGL hands back the bottom row first.
+                imageOf(SceneSize, SceneSize) { x, y -> frame.getPixel(x, SceneSize - 1 - y) ushr 8 }
+                    .also { frame.dispose() }
             }
         } finally {
             canvas.dispose()
