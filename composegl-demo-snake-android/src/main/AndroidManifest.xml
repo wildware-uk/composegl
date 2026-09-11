@@ -9,6 +9,14 @@
         android:allowBackup="false">
 
         <!--
+            Not `Theme.NoTitleBar.Fullscreen`. That theme is the old way to go fullscreen, and a
+            window using it is sent no insets at all — not the navigation bar's, and not the
+            keyboard's. So a field could never know what was covering it. Fullscreen is asked for
+            in code instead (see AndroidLauncher), which does the same thing and still reports.
+
+            `adjustResize` so the keyboard produces an inset rather than shoving the window up:
+            the interface decides for itself what to do about it.
+
             Landscape, because the game is laid out in a 1280x720 design and fitted to whatever
             the window turns out to be. Every configuration change listed here is handled by
             LibGDX itself, so rotating the phone does not restart the game.
@@ -18,7 +26,8 @@
             android:exported="true"
             android:screenOrientation="sensorLandscape"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
