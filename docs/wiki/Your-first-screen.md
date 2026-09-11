@@ -100,11 +100,16 @@ canvas.end()                           // 4. hand it to the GPU
 An analogy: **frame** is asking "has anybody changed their mind?", **measure** is
 laying the furniture out in the room, and **draw** is taking the photograph.
 
-You would write it out like this if your game draws into the *same* canvas as the
-interface — a 2D game putting its board under its HUD, say. Then the board's
-drawing goes between `begin` and `draw`, and `UiRenderer` has no way to get in
-there. A 3D game normally does not have this problem: its world goes to OpenGL
-directly, before the canvas's frame is even open.
+If your game draws into the *same* canvas as the interface — a 2D game putting
+its board under its HUD, say — you do not need to write it out. Hand the drawing
+over instead, and it happens inside the canvas's frame, under everything:
+
+```kotlin
+ui.drawBehind = { canvas -> board.draw(canvas) }
+```
+
+A 3D game normally has nothing to put there: its world goes to OpenGL directly,
+before the canvas's frame is even open.
 
 Keep the `DrawPass` if you write it out yourself — it holds the canvas and nothing
 else, so making a new one every frame is waste. The `MeasurePass` has to be new

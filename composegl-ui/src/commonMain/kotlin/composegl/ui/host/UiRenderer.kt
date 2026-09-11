@@ -17,9 +17,9 @@ import composegl.ui.layout.run
  * ui.render(viewport, System.nanoTime())
  * ```
  *
- * The five lines it replaces are still there and still public, because a game that wants to put
- * something between them — its own world drawn into the same canvas, an effect, a second tree —
- * needs them apart. This is for everybody else, which is most people.
+ * A game that draws its own world into the same canvas sets [drawBehind] and still gets the one
+ * call. The five lines this replaces are all still public, for the rarer case that wants them
+ * genuinely apart — two trees, an effect between them, a pass of its own.
  *
  * What it does, in order: ask the runtime whether anything changed, lay the tree out for the
  * viewport, tell [onLaidOut] that positions exist, open the canvas's frame, draw, close it, and
@@ -31,7 +31,8 @@ import composegl.ui.layout.run
  */
 class UiRenderer(
     private val host: UiHost,
-    private val canvas: UiCanvas,
+    /** The canvas it draws into, for a game that keeps one of these per canvas. */
+    val canvas: UiCanvas,
     val budget: FrameBudget = FrameBudget(),
 ) {
 
@@ -50,6 +51,20 @@ class UiRenderer(
     var onLaidOut: ((Long) -> Unit)? = null
 
     /**
+     * Run inside the canvas's frame, before the interface is drawn: the game's own world, under
+     * its heads-up display, in the same batch.
+     *
+     * Without it a game drawing through [UiCanvas] could not use this class at all — its board
+     * has to go between `begin` and `end`, and this owns both. What it draws is deliberately not
+     * counted in the budget's draw time, which is there to answer "what is the interface costing
+     * me" and would stop meaning that if the game's own world were in it.
+     *
+     * Set once, for the same reason as [onLaidOut]: a lambda that mentions anything around it is
+     * a fresh object, and per frame is exactly where this project does not want one.
+     */
+    var drawBehind: ((UiCanvas) -> Unit)? = null
+
+    /**
      * One frame. Returns whether anything actually changed, which is what a game checks before
      * bothering to swap buffers.
      *
@@ -62,6 +77,7 @@ class UiRenderer(
         onLaidOut?.invoke(nanos / 1_000_000)
 
         canvas.begin(viewport)
+        drawBehind?.invoke(canvas)
         budget.draw { draw.draw(host.root) }
         canvas.end()
 

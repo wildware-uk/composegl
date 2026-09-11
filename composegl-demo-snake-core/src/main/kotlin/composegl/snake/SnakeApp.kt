@@ -9,14 +9,12 @@ import composegl.ui.backend.Clipboard
 import composegl.ui.backend.SoftKeyboard
 import composegl.ui.debug.FrameBudget
 import composegl.ui.input.InputSource
-import composegl.ui.draw.DrawPass
 import composegl.ui.geometry.Rect
 import composegl.ui.geometry.Size
 import composegl.ui.graphics.UiCanvas
 import composegl.ui.host.UiHost
-import composegl.ui.layout.MeasurePass
+import composegl.ui.host.UiRenderer
 import composegl.ui.layout.Viewport
-import composegl.ui.layout.run
 import composegl.ui.text.FontProvider
 
 /**
@@ -24,16 +22,12 @@ import composegl.ui.text.FontProvider
  *
  * Rules, board, interface, input and the order of a frame, with nothing in it that knows whether it
  * is running on a desktop, in LibGDX or on a phone. A launcher opens a window, makes fonts and a
- * canvas, and calls the four methods below in order; that is the entire port surface, and it is why
- * the Android launcher is sixty lines rather than a second copy of the game.
+ * canvas, and calls the two methods below; that is the entire port surface, and it is why the
+ * Android launcher is sixty lines rather than a second copy of the game.
  *
  * ```kotlin
  * app.update(delta)
- * app.layout(viewport, nanos)
- * canvas.begin(viewport)
- * app.draw(canvas)
- * canvas.end()
- * app.endFrame(canvas.drawCalls)
+ * app.frame(canvas, viewport, nanos)
  * ```
  *
  * @param fonts the backend's fonts, already carrying body at 13, 16 and 20 and display at 34.
@@ -62,8 +56,6 @@ class SnakeApp(
 
     val input = SnakeInput(session, host.root, budget, initialSource)
 
-    private var changed = false
-
     init {
         host.setContent { SnakeUi(session, fonts, skin.skin, clipboard, softKeyboard, input.source, budget) }
     }
@@ -75,31 +67,40 @@ class SnakeApp(
         if (session.advance(delta) == StepResult.Ate) board.onEat()
     }
 
-    /** The interface's half, up to but not including drawing. */
-    fun layout(viewport: Viewport, nanos: Long) {
-        changed = budget.recompose { host.frame(nanos) }
-        budget.layout { MeasurePass().run(host.root, viewport) }
-        input.frame(nanos / 1_000_000)
-    }
+    /**
+     * The interface's half of a frame: recompose, lay out, take input, draw the board, draw the
+     * interface over it, and file what it all cost.
+     *
+     * Returns whether anything changed, which a loop that can skip a frame would check.
+     *
+     * @param canvas the backend's. The same one every frame for the life of the window, which is
+     *   what lets the renderer be made once.
+     */
+    fun frame(canvas: UiCanvas, viewport: Viewport, nanos: Long): Boolean =
+        renderer(canvas).render(viewport, nanos)
 
     /**
-     * The board first, the interface over it, into one canvas.
+     * The renderer for [canvas], made on the first frame and kept.
      *
-     * Called between the backend's own `begin` and `end`, which is the only reason this is not one
-     * method with [layout].
+     * Kept rather than remade because it holds a draw pass, and a pass holds its canvas. A launcher
+     * that somehow swapped canvases — a lost GL context on a phone — gets a new one rather than a
+     * pass pointed at something dead.
      */
-    fun draw(canvas: UiCanvas) {
-        board.draw(canvas, BoardArea, session.game, session.showGrid, session.stepProgress)
-        // Kept rather than made each frame: a pass holds the canvas and nothing else, and the
-        // canvas is the same one for the life of the window.
-        val pass = drawPass?.takeIf { it.canvas === canvas } ?: DrawPass(canvas).also { drawPass = it }
-        budget.draw { pass.draw(host.root) }
+    private fun renderer(canvas: UiCanvas): UiRenderer {
+        held?.takeIf { it.canvas === canvas }?.let { return it }
+        return UiRenderer(host, canvas, budget).also {
+            it.onLaidOut = input::frame
+            // The board goes under the interface, inside the canvas's own frame, so that the whole
+            // thing is one batch rather than two.
+            it.drawBehind = ::drawBoard
+            held = it
+        }
     }
 
-    private var drawPass: DrawPass? = null
+    private var held: UiRenderer? = null
 
-    /** Closes the frame off, after the backend has flushed and can say what it cost. */
-    fun endFrame(drawCalls: Int) = budget.endFrame(drawCalls, changed)
+    private fun drawBoard(canvas: UiCanvas) =
+        board.draw(canvas, BoardArea, session.game, session.showGrid, session.stepProgress)
 
     override fun close() = host.dispose()
 
