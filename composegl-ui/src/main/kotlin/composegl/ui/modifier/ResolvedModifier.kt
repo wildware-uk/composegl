@@ -79,7 +79,8 @@ class ResolvedModifier private constructor(
                     is AlignElement -> alignment = element.alignment
                     is AlphaElement -> alpha *= element.alpha.coerceIn(0f, 1f)
                     is ClipElement -> clip = element
-                    is BackgroundElement, is BorderElement, is ShadowElement, is DrawBehindElement ->
+                    is BackgroundElement, is BorderElement, is ShadowElement,
+                    is NinePatchElement, is DrawBehindElement ->
                         behind += PaintOp(element, padding)
                     is DrawInFrontElement -> inFront += PaintOp(element, padding)
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing

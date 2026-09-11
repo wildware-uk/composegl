@@ -165,22 +165,46 @@ class GdxCanvas(private val spriteBatch: Batch? = null) : UiCanvas, Disposable {
         }
     }
 
-    override fun image(texture: TextureHandle, destination: Rect, tint: Colour) {
+    override fun image(texture: TextureHandle, destination: Rect, tint: Colour, source: Rect?) {
         if (state.isHidden || destination.isEmpty) return
         val gdx = texture as? GdxTexture
             ?: error("this canvas can only draw textures it made, not ${texture::class}")
 
         val region = gdx.region
+
+        // A TextureRegion measures y downwards, like the toolkit, so `v` is its top edge and `v2`
+        // its bottom. The batch takes the coordinate for the quad's top and the quad's bottom in
+        // that order, so they go straight across.
+        //
+        // A BitmapFont glyph is the other way round — `v2` is its top — which is why the text above
+        // swaps them and this does not. It is an unhappy asymmetry in LibGDX, not in this file.
+        var left = region.u
+        var right = region.u2
+        var top = region.v
+        var bottom = region.v2
+
+        if (source != null) {
+            check(!gdx.rotated) {
+                "part of a rotated atlas region cannot be drawn; pack this one without rotation"
+            }
+            val across = (region.u2 - region.u) / region.regionWidth
+            val down = (region.v2 - region.v) / region.regionHeight
+            left = region.u + source.left * across
+            right = region.u + source.right * across
+            top = region.v + source.top * down
+            bottom = region.v + source.bottom * down
+        }
+
         batch.textured(
             texture = region.texture,
             left = destination.left,
             bottom = flip(destination.bottom),
             width = destination.width,
             height = destination.height,
-            u = region.u,
-            v = region.v2,
-            u2 = region.u2,
-            v2 = region.v,
+            u = left,
+            v = top,
+            u2 = right,
+            v2 = bottom,
             colour = tint.packed(state.alpha),
         )
     }

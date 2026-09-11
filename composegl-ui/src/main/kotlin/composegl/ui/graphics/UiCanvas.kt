@@ -36,8 +36,20 @@ interface UiCanvas {
     /** Text that has already been measured, with [at] as its top-left. */
     fun text(layout: TextLayout, at: Offset, colour: Colour)
 
-    /** A picture, stretched to fill [destination]. [tint] multiplies; white leaves it alone. */
-    fun image(texture: TextureHandle, destination: Rect, tint: Colour = Colour.White)
+    /**
+     * A picture, stretched to fill [destination]. [tint] multiplies; white leaves it alone.
+     *
+     * [source] picks a part of the texture, in texture pixels from its top-left, y downwards.
+     * Null means all of it. It is here so that slicing a picture up — a nine-patch, a sprite
+     * sheet, one frame of an animation — is arithmetic the toolkit does once, rather than a
+     * feature every backend has to implement and can implement differently.
+     */
+    fun image(
+        texture: TextureHandle,
+        destination: Rect,
+        tint: Colour = Colour.White,
+        source: Rect? = null,
+    )
 
     /** Nothing outside [rect] is drawn until the matching [popClip]. Nests by intersection. */
     fun pushClip(rect: Rect)

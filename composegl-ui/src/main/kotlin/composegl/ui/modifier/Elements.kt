@@ -1,6 +1,7 @@
 package composegl.ui.modifier
 
 import composegl.ui.graphics.Colour
+import composegl.ui.graphics.NinePatch
 import composegl.ui.graphics.UiCanvas
 import composegl.ui.geometry.Rect
 import composegl.ui.layout.Alignment
@@ -41,6 +42,9 @@ data class BorderElement(val colour: Colour, val width: Float, val corner: Float
 }
 
 data class ShadowElement(val colour: Colour, val spread: Float, val corner: Float = 0f) : Modifier.Element
+
+/** Art behind the node, cut into nine so it can be any size. See [composegl.ui.graphics.NinePatch]. */
+data class NinePatchElement(val patch: NinePatch, val tint: Colour = Colour.White) : Modifier.Element
 
 /** Nothing outside this node is drawn by it or by its children. */
 data class ClipElement(val corner: Float = 0f) : Modifier.Element
@@ -96,6 +100,24 @@ fun Modifier.border(colour: Colour, width: Float = 1f, corner: Float = 0f) =
 
 fun Modifier.shadow(colour: Colour, spread: Float, corner: Float = 0f) =
     then(ShadowElement(colour, spread, corner))
+
+/**
+ * Draws [patch] behind this node, sized to it.
+ *
+ * By default the art's own content insets become the node's padding, so the gap between a panel's
+ * frame and its contents is a property of the skin rather than a number copied into the layout.
+ * Pass `applyPadding = false` when you want to place things over the art instead of inside it.
+ */
+fun Modifier.ninePatch(
+    patch: NinePatch,
+    tint: Colour = Colour.White,
+    applyPadding: Boolean = true,
+): Modifier {
+    val painted = then(NinePatchElement(patch, tint))
+    // After the paint, not before: the art is drawn across the whole node, and the padding it asks
+    // for applies to what comes next — which is exactly what `background(c).padding(n)` means.
+    return if (applyPadding) painted.then(PaddingElement(patch.padding)) else painted
+}
 
 fun Modifier.clip(corner: Float = 0f) = then(ClipElement(corner))
 

@@ -51,6 +51,8 @@ sealed interface DrawCall {
         val texture: TextureHandle,
         val destination: Rect,
         val tint: Colour,
+        /** The part of the texture drawn, in texture pixels. Null is all of it. */
+        val source: Rect?,
         override val clip: Rect,
         override val alpha: Float,
     ) : DrawCall
@@ -117,8 +119,8 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         recorded += DrawCall.Text(layout.text, at, colour, state.clip, state.alpha)
     }
 
-    override fun image(texture: TextureHandle, destination: Rect, tint: Colour) {
-        recorded += DrawCall.Image(texture, destination, tint, state.clip, state.alpha)
+    override fun image(texture: TextureHandle, destination: Rect, tint: Colour, source: Rect?) {
+        recorded += DrawCall.Image(texture, destination, tint, source, state.clip, state.alpha)
     }
 
     override fun pushClip(rect: Rect) = state.pushClip(rect)

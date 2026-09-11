@@ -8,10 +8,13 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.PixmapIO
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.graphics.g2d.TextureAtlas
 import composegl.gdx.GdxCanvas
 import composegl.gdx.GdxFonts
+import composegl.gdx.ninePatch
 import composegl.ui.draw.DrawPass
 import composegl.ui.geometry.Size
+import composegl.ui.graphics.EdgeMode
 import composegl.ui.host.UiHost
 import composegl.ui.layout.MeasurePass
 import composegl.ui.layout.ScalePolicy
@@ -30,6 +33,8 @@ import composegl.ui.layout.run
 class Demo : ApplicationAdapter() {
 
     private lateinit var fonts: GdxFonts
+    private lateinit var atlas: TextureAtlas
+    private lateinit var skin: DemoSkin
     private lateinit var canvas: GdxCanvas
     private lateinit var sprites: SpriteBatch
     private lateinit var host: UiHost
@@ -46,10 +51,17 @@ class Demo : ApplicationAdapter() {
         fonts.registerTrueType("body", file, listOf(13, 16, 20))
         fonts.registerTrueType("display", file, listOf(34))
 
+        atlas = TextureAtlas(Gdx.files.internal("ui/ui.atlas"))
+        skin = DemoSkin(
+            panel = atlas.ninePatch("panel"),
+            // The hatch keeps its pitch across the ribbon and fills whatever height the text needs.
+            ribbon = atlas.ninePatch("ribbon", centreAcross = EdgeMode.Tile),
+        )
+
         sprites = SpriteBatch()
         canvas = GdxCanvas(sprites)
         host = UiHost()
-        host.setContent { Screen(fonts, state.health, state.selected) }
+        host.setContent { Screen(fonts, skin, state.health, state.selected) }
     }
 
     override fun render() {
@@ -100,6 +112,7 @@ class Demo : ApplicationAdapter() {
         canvas.dispose()
         sprites.dispose()
         fonts.dispose()
+        atlas.dispose()
     }
 }
 
