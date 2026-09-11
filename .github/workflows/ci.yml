@@ -20,6 +20,10 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
+
+      # This also compiles composegl-ui for Linux native and runs its common test there. That is
+      # what stops "the toolkit is platform-free" from being a claim nobody checks: a line reaching
+      # for a JVM API fails here rather than on somebody's phone.
       - run: ./gradlew build --stacktrace
 
   gl:

@@ -1,5 +1,7 @@
 package composegl.ui.input
 
+import kotlin.jvm.JvmInline
+
 /**
  * A key on a keyboard, as this toolkit names it.
  *
@@ -121,11 +123,11 @@ value class Modifiers(val bits: Int) {
         /**
          * Whether the primary shortcut key is Command rather than Control.
          *
-         * Read once. A backend on a platform that does not report an OS name gets Control, which is
-         * the right answer for Android, iOS and every console.
+         * Set by the backend at startup, because only a backend knows what it is running on. The
+         * toolkit does not ask the platform anything — it has no platform to ask — and the default
+         * of Control is the right answer for Android, iOS, Windows, Linux and every console.
          */
-        var isMac: Boolean = System.getProperty("os.name")?.lowercase()?.contains("mac") == true
-            internal set
+        var isMac: Boolean = false
     }
 }
 

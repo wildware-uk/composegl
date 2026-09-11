@@ -13,10 +13,14 @@ that makes an interface redraw only when something actually changed. Everything 
 the widgets, the layout, the drawing, the input — is ours, drawn through LibGDX with a sprite batch
 and a font.
 
-That means it runs anywhere LibGDX runs, with no native library to build or publish: desktop,
-Android and iOS. It also means we are free to build the toolkit games actually need — skins from a
-texture atlas, focus that works on a gamepad, animations on a clock the game can pause — instead of
-a general-purpose one bent into shape.
+The toolkit itself is a Kotlin Multiplatform module: every line of it is common code, and it is
+compiled for a JVM *and* for Linux native on every build. That second target is not a product — it
+is the thing that stops "this is portable" from being a claim nobody checks. A backend is what ties
+it to a machine, and there are two of those.
+
+It also means we are free to build the toolkit games actually need — skins from a texture atlas,
+focus that works on a gamepad, animations on a clock the game can pause — instead of a
+general-purpose one bent into shape.
 
 ![The example running](docs/images/demo.png)
 
@@ -44,7 +48,7 @@ yet, nothing is clickable, and there is no skin file — those are the next mile
 
 | | |
 |---|---|
-| `composegl-ui` | the toolkit. Depends on the Compose runtime and coroutines, and nothing else |
+| `composegl-ui` | the toolkit. Multiplatform, and depends on the Compose runtime and coroutines |
 | `composegl-gdx` | the LibGDX backend: renderer, fonts, input. The one to use |
 | `composegl-lwjgl3` | a second backend, on raw OpenGL and stb_truetype. Exists to disagree |
 | `composegl-testing` | the scenes both backends draw, and the golden comparison |
@@ -72,6 +76,7 @@ clipping have to match, and where they do not, the toolkit has leaked something 
 that the other never heard about.
 
 ```bash
+./gradlew build                                           # includes compiling the toolkit for Linux native
 ./gradlew check                                           # everything that needs no display
 xvfb-run -a ./gradlew :composegl-gdx:test                 # the renderer, on software OpenGL
 xvfb-run -a ./gradlew :composegl-lwjgl3:test              # and the same scenes with no LibGDX

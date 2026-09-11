@@ -9,6 +9,7 @@ import composegl.ui.layout.Viewport
 import composegl.ui.text.TextStyle
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.lwjgl.opengl.GL11
@@ -208,6 +209,9 @@ class GlCanvasTest {
 
     @Test
     fun `an unbalanced clip is caught at the end of the frame`() {
+        // The skip has to happen out here: inside `assertThrows`, a skip is an exception that is
+        // not the expected one, so a machine with no display would report a failure instead.
+        assumeTrue(Gl.available, "no display; this test needs a real GL context")
         assertThrows<IllegalStateException> {
             Gl.render {
                 val canvas = GlCanvas()

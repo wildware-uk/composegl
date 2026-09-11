@@ -1,5 +1,7 @@
 package composegl.ui.graphics
 
+import kotlin.jvm.JvmInline
+
 /**
  * A colour, packed as `0xAARRGGBB`.
  *
@@ -34,7 +36,8 @@ value class Colour(val argb: Int) {
         return Colour(mix(alpha, other.alpha), mix(red, other.red), mix(green, other.green), mix(blue, other.blue))
     }
 
-    override fun toString(): String = "Colour(#%08X)".format(argb)
+    override fun toString(): String =
+        "Colour(#${argb.toUInt().toString(16).uppercase().padStart(8, '0')})"
 
     companion object {
         val Transparent = Colour(0x00000000)

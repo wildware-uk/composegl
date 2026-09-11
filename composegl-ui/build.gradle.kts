@@ -1,16 +1,48 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kotlin.compose)
 }
 
 description = "The toolkit: nodes, modifiers, layout, widgets, input. No engine, no OpenGL, no AWT."
 
-dependencies {
-    api(libs.compose.runtime)
-    api(libs.coroutines.core)
+/**
+ * Multiplatform, with every line of the toolkit in `commonMain`.
+ *
+ * The second target is the point. A module that only ever compiles for a JVM can claim to be
+ * portable for years and be wrong, because nothing ever checks; one line reaching for
+ * `System.getProperty` or `String.format` is all it takes. Compiling for something with no JVM
+ * anywhere near it turns that claim into a build failure.
+ *
+ * Linux is that target rather than iOS only because this is what the machines here and in CI can
+ * build. The compiler does not care which one it is — what it checks is that the source is common,
+ * and iOS is a target being added to a list rather than a port.
+ */
+kotlin {
+    jvm()
+    linuxX64()
 
-    testImplementation(libs.junit.jupiter)
-    testRuntimeOnly(libs.junit.platform.launcher)
+    // `expect class` is still officially Beta, and the warning is an error here. One internal
+    // lock uses it, deliberately: see `internal/Guard.kt`.
+    compilerOptions { freeCompilerArgs.add("-Xexpect-actual-classes") }
+
+    sourceSets {
+        commonMain.dependencies {
+            api(libs.compose.runtime)
+            api(libs.coroutines.core)
+        }
+
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+
+        jvmTest.dependencies {
+            // The JUnit 5 flavour, so that `kotlin.test` in commonTest and the JUnit annotations
+            // the rest of the suite uses run in the same engine.
+            implementation(kotlin("test-junit5"))
+            implementation(libs.junit.jupiter)
+            runtimeOnly(libs.junit.platform.launcher)
+        }
+    }
 }
 
 /**
@@ -51,7 +83,7 @@ val confinement = tasks.register<DependencyConfinementCheck>("checkDependencyCon
     resolved.set(
         provider {
             DependencyConfinementCheck.modulesOf(
-                configurations.named("runtimeClasspath").get().incoming.resolutionResult.root,
+                configurations.named("jvmRuntimeClasspath").get().incoming.resolutionResult.root,
             )
         },
     )
@@ -65,7 +97,7 @@ val confinement = tasks.register<DependencyConfinementCheck>("checkDependencyCon
 val noEngineTypes = tasks.register<BytecodeReferenceCheck>("checkNoEngineTypes") {
     description = "Fails if composegl-ui names an engine, a window toolkit or Compose UI."
     group = "verification"
-    classDirectories.from(layout.buildDirectory.dir("classes/kotlin/main"))
+    classDirectories.from(layout.buildDirectory.dir("classes/kotlin/jvm/main"))
     forbiddenPackages.set(
         listOf(
             "java/awt",
@@ -82,7 +114,7 @@ val noEngineTypes = tasks.register<BytecodeReferenceCheck>("checkNoEngineTypes")
         "The toolkit defines its own events, its own canvas and its own fonts so a backend can be " +
             "written for anything. A reference to one of these means an engine has leaked in.",
     )
-    dependsOn(tasks.named("classes"))
+    dependsOn(tasks.named("jvmMainClasses"))
 }
 
 tasks.named("check") { dependsOn(confinement, noEngineTypes) }
