@@ -112,7 +112,7 @@ fun interface MeasurePolicy {
         val Stack = MeasurePolicy { measurables, constraints ->
             val count = measurables.size
             val placeables = placeables(count)
-            val offered = constraints.loosen()
+            val offered = if (count == 0) constraints else constraints.loosen()
 
             var widest = 0f
             var tallest = 0f
