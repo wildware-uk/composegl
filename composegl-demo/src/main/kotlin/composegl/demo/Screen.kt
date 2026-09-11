@@ -47,8 +47,8 @@ import composegl.ui.widget.Checkbox
 import composegl.ui.widget.Image
 import composegl.ui.widget.ImageFit
 import composegl.ui.widget.LocalFonts
-import composegl.ui.widget.rememberScrollState
-import composegl.ui.widget.ScrollArea
+import composegl.ui.widget.rememberLazyListState
+import composegl.ui.widget.LazyColumn
 import composegl.ui.widget.Slider
 import composegl.ui.widget.Text
 import composegl.ui.widget.Toggle
@@ -175,7 +175,7 @@ private fun Bar(label: String, fraction: Float, fill: String) {
 /** The same job, done by a nine-patch. Its slices and padding come from the skin file. */
 @Composable
 private fun LorePanel(modifier: Modifier, state: DemoState) {
-    val log = rememberScrollState()
+    val log = rememberLazyListState()
 
     Panel(modifier) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
@@ -186,15 +186,17 @@ private fun LorePanel(modifier: Modifier, state: DemoState) {
                 style = "label.body",
             )
 
-            // More log than there is room for. The wheel, a drag, the scrollbar and the pad all
-            // move it, and the whole thing is clipped by one scissor rather than one per line.
-            ScrollArea(Modifier.fillMaxWidth().weight(1f), state = log) {
-                Column(
-                    Modifier.fillMaxWidth().padding(right = 14f),
-                    verticalArrangement = Arrangement.spacedBy(6f),
-                ) {
-                    transmissions.forEach { line -> Text(line, style = "label.dim") }
-                }
+            // Five hundred lines of log, of which about a dozen exist. The wheel, a drag, the
+            // scrollbar and the pad all move it, and it is clipped by one scissor rather than one
+            // per line.
+            LazyColumn(
+                count = transmissions.size,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                state = log,
+                key = { it },
+                spacing = 6f,
+            ) { index ->
+                Text(transmissions[index], Modifier.padding(right = 14f), style = "label.dim")
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(10f)) {
@@ -279,8 +281,7 @@ private fun Reticle(at: Offset) {
 
 private const val ReticleSize = 18f
 
-/** Enough log to need scrolling, which is the whole point of it being here. */
-private val transmissions = listOf(
+private val relayLog = listOf(
     "06:12  relay handshake lost",
     "06:14  automated retry, no answer",
     "06:19  door codes rewritten from inside",
@@ -306,6 +307,16 @@ private val transmissions = listOf(
     "08:44  cutter signed back in, by nobody",
     "08:50  the relay went quiet again",
 )
+
+/**
+ * Enough log that building all of it would be silly, which is the whole point of it being here.
+ *
+ * Five hundred lines, of which the list ever builds about a dozen.
+ */
+private val transmissions = List(500) { index ->
+    val line = relayLog[index % relayLog.size]
+    if (index < relayLog.size) line else "${index + 1}  ${line.substringAfter("  ")}"
+}
 
 /** The number row, in the order it is printed: 1 to 9 then 0, which is the tenth slot. */
 private val digits = listOf(
