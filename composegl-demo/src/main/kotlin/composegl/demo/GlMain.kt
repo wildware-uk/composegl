@@ -77,11 +77,15 @@ fun main() {
     val scriptedPad: String? = System.getenv("COMPOSEGL_DEMO_PAD")
     // One keystroke per frame: a step often depends on what the last one put on screen.
     val scriptedKeys: List<String> = System.getenv("COMPOSEGL_DEMO_KEYS")?.let { input.keyScript(it) } ?: emptyList()
+    // How long to let the demo run before the shot, for anything that is a movement rather than a
+    // state: a bar's trail is only there for a moment after the value drops.
+    val shotAt: Float = System.getenv("COMPOSEGL_DEMO_SHOT_AT")?.toFloatOrNull() ?: 0f
     var frames = 0
+    var elapsed = 0f
 
     try {
         while (!window.shouldClose()) {
-            val elapsed = GLFW.glfwGetTime().toFloat()
+            elapsed = GLFW.glfwGetTime().toFloat()
             state.tick(elapsed)
 
             scriptedPointer?.let { input.pretendPointerIsAt(it) }
@@ -105,7 +109,7 @@ fun main() {
             window.present()
 
             frames++
-            if (shot != null && frames >= scriptedKeys.size + 2) {
+            if (shot != null && frames >= scriptedKeys.size + 2 && elapsed >= shotAt) {
                 save(shot, window.framebuffer, canvas.renderCalls)
                 break
             }

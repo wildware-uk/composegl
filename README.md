@@ -54,8 +54,8 @@ the example's Kotlin. Save the file while the example is running and it changes 
 A skin that will not parse names the line and suggests the nearest region or key that would have
 worked, and a broken save leaves the last skin that worked on screen. The widget set has started:
 `Text`, `Image`, `Button`, `IconButton`, `Checkbox`, `RadioButton`, `Toggle`, `Slider`,
-`ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog`, `Tabs` and `TextField` ship with the
-toolkit, and the example is built from them. Typing works the whole way through: a caret that blinks
+`ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog`, `Tabs`, `TextField` and `Bar` ship with
+the toolkit, and the example is built from them. Typing works the whole way through: a caret that blinks
 and stops blinking mid-word, selection by shift or by dragging, double-click for a word, word-wise
 movement, the system clipboard through whichever backend is running, and a field that scrolls
 sideways so a long name never types itself off the edge.
@@ -67,6 +67,14 @@ world does not freeze the pause menu sitting on top of it, and a world animation
 it stopped rather than jumping to where it would have been. An animation that has arrived
 unsubscribes, so a screen full of settled animations costs exactly as many redraws as a screen with
 none: zero, and there is a test that drives a hundred frames to prove it.
+
+The game widgets start with the health bar, which is where the clocks earn their keep. The fill
+moves the instant the value does; a ghost bar behind it holds for a moment and then drains down to
+meet it, so a player sees *how much* they just lost rather than only that they lost some. Two hits
+in a row keep draining towards the newer value instead of the trail jumping back up and starting
+again, healing has no trail at all, and the whole thing runs on `Clock.World`, so a paused game is
+not still visibly bleeding. Thresholds name their own fill style — "red below a quarter" is one
+line at the call site and a colour in the skin file — and a bar that low breathes.
 
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and

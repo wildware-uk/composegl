@@ -48,10 +48,11 @@ import composegl.ui.text.FontProvider
 import composegl.ui.animation.Clock
 import composegl.ui.animation.Easings
 import composegl.ui.animation.LocalClocks
-import composegl.ui.animation.Spring
 import composegl.ui.animation.Tween
 import composegl.ui.animation.animateFloatAsState
 import composegl.ui.backend.Clipboard
+import composegl.ui.game.Bar
+import composegl.ui.game.BarThreshold
 import composegl.ui.backend.SoftKeyboard
 import composegl.ui.widget.Button
 import composegl.ui.widget.Checkbox
@@ -221,9 +222,21 @@ private fun StatusPage(state: DemoState) {
             Image("icon/crest", Modifier.size(26f), fit = ImageFit.Contain)
             Heading("VITALS")
         }
-        Bar("Health", state.health, "bar.fill")
-        Bar("Shield", 0.42f, "bar.fill.shield")
-        Bar("Stamina", 0.78f, "bar.fill.stamina")
+        // Health has the trail, the thresholds and the pulse: hit it and the ghost bar drains down
+        // behind the real one, and under a quarter it turns red and breathes.
+        LabelledBar(
+            "Health",
+            state.health,
+            thresholds = listOf(
+                BarThreshold(0.25f, "bar.fill.critical"),
+                BarThreshold(0.5f, "bar.fill.low"),
+            ),
+            pulseBelow = 0.25f,
+        )
+        // Its own set of styles rather than its own widget, and notches so it is counted at a
+        // glance rather than measured.
+        LabelledBar("Shield", 0.42f, style = "bar.shield", segments = 4)
+        LabelledBar("Stamina", 0.78f, style = "bar.stamina")
         Spacer(Modifier.weight(1f))
         // A value the player drags, nudges with the arrow keys, or pushes the stick at — all
         // three the widget's, and all three landing on the same five-point steps.
@@ -294,22 +307,32 @@ private fun GearPage(state: DemoState) {
     }
 }
 
-/** A labelled bar. Two styled boxes and a fraction — the whole widget. */
+/** The toolkit's bar, with a label and a percentage above it. */
 @Composable
-private fun Bar(label: String, fraction: Float, fill: String) {
-    // On the world's clock, not the interface's: these are the player's health and stamina, so they
-    // stop when the game stops. Open the confirmation dialogue and they freeze mid-slide while the
-    // dialogue itself carries on fading in — which is the whole reason for having two clocks.
-    val shown by animateFloatAsState(fraction, Spring(stiffness = Spring.Low), Clock.World)
-
+private fun LabelledBar(
+    label: String,
+    fraction: Float,
+    style: String = "bar",
+    segments: Int = 0,
+    thresholds: List<BarThreshold> = emptyList(),
+    pulseBelow: Float = 0f,
+) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4f)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, style = "label.dim")
-            Text("${(shown * 100).toInt()}%", style = "label.dim")
+            Text("${(fraction * 100).toInt()}%", style = "label.dim")
         }
-        Box(Modifier.fillMaxWidth().height(10f).styled("bar.track")) {
-            Box(Modifier.fillMaxWidth(shown).fillMaxHeight().styled(fill))
-        }
+        // On the world's clock, not the interface's: this is the player's health, so it stops when
+        // the game stops. Open the confirmation dialogue and a draining trail freezes mid-slide
+        // while the dialogue itself carries on fading in — the whole reason for having two clocks.
+        Bar(
+            value = fraction,
+            modifier = Modifier.fillMaxWidth(),
+            style = style,
+            segments = segments,
+            thresholds = thresholds,
+            pulseBelow = pulseBelow,
+        )
     }
 }
 

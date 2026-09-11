@@ -60,6 +60,9 @@ class Demo : ApplicationAdapter() {
 
     private val shot: String? = System.getenv("COMPOSEGL_DEMO_SHOT")
 
+    /** How long to let the demo run before the shot, for what is a movement rather than a state. */
+    private val shotAt: Float = System.getenv("COMPOSEGL_DEMO_SHOT_AT")?.toFloatOrNull() ?: 0f
+
     /** A keyboard script, one step per frame, the same as the other backend plays. */
     private var scriptedKeys: List<String> = emptyList()
 
@@ -123,7 +126,7 @@ class Demo : ApplicationAdapter() {
         canvas.end()
 
         frames++
-        if (shot != null && frames >= scriptedKeys.size + 2) {
+        if (shot != null && frames >= scriptedKeys.size + 2 && elapsed >= shotAt) {
             save(shot)
             Gdx.app.exit()
         }
