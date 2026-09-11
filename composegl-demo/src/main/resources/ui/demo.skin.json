@@ -87,6 +87,13 @@
       "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } }
     },
 
+    "scrollbar.track": { "background": { "fill": "#30000000", "corner": 4 } },
+
+    "scrollbar.thumb": {
+      "background": { "fill": "#604CC2FF", "corner": 4 },
+      "hovered": { "background": { "fill": "#4CC2FF", "corner": 4 } }
+    },
+
     "chip": {
       "background": { "fill": "#20FFFFFF", "corner": 6, "border": "#4CC2FF", "padding": [14, 8] },
       "textColour": "#4CC2FF",

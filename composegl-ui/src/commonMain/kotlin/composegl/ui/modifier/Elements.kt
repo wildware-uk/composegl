@@ -1,6 +1,7 @@
 package composegl.ui.modifier
 
 import composegl.ui.focus.FocusRequester
+import composegl.ui.focus.RevealHandler
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
@@ -123,6 +124,9 @@ data class FocusableElement(
 data class FocusDirectionElement(val handler: DirectionHandler) : Modifier.Element
 
 /** A handle on this node, so focus can be sent here by name rather than found by geometry. */
+/** Asked to bring a descendant into view when focus lands on it. */
+data class RevealElement(val handler: RevealHandler) : Modifier.Element
+
 data class FocusRequesterElement(val requester: FocusRequester) : Modifier.Element
 
 /**
@@ -267,6 +271,14 @@ fun Modifier.focusable(
  * Both the arrow keys and the pad arrive here, because both ask focus to move.
  */
 fun Modifier.onFocusDirection(handler: DirectionHandler) = then(FocusDirectionElement(handler))
+
+/**
+ * Called when focus lands on something inside this node, with that thing's bounds.
+ *
+ * What a scrolling area uses to scroll a focused child into view. Anything that can move its
+ * contents can answer it: the toolkit asks, and what "into view" means is the node's own business.
+ */
+fun Modifier.onReveal(handler: RevealHandler) = then(RevealElement(handler))
 
 fun Modifier.focusRequester(requester: FocusRequester) = then(FocusRequesterElement(requester))
 
