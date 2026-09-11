@@ -23,6 +23,7 @@ include(
     "composegl-gdx",
     "composegl-lwjgl3",
     "composegl-android",
+    "composegl-robovm",
     "composegl-testing",
     "composegl-demo",
     "composegl-demo-snake",

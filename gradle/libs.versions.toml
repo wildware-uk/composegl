@@ -9,6 +9,7 @@ gdx = "1.14.2"
 gdxControllers = "2.2.3"
 lwjgl = "3.4.3"
 jspecify = "1.0.0"
+robovm = "2.3.26"
 junit = "5.14.0"
 # The Android Gradle plugin, only ever applied to the two Android modules.
 agp = "9.2.1"
@@ -36,6 +37,10 @@ lwjgl = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
 # annotation it cannot see, so the annotations have to be on the compile classpath —
 # they are not needed at runtime, which is what compileOnly says.
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+# The iOS bindings. Ordinary Java jars — UIKit as classes — so a module can be written and
+# compiled against them anywhere. Only turning one into an app needs a Mac.
+robovm-rt = { module = "com.mobidevelop.robovm:robovm-rt", version.ref = "robovm" }
+robovm-cocoatouch = { module = "com.mobidevelop.robovm:robovm-cocoatouch", version.ref = "robovm" }
 lwjgl-glfw = { module = "org.lwjgl:lwjgl-glfw", version.ref = "lwjgl" }
 lwjgl-opengl = { module = "org.lwjgl:lwjgl-opengl", version.ref = "lwjgl" }
 lwjgl-stb = { module = "org.lwjgl:lwjgl-stb", version.ref = "lwjgl" }
