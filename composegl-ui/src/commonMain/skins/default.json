@@ -150,6 +150,16 @@
       "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#5B8DEF", "borderWidth": 2 } }
     },
 
+    // A game's bar, which is a progress bar with a memory: the trail is the ghost of what was
+    // there a moment ago, drawn behind the fill, and the segment is the notch between two blocks.
+
+    "bar.track": { "background": { "fill": "#10131A", "corner": 3, "border": "#2C3545" } },
+    "bar.fill": { "background": { "fill": "#46A758", "corner": 3 } },
+    "bar.fill.low": { "background": { "fill": "#E8A33D", "corner": 3 } },
+    "bar.fill.critical": { "background": { "fill": "#E5484D", "corner": 3 } },
+    "bar.trail": { "background": { "fill": "#8E2B2E", "corner": 3 } },
+    "bar.segment": { "background": { "fill": "#10131A" } },
+
     "progress.track": { "background": { "fill": "#2C3545", "corner": 4 } },
     "progress.fill": { "background": { "fill": "#5B8DEF", "corner": 4 } },
     "progress.fill.danger": { "background": { "fill": "#E5484D", "corner": 4 } },

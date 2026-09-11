@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 
 /**
  * Which clock an animation runs on.
@@ -132,3 +133,20 @@ val LocalClocks: ProvidableCompositionLocal<Clocks> = staticCompositionLocalOf {
 @Composable
 fun ProvideClocks(clocks: Clocks, content: @Composable () -> Unit) =
     CompositionLocalProvider(LocalClocks provides clocks, content = content)
+
+/**
+ * Waits for [millis] of [clock]'s own time.
+ *
+ * Not `delay`, which counts wall time and would go on counting through a pause. A hold before a
+ * health bar's damage trail starts draining belongs to the world: pause the game half a second into
+ * it and it has half a second left when the game comes back, however long the player spent in the
+ * menu.
+ *
+ * A stopped clock waits forever, which is exactly what being paused means.
+ */
+suspend fun Clocks.wait(clock: Clock, millis: Int) {
+    if (millis <= 0) return
+    register(clock)
+    val until = time(clock) + millis * 1_000_000L
+    while (time(clock) < until) withFrameNanos { }
+}

@@ -183,8 +183,24 @@
 
     "bar.track": { "background": { "fill": "#40000000", "corner": 5 } },
     "bar.fill": { "background": { "fill": "#FF5C5C", "corner": 5 } },
-    "bar.fill.shield": { "background": { "fill": "#4CC2FF", "corner": 5 } },
-    "bar.fill.stamina": { "background": { "fill": "#7BE08A", "corner": 5 } },
+    "bar.fill.low": { "background": { "fill": "#FFB454", "corner": 5 } },
+    "bar.fill.critical": { "background": { "fill": "#FF2B2B", "corner": 5 } },
+    // The ghost of what was just lost: the fill's colour, dimmed, so the eye reads one bar.
+    "bar.trail": { "background": { "fill": "#70FF5C5C", "corner": 5 } },
+    "bar.segment": { "background": { "fill": "#0A1018" } },
+
+    // A bar with its own colours is a whole set of styles, not a fill: track, trail and notch all
+    // belong to it. This is what a game writes when it wants a second bar that is not the first.
+
+    "bar.shield.track": { "background": { "fill": "#40000000", "corner": 5 } },
+    "bar.shield.fill": { "background": { "fill": "#4CC2FF", "corner": 5 } },
+    "bar.shield.trail": { "background": { "fill": "#704CC2FF", "corner": 5 } },
+    "bar.shield.segment": { "background": { "fill": "#0A1018" } },
+
+    "bar.stamina.track": { "background": { "fill": "#40000000", "corner": 5 } },
+    "bar.stamina.fill": { "background": { "fill": "#7BE08A", "corner": 5 } },
+    "bar.stamina.trail": { "background": { "fill": "#707BE08A", "corner": 5 } },
+    "bar.stamina.segment": { "background": { "fill": "#0A1018" } },
 
     // --- where the player is ---
     //
