@@ -48,7 +48,6 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
 | **[[Backends]]** | LibGDX, raw OpenGL, Android, and writing your own |
 | **[[Testing]]** | a whole interface tested with no window and no GPU |
 | **[[Custom layouts]]** | writing your own `MeasurePolicy` when the three are not enough |
-| **[[Releasing]]** | how a version gets onto Maven Central |
 
 ---
 

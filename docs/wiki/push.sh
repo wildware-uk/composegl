@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copies these pages onto the GitHub wiki.
+# Mirrors these pages onto the GitHub wiki.
 #
 # The wiki is a second git repository beside the code one, so it cannot be pushed by the
 # same commit. This directory stays the source of truth — the pages are reviewed like
@@ -21,6 +21,9 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 git clone --quiet "$remote" "$work"
+# A mirror, not a copy: a page deleted here has to be deleted there too, or the wiki keeps
+# showing a page nobody can find in the repository any more.
+find "$work" -maxdepth 1 -name '*.md' -delete
 cp "$here"/*.md "$work/"
 git -C "$work" add -A
 
