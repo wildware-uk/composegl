@@ -49,15 +49,16 @@ val backend = Lwjgl3Backend(window, StbFonts().apply { registerTrueType(…) })
 val canvas = backend.canvas
 ```
 
-Then the same four lines each frame, whichever you chose:
+Then the same loop, whichever you chose — one renderer, made once:
 
 ```kotlin
-host.frame(System.nanoTime())
-MeasurePass().run(host.root, viewport)
-canvas.begin(viewport)
-DrawPass(canvas).draw(host.root)
-canvas.end()
+val ui = UiRenderer(host, canvas)
+// …once a frame:
+ui.render(viewport, System.nanoTime())
 ```
+
+See [Your first screen](Your-first-screen) for the four calls it is made of, and
+when you would write them out instead.
 
 ---
 

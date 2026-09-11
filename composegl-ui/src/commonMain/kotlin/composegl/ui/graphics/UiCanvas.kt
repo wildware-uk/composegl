@@ -4,6 +4,7 @@ import composegl.ui.effect.ShaderEffect
 import composegl.ui.effect.ShaderSource
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
+import composegl.ui.layout.Viewport
 import composegl.ui.text.TextLayout
 
 /**
@@ -20,6 +21,23 @@ import composegl.ui.text.TextLayout
  * multiplies. [CanvasState] implements both correctly and backends are expected to hold one.
  */
 interface UiCanvas {
+
+    /**
+     * Opens a frame: everything after this is drawn in [viewport]'s design coordinates, until the
+     * matching [end].
+     *
+     * Here, rather than on each backend, so that a whole frame of interface can be one call — see
+     * [composegl.ui.host.UiRenderer]. Every backend that draws to a screen has this pair anyway:
+     * something has to set the scale, the letterbox and the projection once rather than per
+     * rectangle.
+     *
+     * Both do nothing by default, for a canvas with no frame boundary to speak of — a recording
+     * one in a test, or one drawing into somebody else's already-open pass.
+     */
+    fun begin(viewport: Viewport) = Unit
+
+    /** Closes the frame, hands whatever is left to the GPU, and puts back any state it borrowed. */
+    fun end() = Unit
 
     /** A filled rectangle. [corner] is the corner radius; zero is a plain rectangle. */
     fun rect(rect: Rect, colour: Colour, corner: Float = 0f)

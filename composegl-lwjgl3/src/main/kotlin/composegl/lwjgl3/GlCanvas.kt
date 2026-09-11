@@ -106,7 +106,9 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
      *   name, for an interface being drawn onto a surface in a 3D world. A layer binds its own and
      *   has to know what to put back; nothing else here cares.
      */
-    fun begin(viewport: Viewport, framebuffer: Int = 0) {
+    override fun begin(viewport: Viewport) = begin(viewport, 0)
+
+    fun begin(viewport: Viewport, framebuffer: Int) {
         check(!drawing) { "begin() was called twice without an end()" }
         drawing = true
         this.framebuffer = framebuffer
@@ -128,7 +130,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     }
 
     /** Ends the frame and puts the GL state back the way a game expects to find it. */
-    fun end() {
+    override fun end() {
         check(drawing) { "end() without a begin()" }
 
         batch.end()

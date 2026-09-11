@@ -26,6 +26,7 @@ import composegl.ui.game.WorldAnchor
 import composegl.ui.game.WorldProjection
 import composegl.ui.geometry.Size
 import composegl.ui.host.UiHost
+import composegl.ui.host.UiRenderer
 import composegl.ui.layout.MeasurePass
 import composegl.ui.layout.Viewport
 import composegl.ui.layout.run
@@ -50,8 +51,8 @@ class Showcase : ApplicationAdapter() {
     private lateinit var sprites: SpriteBatch
     private lateinit var canvas: GdxCanvas
 
-    /** Made once, not once a frame: a pass holds the canvas and nothing else. */
-    private lateinit var drawPass: DrawPass
+    /** The whole interface in one call, made once; see [UiRenderer]. */
+    private lateinit var ui: UiRenderer
     private lateinit var host: UiHost
     private lateinit var input: ShowcaseInput
     private lateinit var pointerInput: GdxPointerInput
@@ -96,7 +97,6 @@ class Showcase : ApplicationAdapter() {
         skin = showcaseSkin(fonts)
         sprites = SpriteBatch()
         canvas = GdxCanvas(sprites, fonts.atlas)
-        drawPass = DrawPass(canvas)
 
         scene.create()
         particles.create()
@@ -115,6 +115,15 @@ class Showcase : ApplicationAdapter() {
         pointerInput = GdxPointerInput(input, { viewport })
         keyboardInput = GdxKeyboardInput(input)
         Gdx.input.inputProcessor = InputMultiplexer(pointerInput, keyboardInput)
+
+        // Last, because it needs the host and the canvas. Set once rather than passed per frame:
+        // hit testing needs positions, so input cannot be told about a frame until the tree has
+        // been laid out.
+        ui = UiRenderer(host, canvas, budget)
+        ui.onLaidOut = { millis ->
+            scriptedPointer?.let { pretendPointerIsAt(it) }
+            input.frame(millis)
+        }
     }
 
     override fun resize(width: Int, height: Int) {
@@ -131,14 +140,9 @@ class Showcase : ApplicationAdapter() {
         fireAtSomething(delta)
 
         skin.reloadIfChanged()
-        val changed = budget.recompose { host.frame(System.nanoTime()) }
-
         viewport = Viewport.oneToOne(
             Size(Gdx.graphics.backBufferWidth.toFloat(), Gdx.graphics.backBufferHeight.toFloat()),
         )
-        budget.layout { MeasurePass().run(host.root, viewport) }
-        scriptedPointer?.let { pretendPointerIsAt(it) }
-        input.frame(System.nanoTime() / 1_000_000)
 
         Gdx.gl.glClearColor(0.03f, 0.04f, 0.06f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT)
@@ -152,12 +156,10 @@ class Showcase : ApplicationAdapter() {
             holo.render(scene.camera)
         }
 
-        canvas.begin(viewport)
-        budget.draw { drawPass.draw(host.root) }
-        canvas.end()
-
-        // After end(), because that is when the last batch is actually handed over.
-        budget.endFrame(canvas.drawCalls, changed)
+        // The whole interface: recompose, lay out, hand input the positions, draw, and time all
+        // three. See UiRenderer. The scene above is drawn straight to GL rather than through the
+        // canvas, so it does not need to be inside the canvas's own frame.
+        ui.render(viewport, System.nanoTime())
 
         frames++
         if (shot != null && frames >= 2 && elapsed >= shotAt) {

@@ -59,10 +59,35 @@ dependencies {
 
 ---
 
-## 2. A frame, in four lines
+## 2. A frame, in one line
 
-Every frame your game already does something like "update, clear, draw". ComposeGL
-adds four steps in the middle:
+Make one of these when your game starts:
+
+```kotlin
+val ui = UiRenderer(host, canvas)
+```
+
+…and call it once a frame, after your game has drawn its own world:
+
+```kotlin
+ui.render(viewport, System.nanoTime())
+```
+
+That is the whole loop. It returns `false` when nothing on screen changed, so a
+menu that is just sitting there costs you almost nothing.
+
+Input goes in a hook rather than in the loop, because working out what the mouse
+is over means knowing where everything is — so it cannot happen until after the
+layout:
+
+```kotlin
+ui.onLaidOut = { millis -> input.frame(millis) }
+```
+
+### What it is doing
+
+Four things, and you can call them yourself if you want to put something between
+them:
 
 ```kotlin
 host.frame(System.nanoTime())          // 1. did anything change?
@@ -75,8 +100,15 @@ canvas.end()                           // 4. hand it to the GPU
 An analogy: **frame** is asking "has anybody changed their mind?", **measure** is
 laying the furniture out in the room, and **draw** is taking the photograph.
 
-`host.frame(...)` returns `false` when nothing changed, so a menu that is just
-sitting there costs you almost nothing.
+You would write it out like this if your game draws into the *same* canvas as the
+interface — a 2D game putting its board under its HUD, say. Then the board's
+drawing goes between `begin` and `draw`, and `UiRenderer` has no way to get in
+there. A 3D game normally does not have this problem: its world goes to OpenGL
+directly, before the canvas's frame is even open.
+
+Keep the `DrawPass` if you write it out yourself — it holds the canvas and nothing
+else, so making a new one every frame is waste. The `MeasurePass` has to be new
+each time: the object itself is how each node knows which pass it was measured in.
 
 ---
 
@@ -120,9 +152,9 @@ import com.badlogic.gdx.backends.lwjgl3.*
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import composegl.gdx.*
-import composegl.ui.draw.DrawPass
 import composegl.ui.geometry.Size
 import composegl.ui.host.UiHost
+import composegl.ui.host.UiRenderer
 import composegl.ui.input.PointerRouter
 import composegl.ui.layout.*
 
@@ -132,6 +164,7 @@ class HelloGame : ApplicationAdapter() {
     private lateinit var sprites: SpriteBatch
     private lateinit var canvas: GdxCanvas
     private lateinit var host: UiHost
+    private lateinit var ui: UiRenderer
 
     private var viewport = Viewport.oneToOne(Size(1280f, 720f))
 
@@ -151,23 +184,21 @@ class HelloGame : ApplicationAdapter() {
         // what counts as a click; you do not.
         val router = PointerRouter(host.root)
         Gdx.input.inputProcessor = GdxPointerInput(router, { viewport })
+
+        // Last, because it needs the host and the canvas.
+        ui = UiRenderer(host, canvas)
     }
 
     override fun render() {
-        host.frame(System.nanoTime())
-
         viewport = Viewport(
             design = Size(1280f, 720f),
             physical = Size(Gdx.graphics.backBufferWidth.toFloat(), Gdx.graphics.backBufferHeight.toFloat()),
             policy = ScalePolicy.Fit,
         )
-        MeasurePass().run(host.root, viewport)
 
         Gdx.gl.glClearColor(0.03f, 0.04f, 0.05f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
-        canvas.begin(viewport)
-        DrawPass(canvas).draw(host.root)
-        canvas.end()
+        ui.render(viewport, System.nanoTime())
     }
 
     override fun dispose() {
