@@ -202,6 +202,31 @@
     "bar.stamina.trail": { "background": { "fill": "#707BE08A", "corner": 5 } },
     "bar.stamina.segment": { "background": { "fill": "#0A1018" } },
 
+    // --- the hotbar ---
+    //
+    // The slot styles the toolkit's Hotbar asks for, in this skin's own colours. An empty slot is
+    // a hole with nothing in it; a slot holding something unusable is a full slot, dimmed.
+
+    "hotbar.slot": {
+      "background": { "fill": "#141B24", "corner": 8, "border": "#243140" },
+      "hovered": { "background": { "fill": "#1C2632", "corner": 8, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#1C2632", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#4A5A6A", "tint": "#80FFFFFF" }
+    },
+
+    "hotbar.slot.selected": {
+      "background": { "fill": "#304CC2FF", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 },
+      "textColour": "#4CC2FF",
+      "hovered": { "background": { "fill": "#404CC2FF", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+
+    "hotbar.slot.empty": {
+      "background": { "fill": "#0B1119", "corner": 8, "border": "#18212B" }
+    },
+
+    "hotbar.prompt": { "textColour": "#6E8093", "text": { "size": 13 } },
+    "hotbar.charges": { "textColour": "#FFFFFF", "text": { "size": 13 } },
+
     // --- abilities ---
 
     "cooldown.sweep": { "background": { "fill": "#B0060A12" } },

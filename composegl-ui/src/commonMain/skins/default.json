@@ -160,6 +160,32 @@
     "bar.trail": { "background": { "fill": "#8E2B2E", "corner": 3 } },
     "bar.segment": { "background": { "fill": "#10131A" } },
 
+    // --- the hotbar ---
+    //
+    // An empty slot is a hole in the bar: no fill, a dashed-looking groove, nothing in it. A slot
+    // with something in it that cannot be used right now is a full slot, dimmed. A player has to
+    // be able to tell those two apart at a glance, so they are two different styles rather than
+    // one style at two opacities.
+
+    "hotbar.slot": {
+      "background": { "fill": "#1A1F28", "corner": 6, "border": "#2C3545" },
+      "hovered": { "background": { "fill": "#232A35", "corner": 6, "border": "#39445A" } },
+      "focused": { "background": { "fill": "#232A35", "corner": 6, "border": "#5B8DEF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5E6B7E", "tint": "#90FFFFFF" }
+    },
+
+    "hotbar.slot.selected": {
+      "background": { "fill": "#2A3342", "corner": 6, "border": "#5B8DEF", "borderWidth": 2 },
+      "hovered": { "background": { "fill": "#39445A", "corner": 6, "border": "#7BA5F5", "borderWidth": 2 } }
+    },
+
+    "hotbar.slot.empty": {
+      "background": { "fill": "#0C0F15", "corner": 6, "border": "#1F2630" }
+    },
+
+    "hotbar.prompt": { "textColour": "#9BA6B6", "text": { "size": 12 } },
+    "hotbar.charges": { "textColour": "#E8ECF2", "text": { "size": 12 } },
+
     // An ability on cooldown. The wedge is a dark sheet over the icon rather than a colour of its
     // own, so it works over whatever art a game puts underneath it.
 
