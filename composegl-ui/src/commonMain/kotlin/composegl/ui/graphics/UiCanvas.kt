@@ -86,6 +86,38 @@ interface UiCanvas {
     fun popAlpha()
 
     /**
+     * Draws [block] into an offscreen picture the size of [bounds] instead of onto the screen, and
+     * hands the picture back.
+     *
+     * This is what an effect is built on. A blur has nothing to blur until the thing being blurred
+     * exists as pixels somewhere other than the screen; so does an outline, a dissolve, or a group
+     * that fades as one object rather than as a pile of separately fading parts.
+     *
+     * Inside the block the clip is [bounds] and the opacity is full. The opacity in force out here
+     * is applied when the picture is drawn back, which is the difference between a panel fading and
+     * every overlapping thing on the panel fading through each other.
+     *
+     * Returns null when this canvas has no offscreen drawing, or when [bounds] is too big for one —
+     * **and then nothing has been drawn at all**, so the caller draws [block] itself and goes
+     * without the effect. That is the whole error path: an effect degrades to no effect.
+     *
+     * The picture belongs to the canvas and is reused. It is good until the end of the frame and
+     * must not be kept past it.
+     */
+    fun layer(bounds: Rect, block: () -> Unit): TextureHandle? = null
+
+    /**
+     * Draws a picture that [layer] made, filling [destination].
+     *
+     * Its own call rather than [image] because the colours in a layer are already multiplied by
+     * their own opacity, and a backend has to blend it differently — drawing one through [image]
+     * puts a dark halo round everything soft. Nothing else should be passed here.
+     *
+     * The canvas's current opacity applies, as it does to every other call.
+     */
+    fun drawLayer(layer: TextureHandle, destination: Rect) = image(layer, destination)
+
+    /**
      * The backend's own drawing object, for whatever this interface does not cover — a shader, a
      * particle system, a mesh, a game's existing render code.
      *

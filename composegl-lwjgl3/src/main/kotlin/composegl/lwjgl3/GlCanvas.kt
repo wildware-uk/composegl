@@ -11,6 +11,8 @@ import composegl.ui.layout.Viewport
 import composegl.ui.text.TextLayout
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11
+import org.lwjgl.opengl.GL30
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
@@ -65,19 +67,52 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
     private var ownWhite: GlTexture? = null
 
+    private val layers = GlLayers()
+
+    /**
+     * The offscreen picture being drawn into, or null when that is the window.
+     *
+     * Everything that turns a design coordinate into a pixel — the y flip, the scissor — asks this
+     * first, so the same drawing code lands in the right place either way and no widget ever finds
+     * out which it was.
+     */
+    private var layer: LayerFrame? = null
+
+    private class LayerFrame(val bounds: Rect, val pixelWidth: Int, val pixelHeight: Int)
+
+    /**
+     * Which framebuffer the canvas believes is bound, where the GL viewport is, and whether the
+     * scissor is on.
+     *
+     * Remembered rather than asked for. Asking costs a pipeline stall — the driver has to catch up
+     * with itself before it can answer — and a layer would ask three times, twice a layer, every
+     * frame.
+     */
+    private var framebuffer = 0
+    private val viewportBox = IntArray(4)
+    private var scissorOn = false
+
     /** How many times the frame so far has talked to the driver. */
     override val drawCalls: Int get() = batch.renderCalls
 
-    /** Sets up for a frame in [viewport]'s design coordinates. */
-    fun begin(viewport: Viewport) {
+    /**
+     * Sets up for a frame in [viewport]'s design coordinates.
+     *
+     * @param framebuffer what is bound right now, when it is not the screen — a render target's
+     *   name, for an interface being drawn onto a surface in a 3D world. A layer binds its own and
+     *   has to know what to put back; nothing else here cares.
+     */
+    fun begin(viewport: Viewport, framebuffer: Int = 0) {
         check(!drawing) { "begin() was called twice without an end()" }
         drawing = true
+        this.framebuffer = framebuffer
+        scissor(false)
         this.viewport = viewport
         state = CanvasState(Rect.of(0f, 0f, viewport.design.width, viewport.design.height))
         antialias = 1f / minOf(viewport.scaleX, viewport.scaleY).coerceAtLeast(0.0001f)
 
         // The letterbox and the scale live here, so nothing below has to think about them.
-        GL11.glViewport(
+        setViewport(
             viewport.origin.x.roundToInt(),
             // GL counts up from the bottom of the window; the viewport counts down from the top.
             (viewport.physical.height - viewport.origin.y - viewport.design.height * viewport.scaleY).roundToInt(),
@@ -93,9 +128,10 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         check(drawing) { "end() without a begin()" }
 
         batch.end()
-        GL11.glDisable(GL11.GL_SCISSOR_TEST)
-        GL11.glViewport(0, 0, viewport.physical.width.roundToInt(), viewport.physical.height.roundToInt())
+        scissor(false)
+        setViewport(0, 0, viewport.physical.width.roundToInt(), viewport.physical.height.roundToInt())
         drawing = false
+        layers.trim()
 
         // Complained about last, so that an unbalanced frame still leaves things tidy for whatever
         // the game draws next.
@@ -241,22 +277,152 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     private fun applyScissor() {
         batch.flush()
         val clip = state.clip
+        val into = layer
+        if (into != null) {
+            scissorLayer(into, clip)
+            return
+        }
         if (clip.left <= 0f && clip.top <= 0f &&
             clip.right >= viewport.design.width && clip.bottom >= viewport.design.height
         ) {
-            GL11.glDisable(GL11.GL_SCISSOR_TEST)
+            scissor(false)
             return
         }
 
         val topLeft = viewport.toScreen(Offset(clip.left, clip.top))
         val bottomRight = viewport.toScreen(Offset(clip.right, clip.bottom))
-        GL11.glEnable(GL11.GL_SCISSOR_TEST)
+        scissor(true)
         GL11.glScissor(
             topLeft.x.roundToInt(),
             (viewport.physical.height - bottomRight.y).roundToInt(),
             (bottomRight.x - topLeft.x).roundToInt().coerceAtLeast(0),
             (bottomRight.y - topLeft.y).roundToInt().coerceAtLeast(0),
         )
+    }
+
+    /**
+     * The same, in a layer's pixels: its own origin, its own height, and no letterbox — a layer is
+     * exactly the picture and nothing around it.
+     */
+    private fun scissorLayer(into: LayerFrame, clip: Rect) {
+        if (clip.left <= into.bounds.left && clip.top <= into.bounds.top &&
+            clip.right >= into.bounds.right && clip.bottom >= into.bounds.bottom
+        ) {
+            scissor(false)
+            return
+        }
+
+        val left = ((clip.left - into.bounds.left) * viewport.scaleX).roundToInt()
+        val right = ((clip.right - into.bounds.left) * viewport.scaleX).roundToInt()
+        val top = ((clip.top - into.bounds.top) * viewport.scaleY).roundToInt()
+        val bottom = ((clip.bottom - into.bounds.top) * viewport.scaleY).roundToInt()
+        scissor(true)
+        GL11.glScissor(
+            left,
+            into.pixelHeight - bottom,
+            (right - left).coerceAtLeast(0),
+            (bottom - top).coerceAtLeast(0),
+        )
+    }
+
+    // --- layers ---
+
+    override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? {
+        check(drawing) { "layer() outside a frame" }
+        if (bounds.isEmpty) return null
+
+        // Screen resolution, not design resolution: a layer that is blurred and drawn back should
+        // be as sharp as everything around it. Rounded up, so nothing falls off the right or the
+        // bottom edge of a picture whose size is not a whole number of pixels.
+        val pixelWidth = ceil(bounds.width * viewport.scaleX).toInt()
+        val pixelHeight = ceil(bounds.height * viewport.scaleY).toInt()
+        if (pixelWidth <= 0 || pixelHeight <= 0) return null
+        if (pixelWidth > MaxLayerPixels || pixelHeight > MaxLayerPixels) return null
+
+        val target = layers.acquire(pixelWidth, pixelHeight)
+
+        val previousFramebuffer = framebuffer
+        val previousViewport = viewportBox.copyOf()
+        val previousScissor = scissorOn
+        val previousState = state
+        val previousLayer = layer
+        val previousProjection = projection.copyOf()
+
+        batch.flush()
+        layer = LayerFrame(bounds, pixelWidth, pixelHeight)
+        // Full opacity and a clip of exactly the layer. The opacity out here is applied when the
+        // picture is drawn back, which is what makes a group fade as one object.
+        state = CanvasState(bounds)
+
+        bindFramebuffer(target.framebufferName)
+        setViewport(0, 0, pixelWidth, pixelHeight)
+        scissor(false)
+        GL11.glClearColor(0f, 0f, 0f, 0f)
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+        orthographic(projection, bounds.width, bounds.height, bounds.left)
+        batch.projection(projection)
+
+        try {
+            block()
+            batch.flush()
+            check(state.isBalanced) { "a clip or an alpha was pushed inside a layer and never popped" }
+        } finally {
+            layer = previousLayer
+            state = previousState
+            previousProjection.copyInto(projection)
+            batch.projection(projection)
+            bindFramebuffer(previousFramebuffer)
+            setViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3])
+            scissor(previousScissor)
+            layers.release(target)
+        }
+
+        // A framebuffer's first row is its bottom one, so the picture is handed back with its
+        // vertical texture coordinates swapped and everything downstream can ignore that entirely.
+        return GlTexture(target.textureName, pixelWidth, pixelHeight, u = 0f, v = 1f, u2 = 1f, v2 = 0f)
+    }
+
+    override fun drawLayer(layer: TextureHandle, destination: Rect) {
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layer as? GlTexture
+            ?: error("this canvas can only draw layers it made, not ${layer::class}")
+
+        batch.premultiplied(true)
+        // The opacity goes into all four channels, because a premultiplied colour that faded only
+        // its alpha would get brighter as it disappeared.
+        val fade = state.alpha.coerceIn(0f, 1f)
+        val grey = (fade * 255f).roundToInt().coerceIn(0, 255)
+        batch.textured(
+            name = picture.name,
+            left = destination.left,
+            bottom = flip(destination.bottom),
+            width = destination.width,
+            height = destination.height,
+            u = picture.u,
+            v = picture.v,
+            u2 = picture.u2,
+            v2 = picture.v2,
+            tint = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey),
+        )
+        batch.premultiplied(false)
+    }
+
+    private fun bindFramebuffer(name: Int) {
+        framebuffer = name
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, name)
+    }
+
+    private fun setViewport(x: Int, y: Int, width: Int, height: Int) {
+        viewportBox[0] = x
+        viewportBox[1] = y
+        viewportBox[2] = width
+        viewportBox[3] = height
+        GL11.glViewport(x, y, width, height)
+    }
+
+    private fun scissor(on: Boolean) {
+        scissorOn = on
+        if (on) GL11.glEnable(GL11.GL_SCISSOR_TEST) else GL11.glDisable(GL11.GL_SCISSOR_TEST)
     }
 
     override fun raw(block: (Any) -> Unit) {
@@ -267,6 +433,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
     override fun close() {
         batch.close()
+        layers.close()
         ownWhite?.close()
         ownWhite = null
     }
@@ -287,8 +454,13 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         return GlTexture.rgba(1, 1, pixel).also { ownWhite = it }
     }
 
-    /** A y measured down from the top becomes one measured up from the bottom. */
-    private fun flip(y: Float) = viewport.design.height - y
+    /**
+     * A y measured down from the top becomes one measured up from the bottom.
+     *
+     * From the bottom of the layer when there is one, which is why drawing into a layer needs no
+     * arithmetic of its own anywhere else.
+     */
+    private fun flip(y: Float) = (layer?.bounds?.bottom ?: viewport.design.height) - y
 
     private companion object {
 
@@ -298,14 +470,24 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
          * Column-major, because that is what OpenGL reads, and the four values that are not one or
          * zero are the scale and the shift that put the origin in the bottom-left corner.
          */
-        fun orthographic(into: FloatArray, width: Float, height: Float) {
+        fun orthographic(into: FloatArray, width: Float, height: Float, left: Float = 0f) {
             into.fill(0f)
             into[0] = 2f / width
             into[5] = 2f / height
             into[10] = -1f
-            into[12] = -1f
+            // [left] is where a layer starts. Drawing into one uses the same coordinates as
+            // drawing onto the screen, and the shift that makes that true lives here, once.
+            into[12] = -1f - left * 2f / width
             into[13] = -1f
             into[15] = 1f
         }
+
+        /**
+         * The biggest layer this will ask a driver for, each way.
+         *
+         * Every driver worth supporting manages 4096; past that the answer is "no" rather than a
+         * silent failure halfway through a frame, and the effect is skipped.
+         */
+        const val MaxLayerPixels = 4096
     }
 }

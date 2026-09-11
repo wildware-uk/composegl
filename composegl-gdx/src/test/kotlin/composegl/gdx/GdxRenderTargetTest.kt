@@ -47,6 +47,64 @@ class GdxRenderTargetTest {
     }
 
     @Test
+    fun `an effect inside a panel in the world draws into the panel, not the window`(): Unit = Gl.render {
+        // A layer binds a framebuffer of its own and has to put back the one it found. What it
+        // found here is the panel's, not the window's — and it cannot ask, because LibGDX's
+        // glGetIntegerv(GL_FRAMEBUFFER_BINDING) answers zero with a framebuffer bound. So the
+        // canvas is told, and this is the test that says so.
+        val canvas = GdxCanvas()
+        val target = GdxRenderTarget(size, size)
+        try {
+            Gdx.gl.glViewport(0, 0, Gl.size, Gl.size)
+            Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+
+            target.draw(canvas, clear = Colour.rgb(0x000000)) {
+                val bounds = Rect.of(0f, 0f, size.toFloat(), size.toFloat())
+                val picture = canvas.layer(bounds) { canvas.rect(panel, Colour.rgb(0x3366CC)) }
+                canvas.drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds)
+            }
+
+            val inside = target.read { readPixels(size, size) }
+            val window = readPixels(Gl.size, Gl.size)
+
+            // The panel's own pixels have the rectangle; the window behind it is still the black it
+            // was cleared to. Put the framebuffer back wrongly and the two swap.
+            assertClose(
+                0x3366CCFF.toInt(),
+                colour(inside, size, 60, 50),
+                "the rectangle should have landed in the panel",
+            )
+            assertClose(
+                0x000000FF.toInt(),
+                colour(window, Gl.size, 60, 50),
+                "and nothing should have landed on the window",
+            )
+        } finally {
+            target.dispose()
+            canvas.dispose()
+        }
+    }
+
+    /**
+     * Colours are compared with a tolerance: LibGDX squeezes one into a float on the way to the
+     * shader and a channel comes back a bit light.
+     */
+    private fun assertClose(expected: Int, actual: Int, because: String) {
+        val off = (0..3).maxOf { channel ->
+            val shift = channel * 8
+            abs(((expected shr shift) and 0xFF) - ((actual shr shift) and 0xFF))
+        }
+        assertTrue(off <= 2, "$because expected about ${Integer.toHexString(expected)}, got ${Integer.toHexString(actual)}")
+    }
+
+    /** One pixel of a frame read back, with y counted down from the top like the toolkit's. */
+    private fun colour(pixels: IntArray, width: Int, x: Int, y: Int): Int {
+        val height = pixels.size / width
+        return pixels[(height - 1 - y) * width + x]
+    }
+
+    @Test
     fun `a panel in the world is the same pixels as the same panel on the hud`(): Unit = Gl.render {
         val canvas = GdxCanvas()
         val target = GdxRenderTarget(size, size)

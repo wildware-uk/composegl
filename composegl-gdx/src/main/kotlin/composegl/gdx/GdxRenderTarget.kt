@@ -78,7 +78,12 @@ class GdxRenderTarget(width: Int, height: Int) : Disposable {
                 clear.alphaFraction,
             )
             Gdx.gl.glClear(com.badlogic.gdx.graphics.GL20.GL_COLOR_BUFFER_BIT)
-            canvas.begin(Viewport.oneToOne(Size(width.toFloat(), height.toFloat())))
+            canvas.begin(
+                Viewport.oneToOne(Size(width.toFloat(), height.toFloat())),
+                // Ours is bound, so anything inside that binds one of its own — a layer, an
+                // effect — knows what to put back when it is done.
+                framebuffer = buffer.framebufferHandle,
+            )
             try {
                 block()
             } finally {
