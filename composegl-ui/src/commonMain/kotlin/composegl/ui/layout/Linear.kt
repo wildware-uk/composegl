@@ -151,7 +151,15 @@ fun Row(
     Layout(modifier, name = "row", content = content, measurePolicy = policy)
 }
 
-/** Children in a line, top to bottom. */
+/**
+ * Children in a line, top to bottom.
+ *
+ * A line hands out the room it has, in order, and a child that asks after the room has run out is
+ * offered none. It will still draw itself — nothing here clips a child to the size it agreed to —
+ * so a column with more in it than it has room for ends up printed on top of itself rather than
+ * neatly cut off. That is the signal to put it in a [composegl.ui.widget.ScrollArea], which offers
+ * its contents as much room as they like and clips once, around the lot.
+ */
 @Composable
 fun Column(
     modifier: Modifier = Modifier,
