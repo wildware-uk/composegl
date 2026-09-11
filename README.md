@@ -183,6 +183,15 @@ The gamepad half has never met a gamepad: there is no pad on the machine this is
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and
 GLFW's own contracts say and have not been measured.
 
+There is a whole small game in `composegl-demo-snake`, which is the same Snake the previous version
+shipped with the same rules and the same tests, given its interface a second time. The board is
+drawn straight into the frame by a renderer that has never heard of a composition; the menu, the
+HUD, the pause screen and the game over screen are the toolkit's, over the top, in one canvas. The
+two halves share one object of Compose state, which the game loop writes and the interface reads. A
+frame of the running game is one draw call and the menu is three. What that port cost, and what it
+gave up — there is no `AnimatedVisibility`, so screens snap rather than fade — is written down
+honestly in [`docs/snake-port.md`](docs/snake-port.md).
+
 | | |
 |---|---|
 | `composegl-ui` | the toolkit. Multiplatform, and depends on the Compose runtime and coroutines |
@@ -190,6 +199,7 @@ GLFW's own contracts say and have not been measured.
 | `composegl-lwjgl3` | a second backend, on raw OpenGL and stb_truetype. Exists to disagree |
 | `composegl-testing` | the scenes both backends draw, and the golden comparison |
 | `composegl-demo` | the example in the picture |
+| `composegl-demo-snake` | Snake: a whole small game, board in OpenGL, interface in the toolkit |
 | Design | [`docs/superpowers/specs/2026-09-09-runtime-ui-design.md`](docs/superpowers/specs/2026-09-09-runtime-ui-design.md) |
 | Spike, and its numbers | [`docs/superpowers/spikes/s6-runtime-ui.md`](docs/superpowers/spikes/s6-runtime-ui.md) |
 | Everything else written down | [`docs/`](docs/README.md) |
@@ -237,6 +247,7 @@ work this project can do. Everything it taught us is in `docs/superpowers/spikes
 ```bash
 ./gradlew :composegl-demo:run                             # the example in the picture
 ./gradlew :composegl-demo:runGl                           # the same example, with no LibGDX in it
+./gradlew :composegl-demo-snake:run                       # Snake: menu, HUD, pause, game over
 SPIKE_S6_HEADLESS=1 ./gradlew :spikes:s6-runtime-ui:run   # the redraw experiment, no window needed
 ```
 
