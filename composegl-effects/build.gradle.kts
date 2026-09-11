@@ -56,8 +56,8 @@ val confinement = tasks.register<DependencyConfinementCheck>("checkDependencyCon
             "org.jetbrains.kotlinx:kotlinx-coroutines-bom",
             "org.jetbrains.kotlinx:kotlinx-coroutines-core",
             "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
-            "uk.wildware.composegl:composegl-effects",
-            "uk.wildware.composegl:composegl-ui",
+            "dev.wildware.composegl:composegl-effects",
+            "dev.wildware.composegl:composegl-ui",
         ),
     )
     resolved.set(
