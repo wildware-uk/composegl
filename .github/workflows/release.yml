@@ -15,8 +15,9 @@
 #   SIGNING_KEY               a GPG secret key, ASCII-armoured (`gpg --armor --export-secret-keys`)
 #   SIGNING_PASSWORD          its passphrase
 #
-# The namespace `uk.wildware` has to be verified in the Central portal first, by a DNS TXT record on
-# wildware.uk. Until that is done this job will reach Central and be refused.
+# The namespace `dev.wildware` is verified in the Central portal, by a DNS TXT record on
+# wildware.dev. That record has to stay there. `uk.wildware` was never verified, which is why 0.1.0
+# was refused the first time with "Namespace is not allowed".
 #
 # `automaticRelease = false` in the root build is deliberate: this uploads and leaves the release
 # sitting in the portal for a human to press the button on.
@@ -86,7 +87,7 @@ jobs:
           token=$(printf '%s:%s' "$USERNAME" "$PASSWORD" | base64 -w0)
           code=$(curl -sS -o /dev/null -w '%{http_code}' \
             -H "Authorization: Bearer $token" \
-            'https://central.sonatype.com/api/v1/publisher/published?namespace=uk.wildware&name=composegl-ui&version=0.0.0-does-not-exist')
+            'https://central.sonatype.com/api/v1/publisher/published?namespace=dev.wildware&name=composegl-ui&version=0.0.0-does-not-exist')
           case "$code" in
             200) echo "credentials accepted" ;;
             401|403) echo "::error::Central rejected the token ($code). Generate a new user token and reset both secrets."; exit 1 ;;
@@ -104,7 +105,7 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
         run: |
           ./gradlew publishToMavenLocal --no-configuration-cache --stacktrace
-          signed=$(find ~/.m2/repository/uk/wildware -name '*.asc' | wc -l)
+          signed=$(find ~/.m2/repository/dev/wildware -name '*.asc' | wc -l)
           echo "$signed signatures written"
           [ "$signed" -gt 0 ] || { echo "::error::nothing was signed; check SIGNING_KEY"; exit 1; }
 

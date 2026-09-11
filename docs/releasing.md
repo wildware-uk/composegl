@@ -9,7 +9,7 @@ already set up.
 
 ## What is published
 
-Seven modules, under `uk.wildware.composegl`:
+Seven modules, under `dev.wildware.composegl`:
 
 | | |
 |---|---|
@@ -92,12 +92,14 @@ mail. Signatures verify either way. Check it took:
 curl -sS https://keys.openpgp.org/vks/v1/by-fingerprint/<fingerprint> | head -1
 ```
 
-The namespace `uk.wildware` also has to be verified once, by putting a code the
-portal gives you into a **DNS TXT record on `wildware.uk`**. Until that record
-exists, a release reaches Central and is refused. Check with:
+The namespace `dev.wildware` also has to be verified once, by putting a code the
+portal gives you into a **DNS TXT record on `wildware.dev`**. That is done — it is
+why the coordinates are `dev.wildware` and not `uk.wildware`, which was never
+verified and which Central refused with "Namespace is not allowed". Check the
+record is still there with:
 
 ```bash
-dig +short TXT wildware.uk
+dig +short TXT wildware.dev
 ```
 
 ---
@@ -108,7 +110,7 @@ dig +short TXT wildware.uk
 ./gradlew publishToMavenLocal
 ```
 
-Everything lands in `~/.m2/repository/uk/wildware`. Point a real game at it with
+Everything lands in `~/.m2/repository/dev/wildware`. Point a real game at it with
 `mavenLocal()` and you are testing exactly what a release would be.
 
 To try the **secrets** without publishing anything, run the Release workflow by

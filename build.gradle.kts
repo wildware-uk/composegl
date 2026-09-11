@@ -28,7 +28,7 @@ val projectVersion: String = run {
 }
 
 subprojects {
-    group = "uk.wildware.composegl"
+    group = "dev.wildware.composegl"
     version = projectVersion
 
     // The same settings for both shapes of Kotlin module. A multiplatform module compiles the

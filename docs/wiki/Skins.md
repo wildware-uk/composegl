@@ -173,7 +173,7 @@ fun Chip(text: String, style: String = "chip") {
 
 `rememberStyle` resolves the name and the states into one `ResolvedStyle`;
 `Modifier.styled` wears it. (There are two `styled` extensions — this one takes the
-resolved style, and `uk.wildware.composegl.ui.skin.styled` takes the name and resolves it for
+resolved style, and `dev.wildware.composegl.ui.skin.styled` takes the name and resolves it for
 you. Import whichever suits.) A widget written this way contains no colour, no corner
 radius and no texture name, which is the whole point.
 

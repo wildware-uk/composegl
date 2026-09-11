@@ -25,7 +25,7 @@ sourceSets.main {
 }
 
 application {
-    mainClass.set("uk.wildware.composegl.showcase.MainKt")
+    mainClass.set("dev.wildware.composegl.showcase.MainKt")
 }
 
 tasks.test {

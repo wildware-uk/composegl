@@ -30,7 +30,7 @@ val embedDefaultSkin = tasks.register<EmbedTextAsSource>("embedDefaultSkin") {
     description = "Turns the default skin file into a Kotlin source file."
     group = "build"
     source.set(layout.projectDirectory.file("src/commonMain/skins/default.json"))
-    packageName.set("uk.wildware.composegl.ui.skin")
+    packageName.set("dev.wildware.composegl.ui.skin")
     propertyName.set("DEFAULT_SKIN_JSON")
     outputDirectory.set(layout.buildDirectory.dir("generated/skin"))
 }
@@ -107,7 +107,7 @@ val confinement = tasks.register<DependencyConfinementCheck>("checkDependencyCon
             "org.jetbrains.kotlinx:kotlinx-coroutines-bom",
             "org.jetbrains.kotlinx:kotlinx-coroutines-core",
             "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
-            "uk.wildware.composegl:composegl-ui",
+            "dev.wildware.composegl:composegl-ui",
         ),
     )
     resolved.set(

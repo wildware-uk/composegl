@@ -179,7 +179,7 @@ the whole string up front, so the box does not grow as the words appear.
 # Game widgets
 
 These are the ones that made this toolkit worth building. They live in
-`uk.wildware.composegl.ui.game`.
+`dev.wildware.composegl.ui.game`.
 
 ## Bars
 
