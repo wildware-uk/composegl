@@ -42,9 +42,27 @@ redrew **4 times in 119 frames** — once at startup, once per button press. Swi
 and it redraws every frame; switch it off and it stops. That behaviour is the whole reason to use
 Compose, and it survives without Compose UI.
 
+## Getting it
+
+```kotlin
+repositories { mavenCentral() }
+
+dependencies {
+    implementation("uk.wildware.composegl:composegl-ui:0.1.0")     // the toolkit
+    implementation("uk.wildware.composegl:composegl-gdx:0.1.0")    // a backend — pick one
+}
+```
+
+A backend is what actually draws, and a game needs exactly one: `composegl-gdx` for LibGDX,
+`composegl-lwjgl3` for raw OpenGL. `composegl-android` and `composegl-robovm` go alongside a
+backend on a phone, and answer the things no engine reports — what the keyboard is covering, and
+what the platform's own text input is doing. `composegl-effects` is optional, and
+`composegl-testing` is for testing your own widgets.
+
 ## Status
 
-Nothing is shippable yet, and there is no release. What works today is the picture above: layout,
+**0.1.0 is the first release, and it is a first release.** The interfaces will move. What works
+today is the picture above: layout,
 the modifier chain, the renderer, fonts, nine-patch art, and all three ways in — a mouse, a
 keyboard and a gamepad, with hit testing, focus and key routing behind them. The chips and the
 hotbar in the example light up under the pointer, respond to a click, draw a focus ring that Tab
