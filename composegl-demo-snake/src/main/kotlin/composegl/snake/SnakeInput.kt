@@ -3,6 +3,7 @@ package composegl.snake
 import composegl.snake.game.Direction
 import composegl.snake.game.Screen
 import composegl.snake.game.SnakeSession
+import composegl.ui.debug.FrameBudget
 import composegl.ui.focus.FocusManager
 import composegl.ui.input.GamepadButton
 import composegl.ui.input.GamepadEvent
@@ -29,7 +30,11 @@ import composegl.ui.node.UiNode
  * Pause is the seam itself, and it is deliberately answered here rather than by either half: Space
  * and the pad's Start button work on both screens.
  */
-internal class SnakeInput(private val session: SnakeSession, root: UiNode) : InputSink {
+internal class SnakeInput(
+    private val session: SnakeSession,
+    root: UiNode,
+    private val budget: FrameBudget,
+) : InputSink {
 
     val focus = FocusManager(root)
 

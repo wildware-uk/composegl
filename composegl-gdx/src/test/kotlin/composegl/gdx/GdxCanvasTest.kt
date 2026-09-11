@@ -35,7 +35,7 @@ class GdxCanvasTest {
     private val blue = Colour.rgb(0x0000FF)
 
     /** What one drawn frame came out as. */
-    private class Frame(val pixels: Pixmap, val renderCalls: Int)
+    private class Frame(val pixels: Pixmap, val drawCalls: Int)
 
     /** Draws [content] on the GL thread, then reads the frame back. */
     private fun draw(content: GdxCanvas.() -> Unit): Frame = Gl.render {
@@ -47,7 +47,7 @@ class GdxCanvasTest {
             canvas.begin(viewport)
             canvas.content()
             canvas.end()
-            Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.renderCalls)
+            Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.drawCalls)
         } finally {
             canvas.dispose()
             batch.dispose()
@@ -95,7 +95,7 @@ class GdxCanvasTest {
             }
         }
 
-        assertTrue(frame.renderCalls <= 2, "a hundred nodes took ${frame.renderCalls} draw calls")
+        assertTrue(frame.drawCalls <= 2, "a hundred nodes took ${frame.drawCalls} draw calls")
     }
 
     @Test
@@ -266,7 +266,7 @@ class GdxCanvasTest {
                 canvas.begin(scaled)
                 canvas.rect(Rect.of(25f, 25f, 50f, 50f), red, corner = 15f)
                 canvas.end()
-                Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.renderCalls)
+                Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.drawCalls)
             } finally {
                 canvas.dispose()
             }
@@ -311,7 +311,7 @@ class GdxCanvasTest {
         val far = lit.pixels.at(85, 150).r
         assertTrue(near < 0.9f, "the shadow should darken just outside the box, got $near")
         assertTrue(far > near, "the shadow should fade with distance: $near then $far")
-        assertTrue(frame.renderCalls >= 1)
+        assertTrue(frame.drawCalls >= 1)
     }
 
     @Test
@@ -323,7 +323,7 @@ class GdxCanvasTest {
             border(panel, red, width = 2f, corner = 10f)
         }
 
-        assertEquals(1, frame.renderCalls)
+        assertEquals(1, frame.drawCalls)
     }
 
     @Test
@@ -341,7 +341,7 @@ class GdxCanvasTest {
                 canvas.begin(viewport)
                 canvas.text(layout, Offset(20f, 20f), red)
                 canvas.end()
-                Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.renderCalls)
+                Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.drawCalls)
             } finally {
                 fonts.dispose()
                 canvas.dispose()
@@ -406,7 +406,7 @@ class GdxCanvasTest {
                 canvas.begin(viewport)
                 canvas.image(GdxTexture(texture), Rect.of(10f, 10f, 40f, 40f))
                 canvas.end()
-                Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.renderCalls)
+                Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.drawCalls)
             } finally {
                 texture.dispose()
                 pixmap.dispose()
@@ -439,7 +439,7 @@ class GdxCanvasTest {
                 canvas.begin(viewport)
                 canvas.image(GdxTexture(texture), Rect.of(10f, 10f, 40f, 40f))
                 canvas.end()
-                Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.renderCalls)
+                Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.drawCalls)
             } finally {
                 texture.dispose()
                 pixmap.dispose()

@@ -92,10 +92,10 @@ fun main() {
             padInput.poll()
             // One look at a timestamp. An artist saving the skin file is seen on the next frame.
             skin.reloadIfChanged()
-            host.frame(System.nanoTime())
+            val changed = state.budget.recompose { host.frame(System.nanoTime()) }
 
             viewport = window.viewport(Design, ScalePolicy.Fit)
-            MeasurePass().run(host.root, viewport)
+            state.budget.layout { MeasurePass().run(host.root, viewport) }
             input.frame(System.nanoTime() / 1_000_000)
             if (frames == 0) scriptedPad?.let { input.pretendPadDid(it) }
             if (frames < scriptedKeys.size) input.pretendKeyWas(scriptedKeys[frames])
@@ -103,14 +103,17 @@ fun main() {
             GL11.glClearColor(0.03f, 0.04f, 0.05f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
             canvas.begin(viewport)
-            DrawPass(canvas).draw(host.root)
+            state.budget.draw { DrawPass(canvas).draw(host.root) }
             canvas.end()
+
+            // After end(), because that is when the last batch is actually handed over.
+            state.budget.endFrame(canvas.drawCalls, changed)
 
             window.present()
 
             frames++
             if (shot != null && frames >= scriptedKeys.size + 2 && elapsed >= shotAt) {
-                save(shot, window.framebuffer, canvas.renderCalls)
+                save(shot, window.framebuffer, canvas.drawCalls)
                 break
             }
         }
@@ -146,7 +149,7 @@ private fun resource(path: String): ByteArray =
         .use { it.readBytes() }
 
 /** One frame, written out as a PNG, the right way up. */
-private fun save(path: String, size: Size, renderCalls: Int) {
+private fun save(path: String, size: Size, drawCalls: Int) {
     val width = size.width.toInt()
     val height = size.height.toInt()
     val bytes = org.lwjgl.BufferUtils.createByteBuffer(width * height * 4)
@@ -167,5 +170,5 @@ private fun save(path: String, size: Size, renderCalls: Int) {
         }
     }
     ImageIO.write(image, "png", File(path))
-    println("wrote $path ($renderCalls draw calls)")
+    println("wrote $path ($drawCalls draw calls)")
 }

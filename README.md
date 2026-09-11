@@ -212,6 +212,17 @@ the ray-versus-quad arithmetic, pulled out on its own so it can be tested withou
 where a panel hangs in a scene is the game's business and nothing the toolkit should have an
 opinion about. Everything after the hit is `WorldPointer`, and is the same code as a mouse.
 
+When a frame goes over budget the first question is which part of it, and `FrameBudget` answers it:
+the Compose runtime's own work, the layout pass and the draw pass, timed apart, with the worst frame
+in the window and the ratio of frames that actually redrew. `FrameBudgetOverlay` puts them in a
+corner. Press F3 in any of the three demos. Switched off it costs a boolean — the three wrappers are
+inline, so a disabled budget compiles down to a comparison and the call that was there anyway, which
+is what makes it a thing to leave in a shipped game rather than a thing to add and then remove.
+
+It is also the first time the central claim has been measured in a running game rather than a spike.
+Snake, mid-play, on software OpenGL: **the interface redrew 4 times in 294 frames**, and the whole
+of it — runtime, layout and drawing together — averaged 0.13 ms a frame.
+
 | | |
 |---|---|
 | `composegl-ui` | the toolkit. Multiplatform, and depends on the Compose runtime and coroutines |

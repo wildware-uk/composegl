@@ -44,7 +44,7 @@ class GdxAtlasTest {
             canvas.begin(viewport)
             canvas.content(fonts)
             canvas.end()
-            canvas.renderCalls
+            canvas.drawCalls
         } finally {
             canvas.dispose()
             fonts.dispose()
@@ -86,7 +86,7 @@ class GdxAtlasTest {
                 // The one thing that is not on the shared page.
                 canvas.image(GdxTexture(texture), Rect.of(60f, 60f, 40f, 40f))
                 canvas.end()
-                canvas.renderCalls
+                canvas.drawCalls
             } finally {
                 texture.dispose()
                 pixmap.dispose()
@@ -125,7 +125,7 @@ class GdxAtlasTest {
                 canvas.begin(viewport)
                 canvas.rect(Rect.of(0f, 0f, 50f, 50f), white)
                 canvas.end()
-                canvas.renderCalls
+                canvas.drawCalls
             } finally {
                 canvas.dispose()
             }

@@ -57,8 +57,8 @@ class GdxCanvas(
 
     private val projection = Matrix4()
 
-    /** How many times the last frame talked to the driver. */
-    val renderCalls: Int get() = batch.renderCalls
+    /** How many times the frame so far has talked to the driver. */
+    override val drawCalls: Int get() = batch.renderCalls
 
     /** Sets up for a frame in [viewport]'s design coordinates. */
     fun begin(viewport: Viewport) {

@@ -63,7 +63,7 @@ class GdxNinePatchTest {
     @Test
     fun `every piece comes from the right part of the art, and the panel is one draw call`() {
         val pixmap = art()
-        var renderCalls = 0
+        var drawCalls = 0
         val frame = Gl.render {
             val texture = Texture(pixmap)
             val canvas = GdxCanvas()
@@ -74,7 +74,7 @@ class GdxNinePatchTest {
                 canvas.begin(viewport)
                 patch.drawInto(canvas, Rect.of(50f, 50f, 200f, 200f))
                 canvas.end()
-                renderCalls = canvas.renderCalls
+                drawCalls = canvas.drawCalls
                 Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size)
             } finally {
                 canvas.dispose()
@@ -93,7 +93,7 @@ class GdxNinePatchTest {
         assertColour(Color.PINK, frame.at(245, 245), "the bottom-right corner")
         assertColour(Color.BLACK, frame.at(20, 20), "nothing outside the panel")
 
-        assertEquals(1, renderCalls, "nine pieces of one texture are one batch")
+        assertEquals(1, drawCalls, "nine pieces of one texture are one batch")
 
         pixmap.dispose()
         frame.dispose()

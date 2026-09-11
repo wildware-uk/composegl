@@ -10,6 +10,8 @@ import composegl.ui.animation.Easings
 import composegl.ui.animation.Tween
 import composegl.ui.animation.animateFloatAsState
 import composegl.ui.backend.Clipboard
+import composegl.ui.debug.FrameBudget
+import composegl.ui.debug.FrameBudgetOverlay
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Arrangement
 import composegl.ui.layout.Box
@@ -47,7 +49,13 @@ import kotlin.math.roundToInt
  * skin for a style, and the skin is `ui/snake.skin.json`, watched while the game runs.
  */
 @Composable
-fun SnakeUi(session: SnakeSession, fonts: FontProvider, skin: Skin, clipboard: Clipboard = Clipboard.None) {
+fun SnakeUi(
+    session: SnakeSession,
+    fonts: FontProvider,
+    skin: Skin,
+    clipboard: Clipboard = Clipboard.None,
+    budget: FrameBudget = FrameBudget().also { it.isOn = false },
+) {
     CompositionLocalProvider(
         LocalFonts provides fonts,
         LocalClipboard provides clipboard,
@@ -63,6 +71,14 @@ fun SnakeUi(session: SnakeSession, fonts: FontProvider, skin: Skin, clipboard: C
                     Screen.Paused -> PauseScreen(session)
                     Screen.GameOver -> GameOverScreen(session)
                     Screen.Playing -> Unit
+                }
+
+                // F3, in the corner every game puts it in.
+                if (budget.isOn) {
+                    FrameBudgetOverlay(
+                        budget,
+                        Modifier.align(Alignment.BottomEnd).padding(right = 28f, bottom = 28f),
+                    )
                 }
             }
         }

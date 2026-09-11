@@ -35,7 +35,7 @@ class GlCanvasTest {
     private val body = TextStyle(family = "body", size = 48f)
 
     /** What one drawn frame came out as. */
-    private class Frame(private val pixels: IntArray, val renderCalls: Int) {
+    private class Frame(private val pixels: IntArray, val drawCalls: Int) {
 
         /** The colour at a point in the toolkit's coordinates: y down from the top. */
         fun at(x: Int, y: Int): Int = pixels[y * Gl.size + x]
@@ -50,7 +50,7 @@ class GlCanvasTest {
             canvas.begin(viewport)
             canvas.content(fonts)
             canvas.end()
-            Frame(Gl.readPixels(Gl.size, Gl.size), canvas.renderCalls)
+            Frame(Gl.readPixels(Gl.size, Gl.size), canvas.drawCalls)
         } finally {
             canvas.close()
         }
@@ -83,7 +83,7 @@ class GlCanvasTest {
             }
         }
 
-        assertTrue(frame.renderCalls <= 2, "a hundred boxes should batch, took ${frame.renderCalls}")
+        assertTrue(frame.drawCalls <= 2, "a hundred boxes should batch, took ${frame.drawCalls}")
     }
 
     @Test
@@ -96,7 +96,7 @@ class GlCanvasTest {
             text(it!!.measure("Hi", body), Offset(24f, 24f), red)
         }
 
-        assertEquals(1, frame.renderCalls, "a box and a word should not need two draw calls")
+        assertEquals(1, frame.drawCalls, "a box and a word should not need two draw calls")
     }
 
     @Test
@@ -116,7 +116,7 @@ class GlCanvasTest {
                 canvas.begin(viewport)
                 canvas.image(texture, Rect.of(10f, 10f, 40f, 40f))
                 canvas.end()
-                Frame(Gl.readPixels(Gl.size, Gl.size), canvas.renderCalls)
+                Frame(Gl.readPixels(Gl.size, Gl.size), canvas.drawCalls)
             } finally {
                 texture.close()
                 canvas.close()

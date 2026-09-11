@@ -7,6 +7,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import composegl.ui.debug.FrameBudget
+import composegl.ui.debug.FrameBudgetOverlay
 import composegl.ui.geometry.Offset
 import composegl.ui.graphics.Colour
 import composegl.ui.graphics.UiCanvas
@@ -183,6 +185,15 @@ fun Screen(
                         // through the HDPI scale and the letterbox — and that the same coordinate found the
                         // right node underneath it.
                         state.pointer?.let { PointerCross(it) }
+
+                        // F3, in the corner every game puts it in. Off by default, because it is
+                        // a debug tool and this screen is also the picture in the README.
+                        if (state.budget.isOn) {
+                            FrameBudgetOverlay(
+                                state.budget,
+                                Modifier.align(Alignment.BottomEnd).padding(right = 40f, bottom = 40f),
+                            )
+                        }
                     }
                 }
             }
@@ -692,6 +703,12 @@ private val digits = listOf(
 class DemoState {
 
     val source = InputSourceTracker()
+
+    /**
+     * What the interface costs a frame. Off, because it is a debug tool and the example is a
+     * picture; F3 puts it up.
+     */
+    val budget = FrameBudget().also { it.isOn = false }
 
     /** What each action is bound to, and which pad's letters to draw. */
     val prompts = Prompts()
