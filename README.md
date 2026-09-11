@@ -24,7 +24,7 @@ general-purpose one bent into shape.
 
 ![The example running](docs/images/demo.png)
 
-*The example, in `composegl-demo`. Every panel, border, shadow, bar and letter is drawn by our own
+*The example, in `composegl-demo`, on its LOADOUT tab with a callsign being typed. Every panel, border, shadow, bar and letter is drawn by our own
 renderer from a tree the Compose runtime maintains. The STATUS panel is drawn by the shader — one
 quad for its corner, border and shadow together. The BRIEFING panel is nine-patch art out of a
 texture atlas, and the gap between its frame and its text is a number in the atlas file rather than
@@ -54,9 +54,11 @@ the example's Kotlin. Save the file while the example is running and it changes 
 A skin that will not parse names the line and suggests the nearest region or key that would have
 worked, and a broken save leaves the last skin that worked on screen. The widget set has started:
 `Text`, `Image`, `Button`, `IconButton`, `Checkbox`, `RadioButton`, `Toggle`, `Slider`,
-`ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog` and `Tabs` ship with the toolkit, and the
-example is built from them.
-Panels, tabs and dialogues are next.
+`ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog`, `Tabs` and `TextField` ship with the
+toolkit, and the example is built from them. Typing works the whole way through: a caret that blinks
+and stops blinking mid-word, selection by shift or by dragging, double-click for a word, word-wise
+movement, the system clipboard through whichever backend is running, and a field that scrolls
+sideways so a long name never types itself off the edge.
 
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and

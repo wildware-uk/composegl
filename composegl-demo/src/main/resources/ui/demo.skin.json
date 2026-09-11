@@ -87,6 +87,22 @@
       "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } }
     },
 
+    // --- typing ---
+    //
+    // The caret and the highlight are their own styles because a game restyles them separately:
+    // a light interface wants a dark caret, and a selection has to stay readable under the text.
+
+    "field": {
+      "background": { "fill": "#600E1116", "corner": 6, "border": "#304CC2FF", "padding": [10, 7] },
+      "hovered": { "background": { "fill": "#600E1116", "corner": 6, "border": "#604CC2FF" } },
+      "focused": { "background": { "fill": "#600E1116", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "field.placeholder": { "textColour": "#5A6675" },
+    "field.caret": { "background": { "fill": "#E6F0FF" } },
+    "field.selection": { "background": { "fill": "#504CC2FF" } },
+
     // --- the tabs and the dialogue ---
 
     "tab": {

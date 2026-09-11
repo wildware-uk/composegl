@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.PixmapIO
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureAtlas
+import composegl.gdx.GdxClipboard
 import composegl.gdx.GdxCanvas
 import composegl.gdx.GdxFonts
 import composegl.gdx.GdxGamepadInput
@@ -58,6 +59,9 @@ class Demo : ApplicationAdapter() {
 
     private val shot: String? = System.getenv("COMPOSEGL_DEMO_SHOT")
 
+    /** A keyboard script, one step per frame, the same as the other backend plays. */
+    private var scriptedKeys: List<String> = emptyList()
+
     override fun create() {
         fonts = GdxFonts()
         val file = Gdx.files.internal("fonts/DejaVuSans.ttf")
@@ -76,12 +80,13 @@ class Demo : ApplicationAdapter() {
         sprites = SpriteBatch()
         canvas = GdxCanvas(sprites, fonts.atlas)
         host = UiHost()
-        host.setContent { Screen(fonts, skin.skin, state) }
+        host.setContent { Screen(fonts, skin.skin, state, GdxClipboard()) }
 
         // The whole of the engine's involvement in input: a translator, pointed at a sink. What
         // the sink does with an event — which node it hit, whether that is a click — is the
         // toolkit's business and has nothing to do with LibGDX.
         input = DemoInput(state, host.root)
+        scriptedKeys = System.getenv("COMPOSEGL_DEMO_KEYS")?.let { input.keyScript(it) } ?: emptyList()
         pointerInput = GdxPointerInput(input, { viewport })
         keyboardInput = GdxKeyboardInput(input)
         // Two translators, one keyboard and one mouse, neither knowing about the other.
@@ -110,6 +115,7 @@ class Demo : ApplicationAdapter() {
         )
         MeasurePass().run(host.root, viewport)
         input.frame(System.nanoTime() / 1_000_000)
+        if (frames < scriptedKeys.size) input.pretendKeyWas(scriptedKeys[frames])
 
         Gdx.gl.glClearColor(0.03f, 0.04f, 0.05f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
@@ -118,7 +124,7 @@ class Demo : ApplicationAdapter() {
         canvas.end()
 
         frames++
-        if (shot != null && frames >= 2) {
+        if (shot != null && frames >= scriptedKeys.size + 2) {
             save(shot)
             Gdx.app.exit()
         }

@@ -31,10 +31,13 @@ import composegl.ui.input.TextEvent
  * @param multiline whether Enter makes a line here or belongs to whatever is around the field.
  * @param clipboard where cut and copy put things and paste takes them from. The default keeps
  *   nothing, so the keys are safe to press in a game that has not wired one up.
+ * @param maxLength how many characters the field will hold, or zero for no limit. Typing at the
+ *   limit does nothing; a paste fills whatever room is left rather than being refused whole.
  */
 class KeyboardEditor(
     private val multiline: Boolean = false,
     private val clipboard: Clipboard = Clipboard.None,
+    private val maxLength: Int = 0,
 ) {
 
     /**
@@ -62,7 +65,7 @@ class KeyboardEditor(
             Key.X -> if (shortcut) cut(value) else null
             Key.V -> if (shortcut) paste(value) else null
 
-            Key.Enter -> if (multiline) value.apply(EditCommand.Insert("\n")) else null
+            Key.Enter -> if (multiline) insert(value, "\n") else null
 
             else -> null
         }
@@ -97,7 +100,24 @@ class KeyboardEditor(
         val pasted = clipboard.read() ?: return null
         val clean = pasted.sanitised(multiline)
         if (clean.isEmpty()) return null
-        return value.apply(EditCommand.Insert(clean))
+        return insert(value, clean)
+    }
+
+    /**
+     * Puts [text] in, as far as the field has room for it.
+     *
+     * A field that is full swallows nothing and reports nothing happened, so the key falls through
+     * to whatever is around it. A paste that is too long is trimmed rather than refused: filling the
+     * last four letters of a name is more use than being told no.
+     */
+    private fun insert(value: TextFieldValue, text: String): TextFieldValue? {
+        if (maxLength <= 0) return value.apply(EditCommand.Insert(text))
+
+        val room = maxLength - (value.text.length - value.selection.length)
+        if (room <= 0) return null
+        val fitted = if (text.length <= room) text else text.take(room).withoutADanglingHalf()
+        if (fitted.isEmpty()) return null
+        return value.apply(EditCommand.Insert(fitted))
     }
 
     /**
@@ -109,7 +129,7 @@ class KeyboardEditor(
     fun onText(event: TextEvent, value: TextFieldValue): TextFieldValue? {
         val text = event.text
         if (text.isEmpty() || text.any { it.isControlCharacter() }) return null
-        return value.apply(EditCommand.Insert(text))
+        return insert(value, text)
     }
 }
 
@@ -128,6 +148,9 @@ private fun Char.isControlCharacter(): Boolean = code < 0x20 || code in 0x7F..0x
  * Line breaks survive in a field that has lines, as one `\n` however the platform wrote them. A tab
  * becomes a space everywhere, because nothing here knows what a tab stop would be.
  */
+private fun String.withoutADanglingHalf(): String =
+    if (isNotEmpty() && last().isHighSurrogate()) dropLast(1) else this
+
 private fun String.sanitised(multiline: Boolean): String {
     val lines = replace("\r\n", "\n").replace('\r', '\n')
     val flattened = if (multiline) lines else lines.replace('\n', ' ')

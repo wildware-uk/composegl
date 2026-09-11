@@ -219,7 +219,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     /** The innermost trap: the last one in tree order, which is the one drawn on top. */
     private fun trap(): UiNode? {
         var found: UiNode? = null
-        root.forEach { if (it.resolved.focusTrap && it.resolved.alpha > 0f) found = it }
+        root.forEach { if (it.resolved.focusTrap && it.isVisible) found = it }
         return found
     }
 
@@ -238,8 +238,22 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     /** Every focusable node inside the innermost trap, in tree order — the order Tab walks. */
     private fun focusables(): List<UiNode> {
         val found = mutableListOf<UiNode>()
-        (scope ?: root).forEach { if (it.isFocusable) found += it }
+        collectFocusable(scope ?: root, found)
         return found
+    }
+
+    /**
+     * Walks the tree, skipping anything transparent along with everything inside it.
+     *
+     * Skipping the whole subtree is the point. A hidden tab page is one transparent box over a page
+     * full of perfectly ordinary widgets, and a widget only knows its own opacity — so a rule that
+     * looked at each node alone would let a pad walk into the page nobody can see, press a button
+     * nobody can see, and leave the player wondering where their cursor went.
+     */
+    private fun collectFocusable(node: UiNode, into: MutableList<UiNode>) {
+        if (node.resolved.alpha <= 0f) return
+        if (node.resolved.focusable?.enabled == true) into += node
+        node.children.forEach { collectFocusable(it, into) }
     }
 
     /** Where focus goes when it has to go somewhere: whatever the screen declared, else the first. */
@@ -330,7 +344,24 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
 }
 
 private val UiNode.isFocusable: Boolean
-    get() = resolved.focusable?.enabled == true && resolved.alpha > 0f
+    get() = resolved.focusable?.enabled == true && isVisible
+
+/**
+ * Whether a node can be seen at all: it, and everything it is inside, has some opacity.
+ *
+ * Opacity multiplies down the tree when it is drawn, so a node inside a transparent one is
+ * invisible however solid it thinks it is. Focus has to use the same rule the drawing does, or what
+ * cannot be seen can still be reached.
+ */
+private val UiNode.isVisible: Boolean
+    get() {
+        var walk: UiNode? = this
+        while (walk != null) {
+            if (walk.resolved.alpha <= 0f) return false
+            walk = walk.parent
+        }
+        return true
+    }
 
 // --- the scoring -------------------------------------------------------------------------------
 //

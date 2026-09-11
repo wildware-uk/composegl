@@ -1,5 +1,6 @@
 package composegl.demo
 
+import composegl.lwjgl3.GlfwClipboard
 import composegl.lwjgl3.GlCanvas
 import composegl.lwjgl3.GlTexture
 import composegl.lwjgl3.GlfwGamepadInput
@@ -47,7 +48,7 @@ fun main() {
     val state = DemoState()
     val host = UiHost()
     val skin = demoSkin(atlas(art), fonts)
-    host.setContent { Screen(fonts, skin.skin, state) }
+    host.setContent { Screen(fonts, skin.skin, state, GlfwClipboard(window)) }
 
     var viewport = window.viewport(Design, ScalePolicy.Fit)
     val input = DemoInput(state, host.root)
@@ -75,7 +76,8 @@ fun main() {
     // The same problem for a pad, which cannot be plugged in from a script either. Played once,
     // after the first layout, because focus moves by geometry and there is none before then.
     val scriptedPad: String? = System.getenv("COMPOSEGL_DEMO_PAD")
-    val scriptedKeys: String? = System.getenv("COMPOSEGL_DEMO_KEYS")
+    // One keystroke per frame: a step often depends on what the last one put on screen.
+    val scriptedKeys: List<String> = System.getenv("COMPOSEGL_DEMO_KEYS")?.let { input.keyScript(it) } ?: emptyList()
     var frames = 0
 
     try {
@@ -94,10 +96,8 @@ fun main() {
             viewport = window.viewport(Design, ScalePolicy.Fit)
             MeasurePass().run(host.root, viewport)
             input.frame(System.nanoTime() / 1_000_000)
-            if (frames == 0) {
-                scriptedPad?.let { input.pretendPadDid(it) }
-                scriptedKeys?.let { input.pretendKeysWere(it) }
-            }
+            if (frames == 0) scriptedPad?.let { input.pretendPadDid(it) }
+            if (frames < scriptedKeys.size) input.pretendKeyWas(scriptedKeys[frames])
 
             GL11.glClearColor(0.03f, 0.04f, 0.05f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
@@ -108,7 +108,7 @@ fun main() {
             window.present()
 
             frames++
-            if (shot != null && frames >= 2) {
+            if (shot != null && frames >= scriptedKeys.size + 2) {
                 save(shot, window.framebuffer, canvas.renderCalls)
                 break
             }
