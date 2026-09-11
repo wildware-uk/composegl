@@ -15,6 +15,11 @@ dependencies {
     implementation(libs.gdx.backend.lwjgl3)
     runtimeOnly(variantOf(libs.gdx.platform) { classifier("natives-desktop") })
     runtimeOnly(variantOf(libs.gdx.freetype.platform) { classifier("natives-desktop") })
+
+    // gdx-controllers ships its core as an interface and its drivers per platform. The toolkit
+    // module depends on the interface; picking the driver is the application's job, and this is a
+    // desktop application.
+    runtimeOnly(libs.gdx.controllers.desktop)
 }
 
 application {

@@ -13,6 +13,10 @@ dependencies {
     // iOS, which is a large part of why LibGDX is still the reference backend.
     api(libs.gdx.freetype)
 
+    // Pads. A separate LibGDX project rather than part of the core, and the reason a game gets
+    // hot-plugging and a name-to-layout database for free instead of parsing HID reports.
+    api(libs.gdx.controllers)
+
     // Enough of LibGDX to run without a window: the tests that need real glyph shapes but no GPU.
     testImplementation(libs.gdx.backend.headless)
 

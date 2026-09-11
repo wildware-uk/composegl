@@ -58,6 +58,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
      */
     fun refresh() {
         val focusable = focusables()
+        if (pressing != null && pressing !in focusable) cancelPress()
         if (current != null && current !in focusable) release(current)
         if (current == null && autoFocus) take(preferred(focusable))
     }
@@ -77,6 +78,44 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
 
     /** Nothing has focus. A pointer-driven screen does this when the player clicks the background. */
     fun clearFocus() = release(current)
+
+    // --- activating ----------------------------------------------------------------------------
+    //
+    // A pad's South button and a keyboard's Enter are a press and a release on the focused node,
+    // and they behave like a pointer press on it for exactly the same reasons: the button looks
+    // pressed while it is held, the click happens on the way up, and a gesture that gets taken
+    // away fires nothing.
+
+    private var pressing: UiNode? = null
+
+    /** The focused node goes down. False when nothing is focused or it cannot be clicked. */
+    fun pressFocused(): Boolean {
+        if (pressing != null) return true
+        val node = current ?: return false
+        if (node.resolved.click?.enabled != true) return false
+        pressing = node
+        node.resolved.interactions.forEach { it.press() }
+        return true
+    }
+
+    /** The focused node comes up, and that is a click — unless focus moved out from under it. */
+    fun releaseFocused(): Boolean {
+        val node = pressing ?: return false
+        pressing = null
+        node.resolved.interactions.forEach { it.release() }
+        if (node !== current) return false
+        val click = node.resolved.click ?: return false
+        if (!click.enabled) return false
+        click.onClick()
+        return true
+    }
+
+    /** The press is abandoned. The pad was unplugged, or the screen went away. No click. */
+    fun cancelPress() {
+        val node = pressing ?: return
+        pressing = null
+        node.resolved.interactions.forEach { it.release() }
+    }
 
     /**
      * Moves focus one step in [direction]. False when there is nowhere to go, which is what a

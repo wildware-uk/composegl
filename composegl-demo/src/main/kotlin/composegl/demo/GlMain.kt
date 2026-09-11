@@ -2,6 +2,7 @@ package composegl.demo
 
 import composegl.lwjgl3.GlCanvas
 import composegl.lwjgl3.GlTexture
+import composegl.lwjgl3.GlfwGamepadInput
 import composegl.lwjgl3.GlfwPointerInput
 import composegl.lwjgl3.GlfwWindow
 import composegl.lwjgl3.StbFonts
@@ -55,13 +56,21 @@ fun main() {
         viewport = { viewport },
         pixelScale = { window.pixelScale },
     )
-    pointerInput.attachTo(window)
+    // Not attached when a pad script is running: GLFW reports the real cursor as soon as the
+    // window opens, and a picture meant to show what a pad does should not have a mouse in it.
+    if (System.getenv("COMPOSEGL_DEMO_PAD") == null) pointerInput.attachTo(window)
+
+    // GLFW has no event for a pad, so this one is read once a frame rather than pushed.
+    val padInput = GlfwGamepadInput(input)
 
     val shot: String? = System.getenv("COMPOSEGL_DEMO_SHOT")
     // A screenshot of a hover state is otherwise impossible to take: the pointer has to be
     // somewhere, and a script cannot move a real mouse. `x,y` hovers; `x,y,press` holds it down.
     // Re-applied every frame, because the real mouse is still there and still reporting.
     val scriptedPointer: String? = System.getenv("COMPOSEGL_DEMO_POINTER")
+    // The same problem for a pad, which cannot be plugged in from a script either. Played once,
+    // after the first layout, because focus moves by geometry and there is none before then.
+    val scriptedPad: String? = System.getenv("COMPOSEGL_DEMO_PAD")
     var frames = 0
 
     try {
@@ -72,11 +81,13 @@ fun main() {
             if (state.autoCycle) state.selected = ((elapsed / 0.8f).toInt()) % 10
 
             scriptedPointer?.let { input.pretendPointerIsAt(it) }
+            padInput.poll()
             host.frame(System.nanoTime())
 
             viewport = window.viewport(Design, ScalePolicy.Fit)
             MeasurePass().run(host.root, viewport)
-            input.frame()
+            input.frame(System.nanoTime() / 1_000_000)
+            if (frames == 0) scriptedPad?.let { input.pretendPadDid(it) }
 
             GL11.glClearColor(0.03f, 0.04f, 0.05f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)

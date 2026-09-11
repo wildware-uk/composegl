@@ -288,4 +288,9 @@ class DemoState {
     fun answer(choice: String) {
         briefing = choice
     }
+
+    /** What the pad's East and Back buttons do here: undo the answer, so it can be given again. */
+    fun back() {
+        briefing = null
+    }
 }

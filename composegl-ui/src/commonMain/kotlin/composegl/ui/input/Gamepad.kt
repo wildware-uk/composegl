@@ -47,6 +47,10 @@ sealed interface GamepadEvent {
      * [value] is already dead-zoned and normalised by the backend: sticks run -1 to 1, triggers 0
      * to 1. The toolkit never sees raw hardware numbers, so a pad with a worn stick is the
      * backend's problem rather than a drifting menu.
+     *
+     * Y runs the same way the toolkit's y runs: **positive is down**. Most pad APIs already report
+     * it this way; the ones that do not are the backend's job to flip, once, where the rest of the
+     * platform's quirks live.
      */
     data class Axis(
         override val gamepadId: GamepadId,
