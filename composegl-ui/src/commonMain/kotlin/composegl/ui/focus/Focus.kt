@@ -1,11 +1,33 @@
 package composegl.ui.focus
 
+import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.node.UiNode
 import kotlin.math.abs
 
 /** Which way the player asked focus to go. [Next] and [Previous] are Tab and Shift-Tab. */
 enum class FocusDirection { Up, Down, Left, Right, Next, Previous }
+
+/**
+ * Asked to bring a rectangle into view.
+ *
+ * Every ancestor of a newly focused node is asked, innermost first, which is how focus moving to a
+ * button halfway down a list scrolls the list instead of leaving the player looking at nothing. It
+ * is deliberately about a rectangle rather than about scrolling: a panel that slides, a camera that
+ * pans and a list that scrolls all answer the same question.
+ *
+ * The rectangle arrives in the handling node's own coordinates, so a scrolling area can compare it
+ * with its own size without knowing where on the screen it is.
+ *
+ * Return true if something was moved. Nothing is done with the answer yet; it is there so a caller
+ * can tell "nobody could" from "somebody did".
+ *
+ * A handler written inline is a new object every recomposition and so never compares equal —
+ * `remember` it, exactly as with a pointer handler.
+ */
+fun interface RevealHandler {
+    fun onReveal(area: Rect): Boolean
+}
 
 /**
  * A handle on one focusable node, for the times geometry is not the whole story.
@@ -219,6 +241,30 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         release(current)
         current = node
         node?.resolved?.focusable?.state?.focus()
+        if (node != null) reveal(node)
+    }
+
+    /**
+     * Asks every ancestor to bring the newly focused node into view.
+     *
+     * Innermost first, using the bounds the last layout produced — focus moves before the frame
+     * that will lay the tree out again, and a rectangle from one frame ago is the right answer for
+     * everything that has not moved since. Two scrolling lists nested inside each other are the
+     * one case that can take a second press to settle, because scrolling the inner one has not
+     * moved the outer one's idea of where it is yet.
+     */
+    private fun reveal(node: UiNode) {
+        val area = node.boundsInRoot
+        var walk = node.parent
+        while (walk != null) {
+            val handlers = walk.resolved.reveals
+            if (handlers.isNotEmpty()) {
+                val corner = walk.boundsInRoot.topLeft
+                val local = area.translate(Offset(-corner.x, -corner.y))
+                handlers.forEach { it.onReveal(local) }
+            }
+            walk = walk.parent
+        }
     }
 
     private fun release(node: UiNode?) {

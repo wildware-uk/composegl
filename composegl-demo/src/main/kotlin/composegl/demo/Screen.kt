@@ -47,6 +47,8 @@ import composegl.ui.widget.Checkbox
 import composegl.ui.widget.Image
 import composegl.ui.widget.ImageFit
 import composegl.ui.widget.LocalFonts
+import composegl.ui.widget.rememberScrollState
+import composegl.ui.widget.ScrollArea
 import composegl.ui.widget.Slider
 import composegl.ui.widget.Text
 import composegl.ui.widget.Toggle
@@ -173,6 +175,8 @@ private fun Bar(label: String, fraction: Float, fill: String) {
 /** The same job, done by a nine-patch. Its slices and padding come from the skin file. */
 @Composable
 private fun LorePanel(modifier: Modifier, state: DemoState) {
+    val log = rememberScrollState()
+
     Panel(modifier) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
             Heading("BRIEFING")
@@ -181,7 +185,18 @@ private fun LorePanel(modifier: Modifier, state: DemoState) {
                     "rewritten the door codes, so bring the cutter and do not count on the lift.",
                 style = "label.body",
             )
-            Spacer(Modifier.weight(1f))
+
+            // More log than there is room for. The wheel, a drag, the scrollbar and the pad all
+            // move it, and the whole thing is clipped by one scissor rather than one per line.
+            ScrollArea(Modifier.fillMaxWidth().weight(1f), state = log) {
+                Column(
+                    Modifier.fillMaxWidth().padding(right = 14f),
+                    verticalArrangement = Arrangement.spacedBy(6f),
+                ) {
+                    transmissions.forEach { line -> Text(line, style = "label.dim") }
+                }
+            }
+
             Row(horizontalArrangement = Arrangement.spacedBy(10f)) {
                 Chip("ACCEPT", "chip", state.briefing == "ACCEPT", first = true) { state.answer("ACCEPT") }
                 Chip("DECLINE", "chip.danger", state.briefing == "DECLINE", first = false) { state.answer("DECLINE") }
@@ -263,6 +278,34 @@ private fun Reticle(at: Offset) {
 }
 
 private const val ReticleSize = 18f
+
+/** Enough log to need scrolling, which is the whole point of it being here. */
+private val transmissions = listOf(
+    "06:12  relay handshake lost",
+    "06:14  automated retry, no answer",
+    "06:19  door codes rewritten from inside",
+    "06:31  lift called to sublevel three",
+    "06:33  lift did not arrive",
+    "06:40  motion on the gantry, two returns",
+    "06:41  motion on the gantry, eleven returns",
+    "06:58  power drawn from the reactor ring",
+    "07:04  cutter signed out of the locker",
+    "07:22  suit telemetry from a suit nobody wore",
+    "07:40  the relay answered, in our own voice",
+    "07:41  it asked for the door codes",
+    "07:44  reactor ring at one hundred and four per cent",
+    "07:51  gantry cameras looped, four minutes of the same four minutes",
+    "08:02  sublevel three sealed from inside",
+    "08:09  suit telemetry stopped mid-sentence",
+    "08:15  door codes rewritten again, ours this time",
+    "08:20  something is counting down on the cargo channel",
+    "08:26  the count is in our own transponder format",
+    "08:31  lift called to the surface, empty",
+    "08:38  hull microphones: footsteps in the airlock",
+    "08:39  airlock reports nobody inside",
+    "08:44  cutter signed back in, by nobody",
+    "08:50  the relay went quiet again",
+)
 
 /** The number row, in the order it is printed: 1 to 9 then 0, which is the tenth slot. */
 private val digits = listOf(

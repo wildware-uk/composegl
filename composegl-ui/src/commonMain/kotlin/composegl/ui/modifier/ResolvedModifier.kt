@@ -1,6 +1,7 @@
 package composegl.ui.modifier
 
 import composegl.ui.focus.FocusRequester
+import composegl.ui.focus.RevealHandler
 import composegl.ui.geometry.Offset
 import composegl.ui.input.DirectionHandler
 import composegl.ui.input.InteractionState
@@ -65,6 +66,8 @@ class ResolvedModifier private constructor(
     val focusOrder: FocusOrderElement?,
     /** Directions this node uses itself, asked before focus looks for a neighbour. */
     val focusDirections: List<DirectionHandler>,
+    /** Asked to bring a descendant into view when focus lands on it. */
+    val reveals: List<RevealHandler>,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
@@ -104,6 +107,7 @@ class ResolvedModifier private constructor(
             var focusRequester: FocusRequester? = null
             var focusOrder: FocusOrderElement? = null
             val focusDirections = mutableListOf<DirectionHandler>()
+            val reveals = mutableListOf<RevealHandler>()
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -136,6 +140,7 @@ class ResolvedModifier private constructor(
                     is FocusRequesterElement -> focusRequester = element.requester
                     is FocusOrderElement -> focusOrder = element
                     is FocusDirectionElement -> focusDirections += element.handler
+                    is RevealElement -> reveals += element.handler
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
             }
@@ -146,6 +151,7 @@ class ResolvedModifier private constructor(
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click,
                 focusable, focusRequester, focusOrder, focusDirections.toList(),
+                reveals.toList(),
             )
         }
     }
