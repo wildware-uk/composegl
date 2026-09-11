@@ -1,0 +1,13 @@
+ui.png
+size:128,64
+format:RGBA8888
+filter:Linear,Linear
+repeat:none
+panel
+  bounds:0,0,48,48
+  split:16,16,16,16
+  pad:20,20,18,18
+ribbon
+  bounds:52,0,24,24
+  split:8,8,10,10
+  pad:14,14,5,6

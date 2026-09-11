@@ -36,7 +36,7 @@ private val Danger = Colour.rgb(0xFF5C5C)
 private val Dim = Colour.argb(0xFF9AA4B2)
 
 private val Title = TextStyle(family = "display", size = 34f)
-private val Heading = TextStyle(family = "body", size = 20f)
+private val HeadingStyle = TextStyle(family = "body", size = 20f)
 private val Body = TextStyle(family = "body", size = 16f)
 private val Small = TextStyle(family = "body", size = 13f)
 
@@ -48,8 +48,8 @@ private val Small = TextStyle(family = "body", size = 13f)
  * LibGDX.
  */
 @Composable
-fun Screen(fonts: FontProvider, health: Float, selected: Int) {
-    CompositionLocalProvider(LocalFonts provides fonts) {
+fun Screen(fonts: FontProvider, skin: DemoSkin, health: Float, selected: Int) {
+    CompositionLocalProvider(LocalFonts provides fonts, LocalSkin provides skin) {
         Box(Modifier.fillMaxSize().background(Background)) {
             Column(Modifier.fillMaxSize().padding(28f), verticalArrangement = Arrangement.spacedBy(20f)) {
                 Text("COMPOSEGL", style = Title, colour = Accent)
@@ -66,11 +66,12 @@ fun Screen(fonts: FontProvider, health: Float, selected: Int) {
     }
 }
 
+/** Drawn by the shader: a rounded fill, a hairline border, a soft shadow, no art at all. */
 @Composable
 private fun StatusPanel(modifier: Modifier, health: Float) {
     Panel(modifier) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12f)) {
-            Text("STATUS", style = Heading)
+            Heading("STATUS", style = HeadingStyle)
             Bar("Health", health, Danger)
             Bar("Shield", 0.42f, Accent)
             Bar("Stamina", 0.78f, Colour.rgb(0x7BE08A))
@@ -100,11 +101,12 @@ private fun Bar(label: String, fraction: Float, colour: Colour) {
     }
 }
 
+/** The same job, done by a nine-patch. Its padding comes from the atlas, not from this file. */
 @Composable
 private fun LorePanel(modifier: Modifier) {
-    Panel(modifier) {
+    ArtPanel(modifier) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
-            Text("BRIEFING", style = Heading)
+            Heading("BRIEFING", style = HeadingStyle)
             Text(
                 "The relay went quiet six hours ago. Whatever is down there has already " +
                     "rewritten the door codes, so bring the cutter and do not count on the lift.",

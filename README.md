@@ -20,9 +20,12 @@ a general-purpose one bent into shape.
 
 ![The example running](docs/images/demo.png)
 
-*The example, in `composegl-demo`. Every rounded panel, border, shadow, bar and letter is drawn by
-our own renderer from a tree the Compose runtime maintains. The panels, the shadows and the borders
-share one shader, so a panel with all three costs one quad.*
+*The example, in `composegl-demo`. Every panel, border, shadow, bar and letter is drawn by our own
+renderer from a tree the Compose runtime maintains. The STATUS panel is drawn by the shader — one
+quad for its corner, border and shadow together. The BRIEFING panel is nine-patch art out of a
+texture atlas, and the gap between its frame and its text is a number in the atlas file rather than
+a number in the source. The headings sit on a ribbon whose hatch repeats sideways and stretches
+downwards.*
 
 ## The thing it is for
 

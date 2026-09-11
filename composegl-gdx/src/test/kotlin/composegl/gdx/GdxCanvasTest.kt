@@ -351,6 +351,39 @@ class GdxCanvasTest {
     }
 
     @Test
+    fun `a picture is drawn the right way up`() {
+        // Two rows, two colours. Every earlier picture test used a single flat colour, which is
+        // exactly the texture that cannot tell you your texture coordinates are upside down.
+        val frame = Gl.render {
+            val batch = SpriteBatch()
+            val canvas = GdxCanvas(batch)
+            val pixmap = Pixmap(1, 2, Pixmap.Format.RGBA8888).apply {
+                setColor(Color.RED)
+                drawPixel(0, 0)
+                setColor(Color.BLUE)
+                drawPixel(0, 1)
+            }
+            val texture = Texture(pixmap)
+            try {
+                Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
+                Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+                canvas.begin(viewport)
+                canvas.image(GdxTexture(texture), Rect.of(10f, 10f, 40f, 40f))
+                canvas.end()
+                Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.renderCalls)
+            } finally {
+                texture.dispose()
+                pixmap.dispose()
+                canvas.dispose()
+                batch.dispose()
+            }
+        }
+
+        assertColour(Color.RED, frame.pixels.at(30, 15), "the texture's first row belongs at the top")
+        assertColour(Color.BLUE, frame.pixels.at(30, 45), "and its last row at the bottom")
+    }
+
+    @Test
     fun `an unbalanced clip is caught at the end of the frame`() {
         Gl.render {
             val batch = SpriteBatch()
