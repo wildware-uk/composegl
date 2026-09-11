@@ -98,6 +98,16 @@ private class TextPainter(
 
     private var measured: TextLayout? = null
 
+    /**
+     * The width the kept layout was measured against.
+     *
+     * This object already stands for one run of text in one style — it is remembered on both — so
+     * the only thing that can change between one frame and the next is how much room it was
+     * offered. When that is the same too, last frame's answer is still the answer, and measuring
+     * again would lay the same words out into the same lines to arrive at the same numbers.
+     */
+    private var measuredFor = Float.NaN
+
     /** How far right the measured block sits inside the width layout settled on. */
     private var shift = 0f
 
@@ -106,8 +116,10 @@ private class TextPainter(
         constraints: Constraints,
     ): MeasureResult {
         val room = if (softWrap) constraints.maxWidth else Float.POSITIVE_INFINITY
-        val block = fonts.measure(text, style, room)
+        val kept = measured
+        val block = if (kept != null && room == measuredFor) kept else fonts.measure(text, style, room)
         measured = block
+        measuredFor = room
 
         val width = constraints.constrainWidth(block.size.width)
         shift = when (align) {

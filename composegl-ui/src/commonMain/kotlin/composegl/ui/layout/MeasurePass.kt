@@ -165,35 +165,52 @@ internal class Inset : PlacementScope {
  * is 50 tall and as wide as it can be.
  */
 internal fun ResolvedModifier.applyTo(incoming: Constraints): Constraints {
-    // Written out rather than with `let`, because a lambda that assigns to `result` captures it:
-    // Kotlin puts the variable in a box on the heap and makes a fresh lambda to reach it, four
-    // times over, for every node on the screen, every frame.
-    var result = incoming
+    if (size == null && fill == null) return incoming
+
+    // The four numbers first, one object at the end. Written out rather than with `let`, because
+    // a lambda that assigns to a local puts that local in a heap box and makes a fresh lambda to
+    // reach it — and built once rather than an axis at a time, because a node that says both
+    // `width` and `height` would otherwise make an object to throw away on the way to the second.
+    var minWidth = incoming.minWidth
+    var maxWidth = incoming.maxWidth
+    var minHeight = incoming.minHeight
+    var maxHeight = incoming.maxHeight
 
     val width = size?.width
-    if (width != null) result = result.tightenWidth(incoming.constrainWidth(width))
+    if (width != null) {
+        val fixed = incoming.constrainWidth(width)
+        minWidth = fixed
+        maxWidth = fixed
+    }
     val height = size?.height
-    if (height != null) result = result.tightenHeight(incoming.constrainHeight(height))
+    if (height != null) {
+        val fixed = incoming.constrainHeight(height)
+        minHeight = fixed
+        maxHeight = fixed
+    }
 
+    // `fill` wins on the axis it names: Modifier.size(50f).fillMaxWidth() is 50 tall and as wide
+    // as it can be. There is no share of infinity, so an unbounded offer is left alone.
     val widthFraction = fill?.widthFraction
     if (widthFraction != null && incoming.hasBoundedWidth) {
-        result = result.tightenWidth(incoming.constrainWidth(incoming.maxWidth * widthFraction))
+        val fixed = incoming.constrainWidth(incoming.maxWidth * widthFraction)
+        minWidth = fixed
+        maxWidth = fixed
     }
     val heightFraction = fill?.heightFraction
     if (heightFraction != null && incoming.hasBoundedHeight) {
-        result = result.tightenHeight(incoming.constrainHeight(incoming.maxHeight * heightFraction))
+        val fixed = incoming.constrainHeight(incoming.maxHeight * heightFraction)
+        minHeight = fixed
+        maxHeight = fixed
     }
 
-    return result
+    if (minWidth == incoming.minWidth && maxWidth == incoming.maxWidth &&
+        minHeight == incoming.minHeight && maxHeight == incoming.maxHeight
+    ) {
+        return incoming
+    }
+    return Constraints(minWidth, maxWidth, minHeight, maxHeight)
 }
-
-private fun Constraints.tightenWidth(width: Float) =
-    if (minWidth == width && maxWidth == width) this
-    else Constraints(width, width, minHeight, maxHeight)
-
-private fun Constraints.tightenHeight(height: Float) =
-    if (minHeight == height && maxHeight == height) this
-    else Constraints(minWidth, maxWidth, height, height)
 
 /**
  * The scope one node is measured in: its scratch space, and the result it hands back.

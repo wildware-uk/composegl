@@ -19,8 +19,9 @@ internal data class BoxPolicy(val contentAlignment: Alignment) : MeasurePolicy {
         val count = measurables.size
         // Lent by the node and used again next frame; see MeasureScope.
         val placeables = placeables(count)
-        // Worked out once: every child of a box is offered the same room.
-        val offered = constraints.loosen()
+        // Worked out once, and only when there is somebody to offer it to: every child of a box
+        // gets the same room, and an empty box has no children to give any to.
+        val offered = if (count == 0) constraints else constraints.loosen()
 
         var widest = 0f
         var tallest = 0f

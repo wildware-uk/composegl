@@ -220,6 +220,28 @@ class TextWidgetTest {
     }
 
     /** What was asked for, and what was handed back, so a test can assert on both ends. */
+    @Test
+    fun `text that has not changed is not laid out again next frame`() {
+        show { Text("the relay went quiet six hours ago") }
+
+        repeat(5) { frame() }
+
+        assertEquals(1, fonts.asked.size, "the same words in the same room have the same answer")
+        assertSame(fonts.handed.single(), canvas.drawn.last(), "and it is still the object drawn")
+    }
+
+    @Test
+    fun `a narrower window lays the same text out again`() {
+        show { Text("the relay went quiet six hours ago") }
+
+        frame(width = 400f)
+        frame(width = 120f)
+
+        assertEquals(2, fonts.asked.size, "less room can mean different lines, so it must be asked")
+        assertEquals(120f, fonts.asked.last().maxWidth)
+        assertTrue(fonts.handed.last().lineCount > fonts.handed.first().lineCount, "and it wrapped")
+    }
+
     private class SpyFonts(private val real: FontProvider = MonospaceFontProvider()) : FontProvider {
 
         data class Ask(val text: String, val style: TextStyle, val maxWidth: Float)
