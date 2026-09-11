@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.snapshots.Snapshot
+import composegl.ui.internal.Guard
 import composegl.ui.node.UiApplier
 import composegl.ui.node.UiNode
 import composegl.ui.node.UiTree
@@ -12,6 +13,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 
@@ -27,24 +29,24 @@ import kotlin.coroutines.CoroutineContext
  */
 class FrameDispatcher : CoroutineDispatcher() {
 
-    private val lock = Any()
+    private val lock = Guard()
     private val queue = ArrayDeque<Runnable>()
 
     override fun isDispatchNeeded(context: CoroutineContext) = true
 
     override fun dispatch(context: CoroutineContext, block: Runnable) {
-        synchronized(lock) { queue.addLast(block) }
+        lock.hold { queue.addLast(block) }
     }
 
     /** Runs everything queued, including anything queued while draining. */
     fun drain() {
         while (true) {
-            val next = synchronized(lock) { queue.removeFirstOrNull() } ?: return
+            val next = lock.hold { queue.removeFirstOrNull() } ?: return
             next.run()
         }
     }
 
-    val isIdle: Boolean get() = synchronized(lock) { queue.isEmpty() }
+    val isIdle: Boolean get() = lock.hold { queue.isEmpty() }
 }
 
 /**

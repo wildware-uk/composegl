@@ -1,5 +1,7 @@
 package composegl.ui.input
 
+import kotlin.jvm.JvmInline
+
 /**
  * A gamepad button, named by what it means rather than by what is printed on it.
  *

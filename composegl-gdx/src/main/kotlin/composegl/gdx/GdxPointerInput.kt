@@ -5,6 +5,7 @@ import com.badlogic.gdx.Input.Buttons
 import com.badlogic.gdx.InputAdapter
 import composegl.ui.geometry.Offset
 import composegl.ui.input.InputSink
+import composegl.ui.input.Modifiers
 import composegl.ui.input.PointerButton
 import composegl.ui.input.PointerEvent
 import composegl.ui.input.PointerId
@@ -48,6 +49,13 @@ class GdxPointerInput(
     private val hdpiScale: () -> Float = { Gdx.graphics.backBufferScale },
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) : InputAdapter() {
+
+    init {
+        // The toolkit has no platform to ask, so a backend tells it. `Modifiers.isPrimary` is the
+        // difference between Command-C and Control-C, and only something running on a desktop JVM
+        // is in a position to know which one this is.
+        Modifiers.isMac = System.getProperty("os.name").orEmpty().startsWith("Mac")
+    }
 
     /** Which buttons are down, per pointer. What tells a drag from a hover. */
     private val held = mutableMapOf<Int, MutableSet<PointerButton>>()

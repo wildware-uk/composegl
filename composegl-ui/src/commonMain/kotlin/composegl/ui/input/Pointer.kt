@@ -1,6 +1,7 @@
 package composegl.ui.input
 
 import composegl.ui.geometry.Offset
+import kotlin.jvm.JvmInline
 
 /**
  * What is doing the pointing.
