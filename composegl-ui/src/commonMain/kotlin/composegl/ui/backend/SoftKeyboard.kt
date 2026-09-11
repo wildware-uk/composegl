@@ -10,6 +10,19 @@ interface SoftKeyboard {
 
     val isVisible: Boolean
 
+    /**
+     * How much of the bottom of the window the keyboard is covering, in real pixels. Zero when it
+     * is not on screen, and zero on any platform that cannot say.
+     *
+     * Real pixels rather than the interface's own units, because that is what a viewport's safe
+     * area is in: a launcher adds this to `safeArea.bottom` and the whole interface lays out above
+     * the keyboard, with no widget having to know a keyboard exists.
+     *
+     * Default zero, so a backend that only knows how to raise a keyboard is still a valid one —
+     * [composegl.ui.layout.Viewport] then behaves exactly as it did before.
+     */
+    val heightPixels: Float get() = 0f
+
     fun show()
 
     fun hide()
@@ -35,6 +48,9 @@ class RecordingSoftKeyboard : SoftKeyboard {
 
     override var isVisible: Boolean = false
         private set
+
+    /** What a phone would be covering. Settable, so a test can put a keyboard over a field. */
+    override var heightPixels: Float = 0f
 
     /** Every show and hide, in order, so a test can assert the field asked at the right moments. */
     val requests = mutableListOf<String>()

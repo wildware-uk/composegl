@@ -9,8 +9,11 @@ gdx = "1.14.2"
 gdxControllers = "2.2.3"
 lwjgl = "3.3.3"
 junit = "5.14.0"
-# The Android Gradle plugin, only ever applied to the Android launcher module.
+# The Android Gradle plugin, only ever applied to the two Android modules.
 agp = "9.2.1"
+# AndroidX core, for window insets. The only AndroidX anything in the repository, and it is in
+# composegl-android alone, where "what is the keyboard covering" has no other answer.
+androidxCore = "1.13.1"
 
 [libraries]
 # --- the only two things composegl-ui is allowed to depend on ---
@@ -32,6 +35,8 @@ lwjgl-glfw = { module = "org.lwjgl:lwjgl-glfw", version.ref = "lwjgl" }
 lwjgl-opengl = { module = "org.lwjgl:lwjgl-opengl", version.ref = "lwjgl" }
 lwjgl-stb = { module = "org.lwjgl:lwjgl-stb", version.ref = "lwjgl" }
 
+androidx-core = { module = "androidx.core:core", version.ref = "androidxCore" }
+
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "1.14.0" }
 
@@ -41,3 +46,4 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }

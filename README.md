@@ -233,18 +233,27 @@ and a canvas, and calls four methods in order; the desktop one does it on raw Op
 `composegl-demo-snake-android` does it on LibGDX, in about sixty lines. Nothing in the game and
 nothing in the toolkit changed for the phone, which is a claim a diff can check.
 
-Two things a phone needs that a desktop does not. A finger has no arrow keys, so a flick is a turn
+Three things a phone needs that a desktop does not. A finger has no arrow keys, so a flick is a turn
 ([`SwipeSteering`](composegl-demo-snake-core/src/main/kotlin/composegl/snake/SwipeSteering.kt), and
 a press the interface already took never steers). And the hint under the score names whatever the
 player is actually holding — *Swipe to steer* here, *Arrows or WASD* on a desktop, *D-pad steers*
 on a pad — which is the toolkit's `InputSourceTracker` doing the deciding, not the game.
 
+The third is the keyboard, and it is the interesting one. LibGDX can raise a keyboard and that is
+all it can do: it cannot say how tall the keyboard is, and it cannot say when the player swiped it
+away. Both answers are in the window's insets, which is an Android API rather than an engine one —
+so `composegl-android` reads them and hands back two things. A dismissal clears the focus, so a
+field stops blinking a caret at a keyboard that has gone. And the height goes into
+`Viewport(…, safeArea = Padding(bottom = keyboard.heightPixels))`, which is the same knob a notch
+or a rounded corner uses; no widget learns that a keyboard exists, the drawable area simply gets
+shorter and the interface moves up on its own.
+
 The honest part: this ran on an x86_64 emulator with no hardware acceleration, which is not a phone.
 Touch is real — every widget in the picture was driven by `adb shell input`. The on-screen keyboard
-is not verified. The toolkit's request reaches Android's input-method manager and the keyboard never
-draws — and it never draws for the Settings app's own search box either on this emulator, so what
-that proves is that the emulator has no working keyboard, not that the port has one. Keyboard, frame
-times and anything to do with a GPU need real hardware.
+is not verified. The inset listener fires and reports correctly, but it only ever reports *no
+keyboard*, because on this emulator the keyboard never draws — and it never draws for the Settings
+app's own search box either, so what that proves is that the emulator has no working keyboard, not
+that the port has one. Keyboard, frame times and anything to do with a GPU need real hardware.
 
 | | |
 |---|---|
@@ -252,6 +261,7 @@ times and anything to do with a GPU need real hardware.
 | `composegl-gdx` | the LibGDX backend: renderer, fonts, input. The one to use |
 | `composegl-lwjgl3` | a second backend, on raw OpenGL and stb_truetype. Exists to disagree |
 | `composegl-testing` | the scenes both backends draw, and the golden comparison |
+| `composegl-android` | the parts of a phone no engine reports: what the keyboard covers, and when it went |
 | `composegl-demo` | the example in the picture |
 | `composegl-demo-snake-core` | Snake itself: rules, board, interface, input. Toolkit only, no backend |
 | `composegl-demo-snake` | Snake on a desktop, on raw OpenGL |
