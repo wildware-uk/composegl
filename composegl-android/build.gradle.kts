@@ -17,6 +17,16 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    testOptions {
+        unitTests {
+            // The classes under test are the toolkit's, not Android's. What they touch of Android
+            // is a handful of value types, and a stub that answers zero is enough for those — the
+            // alternative is dragging in an emulator to test a `when` statement.
+            isReturnDefaultValues = true
+            all { it.useJUnitPlatform() }
+        }
+    }
 }
 
 // Android's Java is not the desktop's, so this module says 17 where the rest of the build says 21.
@@ -33,6 +43,9 @@ dependencies {
     // Window insets, which is the only way to find out what the keyboard is covering. The plain
     // artifact rather than core-ktx on purpose: this module wants two classes, not a library.
     implementation(libs.androidx.core)
+
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 /**

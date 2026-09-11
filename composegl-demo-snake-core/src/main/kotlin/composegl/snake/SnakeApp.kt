@@ -7,6 +7,7 @@ import composegl.snake.render.BoardRenderer
 import composegl.snake.ui.SnakeUi
 import composegl.ui.backend.Clipboard
 import composegl.ui.backend.SoftKeyboard
+import composegl.ui.backend.TextInput
 import composegl.ui.debug.FrameBudget
 import composegl.ui.input.InputSource
 import composegl.ui.geometry.Rect
@@ -34,6 +35,8 @@ import composegl.ui.text.FontProvider
  * @param scores where high scores are kept, which is the one thing every platform does differently.
  * @param clipboard the backend's, for the name field on the menu.
  * @param softKeyboard the backend's on-screen keyboard, which only a phone actually has.
+ * @param textInput the platform's input method, for the name field. Without one the field only
+ *   ever sees a character per key, which is enough for English and nothing else.
  * @param initialSource what to assume the player is holding before they touch anything: a phone
  *   launcher says touch, so the HUD says "swipe" from the first frame rather than after it.
  */
@@ -42,6 +45,7 @@ class SnakeApp(
     scores: HighScoreStore,
     clipboard: Clipboard = Clipboard.None,
     softKeyboard: SoftKeyboard = SoftKeyboard.None,
+    textInput: TextInput = TextInput.None,
     initialSource: InputSource = InputSource.Mouse,
 ) : AutoCloseable {
 
@@ -57,7 +61,9 @@ class SnakeApp(
     val input = SnakeInput(session, host.root, budget, initialSource)
 
     init {
-        host.setContent { SnakeUi(session, fonts, skin.skin, clipboard, softKeyboard, input.source, budget) }
+        host.setContent {
+            SnakeUi(session, fonts, skin.skin, clipboard, softKeyboard, textInput, input.source, budget)
+        }
     }
 
     /** The game's half of a frame: the rules, the board's animation, and the skin file's clock. */

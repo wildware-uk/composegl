@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import composegl.ui.backend.InMemoryClipboard
+import composegl.ui.backend.TextInput
+import composegl.ui.backend.TextInputSession
 import composegl.ui.backend.MonospaceFontProvider
 import composegl.ui.backend.RecordingSoftKeyboard
 import composegl.ui.draw.DrawPass
@@ -30,11 +32,14 @@ import composegl.ui.modifier.Modifier
 import composegl.ui.modifier.width
 import composegl.ui.skin.Skin
 import composegl.ui.skin.SkinDrawable
+import composegl.ui.text.EditCommand
 import composegl.ui.text.TextFieldValue
 import composegl.ui.text.TextRange
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -281,6 +286,160 @@ class TextFieldTest {
         val text = canvas.calls.filterIsInstance<DrawCall.Text>().first()
         val highlightIndex = canvas.calls.indexOf(highlight)
         assertTrue(highlightIndex < canvas.calls.indexOf(text), "behind, not over the top of")
+    }
+
+    // --- the platform's own input method -----------------------------------------------------------------
+
+    /** Stands in for a phone's keyboard or a desktop IME: remembers the session it was pointed at. */
+    private class FakeTextInput : TextInput {
+        var session: TextInputSession? = null
+            private set
+
+        /** Every value the field reported back, which is what stops an IME editing stale text. */
+        val told = mutableListOf<TextFieldValue>()
+
+        override fun start(session: TextInputSession) {
+            this.session = session
+        }
+
+        override fun update(value: TextFieldValue) {
+            told += value
+        }
+
+        override fun stop(session: TextInputSession) {
+            if (this.session === session) this.session = null
+        }
+    }
+
+    @Test
+    fun `an input method is pointed at the field that has focus, and let go of when it does not`() {
+        val ime = FakeTextInput()
+        show {
+            ProvideTextInput(ime) {
+                Column {
+                    Button("ELSEWHERE", onClick = {})
+                    TextField(TextFieldValue("hello"), onValueChange = {}, initialFocus = true)
+                }
+            }
+        }
+
+        assertNotNull(ime.session, "a focused field opens an input method")
+
+        key(Key.Tab)
+
+        assertNull(ime.session, "and focus leaving closes it")
+    }
+
+    @Test
+    fun `an input method composes, changes its mind, and commits — as one edit each time`() {
+        val ime = FakeTextInput()
+        var value by mutableStateOf(TextFieldValue(""))
+        val seen = mutableListOf<String>()
+        show {
+            ProvideTextInput(ime) {
+                TextField(
+                    value,
+                    onValueChange = { value = it; seen += it.text },
+                    initialFocus = true,
+                )
+            }
+        }
+
+        // Typing "nihon" on a Japanese keyboard: provisional text, underlined, not yet a word.
+        ime.session!!.edit(
+            listOf(EditCommand.Insert("nihon"), EditCommand.SetComposition(TextRange(0, 5))),
+        )
+        frames(2)
+
+        assertEquals("nihon", value.text)
+        assertEquals(TextRange(0, 5), value.composition)
+        assertEquals(listOf("nihon"), seen, "one change, not one per command")
+
+        // Choosing a candidate: the whole composing run is replaced and the composition ends.
+        ime.session!!.edit(
+            listOf(EditCommand.Replace(TextRange(0, 5), "日本"), EditCommand.SetComposition(null)),
+        )
+        frames(2)
+
+        assertEquals("日本", value.text)
+        assertNull(value.composition, "committing is what ends a composition")
+        assertEquals(listOf("nihon", "日本"), seen)
+    }
+
+    @Test
+    fun `a field tells the input method when something else changed the text`() {
+        val ime = FakeTextInput()
+        var value by mutableStateOf(TextFieldValue("hello"))
+        show {
+            ProvideTextInput(ime) {
+                TextField(value, onValueChange = { value = it }, initialFocus = true)
+            }
+        }
+        ime.told.clear()
+
+        // The game sets it from outside — a "clear" button, a loaded save, a validation fix.
+        value = TextFieldValue("goodbye")
+        frames(2)
+
+        assertEquals("goodbye", ime.told.last().text, "or autocorrect edits a word that is gone")
+    }
+
+    @Test
+    fun `the input method's action button submits a single-line field`() {
+        val ime = FakeTextInput()
+        var submitted = false
+        show {
+            ProvideTextInput(ime) {
+                TextField(
+                    TextFieldValue("sam"),
+                    onValueChange = {},
+                    initialFocus = true,
+                    onSubmit = { submitted = true },
+                )
+            }
+        }
+
+        assertFalse(ime.session!!.multiline, "so the action button is Done rather than Enter")
+        ime.session!!.submit()
+
+        assertTrue(submitted)
+    }
+
+    @Test
+    fun `an input method cannot type past the character limit`() {
+        val ime = FakeTextInput()
+        var value by mutableStateOf(TextFieldValue("abcd"))
+        show {
+            ProvideTextInput(ime) {
+                TextField(value, onValueChange = { value = it }, maxLength = 5, initialFocus = true)
+            }
+        }
+
+        ime.session!!.edit(listOf(EditCommand.Insert("ef")))
+        frames(2)
+
+        assertEquals("abcd", value.text, "over the limit, so nothing happened")
+
+        ime.session!!.edit(listOf(EditCommand.Insert("e")))
+        frames(2)
+
+        assertEquals("abcde", value.text, "the one that fits still goes in")
+    }
+
+    @Test
+    fun `a disabled field takes nothing from an input method`() {
+        val ime = FakeTextInput()
+        var value by mutableStateOf(TextFieldValue("locked"))
+        show {
+            ProvideTextInput(ime) {
+                TextField(value, onValueChange = { value = it }, enabled = false, initialFocus = true)
+            }
+        }
+
+        ime.session?.edit(listOf(EditCommand.Insert("!")))
+        frames(2)
+
+        assertEquals("locked", value.text)
     }
 
     // --- what an input method has not committed yet -----------------------------------------------------
