@@ -15,6 +15,7 @@ import composegl.lwjgl3.GlfwKeyboardInput
 import composegl.lwjgl3.GlfwPointerInput
 import composegl.lwjgl3.GlfwWindow
 import composegl.lwjgl3.StbFonts
+import composegl.ui.debug.FrameBudget
 import composegl.ui.draw.DrawPass
 import composegl.ui.geometry.Rect
 import composegl.ui.geometry.Size
@@ -58,10 +59,12 @@ fun main() {
     val board = BoardRenderer()
     val host = UiHost()
     val skin = snakeSkin(fonts)
-    host.setContent { SnakeUi(session, fonts, skin.skin, GlfwClipboard(window)) }
+    // Off: it is a debug tool, and F3 puts it up.
+    val budget = FrameBudget().also { it.isOn = false }
+    host.setContent { SnakeUi(session, fonts, skin.skin, GlfwClipboard(window), budget) }
 
     var viewport = window.viewport(Design, ScalePolicy.Fit)
-    val input = SnakeInput(session, host.root)
+    val input = SnakeInput(session, host.root, budget)
     GlfwPointerInput(sink = input, viewport = { viewport }, pixelScale = { window.pixelScale }).attachTo(window)
     GlfwKeyboardInput(input).attachTo(window)
 
@@ -82,26 +85,29 @@ fun main() {
             skin.reloadIfChanged()
             board.advance(delta)
             if (session.advance(delta) == StepResult.Ate) board.onEat()
-            host.frame(System.nanoTime())
+            val changed = budget.recompose { host.frame(System.nanoTime()) }
 
             viewport = window.viewport(Design, ScalePolicy.Fit)
-            MeasurePass().run(host.root, viewport)
+            budget.layout { MeasurePass().run(host.root, viewport) }
             input.frame(System.nanoTime() / 1_000_000)
-            if (frames < script.size) play(session, script[frames])
+            if (frames < script.size) play(session, script[frames], budget)
 
             GL11.glClearColor(0.043f, 0.055f, 0.075f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
             canvas.begin(viewport)
             // The game first, the interface over it, in one canvas and one frame.
             board.draw(canvas, BoardArea, session.game, session.showGrid, session.stepProgress)
-            DrawPass(canvas).draw(host.root)
+            budget.draw { DrawPass(canvas).draw(host.root) }
             canvas.end()
+
+            // After end(), because that is when the last batch is actually handed over.
+            budget.endFrame(canvas.drawCalls, changed)
 
             window.present()
 
             frames++
             if (shot != null && frames >= script.size + 2 && now >= shotAt) {
-                save(shot, window.framebuffer, canvas.renderCalls)
+                save(shot, window.framebuffer, canvas.drawCalls)
                 break
             }
         }
@@ -119,7 +125,7 @@ private val Design = Size(1280f, 720f)
 private val BoardArea = Rect(330f, 40f, 1240f, 680f)
 
 /** One step of a screenshot script. A real run never calls this. */
-private fun play(session: SnakeSession, step: String) {
+private fun play(session: SnakeSession, step: String, budget: FrameBudget) {
     when (step) {
         "play" -> session.startGame()
         "pause" -> session.pause()
@@ -133,7 +139,8 @@ private fun play(session: SnakeSession, step: String) {
         "down" -> session.turn(Direction.Down)
         "left" -> session.turn(Direction.Left)
         "right" -> session.turn(Direction.Right)
-        else -> error("a script step is play, pause, menu, die or a direction, not '$step'")
+        "budget" -> budget.toggle()
+        else -> error("a script step is play, pause, menu, die, budget or a direction, not '$step'")
     }
 }
 
@@ -180,7 +187,7 @@ private class FileHighScores(
 }
 
 /** One frame, written out as a PNG, the right way up. */
-private fun save(path: String, size: Size, renderCalls: Int) {
+private fun save(path: String, size: Size, drawCalls: Int) {
     val width = size.width.toInt()
     val height = size.height.toInt()
     val bytes = org.lwjgl.BufferUtils.createByteBuffer(width * height * 4)
@@ -201,5 +208,5 @@ private fun save(path: String, size: Size, renderCalls: Int) {
         }
     }
     ImageIO.write(image, "png", File(path))
-    println("wrote $path ($renderCalls draw calls)")
+    println("wrote $path ($drawCalls draw calls)")
 }

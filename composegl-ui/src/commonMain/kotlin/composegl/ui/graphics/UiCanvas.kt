@@ -96,4 +96,14 @@ interface UiCanvas {
      * A backend must leave its own state as it found it around this call, and so must the block.
      */
     fun raw(block: (Any) -> Unit)
+
+    /**
+     * How many times this canvas has handed work to the GPU since the frame began, or -1 when the
+     * backend does not count.
+     *
+     * Here, rather than on each backend, so that [composegl.ui.debug.FrameBudget] can show the
+     * number without knowing what a backend is. It is the one number in a frame budget that the
+     * toolkit genuinely cannot work out for itself.
+     */
+    val drawCalls: Int get() = -1
 }

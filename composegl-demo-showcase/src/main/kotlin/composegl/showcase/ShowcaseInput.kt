@@ -2,11 +2,14 @@ package composegl.showcase
 
 import com.badlogic.gdx.math.Vector3
 import composegl.showcase.world.HoloStand
+import composegl.ui.debug.FrameBudget
 import composegl.ui.focus.FocusManager
 import composegl.ui.input.GamepadEvent
 import composegl.ui.input.GamepadNavigator
 import composegl.ui.input.InputSink
+import composegl.ui.input.Key
 import composegl.ui.input.KeyEvent
+import composegl.ui.input.KeyEventType
 import composegl.ui.input.KeyNavigator
 import composegl.ui.input.KeyRouter
 import composegl.ui.input.PointerEvent
@@ -31,6 +34,7 @@ import composegl.ui.world.WorldPointer
 internal class ShowcaseInput(
     root: UiNode,
     private val holo: HoloStand,
+    private val budget: FrameBudget,
     /** Where the camera is and where a screen point is pointing, from the game. */
     private val ray: (Float, Float) -> Pair<Vector3, Vector3>,
 ) : InputSink {
@@ -68,7 +72,15 @@ internal class ShowcaseInput(
         return onScreen
     }
 
-    override fun onKey(event: KeyEvent) = keys.onKey(event) || navigator.onKey(event)
+    override fun onKey(event: KeyEvent): Boolean {
+        // The frame budget is the game's switch, not the toolkit's: F3 here, F3 in every game that
+        // has ever had one.
+        if (event.type == KeyEventType.Down && event.key == Key.F3) {
+            budget.toggle()
+            return true
+        }
+        return keys.onKey(event) || navigator.onKey(event)
+    }
 
     override fun onText(event: TextEvent) = keys.onText(event)
 

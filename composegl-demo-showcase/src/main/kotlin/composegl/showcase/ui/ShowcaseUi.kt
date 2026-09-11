@@ -10,6 +10,8 @@ import composegl.showcase.TargetReadout
 import composegl.ui.animation.Easings
 import composegl.ui.animation.Tween
 import composegl.ui.animation.animateFloatAsState
+import composegl.ui.debug.FrameBudget
+import composegl.ui.debug.FrameBudgetOverlay
 import composegl.ui.game.Bar
 import composegl.ui.game.BarThreshold
 import composegl.ui.game.Cooldown
@@ -57,6 +59,7 @@ import composegl.ui.widget.Toggle
  * widgets the toolkit ships, and what is left is a game saying where things are.
  *
  * @param projection the game's camera, as one function: where on screen is this point in the world.
+ * @param budget what the frame cost, shown in the corner. F3 puts it away.
  */
 @Composable
 fun ShowcaseUi(
@@ -64,6 +67,7 @@ fun ShowcaseUi(
     fonts: FontProvider,
     skin: Skin,
     projection: WorldProjection,
+    budget: FrameBudget,
 ) {
     CompositionLocalProvider(LocalFonts provides fonts) {
         ProvideSkin(skin) {
@@ -87,6 +91,14 @@ fun ShowcaseUi(
                 }
 
                 ExhibitPanel(state)
+
+                // Behind the game's own switch, which is the only place that decision belongs.
+                if (budget.isOn) {
+                    FrameBudgetOverlay(
+                        budget,
+                        Modifier.align(Alignment.TopStart).padding(left = 28f, top = 220f),
+                    )
+                }
             }
         }
     }

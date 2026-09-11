@@ -84,7 +84,14 @@ internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink
         return tracked.onPointer(event)
     }
 
-    override fun onKey(event: KeyEvent) = tracked.onKey(event)
+    override fun onKey(event: KeyEvent): Boolean {
+        // The frame budget is the game's switch rather than the toolkit's, so the game answers it.
+        if (event.type == KeyEventType.Down && event.key == Key.F3) {
+            state.budget.toggle()
+            return true
+        }
+        return tracked.onKey(event)
+    }
 
     override fun onText(event: TextEvent) = tracked.onText(event)
 
@@ -165,11 +172,15 @@ internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink
             "right" -> type(Key.Right)
             "enter" -> type(Key.Enter)
             "escape" -> type(Key.Escape)
+            "f3" -> type(Key.F3)
             in numbers -> type(numbers.getValue(step))
             else -> {
                 val typed = step.removePrefix("text:")
                 if (typed == step) {
-                    error("a key script step is tab, shift-tab, a direction, enter, escape, a digit or text:…, not '$step'")
+                    error(
+                        "a key script step is tab, shift-tab, a direction, enter, escape, f3, a " +
+                            "digit or text:…, not '$step'",
+                    )
                 }
                 typed.forEach { onText(TextEvent(it.toString())) }
             }

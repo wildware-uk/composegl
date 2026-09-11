@@ -122,14 +122,14 @@ class Demo : ApplicationAdapter() {
 
         // One look at a timestamp. An artist saving the skin file is seen on the next frame.
         skin.reloadIfChanged()
-        host.frame(System.nanoTime())
+        val changed = state.budget.recompose { host.frame(System.nanoTime()) }
 
         viewport = Viewport(
             design = Size(1280f, 720f),
             physical = Size(Gdx.graphics.backBufferWidth.toFloat(), Gdx.graphics.backBufferHeight.toFloat()),
             policy = ScalePolicy.Fit,
         )
-        MeasurePass().run(host.root, viewport)
+        state.budget.layout { MeasurePass().run(host.root, viewport) }
         input.frame(System.nanoTime() / 1_000_000)
         if (frames == 0) scriptedPad?.let { input.pretendPadDid(it) }
         if (frames < scriptedKeys.size) input.pretendKeyWas(scriptedKeys[frames])
@@ -137,8 +137,11 @@ class Demo : ApplicationAdapter() {
         Gdx.gl.glClearColor(0.03f, 0.04f, 0.05f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
         canvas.begin(viewport)
-        DrawPass(canvas).draw(host.root)
+        state.budget.draw { DrawPass(canvas).draw(host.root) }
         canvas.end()
+
+        // After end(), because that is when the last batch is actually handed over.
+        state.budget.endFrame(canvas.drawCalls, changed)
 
         frames++
         if (shot != null && frames >= scriptedKeys.size + 2 && elapsed >= shotAt) {
@@ -159,7 +162,7 @@ class Demo : ApplicationAdapter() {
         PixmapIO.writePNG(Gdx.files.absolute(path), upright)
         frame.dispose()
         upright.dispose()
-        println("wrote $path (${canvas.renderCalls} draw calls)")
+        println("wrote $path (${canvas.drawCalls} draw calls)")
     }
 
     /** Called when the window is no longer in front, so nothing is left holding a capture. */

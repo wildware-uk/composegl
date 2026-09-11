@@ -20,6 +20,7 @@ import composegl.showcase.ui.ShowcaseUi
 import composegl.showcase.world.HoloStand
 import composegl.showcase.world.Particles
 import composegl.showcase.world.Scene3D
+import composegl.ui.debug.FrameBudget
 import composegl.ui.draw.DrawPass
 import composegl.ui.game.WorldAnchor
 import composegl.ui.game.WorldProjection
@@ -59,6 +60,9 @@ class Showcase : ApplicationAdapter() {
     private val holo = HoloStand()
     private val random = Random(7)
 
+    /** What the interface costs a frame, split three ways. F3 switches it off. */
+    val budget = FrameBudget()
+
     private var viewport = Viewport.oneToOne(Size(1280f, 720f))
     private var elapsed = 0f
     private var sinceHit = 0f
@@ -97,10 +101,10 @@ class Showcase : ApplicationAdapter() {
         scene.drones.forEach { state.targets.add(TargetReadout(it.callsign)) }
 
         host = UiHost()
-        host.setContent { ShowcaseUi(state, fonts, skin.skin, projection) }
+        host.setContent { ShowcaseUi(state, fonts, skin.skin, projection, budget) }
         holo.panel.setContent { HoloScreen(state, fonts, skin.skin) }
 
-        input = ShowcaseInput(host.root, holo) { x, y ->
+        input = ShowcaseInput(host.root, holo, budget) { x, y ->
             val ray = scene.camera.getPickRay(x, y)
             Vector3(ray.origin) to Vector3(ray.direction)
         }
@@ -123,12 +127,12 @@ class Showcase : ApplicationAdapter() {
         fireAtSomething(delta)
 
         skin.reloadIfChanged()
-        host.frame(System.nanoTime())
+        val changed = budget.recompose { host.frame(System.nanoTime()) }
 
         viewport = Viewport.oneToOne(
             Size(Gdx.graphics.backBufferWidth.toFloat(), Gdx.graphics.backBufferHeight.toFloat()),
         )
-        MeasurePass().run(host.root, viewport)
+        budget.layout { MeasurePass().run(host.root, viewport) }
         scriptedPointer?.let { pretendPointerIsAt(it) }
         input.frame(System.nanoTime() / 1_000_000)
 
@@ -145,8 +149,11 @@ class Showcase : ApplicationAdapter() {
         }
 
         canvas.begin(viewport)
-        DrawPass(canvas).draw(host.root)
+        budget.draw { DrawPass(canvas).draw(host.root) }
         canvas.end()
+
+        // After end(), because that is when the last batch is actually handed over.
+        budget.endFrame(canvas.drawCalls, changed)
 
         frames++
         if (shot != null && frames >= 2 && elapsed >= shotAt) {
@@ -229,7 +236,7 @@ class Showcase : ApplicationAdapter() {
         PixmapIO.writePNG(Gdx.files.absolute(path), upright)
         frame.dispose()
         upright.dispose()
-        println("wrote $path (${canvas.renderCalls} draw calls, ${state.holoDraws} panel redraws)")
+        println("wrote $path (${canvas.drawCalls} draw calls, ${state.holoDraws} panel redraws)")
     }
 
     fun windowLostFocus() {
