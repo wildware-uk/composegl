@@ -92,15 +92,10 @@ class SnakeGdxApp : ApplicationAdapter() {
             // say "keep off this edge", and a keyboard is just another thing in the way.
             safeArea = Padding(bottom = keyboard.heightPixels),
         )
-        app.layout(viewport, System.nanoTime())
 
         Gdx.gl.glClearColor(0.043f, 0.055f, 0.075f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
-        canvas.begin(viewport)
-        app.draw(canvas)
-        canvas.end()
-
-        app.endFrame(canvas.drawCalls)
+        app.frame(canvas, viewport, System.nanoTime())
     }
 
     override fun pause() {

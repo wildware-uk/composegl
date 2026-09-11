@@ -69,17 +69,11 @@ fun main() {
             app.update(delta)
 
             viewport = window.viewport(SnakeApp.Design, ScalePolicy.Fit)
-            app.layout(viewport, System.nanoTime())
             if (frames < script.size) play(app.session, script[frames], app.budget)
 
             GL11.glClearColor(0.043f, 0.055f, 0.075f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
-            canvas.begin(viewport)
-            app.draw(canvas)
-            canvas.end()
-
-            // After end(), because that is when the last batch is actually handed over.
-            app.endFrame(canvas.drawCalls)
+            app.frame(canvas, viewport, System.nanoTime())
 
             window.present()
 
