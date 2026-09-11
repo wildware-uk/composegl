@@ -56,6 +56,32 @@ value class Colour(val argb: Int) {
         val Black = Colour(0xFF000000.toInt())
         val White = Colour(0xFFFFFFFF.toInt())
 
+        // The named ones, and what they are for.
+        //
+        // An interface's real colours belong in its skin, where one edit changes every panel in
+        // the game. These are for the other kind of colour: a debug box round a hitbox, an
+        // example in the documentation, a prototype nobody has skinned yet, a health bar that is
+        // red because red is what it means.
+        //
+        // Deliberately a dozen rather than a system. There is no Red500 and no onSurfaceVariant,
+        // because the moment there is, somebody builds an interface out of them instead of out of
+        // a skin, and then the game cannot be reskinned.
+        //
+        // Plain, fully saturated values at the sRGB corners, plus three greys. They are meant to
+        // be recognisable, not tasteful.
+
+        val Red = Colour(0xFFFF0000.toInt())
+        val Green = Colour(0xFF00FF00.toInt())
+        val Blue = Colour(0xFF0000FF.toInt())
+        val Yellow = Colour(0xFFFFFF00.toInt())
+        val Cyan = Colour(0xFF00FFFF.toInt())
+        val Magenta = Colour(0xFFFF00FF.toInt())
+        val Orange = Colour(0xFFFF8000.toInt())
+
+        val DarkGrey = Colour(0xFF404040.toInt())
+        val Grey = Colour(0xFF808080.toInt())
+        val LightGrey = Colour(0xFFC0C0C0.toInt())
+
         /** From `0xAARRGGBB`, which is how a colour is written in source. */
         fun argb(value: Long) = Colour(value.toInt())
 
