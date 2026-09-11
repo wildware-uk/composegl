@@ -2,6 +2,7 @@ package composegl.demo
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,6 +23,7 @@ import composegl.ui.layout.LeafLayout
 import composegl.ui.layout.Row
 import composegl.ui.layout.Spacer
 import composegl.ui.layout.VerticalAlignment
+import composegl.ui.modifier.alpha
 import composegl.ui.modifier.Modifier
 import composegl.ui.modifier.clickable
 import composegl.ui.modifier.fillMaxHeight
@@ -43,6 +45,12 @@ import composegl.ui.skin.rememberStates
 import composegl.ui.skin.rememberStyle
 import composegl.ui.skin.styled
 import composegl.ui.text.FontProvider
+import composegl.ui.animation.Clock
+import composegl.ui.animation.Easings
+import composegl.ui.animation.LocalClocks
+import composegl.ui.animation.Spring
+import composegl.ui.animation.Tween
+import composegl.ui.animation.animateFloatAsState
 import composegl.ui.backend.Clipboard
 import composegl.ui.backend.SoftKeyboard
 import composegl.ui.widget.Button
@@ -143,9 +151,20 @@ fun Screen(
 /** The confirmation. Two chips, one of which is the answer nobody should give by accident. */
 @Composable
 private fun AbortDialog(state: DemoState) {
+    val clocks = LocalClocks.current
+
+    // Asking a question stops the game. The dialogue is on the interface's clock, so it still
+    // fades in over a world that is no longer moving.
+    DisposableEffect(clocks) {
+        clocks.stop(Clock.World)
+        onDispose { clocks.start(Clock.World) }
+    }
+
+    val shown by animateFloatAsState(1f, Tween(160, easing = Easings.EaseOut))
+
     Dialog(
         onDismiss = { state.declining = false },
-        modifier = Modifier.width(380f),
+        modifier = Modifier.width(380f).alpha(shown),
         dismissOnScrim = true,
     ) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14f)) {
@@ -278,13 +297,18 @@ private fun GearPage(state: DemoState) {
 /** A labelled bar. Two styled boxes and a fraction — the whole widget. */
 @Composable
 private fun Bar(label: String, fraction: Float, fill: String) {
+    // On the world's clock, not the interface's: these are the player's health and stamina, so they
+    // stop when the game stops. Open the confirmation dialogue and they freeze mid-slide while the
+    // dialogue itself carries on fading in — which is the whole reason for having two clocks.
+    val shown by animateFloatAsState(fraction, Spring(stiffness = Spring.Low), Clock.World)
+
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4f)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, style = "label.dim")
-            Text("${(fraction * 100).toInt()}%", style = "label.dim")
+            Text("${(shown * 100).toInt()}%", style = "label.dim")
         }
         Box(Modifier.fillMaxWidth().height(10f).styled("bar.track")) {
-            Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().styled(fill))
+            Box(Modifier.fillMaxWidth(shown).fillMaxHeight().styled(fill))
         }
     }
 }
@@ -449,7 +473,26 @@ class DemoState {
 
     val source = InputSourceTracker()
 
-    var health by mutableStateOf(0.86f)
+    var health by mutableStateOf(HealthSteps.first())
+        private set
+
+    private var step = 0
+
+    /**
+     * What the game is doing while nobody touches it.
+     *
+     * Health moves to a new value every couple of seconds and the bar springs to it, rather than
+     * the bar being driven frame by frame off a sine. That is the honest shape of a game interface:
+     * the game changes a number now and then, and the interface is what makes it a movement.
+     */
+    fun tick(seconds: Float) {
+        val now = (seconds / 2f).toInt()
+        if (now != step) {
+            step = now
+            health = HealthSteps[now % HealthSteps.size]
+        }
+        if (autoCycle) selected = (seconds / 0.8f).toInt() % 10
+    }
 
     /** Three settings, so the example has something a slider, a checkbox and a switch are about. */
     var music by mutableStateOf(70f)
@@ -493,5 +536,10 @@ class DemoState {
     /** What the pad's East and Back buttons do here: undo the answer, so it can be given again. */
     fun back() {
         briefing = null
+    }
+
+    private companion object {
+        /** Somewhere for health to go. Arbitrary, and the point is that it arrives smoothly. */
+        val HealthSteps = listOf(0.86f, 0.62f, 0.41f, 0.74f, 0.33f, 0.95f)
     }
 }

@@ -18,7 +18,6 @@ import composegl.ui.layout.run
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
-import kotlin.math.sin
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.opengl.GL11
 
@@ -83,9 +82,7 @@ fun main() {
     try {
         while (!window.shouldClose()) {
             val elapsed = GLFW.glfwGetTime().toFloat()
-            // Something that moves, so a frame is not the same picture as the last one.
-            state.health = 0.5f + 0.35f * sin(elapsed.toDouble()).toFloat()
-            if (state.autoCycle) state.selected = ((elapsed / 0.8f).toInt()) % 10
+            state.tick(elapsed)
 
             scriptedPointer?.let { input.pretendPointerIsAt(it) }
             padInput.poll()

@@ -3,8 +3,11 @@ package composegl.ui.host
 import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.snapshots.Snapshot
+import composegl.ui.animation.Clocks
+import composegl.ui.animation.LocalClocks
 import composegl.ui.internal.Guard
 import composegl.ui.node.UiApplier
 import composegl.ui.node.UiNode
@@ -64,7 +67,7 @@ class FrameDispatcher : CoroutineDispatcher() {
  *
  * The host owns no window, no thread and no OpenGL context. It does not know what a pixel is.
  */
-class UiHost(val tree: UiTree = UiTree()) {
+class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
 
     val root: UiNode get() = tree.root
 
@@ -92,7 +95,10 @@ class UiHost(val tree: UiTree = UiTree()) {
 
     fun setContent(content: @Composable () -> Unit) {
         check(!isDisposed) { "this host has been disposed" }
-        composition.setContent(content)
+        // Every animation under this host runs on this host's clocks, without a game having to
+        // remember to say so. A screen that wants its own — a replay running at half speed — still
+        // provides them over the top for its own subtree.
+        composition.setContent { CompositionLocalProvider(LocalClocks provides clocks, content = content) }
     }
 
     /**
@@ -104,6 +110,9 @@ class UiHost(val tree: UiTree = UiTree()) {
      */
     fun frame(nanos: Long): Boolean {
         check(!isDisposed) { "this host has been disposed" }
+
+        // Before anything else: an animation waking up this frame must see this frame's time.
+        clocks.advance(nanos)
 
         dispatcher.drain()
         // Nobody runs the global snapshot manager for us, so state writes are published here.

@@ -60,6 +60,14 @@ and stops blinking mid-word, selection by shift or by dragging, double-click for
 movement, the system clipboard through whichever backend is running, and a field that scrolls
 sideways so a long name never types itself off the edge.
 
+Animation is in too, and it names a clock. `animateFloatAsState`, `animateColourAsState` and an
+`Animatable` a game drives itself, over tweens, springs and the usual easings — but an animation
+belongs to `Clock.Ui` or `Clock.World`, and the game decides which clocks advance. Freezing the
+world does not freeze the pause menu sitting on top of it, and a world animation resumes from where
+it stopped rather than jumping to where it would have been. An animation that has arrived
+unsubscribes, so a screen full of settled animations costs exactly as many redraws as a screen with
+none: zero, and there is a test that drives a hundred frames to prove it.
+
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and
 GLFW's own contracts say and have not been measured.

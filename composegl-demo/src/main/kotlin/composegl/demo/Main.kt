@@ -101,9 +101,7 @@ class Demo : ApplicationAdapter() {
 
     override fun render() {
         elapsed += Gdx.graphics.deltaTime
-        // Something that moves, so the frame counter below means something.
-        state.health = 0.5f + 0.35f * kotlin.math.sin(elapsed.toDouble()).toFloat()
-        if (state.autoCycle) state.selected = ((elapsed / 0.8f).toInt()) % 10
+        state.tick(elapsed)
 
         // One look at a timestamp. An artist saving the skin file is seen on the next frame.
         skin.reloadIfChanged()
