@@ -1,6 +1,8 @@
 package composegl.ui.modifier
 
 import composegl.ui.geometry.Offset
+import composegl.ui.input.InteractionState
+import composegl.ui.input.PointerHandler
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Padding
 
@@ -41,9 +43,25 @@ class ResolvedModifier private constructor(
     val behind: List<PaintOp>,
     /** `drawInFront`, in chain order, over the node and its children. */
     val inFront: List<PaintOp>,
+    /** Every `interaction` state on the node. More than one is unusual but not wrong. */
+    val interactions: List<InteractionState>,
+    /** Raw pointer handlers, in chain order. Asked deepest-first, first to consume wins. */
+    val handlers: List<PointerHandler>,
+    /** The node's `clickable`, if it has one. A later one replaces an earlier one. */
+    val click: ClickableElement?,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
+
+    /**
+     * Whether a pointer can find this node at all.
+     *
+     * A node that watches, handles or clicks is hit-testable; everything else is scenery the
+     * pointer passes straight through, which is what makes hit testing cheap on a tree that is
+     * mostly panels and labels.
+     */
+    val isInteractive: Boolean
+        get() = interactions.isNotEmpty() || handlers.isNotEmpty() || click != null
 
     companion object {
 
@@ -60,6 +78,9 @@ class ResolvedModifier private constructor(
             var clip: ClipElement? = null
             val behind = mutableListOf<PaintOp>()
             val inFront = mutableListOf<PaintOp>()
+            val interactions = mutableListOf<InteractionState>()
+            val handlers = mutableListOf<PointerHandler>()
+            var click: ClickableElement? = null
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -83,6 +104,9 @@ class ResolvedModifier private constructor(
                     is NinePatchElement, is DrawBehindElement ->
                         behind += PaintOp(element, padding)
                     is DrawInFrontElement -> inFront += PaintOp(element, padding)
+                    is InteractionElement -> interactions += element.state
+                    is PointerInputElement -> handlers += element.handler
+                    is ClickableElement -> click = element
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
             }
@@ -90,6 +114,7 @@ class ResolvedModifier private constructor(
             return ResolvedModifier(
                 size, fill, padding, offset, weight, alignment, alpha, clip,
                 behind.toList(), inFront.toList(),
+                interactions.toList(), handlers.toList(), click,
             )
         }
     }

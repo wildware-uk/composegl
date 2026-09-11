@@ -18,11 +18,6 @@ import composegl.ui.draw.DrawPass
 import composegl.ui.geometry.Size
 import composegl.ui.graphics.EdgeMode
 import composegl.ui.host.UiHost
-import composegl.ui.input.GamepadEvent
-import composegl.ui.input.InputSink
-import composegl.ui.input.KeyEvent
-import composegl.ui.input.PointerEvent
-import composegl.ui.input.TextEvent
 import composegl.ui.layout.MeasurePass
 import composegl.ui.layout.ScalePolicy
 import composegl.ui.layout.Viewport
@@ -46,6 +41,7 @@ class Demo : ApplicationAdapter() {
     private lateinit var sprites: SpriteBatch
     private lateinit var host: UiHost
     private lateinit var pointerInput: GdxPointerInput
+    private lateinit var input: DemoInput
 
     /** The viewport the last frame used, which is what a pointer event must be read against. */
     private var viewport = Viewport.oneToOne(Size(1280f, 720f))
@@ -72,11 +68,13 @@ class Demo : ApplicationAdapter() {
         sprites = SpriteBatch()
         canvas = GdxCanvas(sprites, fonts.atlas)
         host = UiHost()
-        host.setContent { Screen(fonts, skin, state.health, state.selected, state.pointer) }
+        host.setContent { Screen(fonts, skin, state) }
 
-        // The whole of the engine's involvement in input: a translator, pointed at a sink. The
-        // sink below is the demo's own, because hit testing lands in the next milestone.
-        pointerInput = GdxPointerInput(PointerWatcher(state), { viewport })
+        // The whole of the engine's involvement in input: a translator, pointed at a sink. What
+        // the sink does with an event — which node it hit, whether that is a click — is the
+        // toolkit's business and has nothing to do with LibGDX.
+        input = DemoInput(state, host.root)
+        pointerInput = GdxPointerInput(input, { viewport })
         Gdx.input.inputProcessor = pointerInput
     }
 
@@ -84,7 +82,7 @@ class Demo : ApplicationAdapter() {
         elapsed += Gdx.graphics.deltaTime
         // Something that moves, so the frame counter below means something.
         state.health = 0.5f + 0.35f * kotlin.math.sin(elapsed.toDouble()).toFloat()
-        state.selected = ((elapsed / 0.8f).toInt()) % 10
+        if (state.autoCycle) state.selected = ((elapsed / 0.8f).toInt()) % 10
 
         host.frame(System.nanoTime())
 
@@ -125,7 +123,9 @@ class Demo : ApplicationAdapter() {
 
     /** Called when the window is no longer in front, so nothing is left holding a capture. */
     fun windowLostFocus() {
-        if (::pointerInput.isInitialized) pointerInput.cancelAll()
+        if (!::pointerInput.isInitialized) return
+        pointerInput.cancelAll()
+        input.windowLostFocus()
     }
 
     override fun dispose() {
@@ -135,27 +135,6 @@ class Demo : ApplicationAdapter() {
         fonts.dispose()
         atlas.dispose()
     }
-}
-
-/**
- * Where the pointer went.
- *
- * Nothing is consumed — every method answers false — because the interface has nothing to click
- * yet. When hit testing arrives this is the object it replaces.
- */
-internal class PointerWatcher(private val state: DemoState) : InputSink {
-
-    override fun onPointer(event: PointerEvent): Boolean {
-        state.pointer = when (event) {
-            is PointerEvent.Exit -> null
-            else -> event.position
-        }
-        return false
-    }
-
-    override fun onKey(event: KeyEvent) = false
-    override fun onText(event: TextEvent) = false
-    override fun onGamepad(event: GamepadEvent) = false
 }
 
 fun main() {

@@ -4,10 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
+import composegl.ui.input.InteractionState
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Arrangement
 import composegl.ui.layout.Box
@@ -21,10 +23,12 @@ import composegl.ui.layout.VerticalAlignment
 import composegl.ui.modifier.Modifier
 import composegl.ui.modifier.background
 import composegl.ui.modifier.border
+import composegl.ui.modifier.clickable
 import composegl.ui.modifier.fillMaxHeight
 import composegl.ui.modifier.fillMaxSize
 import composegl.ui.modifier.fillMaxWidth
 import composegl.ui.modifier.height
+import composegl.ui.modifier.interaction
 import composegl.ui.modifier.offset
 import composegl.ui.modifier.padding
 import composegl.ui.modifier.size
@@ -51,7 +55,7 @@ private val Small = TextStyle(family = "body", size = 13f)
  * LibGDX.
  */
 @Composable
-fun Screen(fonts: FontProvider, skin: DemoSkin, health: Float, selected: Int, pointer: Offset?) {
+fun Screen(fonts: FontProvider, skin: DemoSkin, state: DemoState) {
     CompositionLocalProvider(LocalFonts provides fonts, LocalSkin provides skin) {
         Box(Modifier.fillMaxSize().background(Background)) {
             Column(Modifier.fillMaxSize().padding(28f), verticalArrangement = Arrangement.spacedBy(20f)) {
@@ -59,17 +63,17 @@ fun Screen(fonts: FontProvider, skin: DemoSkin, health: Float, selected: Int, po
                 Text("a game interface toolkit on the Compose runtime", style = Small, colour = Dim)
 
                 Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(20f)) {
-                    StatusPanel(Modifier.width(300f).fillMaxHeight(), health)
-                    LorePanel(Modifier.weight(1f).fillMaxHeight())
+                    StatusPanel(Modifier.width(300f).fillMaxHeight(), state.health)
+                    LorePanel(Modifier.weight(1f).fillMaxHeight(), state)
                 }
 
-                Hotbar(selected)
+                Hotbar(state)
             }
 
             // Proof that a window coordinate made it all the way to a design coordinate, through
-            // the HDPI scale and the letterbox. Nothing is clickable yet — hit testing is the next
-            // milestone — so this is as far as a pointer gets for now.
-            pointer?.let { Reticle(it) }
+            // the HDPI scale and the letterbox — and, now that the chips and the hotbar are live,
+            // that the same coordinate found the right node underneath it.
+            state.pointer?.let { Reticle(it) }
         }
     }
 }
@@ -111,7 +115,7 @@ private fun Bar(label: String, fraction: Float, colour: Colour) {
 
 /** The same job, done by a nine-patch. Its padding comes from the atlas, not from this file. */
 @Composable
-private fun LorePanel(modifier: Modifier) {
+private fun LorePanel(modifier: Modifier, state: DemoState) {
     ArtPanel(modifier) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
             Heading("BRIEFING", style = HeadingStyle)
@@ -123,45 +127,81 @@ private fun LorePanel(modifier: Modifier) {
             )
             Spacer(Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(10f)) {
-                Chip("ACCEPT", Accent)
-                Chip("DECLINE", Dim)
+                Chip("ACCEPT", Accent, state.briefing == "ACCEPT") { state.answer("ACCEPT") }
+                Chip("DECLINE", Danger, state.briefing == "DECLINE") { state.answer("DECLINE") }
             }
         }
     }
 }
 
+/**
+ * A button, three states deep, built from nothing the toolkit does not already offer.
+ *
+ * `interaction` is what the pointer is doing to it and `clickable` is what that means. The widget
+ * reads two booleans and picks colours; recomposition does the rest, and because both booleans are
+ * Compose state, this recomposes when the pointer enters or leaves and at no other time.
+ */
 @Composable
-private fun Chip(label: String, colour: Colour) {
+private fun Chip(label: String, colour: Colour, chosen: Boolean, onClick: () -> Unit) {
+    val touch = remember { InteractionState() }
+    val fill = when {
+        chosen -> colour.withAlpha(0x50)
+        touch.isPressed -> colour.withAlpha(0x60)
+        touch.isHovered -> colour.withAlpha(0x28)
+        else -> Colour.argb(0x20FFFFFF)
+    }
     Box(
         Modifier
-            .background(Colour.argb(0x20FFFFFF), corner = 6f)
-            .border(colour, width = 1f, corner = 6f)
+            .interaction(touch)
+            .clickable(onClick = onClick)
+            .background(fill, corner = 6f)
+            .border(colour, width = if (chosen || touch.isHovered) 2f else 1f, corner = 6f)
             .padding(horizontal = 14f, vertical = 8f),
     ) {
         Text(label, style = Small, colour = colour)
     }
 }
 
-/** Ten slots, one of them lit. The shape of every action bar ever shipped. */
+/** Ten slots, one of them lit, and now one of them pickable. */
 @Composable
-private fun Hotbar(selected: Int) {
+private fun Hotbar(state: DemoState) {
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8f, Arrangement.Centre),
         verticalAlignment = VerticalAlignment.Centre,
     ) {
         repeat(10) { slot ->
-            val lit = slot == selected
-            Box(
-                Modifier
-                    .size(54f)
-                    .background(if (lit) Colour.argb(0x304CC2FF) else Colour.argb(0x30000000), corner = 8f)
-                    .border(if (lit) Accent else Colour.argb(0x30FFFFFF), width = if (lit) 2f else 1f, corner = 8f),
-                contentAlignment = Alignment.Centre,
-            ) {
-                Text("${(slot + 1) % 10}", style = Body, colour = if (lit) Accent else Dim)
-            }
+            Slot(slot, lit = slot == state.selected) { state.select(slot) }
         }
+    }
+}
+
+@Composable
+private fun Slot(slot: Int, lit: Boolean, onClick: () -> Unit) {
+    val touch = remember { InteractionState() }
+    val edge = when {
+        lit -> Accent
+        touch.isHovered -> Colour.argb(0x80FFFFFF)
+        else -> Colour.argb(0x30FFFFFF)
+    }
+    Box(
+        Modifier
+            .interaction(touch)
+            .clickable(onClick = onClick)
+            .size(54f)
+            .background(
+                when {
+                    touch.isPressed -> Colour.argb(0x604CC2FF)
+                    lit -> Colour.argb(0x304CC2FF)
+                    touch.isHovered -> Colour.argb(0x18FFFFFF)
+                    else -> Colour.argb(0x30000000)
+                },
+                corner = 8f,
+            )
+            .border(edge, width = if (lit) 2f else 1f, corner = 8f),
+        contentAlignment = Alignment.Centre,
+    ) {
+        Text("${(slot + 1) % 10}", style = Body, colour = if (lit) Accent else Dim)
     }
 }
 
@@ -181,11 +221,28 @@ private fun Reticle(at: Offset) {
 
 private const val ReticleSize = 18f
 
-/** What the demo animates, so that a frame is worth redrawing. */
+/** What the demo animates, and what the player has changed. */
 class DemoState {
     var health by mutableStateOf(0.86f)
     var selected by mutableStateOf(3)
 
     /** Where the pointer is, in design units. Null until it has moved at least once. */
     var pointer: Offset? by mutableStateOf(null)
+
+    /** The demo cycles the hotbar until somebody picks a slot, and then stops interfering. */
+    var autoCycle by mutableStateOf(true)
+        private set
+
+    /** Which chip the player pressed, if either. */
+    var briefing: String? by mutableStateOf(null)
+        private set
+
+    fun select(slot: Int) {
+        selected = slot
+        autoCycle = false
+    }
+
+    fun answer(choice: String) {
+        briefing = choice
+    }
 }

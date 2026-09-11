@@ -46,17 +46,22 @@ fun main() {
     val canvas = GlCanvas(fonts)
     val state = DemoState()
     val host = UiHost()
-    host.setContent { Screen(fonts, skin(art), state.health, state.selected, state.pointer) }
+    host.setContent { Screen(fonts, skin(art), state) }
 
     var viewport = window.viewport(Design, ScalePolicy.Fit)
+    val input = DemoInput(state, host.root)
     val pointerInput = GlfwPointerInput(
-        sink = PointerWatcher(state),
+        sink = input,
         viewport = { viewport },
         pixelScale = { window.pixelScale },
     )
     pointerInput.attachTo(window)
 
     val shot: String? = System.getenv("COMPOSEGL_DEMO_SHOT")
+    // A screenshot of a hover state is otherwise impossible to take: the pointer has to be
+    // somewhere, and a script cannot move a real mouse. `x,y` hovers; `x,y,press` holds it down.
+    // Re-applied every frame, because the real mouse is still there and still reporting.
+    val scriptedPointer: String? = System.getenv("COMPOSEGL_DEMO_POINTER")
     var frames = 0
 
     try {
@@ -64,8 +69,9 @@ fun main() {
             val elapsed = GLFW.glfwGetTime().toFloat()
             // Something that moves, so a frame is not the same picture as the last one.
             state.health = 0.5f + 0.35f * sin(elapsed.toDouble()).toFloat()
-            state.selected = ((elapsed / 0.8f).toInt()) % 10
+            if (state.autoCycle) state.selected = ((elapsed / 0.8f).toInt()) % 10
 
+            scriptedPointer?.let { input.pretendPointerIsAt(it) }
             host.frame(System.nanoTime())
 
             viewport = window.viewport(Design, ScalePolicy.Fit)

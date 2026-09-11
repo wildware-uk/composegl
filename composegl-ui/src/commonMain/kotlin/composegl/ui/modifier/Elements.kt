@@ -4,6 +4,8 @@ import composegl.ui.graphics.Colour
 import composegl.ui.graphics.NinePatch
 import composegl.ui.graphics.UiCanvas
 import composegl.ui.geometry.Rect
+import composegl.ui.input.InteractionState
+import composegl.ui.input.PointerHandler
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Padding
 
@@ -62,6 +64,32 @@ data class DrawBehindElement(val draw: UiCanvas.(Rect) -> Unit) : Modifier.Eleme
 
 /** Draw whatever you like, on top of this node and its children. */
 data class DrawInFrontElement(val draw: UiCanvas.(Rect) -> Unit) : Modifier.Element
+
+// --- what a node does about the player ------------------------------------------------------
+
+/**
+ * Makes the node hit-testable and keeps [state] up to date with what the pointer is doing to it.
+ *
+ * On its own it watches and consumes nothing: an event still reaches whatever is underneath. Put
+ * it on a panel to highlight the panel while the pointer is anywhere inside it.
+ */
+data class InteractionElement(val state: InteractionState) : Modifier.Element
+
+/**
+ * The node can be clicked, and eats the presses that land on it.
+ *
+ * A click is a press and a release on the same node, with the release inside it. A drag that
+ * wanders off and lets go somewhere else is not a click, and neither is a gesture the platform
+ * cancelled — which is the whole reason this is a modifier the toolkit understands rather than two
+ * lines in a handler.
+ *
+ * [onClick] written inline is a new object every recomposition and so never compares equal.
+ * `remember` it when a node would otherwise be unchanged.
+ */
+data class ClickableElement(val enabled: Boolean, val onClick: () -> Unit) : Modifier.Element
+
+/** Raw pointer events for this node, in its own coordinates. See [PointerHandler]. */
+data class PointerInputElement(val handler: PointerHandler) : Modifier.Element
 
 // --- the sentences --------------------------------------------------------------------------
 
@@ -126,3 +154,17 @@ fun Modifier.alpha(alpha: Float) = then(AlphaElement(alpha))
 fun Modifier.drawBehind(draw: UiCanvas.(Rect) -> Unit) = then(DrawBehindElement(draw))
 
 fun Modifier.drawInFront(draw: UiCanvas.(Rect) -> Unit) = then(DrawInFrontElement(draw))
+
+fun Modifier.interaction(state: InteractionState) = then(InteractionElement(state))
+
+/**
+ * Calls [onClick] when this node is clicked, and reports the press through any
+ * [interaction] state on the same node.
+ *
+ * Disabled is not the same as absent: a disabled node still swallows the press, so a click cannot
+ * fall through to whatever is behind a greyed-out button.
+ */
+fun Modifier.clickable(enabled: Boolean = true, onClick: () -> Unit) =
+    then(ClickableElement(enabled, onClick))
+
+fun Modifier.onPointer(handler: PointerHandler) = then(PointerInputElement(handler))
