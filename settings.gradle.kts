@@ -18,6 +18,7 @@ dependencyResolutionManagement {
 include(
     "composegl-ui",
     "composegl-gdx",
+    "composegl-testing",
     "composegl-demo",
     // Throwaway feasibility spike; see docs/superpowers/spikes/s6-runtime-ui.md.
     "spikes:s6-runtime-ui",
