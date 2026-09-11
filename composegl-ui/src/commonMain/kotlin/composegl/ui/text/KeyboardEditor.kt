@@ -1,5 +1,6 @@
 package composegl.ui.text
 
+import composegl.ui.backend.Clipboard
 import composegl.ui.input.Key
 import composegl.ui.input.KeyEvent
 import composegl.ui.input.KeyEventType
@@ -28,8 +29,13 @@ import composegl.ui.input.TextEvent
  * field that swallows Tab is a field a pad cannot leave.
  *
  * @param multiline whether Enter makes a line here or belongs to whatever is around the field.
+ * @param clipboard where cut and copy put things and paste takes them from. The default keeps
+ *   nothing, so the keys are safe to press in a game that has not wired one up.
  */
-class KeyboardEditor(private val multiline: Boolean = false) {
+class KeyboardEditor(
+    private val multiline: Boolean = false,
+    private val clipboard: Clipboard = Clipboard.None,
+) {
 
     /**
      * @return the value after this key, or null if the key was not the field's to deal with.
@@ -52,10 +58,46 @@ class KeyboardEditor(private val multiline: Boolean = false) {
 
             Key.A -> if (shortcut) value.selectAll() else null
 
+            Key.C -> if (shortcut) copy(value) else null
+            Key.X -> if (shortcut) cut(value) else null
+            Key.V -> if (shortcut) paste(value) else null
+
             Key.Enter -> if (multiline) value.apply(EditCommand.Insert("\n")) else null
 
             else -> null
         }
+    }
+
+    /**
+     * Copy leaves the field exactly as it was, which is why it still counts as handled: the key was
+     * used, and nothing behind the field should also act on it.
+     */
+    private fun copy(value: TextFieldValue): TextFieldValue? {
+        if (value.selection.collapsed) return null
+        clipboard.write(value.selected)
+        return value
+    }
+
+    private fun cut(value: TextFieldValue): TextFieldValue? {
+        if (value.selection.collapsed) return null
+        clipboard.write(value.selected)
+        return value.apply(EditCommand.Insert(""))
+    }
+
+    /**
+     * Paste, with whatever the platform had on the clipboard made safe first.
+     *
+     * A clipboard holds anything: a paragraph copied from a web page, a tab-separated row from a
+     * spreadsheet, a stray carriage return from a file written on Windows. A single-line field has
+     * nowhere to put a line break, so each one becomes a space rather than being dropped — dropped
+     * line breaks run two words together, and a player pasting an address into a name box would
+     * rather see the words apart than `NorthgateSector Four`.
+     */
+    private fun paste(value: TextFieldValue): TextFieldValue? {
+        val pasted = clipboard.read() ?: return null
+        val clean = pasted.sanitised(multiline)
+        if (clean.isEmpty()) return null
+        return value.apply(EditCommand.Insert(clean))
     }
 
     /**
@@ -79,3 +121,15 @@ class KeyboardEditor(private val multiline: Boolean = false) {
  * about whether it is allowed one can actually be made.
  */
 private fun Char.isControlCharacter(): Boolean = code < 0x20 || code in 0x7F..0x9F
+
+/**
+ * Pasted text, with everything a field cannot hold taken out of it.
+ *
+ * Line breaks survive in a field that has lines, as one `\n` however the platform wrote them. A tab
+ * becomes a space everywhere, because nothing here knows what a tab stop would be.
+ */
+private fun String.sanitised(multiline: Boolean): String {
+    val lines = replace("\r\n", "\n").replace('\r', '\n')
+    val flattened = if (multiline) lines else lines.replace('\n', ' ')
+    return flattened.map { if (it == '\n' || !it.isControlCharacter()) it else ' ' }.joinToString("")
+}

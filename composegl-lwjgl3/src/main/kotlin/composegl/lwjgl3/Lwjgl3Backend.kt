@@ -8,10 +8,16 @@ import composegl.ui.backend.TextureSource
 import composegl.ui.backend.UiBackend
 import org.lwjgl.glfw.GLFW
 
-/** The system clipboard, as GLFW sees it. One call each way. */
+/**
+ * The system clipboard, as GLFW sees it. One call each way.
+ *
+ * GLFW owns one clipboard per process but asks for a window to reach it, which is why this holds
+ * one. An empty clipboard and one holding something that is not text — a picture, a file — are the
+ * same answer as far as a name box is concerned, so both come back as null.
+ */
 class GlfwClipboard(private val window: GlfwWindow) : Clipboard {
 
-    override fun read(): String? = GLFW.glfwGetClipboardString(window.handle)
+    override fun read(): String? = GLFW.glfwGetClipboardString(window.handle)?.takeIf { it.isNotEmpty() }
 
     override fun write(text: String) = GLFW.glfwSetClipboardString(window.handle, text)
 }
