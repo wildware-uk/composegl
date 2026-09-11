@@ -194,7 +194,11 @@ class GdxFonts(val atlas: GdxAtlas = GdxAtlas(), private val ownsAtlas: Boolean 
             // style must line up whether or not their glyphs happen to be tall.
             size = Size(glyphs.width, lines * style.lineHeight),
             lineCount = lines,
-            firstBaseline = font.data.capHeight,
+            // The ascent, not the cap height: a layout's top edge has to be above everything the
+            // font draws, or an accent on a capital pokes out of the box that was reserved for it.
+            // It is also where LibGDX actually puts the first baseline, which is the part that has
+            // to be true — the toolkit's rule is that drawing matches what was measured.
+            firstBaseline = font.data.capHeight + font.data.ascent,
             glyphs = glyphs,
             font = font,
             style = style,

@@ -322,6 +322,41 @@ class GdxCanvasTest {
     }
 
     @Test
+    fun `the baseline is where the layout said it is`() {
+        // The contract the whole of text layout rests on: drawing matches what was measured. A
+        // capital letter sits on the baseline, so the bottom of an H is where it was promised.
+        val measured = Gl.render {
+            val batch = SpriteBatch()
+            val canvas = GdxCanvas(batch)
+            val fonts = GdxFonts()
+            try {
+                fonts.registerTrueType("body", Gdx.files.internal("fonts/DejaVuSans.ttf"), listOf(48))
+                val layout = fonts.measure("HHHH", TextStyle(family = "body", size = 48f))
+                Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
+                Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+                canvas.begin(viewport)
+                canvas.text(layout, Offset(20f, 20f), red)
+                canvas.end()
+                Measured(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), layout.firstBaseline)
+            } finally {
+                fonts.dispose()
+                canvas.dispose()
+                batch.dispose()
+            }
+        }
+
+        val bottom = (20..200).last { y -> (20 until 200).any { x -> measured.pixels.at(x, y).r > 0.5f } }
+        val promised = 20f + measured.firstBaseline
+        assertTrue(
+            kotlin.math.abs(bottom - promised) <= 2f,
+            "the letters end at $bottom but the layout promised a baseline at $promised",
+        )
+    }
+
+    /** A frame and the baseline the layout that drew it claimed. */
+    private class Measured(val pixels: Pixmap, val firstBaseline: Float)
+
+    @Test
     fun `a picture is drawn where the toolkit said`() {
         val frame = Gl.render {
             val batch = SpriteBatch()

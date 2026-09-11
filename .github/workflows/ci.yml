@@ -48,6 +48,14 @@ jobs:
           GALLIUM_DRIVER: llvmpipe
         run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-gdx:test --rerun-tasks --stacktrace
 
+      # The second backend, which shares no code with the first. Its job is to disagree when the
+      # toolkit has quietly assumed something about LibGDX.
+      - name: The same scenes, drawn with no LibGDX anywhere
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GALLIUM_DRIVER: llvmpipe
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-lwjgl3:test --rerun-tasks --stacktrace
+
       - name: Prove the runtime redraws only when something changed
         env:
           SPIKE_S6_HEADLESS: '1'

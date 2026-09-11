@@ -71,23 +71,16 @@ class ScreenshotTest {
     }
 
     /**
-     * The nine-patch art, drawn in code rather than loaded.
+     * The shared nine-patch art, as a LibGDX picture.
      *
-     * A picture in the repository is a picture that can be edited by accident; twenty-four pixels
-     * of arithmetic cannot be.
+     * The bytes come from the testing module so that both backends draw exactly the same art and
+     * the two sets of goldens differ only where the two renderers do.
      */
-    private fun bevel(): Pixmap = Pixmap(24, 24, Pixmap.Format.RGBA8888).apply {
-        setColor(0.12f, 0.16f, 0.22f, 1f)
-        fill()
-        setColor(0.30f, 0.76f, 1f, 1f)
-        drawRectangle(0, 0, 24, 24)
-        setColor(0.30f, 0.76f, 1f, 0.25f)
-        // A cross through the middle eight pixels, so tiling and stretching look different.
-        fillRectangle(8, 11, 8, 2)
-        fillRectangle(11, 8, 2, 8)
-        // The corners, marked, so a corner drawn from the wrong place is unmistakable.
-        setColor(1f, 0.85f, 0.3f, 1f)
-        fillRectangle(2, 2, 3, 3)
+    private fun bevel(): Pixmap {
+        val art = composegl.testing.bevel()
+        val pixmap = Pixmap(art.width, art.height, Pixmap.Format.RGBA8888)
+        pixmap.pixels.put(art.pixels).flip()
+        return pixmap
     }
 
     /**
