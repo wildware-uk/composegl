@@ -12,6 +12,7 @@ import composegl.ui.animation.Clocks
 import composegl.ui.animation.Easings
 import composegl.ui.animation.LocalClocks
 import composegl.ui.geometry.Rect
+import composegl.ui.geometry.Size
 import composegl.ui.graphics.Colour
 import composegl.ui.graphics.UiCanvas
 import composegl.ui.layout.LeafLayout
@@ -59,17 +60,31 @@ fun interface WorldAnchor {
 fun interface WorldProjection {
 
     /**
-     * @param onto filled in with where [point] is on screen, in the interface's coordinates.
+     * @param view how big the layer is, in interface pixels. A camera needs it: the last step of
+     *   every projection is turning a number between -1 and 1 into a pixel.
+     * @param onto filled in with where [point] is on the layer, in the interface's coordinates
+     *   measured from its top left.
      * @return false if it is not on screen at all — behind the camera, past the far plane, off the
      *   edge — and then nothing is drawn for it.
      */
-    fun project(point: WorldPoint, onto: WorldPoint): Boolean
+    fun project(point: WorldPoint, view: Size, onto: WorldPoint): Boolean
 
     companion object {
 
         /** For a game whose world is already the screen: x and y straight through. */
-        val Screen: WorldProjection = WorldProjection { point, onto ->
+        val Screen: WorldProjection = WorldProjection { point, _, onto ->
             onto.set(point.x, point.y)
+            true
+        }
+
+        /**
+         * The same, measured from the middle of the view rather than its top left.
+         *
+         * What a game with a camera in the middle of the screen wants, and it needs no camera to
+         * say so: the thing being shot at is at zero.
+         */
+        val Centred: WorldProjection = WorldProjection { point, view, onto ->
+            onto.set(view.width / 2f + point.x, view.height / 2f + point.y)
             true
         }
     }
@@ -278,17 +293,20 @@ private class NumberPainter(
 
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
         val now = clocks.time(numbers.clock)
+        // Worked out once and handed to every number, rather than once per number: a projection
+        // needs the size of the view it is projecting into, and this is the only place it is known.
+        val view = Size(bounds.right - bounds.left, bounds.bottom - bounds.top)
         numbers.entries.forEach { entry ->
-            if (entry.alive) drawOne(this, entry, now, bounds)
+            if (entry.alive) drawOne(this, entry, now, bounds, view)
         }
     }
 
-    private fun drawOne(canvas: UiCanvas, entry: DamageNumbers.Entry, now: Long, bounds: Rect) {
+    private fun drawOne(canvas: UiCanvas, entry: DamageNumbers.Entry, now: Long, bounds: Rect, view: Size) {
         if (entry.bornNanos == DamageNumbers.NotBornYet) entry.bornNanos = now
 
         val anchor = entry.anchor ?: return
         anchor.positionInto(world)
-        if (!projection.project(world, screen)) return
+        if (!projection.project(world, view, screen)) return
 
         val layout = entry.layout ?: measure(entry).also { entry.layout = it }
 

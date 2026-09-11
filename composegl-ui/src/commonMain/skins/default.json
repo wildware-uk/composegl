@@ -199,6 +199,14 @@
     "cooldown.flash": { "background": { "fill": "#70FFFFFF" } },
     "cooldown.seconds": { "textColour": "#E8ECF2", "text": { "size": 18 } },
 
+    // The crosshair. Off-white rather than white, because a pure white crosshair disappears over
+    // a bright sky; the hostile colour is the one thing on screen allowed to be that red.
+
+    "reticle": { "background": { "fill": "#E8ECF2" } },
+    "reticle.hostile": { "background": { "fill": "#FF5A4F" } },
+    "reticle.hit": { "background": { "fill": "#FFFFFF" } },
+    "reticle.kill": { "background": { "fill": "#FF5A4F" } },
+
     "progress.track": { "background": { "fill": "#2C3545", "corner": 4 } },
     "progress.fill": { "background": { "fill": "#5B8DEF", "corner": 4 } },
     "progress.fill.danger": { "background": { "fill": "#E5484D", "corner": 4 } },
