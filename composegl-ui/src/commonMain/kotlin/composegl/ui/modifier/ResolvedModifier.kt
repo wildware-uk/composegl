@@ -120,7 +120,7 @@ class ResolvedModifier private constructor(
                     is AlphaElement -> alpha *= element.alpha.coerceIn(0f, 1f)
                     is ClipElement -> clip = element
                     is BackgroundElement, is BorderElement, is ShadowElement,
-                    is NinePatchElement, is DrawBehindElement ->
+                    is NinePatchElement, is SkinBackgroundElement, is DrawBehindElement ->
                         behind += PaintOp(element, padding)
                     is DrawInFrontElement -> inFront += PaintOp(element, padding)
                     is InteractionElement -> interactions += element.state

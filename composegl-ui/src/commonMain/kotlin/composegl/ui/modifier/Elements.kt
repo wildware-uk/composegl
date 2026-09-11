@@ -1,16 +1,19 @@
 package composegl.ui.modifier
 
+import composegl.ui.focus.FocusRequester
+import composegl.ui.geometry.Offset
+import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
 import composegl.ui.graphics.NinePatch
 import composegl.ui.graphics.UiCanvas
-import composegl.ui.focus.FocusRequester
-import composegl.ui.geometry.Rect
 import composegl.ui.input.InteractionState
 import composegl.ui.input.KeyHandler
 import composegl.ui.input.PointerHandler
 import composegl.ui.input.TextHandler
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Padding
+import composegl.ui.skin.ResolvedStyle
+import composegl.ui.skin.SkinDrawable
 
 // --- what a node is ------------------------------------------------------------------------
 
@@ -94,6 +97,9 @@ data class ClickableElement(val enabled: Boolean, val onClick: () -> Unit) : Mod
 /** Raw pointer events for this node, in its own coordinates. See [PointerHandler]. */
 data class PointerInputElement(val handler: PointerHandler) : Modifier.Element
 
+/** A skin's background for this node, drawn whatever kind of drawable it turned out to be. */
+data class SkinBackgroundElement(val drawable: SkinDrawable, val tint: Colour) : Modifier.Element
+
 /** Keys for this node while it has focus, and for its children. See [KeyHandler]. */
 data class KeyInputElement(val handler: KeyHandler) : Modifier.Element
 
@@ -148,6 +154,9 @@ fun Modifier.fillMaxHeight(fraction: Float = 1f) = then(FillElement(heightFracti
 fun Modifier.fillMaxSize(fraction: Float = 1f) = then(FillElement(fraction, fraction))
 
 fun Modifier.padding(all: Float) = then(PaddingElement(Padding.all(all)))
+
+/** The same, where the four numbers already exist as one — a nine-patch's, or a skin's. */
+fun Modifier.padding(padding: Padding) = then(PaddingElement(padding))
 
 fun Modifier.padding(horizontal: Float = 0f, vertical: Float = 0f) =
     then(PaddingElement(Padding.symmetric(horizontal, vertical)))
@@ -253,3 +262,26 @@ fun Modifier.focusOrder(
     next: FocusRequester? = null,
     previous: FocusRequester? = null,
 ) = then(FocusOrderElement(up, down, left, right, next, previous))
+
+/**
+ * Wears a resolved style: its background, its tint, its padding and its content offset.
+ *
+ * The whole of "a widget is drawn from a style". A widget that writes this and then draws its text
+ * in `style.textColour` contains no colour, no corner radius and no texture name of its own, which
+ * is what lets one skin file change the look of a game.
+ *
+ * Order is the reason this is one call rather than three. The background paints across the node,
+ * the padding keeps the contents off its edge, and the offset moves those contents without moving
+ * the background — a pressed button whose label shifts down a pixel while its frame stays put.
+ */
+fun Modifier.styled(style: ResolvedStyle): Modifier = this
+    .then(SkinBackgroundElement(style.background, style.tint))
+    .padding(style.padding + style.contentOffset.asShift())
+
+/**
+ * A shift written as padding: more on one side, less on the other.
+ *
+ * Not [offset], which moves the whole node, frame and all. This adds to one edge and takes the
+ * same amount off the opposite one, so the contents move and the size does not change.
+ */
+private fun Offset.asShift() = Padding(left = x, top = y, right = -x, bottom = -y)

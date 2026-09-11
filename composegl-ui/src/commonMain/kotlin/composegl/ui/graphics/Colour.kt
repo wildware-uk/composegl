@@ -29,6 +29,18 @@ value class Colour(val argb: Int) {
 
     fun withAlpha(alpha: Int): Colour = Colour(alpha, red, green, blue)
 
+    /**
+     * This colour seen through [tint]: every channel multiplied, white leaving it alone.
+     *
+     * The same arithmetic the GPU does to a tinted texture, so a flat box and a piece of art tinted
+     * the same way come out the same colour. A skin that dims a disabled state relies on that.
+     */
+    fun modulate(tint: Colour): Colour {
+        if (tint.argb == White.argb) return this
+        fun mix(a: Int, b: Int) = a * b / 255
+        return Colour(mix(alpha, tint.alpha), mix(red, tint.red), mix(green, tint.green), mix(blue, tint.blue))
+    }
+
     /** Mixes towards [other]. `fraction` of 0 is this colour, 1 is the other. */
     fun lerp(other: Colour, fraction: Float): Colour {
         val t = fraction.coerceIn(0f, 1f)
