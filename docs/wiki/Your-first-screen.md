@@ -5,22 +5,28 @@ and a button that counts how many times you clicked it.
 
 It is about eighty lines of code, and most of them are opening the window.
 
+> **This page assumes you have written Compose before** — `@Composable`,
+> `remember`, `mutableStateOf`, recomposition. If any of that is new, half an hour
+> with [Thinking in Compose](https://developer.android.com/develop/ui/compose/mental-model)
+> and [State and Jetpack Compose](https://developer.android.com/develop/ui/compose/state)
+> will cover everything this page leans on.
+
 ---
 
 ## What ComposeGL actually is
 
-You write what the screen **should look like** for the numbers you have right now:
+The same runtime you already know — `androidx.compose.runtime`, unchanged — with
+everything above it replaced. Our own applier, layout, widgets, renderer and input,
+built for games.
 
-```kotlin
-Text("Score: $score")
-```
+So `Text("Score: $score")` behaves exactly as it does in Compose UI. What is
+different is where it ends up: drawn with OpenGL, through your engine, inside your
+game loop. No separate window, no web view, no second thread, no Android
+dependency.
 
-You never write "find the score label and change its text". You change `score`,
-and the line above runs again on its own. That is the whole idea. Everything else
-on this page is plumbing to get that line onto a screen.
-
-It draws with OpenGL, through your game engine, in your game loop. There is no
-separate window, no web view, no second thread.
+What you will **not** find, because none of it came with us: `dp`, `Material`,
+`Modifier.Node`, `LaunchedEffect`'s Android plumbing, or any of `androidx.compose.ui`.
+The names that survive mean what they always meant.
 
 ---
 
@@ -88,8 +94,6 @@ import composegl.ui.widget.*
 
 @Composable
 fun Hello() {
-    // `remember` means "keep this between frames".
-    // `mutableStateOf` means "tell the screen when this changes".
     var clicks by remember { mutableStateOf(0) }
 
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Centre) {
@@ -250,21 +254,18 @@ across the whole widget and puts the padding inside.
 
 ---
 
-## 6. State, in one rule
+## 6. State is the state you already know
 
-**If the screen should change when a value changes, that value must be state.**
+`remember`, `mutableStateOf`, `derivedStateOf`, `snapshotFlow` — all of it is the
+real `androidx.compose.runtime`, behaving exactly as it does everywhere else.
 
-```kotlin
-var hull by remember { mutableStateOf(1.0f) }   // ✅ screen updates
-var hull = 1.0f                                 // ❌ screen never notices
-```
-
-For a value your game already owns — a player's health, an ammo count — hand it in
-rather than keeping a copy:
+The one thing worth saying, because games get it wrong: put the state on the object
+your game already owns, rather than copying values into the interface each frame.
 
 ```kotlin
 class Player {
     var health by mutableStateOf(100)
+    var ammo by mutableStateOf(148)
 }
 
 @Composable
@@ -273,10 +274,18 @@ fun Hud(player: Player) {
 }
 ```
 
-Now `player.health -= 10` anywhere in your game code redraws that label, and
-nothing else on the screen.
+Now `player.health -= 10` from your combat code redraws that one label. Nothing
+else on the screen is touched, and `host.frame(...)` keeps returning `false` on the
+frames where nothing changed.
 
----
+The trap is the other way round:
+
+```kotlin
+@Composable
+fun Hud(player: Player) {
+    Text("HP ${player.healthThisFrame}")  // ❌ a plain field: nothing recomposes
+}
+```
 
 ## Where next
 
