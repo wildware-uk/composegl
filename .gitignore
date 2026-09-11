@@ -4,7 +4,10 @@ build/
 *.iml
 .kotlin/
 local.properties
-demo.png
+
+# A demo run started in the repository root writes its screenshot here. The one in docs/ is ours
+# and is committed.
+/demo.png
 
 # Stray output from a headless demo run
 */tmp/

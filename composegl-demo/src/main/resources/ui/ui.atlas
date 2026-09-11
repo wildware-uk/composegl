@@ -11,3 +11,5 @@ ribbon
   bounds:52,0,24,24
   split:8,8,10,10
   pad:14,14,5,6
+icon/crest
+  bounds:80,0,24,24

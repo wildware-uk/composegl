@@ -136,6 +136,7 @@ private fun atlas(art: GlTexture) = ArtAtlas.of(
     mapOf(
         "panel" to art.region(0, 0, 48, 48),
         "ribbon" to art.region(52, 0, 24, 24),
+        "icon/crest" to art.region(80, 0, 24, 24),
     ),
 )
 
