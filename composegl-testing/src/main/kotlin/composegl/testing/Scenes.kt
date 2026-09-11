@@ -1,5 +1,10 @@
 package composegl.testing
 
+import composegl.effects.Axis
+import composegl.effects.blur
+import composegl.effects.colourGrade
+import composegl.effects.dissolve
+import composegl.effects.outline
 import composegl.ui.effect.ShaderEffect
 import composegl.ui.effect.ShaderSource
 import composegl.ui.effect.Uniform
@@ -86,6 +91,25 @@ fun scenes(): List<Scene> = listOf(
         val area = bounds.inset(-Blur.bleed)
         val picture = layer(area) { panel(art, bounds) }
         if (picture != null) drawLayer(picture, area, Blur) else panel(art, bounds)
+    },
+
+    Scene("effects") { art ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+
+        // The four effects the toolkit itself ships, drawn through the same public API a game's own
+        // shader goes through. A backend that disagrees with the other one here disagrees about
+        // what GLSL means, which is the one thing two backends are not allowed to do.
+        val blur = listOf(blur(4f, Axis.Horizontal), blur(4f, Axis.Vertical))
+        through(blur, Rect.of(16f, 16f, 96f, 88f)) { tile(art, Rect.of(16f, 16f, 96f, 88f), "Blur") }
+
+        val ring = listOf(outline(Paper, width = 3f))
+        through(ring, Rect.of(128f, 16f, 96f, 88f)) { tile(art, Rect.of(128f, 16f, 96f, 88f), "Line") }
+
+        val grade = listOf(colourGrade(brightness = 0.7f, contrast = 1.2f, saturation = 0f))
+        through(grade, Rect.of(16f, 136f, 96f, 88f)) { tile(art, Rect.of(16f, 136f, 96f, 88f), "Grade") }
+
+        val gone = listOf(dissolve(progress = 0.4f, scale = 18f, edge = Accent))
+        through(gone, Rect.of(128f, 136f, 96f, 88f)) { tile(art, Rect.of(128f, 136f, 96f, 88f), "Gone") }
     },
 
     Scene("shadow") { _ ->
@@ -194,6 +218,38 @@ fun bevel(): RawImage {
     fill(2, 2, 3, 3, 255, 217, 77)
 
     return RawImage(size, size, pixels)
+}
+
+/**
+ * One effect on top of another, the way the draw pass does it.
+ *
+ * A copy of what [composegl.ui.draw.DrawPass] does for a modifier chain, because a scene draws
+ * straight onto a canvas rather than through nodes — and because a two-pass blur cannot be
+ * demonstrated any other way. The first effect in the list ends up innermost, so it sees the
+ * widget and the rest see each other's answers.
+ */
+private fun UiCanvas.through(effects: List<ShaderEffect>, bounds: Rect, body: () -> Unit) {
+    val effect = effects.lastOrNull()
+    if (effect == null) {
+        body()
+        return
+    }
+    val area = if (effect.bleed > 0f) bounds.inset(-effect.bleed) else bounds
+    val picture = layer(area) { through(effects.dropLast(1), bounds, body) }
+    if (picture == null) {
+        through(effects.dropLast(1), bounds, body)
+        return
+    }
+    drawLayer(picture, area, effect)
+}
+
+/** One of the four boxes in the effects scene: something with an edge, a fill and some text on it. */
+private fun UiCanvas.tile(art: SceneArt, at: Rect, label: String) {
+    rect(at, Panel, corner = 12f)
+    border(at, Accent, width = 2f, corner = 12f)
+    text(art.fonts.measure(label, Small), Offset(at.left + 14f, at.top + 14f), Paper)
+    rect(Rect.of(at.left + 14f, at.top + 42f, at.width - 28f, 10f), Accent, corner = 5f)
+    rect(Rect.of(at.left + 14f, at.top + 60f, (at.width - 28f) * 0.6f, 10f), Paper, corner = 5f)
 }
 
 /** The scene's panel, drawn twice: once plainly, once through a shader. */

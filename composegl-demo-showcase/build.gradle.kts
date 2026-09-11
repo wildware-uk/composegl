@@ -8,6 +8,9 @@ description = "The showcase: a 3D scene with the game-widget tier over it, and a
 
 dependencies {
     implementation(project(":composegl-gdx"))
+
+    // The shipped effects, so the showcase runs the same blur a game would.
+    implementation(project(":composegl-effects"))
     implementation(libs.gdx.backend.lwjgl3)
     runtimeOnly(variantOf(libs.gdx.platform) { classifier("natives-desktop") })
     runtimeOnly(variantOf(libs.gdx.freetype.platform) { classifier("natives-desktop") })
