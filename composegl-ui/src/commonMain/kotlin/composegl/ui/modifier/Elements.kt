@@ -5,6 +5,7 @@ import composegl.ui.focus.FocusWithinHandler
 import composegl.ui.focus.RevealHandler
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
+import composegl.ui.effect.ShaderEffect
 import composegl.ui.graphics.Colour
 import composegl.ui.graphics.NinePatch
 import composegl.ui.graphics.UiCanvas
@@ -61,6 +62,9 @@ data class NinePatchElement(val patch: NinePatch, val tint: Colour = Colour.Whit
 data class ClipElement(val corner: Float = 0f) : Modifier.Element
 
 data class AlphaElement(val alpha: Float) : Modifier.Element
+
+/** @see composegl.ui.modifier.effect */
+data class EffectElement(val effect: ShaderEffect) : Modifier.Element
 
 /**
  * Draw whatever you like, underneath this node's own drawing.
@@ -180,6 +184,23 @@ fun Modifier.padding(left: Float = 0f, top: Float = 0f, right: Float = 0f, botto
     then(PaddingElement(Padding(left, top, right, bottom)))
 
 fun Modifier.offset(x: Float = 0f, y: Float = 0f) = then(OffsetElement(x, y))
+
+/**
+ * Draws this node, and everything under it, through a shader.
+ *
+ * The subtree is drawn into an offscreen picture and the shader decides what that picture comes
+ * out as: blurred, outlined, dissolving, whatever the GLSL says. Written in the chain twice, the
+ * effects apply in the order they are written — the second one works on the first one's answer.
+ *
+ * ```kotlin
+ * Panel(Modifier.effect(blur(radius = 8f))) { … }
+ * ```
+ *
+ * Costs a picture the size of the node — plus its [ShaderEffect.bleed] — and a draw call, every
+ * frame it is on screen. A backend with no offscreen drawing, or no shaders, draws the subtree
+ * plainly instead: an effect degrades to no effect rather than to a broken frame.
+ */
+fun Modifier.effect(effect: ShaderEffect) = then(EffectElement(effect))
 
 fun Modifier.weight(weight: Float) = then(WeightElement(weight))
 

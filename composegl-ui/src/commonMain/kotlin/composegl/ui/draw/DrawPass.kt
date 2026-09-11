@@ -1,5 +1,6 @@
 package composegl.ui.draw
 
+import composegl.ui.effect.ShaderEffect
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.UiCanvas
@@ -10,6 +11,7 @@ import composegl.ui.modifier.DrawInFrontElement
 import composegl.ui.modifier.NinePatchElement
 import composegl.ui.modifier.SkinBackgroundElement
 import composegl.ui.modifier.PaintOp
+import composegl.ui.modifier.ResolvedModifier
 import composegl.ui.modifier.ShadowElement
 import composegl.ui.node.UiNode
 
@@ -37,6 +39,19 @@ class DrawPass(private val canvas: UiCanvas) {
         val faded = resolved.alpha < 1f
         if (faded) canvas.pushAlpha(resolved.alpha)
 
+        if (resolved.effects.isEmpty()) {
+            contents(node, resolved, bounds)
+        } else {
+            // Reversed, so the first effect in the chain is the innermost picture: written twice,
+            // the second one works on the first one's answer, which is how a chain reads.
+            through(resolved.effects.asReversed(), 0, bounds) { contents(node, resolved, bounds) }
+        }
+
+        if (faded) canvas.popAlpha()
+    }
+
+    /** Everything a node draws: what its chain put behind it, itself, its children, what is in front. */
+    private fun contents(node: UiNode, resolved: ResolvedModifier, bounds: Rect) {
         resolved.behind.forEach { paint(it, bounds) }
 
         // The clip covers this node's content and its children, not its own background — which is
@@ -56,7 +71,34 @@ class DrawPass(private val canvas: UiCanvas) {
         if (clipped) canvas.popClip()
 
         resolved.inFront.forEach { paint(it, bounds) }
-        if (faded) canvas.popAlpha()
+    }
+
+    /**
+     * Draws [body] through the shaders in [effects], from [index] on.
+     *
+     * One picture each, from the inside out, so that two effects in a chain are the second one
+     * working on the first one's answer rather than both arguing over the same pixels.
+     *
+     * A canvas with no offscreen drawing hands back nothing and has drawn nothing, so the subtree
+     * is drawn again, straight, and the effect is simply not there. That is the bargain: an effect
+     * degrades to no effect, never to a missing widget.
+     */
+    private fun through(effects: List<ShaderEffect>, index: Int, bounds: Rect, body: () -> Unit) {
+        if (index == effects.size) {
+            body()
+            return
+        }
+
+        val effect = effects[index]
+        // The area the shader gets to write to. A blur or a glow reaches past the widget, and
+        // without the bleed the spread would be cut off square at its edge.
+        val area = if (effect.bleed > 0f) bounds.inset(-effect.bleed) else bounds
+        val picture = canvas.layer(area) { through(effects, index + 1, bounds, body) }
+        if (picture == null) {
+            through(effects, index + 1, bounds, body)
+            return
+        }
+        canvas.drawLayer(picture, area, effect)
     }
 
     /**

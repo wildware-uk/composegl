@@ -1,5 +1,6 @@
 package composegl.ui.graphics
 
+import composegl.ui.effect.ShaderEffect
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.text.TextLayout
@@ -65,6 +66,20 @@ sealed interface DrawCall {
         override val alpha: Float,
     ) : DrawCall
 
+    /**
+     * A subtree that was drawn into an offscreen picture, and then drawn back — with a shader when
+     * there was one.
+     *
+     * The calls the subtree made are recorded before this, in the order they were made, so a test
+     * can assert both what a widget drew and what it was drawn through.
+     */
+    data class Layer(
+        val bounds: Rect,
+        val effect: ShaderEffect?,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : DrawCall
+
     /** Recorded but not run: a recording canvas has no backend object to hand the block. */
     data class Raw(
         override val clip: Rect,
@@ -88,7 +103,7 @@ sealed interface DrawCall {
  */
 class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
-    private val state = CanvasState(bounds)
+    private var state = CanvasState(bounds)
     private val recorded = mutableListOf<DrawCall>()
 
     /** Everything drawn since the last [clear], in the order it was drawn. */
@@ -135,6 +150,38 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     override fun image(texture: TextureHandle, destination: Rect, tint: Colour, source: Rect?) {
         recorded += DrawCall.Image(texture, destination, tint, source, state.clip, state.alpha)
+    }
+
+    /**
+     * Runs [block] and hands back a picture that only exists as a name.
+     *
+     * A recording canvas has no pixels, so a layer here is a marker: the subtree's calls are
+     * recorded as they happen, with the clip narrowed to the layer the way a real backend narrows
+     * it, and a [DrawCall.Layer] follows when the picture is drawn back.
+     */
+    override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? {
+        // A real backend gives the block a clip of exactly the layer and full opacity, so this one
+        // does too — otherwise a test would pass against a canvas that behaves differently from
+        // every canvas that draws.
+        val outer = state
+        state = CanvasState(bounds)
+        try {
+            block()
+            check(state.isBalanced) { "a clip or an alpha was pushed inside a layer and never popped" }
+        } finally {
+            state = outer
+        }
+        return LayerHandle(bounds)
+    }
+
+    override fun drawLayer(layer: TextureHandle, destination: Rect, effect: ShaderEffect?) {
+        recorded += DrawCall.Layer(destination, effect, state.clip, state.alpha)
+    }
+
+    /** A picture with nothing in it: there are no pixels here to be a handle to. */
+    private class LayerHandle(bounds: Rect) : TextureHandle {
+        override val width: Int = bounds.width.toInt()
+        override val height: Int = bounds.height.toInt()
     }
 
     override fun pushClip(rect: Rect) = state.pushClip(rect)
