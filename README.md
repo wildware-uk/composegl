@@ -185,7 +185,7 @@ The gamepad half has never met a gamepad: there is no pad on the machine this is
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and
 GLFW's own contracts say and have not been measured.
 
-There is a whole small game in `composegl-demo-snake`, which is the same Snake the previous version
+There is a whole small game in `composegl-demo-snake-core`, which is the same Snake the previous version
 shipped with the same rules and the same tests, given its interface a second time. The board is
 drawn straight into the frame by a renderer that has never heard of a composition; the menu, the
 HUD, the pause screen and the game over screen are the toolkit's, over the top, in one canvas. The
@@ -225,6 +225,27 @@ It is also the first time the central claim has been measured in a running game 
 Snake, mid-play, on software OpenGL: **the interface redrew 4 times in 294 frames**, and the whole
 of it — runtime, layout and drawing together — averaged 0.13 ms a frame.
 
+![Snake on Android](docs/images/android.png)
+
+*The same Snake, on Android.* The game moved into `composegl-demo-snake-core`, which is the toolkit
+and nothing else — no window library, no backend, no engine. A launcher opens a window, makes fonts
+and a canvas, and calls four methods in order; the desktop one does it on raw OpenGL and
+`composegl-demo-snake-android` does it on LibGDX, in about sixty lines. Nothing in the game and
+nothing in the toolkit changed for the phone, which is a claim a diff can check.
+
+Two things a phone needs that a desktop does not. A finger has no arrow keys, so a flick is a turn
+([`SwipeSteering`](composegl-demo-snake-core/src/main/kotlin/composegl/snake/SwipeSteering.kt), and
+a press the interface already took never steers). And the hint under the score names whatever the
+player is actually holding — *Swipe to steer* here, *Arrows or WASD* on a desktop, *D-pad steers*
+on a pad — which is the toolkit's `InputSourceTracker` doing the deciding, not the game.
+
+The honest part: this ran on an x86_64 emulator with no hardware acceleration, which is not a phone.
+Touch is real — every widget in the picture was driven by `adb shell input`. The on-screen keyboard
+is not verified. The toolkit's request reaches Android's input-method manager and the keyboard never
+draws — and it never draws for the Settings app's own search box either on this emulator, so what
+that proves is that the emulator has no working keyboard, not that the port has one. Keyboard, frame
+times and anything to do with a GPU need real hardware.
+
 | | |
 |---|---|
 | `composegl-ui` | the toolkit. Multiplatform, and depends on the Compose runtime and coroutines |
@@ -232,7 +253,9 @@ of it — runtime, layout and drawing together — averaged 0.13 ms a frame.
 | `composegl-lwjgl3` | a second backend, on raw OpenGL and stb_truetype. Exists to disagree |
 | `composegl-testing` | the scenes both backends draw, and the golden comparison |
 | `composegl-demo` | the example in the picture |
-| `composegl-demo-snake` | Snake: a whole small game, board in OpenGL, interface in the toolkit |
+| `composegl-demo-snake-core` | Snake itself: rules, board, interface, input. Toolkit only, no backend |
+| `composegl-demo-snake` | Snake on a desktop, on raw OpenGL |
+| `composegl-demo-snake-android` | Snake on a phone, on the LibGDX Android backend |
 | `composegl-demo-showcase` | the game-widget tier over a 3D scene, and an interface standing in it |
 | Design | [`docs/superpowers/specs/2026-09-09-runtime-ui-design.md`](docs/superpowers/specs/2026-09-09-runtime-ui-design.md) |
 | Spike, and its numbers | [`docs/superpowers/spikes/s6-runtime-ui.md`](docs/superpowers/spikes/s6-runtime-ui.md) |
@@ -283,8 +306,9 @@ work this project can do. Everything it taught us is in `docs/superpowers/spikes
 ./gradlew :composegl-demo:runGl                           # the same example, with no LibGDX in it
 ./gradlew :composegl-demo-snake:run                       # Snake: menu, HUD, pause, game over
 ./gradlew :composegl-demo-showcase:run                    # the HUD over a 3D scene, and a panel in it
+./gradlew :composegl-demo-snake-android:installDebug      # Snake on an attached phone or emulator
 SPIKE_S6_HEADLESS=1 ./gradlew :spikes:s6-runtime-ui:run   # the redraw experiment, no window needed
 ```
 
-Everything here has only ever run on Mesa's software rasteriser. No real GPU, no macOS, no Windows,
-and nothing on a phone.
+Everything here has only ever run on Mesa's software rasteriser and, for the Android launcher, on an
+emulator with no hardware acceleration. No real GPU, no macOS, no Windows, and no actual phone.

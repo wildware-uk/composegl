@@ -9,6 +9,8 @@ import composegl.ui.input.GamepadButton
 import composegl.ui.input.GamepadEvent
 import composegl.ui.input.GamepadNavigator
 import composegl.ui.input.InputSink
+import composegl.ui.input.InputSource
+import composegl.ui.input.InputSourceTracker
 import composegl.ui.input.Key
 import composegl.ui.input.KeyEvent
 import composegl.ui.input.KeyEventType
@@ -30,22 +32,49 @@ import composegl.ui.node.UiNode
  * Pause is the seam itself, and it is deliberately answered here rather than by either half: Space
  * and the pad's Start button work on both screens.
  */
-internal class SnakeInput(
+class SnakeInput(
     private val session: SnakeSession,
     root: UiNode,
     private val budget: FrameBudget,
+    initialSource: InputSource = InputSource.Mouse,
 ) : InputSink {
 
     val focus = FocusManager(root)
 
+    /**
+     * What the player last used, so the HUD can name the right control.
+     *
+     * Starts on touch or mouse depending on the launcher, and is corrected by the first event
+     * either way — a phone with a keyboard plugged in is a real thing.
+     */
+    val source = InputSourceTracker(initialSource)
+
     private val pointer = PointerRouter(root, focus)
     private val keys = KeyRouter(focus, root)
     private val navigator = KeyNavigator(focus, onBack = ::back)
+    private val swipe = SwipeSteering()
     private val pad = GamepadNavigator(focus, onBack = ::back)
 
-    override fun onPointer(event: PointerEvent) = pointer.onPointer(event)
+    /**
+     * The interface first, then the snake.
+     *
+     * The opposite way round from keys, and for the same reason: a finger on a button is aiming at
+     * the button, whereas an arrow key during a run is aiming at the snake.
+     */
+    override fun onPointer(event: PointerEvent): Boolean {
+        source.saw(event)
+        val used = pointer.onPointer(event)
+        if (session.screen == Screen.Playing) {
+            swipe.onPointer(event, consumed = used)?.let {
+                session.turn(it)
+                return true
+            }
+        }
+        return used
+    }
 
     override fun onKey(event: KeyEvent): Boolean {
+        source.saw(event)
         // Only while there is a run to pause: in the menu the space bar belongs to the player
         // typing their name in.
         val pausable = session.screen == Screen.Playing || session.screen == Screen.Paused
@@ -64,9 +93,13 @@ internal class SnakeInput(
         return keys.onKey(event) || navigator.onKey(event)
     }
 
-    override fun onText(event: TextEvent) = keys.onText(event)
+    override fun onText(event: TextEvent): Boolean {
+        source.saw(event)
+        return keys.onText(event)
+    }
 
     override fun onGamepad(event: GamepadEvent): Boolean {
+        source.saw(event)
         if (event is GamepadEvent.ButtonDown && event.button == GamepadButton.Start) {
             session.togglePause()
             return true
@@ -92,7 +125,10 @@ internal class SnakeInput(
     }
 
     /** The window is no longer in front, so nothing is left holding a capture or a highlight. */
-    fun windowLostFocus() = pointer.cancelAll()
+    fun windowLostFocus() {
+        pointer.cancelAll()
+        swipe.forget()
+    }
 
     /** Escape and the pad's Back button: out of a run, then out of the game's own screens. */
     private fun back() {

@@ -6,9 +6,6 @@ import composegl.snake.game.HighScore
 import composegl.snake.game.HighScoreStore
 import composegl.snake.game.Screen
 import composegl.snake.game.SnakeSession
-import composegl.snake.game.StepResult
-import composegl.snake.render.BoardRenderer
-import composegl.snake.ui.SnakeUi
 import composegl.lwjgl3.GlCanvas
 import composegl.lwjgl3.GlfwClipboard
 import composegl.lwjgl3.GlfwKeyboardInput
@@ -16,13 +13,8 @@ import composegl.lwjgl3.GlfwPointerInput
 import composegl.lwjgl3.GlfwWindow
 import composegl.lwjgl3.StbFonts
 import composegl.ui.debug.FrameBudget
-import composegl.ui.draw.DrawPass
-import composegl.ui.geometry.Rect
 import composegl.ui.geometry.Size
-import composegl.ui.host.UiHost
-import composegl.ui.layout.MeasurePass
 import composegl.ui.layout.ScalePolicy
-import composegl.ui.layout.run
 import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.file.Files
@@ -36,10 +28,9 @@ import org.lwjgl.opengl.GL11
  *
  * Run it with `./gradlew :composegl-demo-snake:run`. Arrows or WASD to steer, Space to pause.
  *
- * The shape of the frame is the whole demo: the board is drawn first, by [BoardRenderer], which has
- * never heard of a composition; the interface is drawn second, into the same frame, by the toolkit.
- * The only thing they share is [SnakeSession], which is Compose state the game loop writes and the
- * interface reads.
+ * Nothing here is the game. A window, fonts, a canvas and a loop that calls [SnakeApp] four times;
+ * the rules, the board, the interface and the input are in `composegl-demo-snake-core`, and the
+ * Android launcher calls exactly the same four methods.
  *
  * `COMPOSEGL_SNAKE_SHOT=<path>` draws one frame, saves it and exits; `COMPOSEGL_SNAKE_SHOT_AT` is
  * how many seconds to let the game run first, and `COMPOSEGL_SNAKE_SCRIPT` is a comma-separated
@@ -55,18 +46,11 @@ fun main() {
     fonts.register("display", typeface, listOf(34))
 
     val canvas = GlCanvas(fonts)
-    val session = SnakeSession(FileHighScores())
-    val board = BoardRenderer()
-    val host = UiHost()
-    val skin = snakeSkin(fonts)
-    // Off: it is a debug tool, and F3 puts it up.
-    val budget = FrameBudget().also { it.isOn = false }
-    host.setContent { SnakeUi(session, fonts, skin.skin, GlfwClipboard(window), budget) }
+    val app = SnakeApp(fonts, FileHighScores(), GlfwClipboard(window))
 
-    var viewport = window.viewport(Design, ScalePolicy.Fit)
-    val input = SnakeInput(session, host.root, budget)
-    GlfwPointerInput(sink = input, viewport = { viewport }, pixelScale = { window.pixelScale }).attachTo(window)
-    GlfwKeyboardInput(input).attachTo(window)
+    var viewport = window.viewport(SnakeApp.Design, ScalePolicy.Fit)
+    GlfwPointerInput(sink = app.input, viewport = { viewport }, pixelScale = { window.pixelScale }).attachTo(window)
+    GlfwKeyboardInput(app.input).attachTo(window)
 
     val shot: String? = System.getenv("COMPOSEGL_SNAKE_SHOT")
     val shotAt: Float = System.getenv("COMPOSEGL_SNAKE_SHOT_AT")?.toFloatOrNull() ?: 0f
@@ -82,26 +66,20 @@ fun main() {
             val delta = (now - last).coerceAtMost(0.1f)
             last = now
 
-            skin.reloadIfChanged()
-            board.advance(delta)
-            if (session.advance(delta) == StepResult.Ate) board.onEat()
-            val changed = budget.recompose { host.frame(System.nanoTime()) }
+            app.update(delta)
 
-            viewport = window.viewport(Design, ScalePolicy.Fit)
-            budget.layout { MeasurePass().run(host.root, viewport) }
-            input.frame(System.nanoTime() / 1_000_000)
-            if (frames < script.size) play(session, script[frames], budget)
+            viewport = window.viewport(SnakeApp.Design, ScalePolicy.Fit)
+            app.layout(viewport, System.nanoTime())
+            if (frames < script.size) play(app.session, script[frames], app.budget)
 
             GL11.glClearColor(0.043f, 0.055f, 0.075f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
             canvas.begin(viewport)
-            // The game first, the interface over it, in one canvas and one frame.
-            board.draw(canvas, BoardArea, session.game, session.showGrid, session.stepProgress)
-            budget.draw { DrawPass(canvas).draw(host.root) }
+            app.draw(canvas)
             canvas.end()
 
             // After end(), because that is when the last batch is actually handed over.
-            budget.endFrame(canvas.drawCalls, changed)
+            app.endFrame(canvas.drawCalls)
 
             window.present()
 
@@ -112,17 +90,12 @@ fun main() {
             }
         }
     } finally {
-        host.dispose()
+        app.close()
         canvas.close()
         fonts.close()
         window.close()
     }
 }
-
-private val Design = Size(1280f, 720f)
-
-/** Where the board goes: the whole screen bar the column the HUD sits in. */
-private val BoardArea = Rect(330f, 40f, 1240f, 680f)
 
 /** One step of a screenshot script. A real run never calls this. */
 private fun play(session: SnakeSession, step: String, budget: FrameBudget) {

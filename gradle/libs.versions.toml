@@ -9,6 +9,8 @@ gdx = "1.14.2"
 gdxControllers = "2.2.3"
 lwjgl = "3.3.3"
 junit = "5.14.0"
+# The Android Gradle plugin, only ever applied to the Android launcher module.
+agp = "9.2.1"
 
 [libraries]
 # --- the only two things composegl-ui is allowed to depend on ---
@@ -21,6 +23,7 @@ gdx-freetype = { module = "com.badlogicgames.gdx:gdx-freetype", version.ref = "g
 gdx-freetype-platform = { module = "com.badlogicgames.gdx:gdx-freetype-platform", version.ref = "gdx" }
 gdx-backend-headless = { module = "com.badlogicgames.gdx:gdx-backend-headless", version.ref = "gdx" }
 gdx-backend-lwjgl3 = { module = "com.badlogicgames.gdx:gdx-backend-lwjgl3", version.ref = "gdx" }
+gdx-backend-android = { module = "com.badlogicgames.gdx:gdx-backend-android", version.ref = "gdx" }
 gdx-platform = { module = "com.badlogicgames.gdx:gdx-platform", version.ref = "gdx" }
 gdx-controllers = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-core", version.ref = "gdxControllers" }
 gdx-controllers-desktop = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-desktop", version.ref = "gdxControllers" }
@@ -36,3 +39,5 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+android-application = { id = "com.android.application", version.ref = "agp" }

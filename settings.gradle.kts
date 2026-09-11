@@ -4,6 +4,8 @@ pluginManagement {
     repositories {
         gradlePluginPortal()
         mavenCentral()
+        // The Android Gradle plugin lives here and nowhere else.
+        google()
     }
 }
 
@@ -22,6 +24,8 @@ include(
     "composegl-testing",
     "composegl-demo",
     "composegl-demo-snake",
+    "composegl-demo-snake-core",
+    "composegl-demo-snake-android",
     "composegl-demo-showcase",
     // Throwaway feasibility spike; see docs/superpowers/spikes/s6-runtime-ui.md.
     "spikes:s6-runtime-ui",
