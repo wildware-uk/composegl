@@ -235,16 +235,25 @@ private class TabPolicy(private val chosen: Int) : MeasurePolicy {
         measurables: List<Measurable>,
         constraints: Constraints,
     ): MeasureResult {
-        val nothing = Constraints.fixed(0f, 0f)
-        val placeables = measurables.mapIndexed { index, measurable ->
-            measurable.measure(if (index == chosen) constraints.loosen() else nothing)
+        // Lent by the node and used again next frame; see MeasureScope.
+        val count = measurables.size
+        val placeables = placeables(count)
+        val placements = placements(count)
+        val offers = offers(count)
+
+        for (index in 0 until count) {
+            val offer = offers[index]
+            val room =
+                if (index == chosen) constraints.loosen(offer) else offer.of(0f, 0f, 0f, 0f)
+            placeables[index] = measurables[index].measure(room)
+            placements[index * 2] = 0f
+            placements[index * 2 + 1] = 0f
         }
+
         val shown = placeables.getOrNull(chosen)
         val width = constraints.constrainWidth(shown?.width ?: 0f)
         val height = constraints.constrainHeight(shown?.height ?: 0f)
 
-        return layout(width, height) {
-            placeables.forEach { it.at(0f, 0f) }
-        }
+        return layout(width, height, count)
     }
 }

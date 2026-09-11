@@ -26,12 +26,12 @@ class MeasurePass {
 
     internal fun measure(node: UiNode, incoming: Constraints): Placeable {
         val resolved = node.resolved
-        val outer = resolved.applyTo(incoming)
+        val outer = resolved.applyTo(incoming, node.outerConstraints)
         val padding = resolved.padding
         // Not loosened. A policy has to see the minimum it was given, or a row told to be 200
         // wide arranges its children inside the 40 they happen to add up to. Loosening for
         // children is each policy's own decision, and every one of them makes it.
-        val content = outer.shrink(padding.horizontal, padding.vertical)
+        val content = outer.shrink(padding.horizontal, padding.vertical, node.contentConstraints)
 
         val measurables = measurables(node)
         val result = with(node.measurePolicy) { node.scope.measure(measurables, content) }
@@ -164,7 +164,7 @@ internal class Inset : PlacementScope {
  * When a chain says both, `fill` wins on the axis it names: `Modifier.size(50f).fillMaxWidth()`
  * is 50 tall and as wide as it can be.
  */
-internal fun ResolvedModifier.applyTo(incoming: Constraints): Constraints {
+internal fun ResolvedModifier.applyTo(incoming: Constraints, cache: ConstraintsCache): Constraints {
     if (size == null && fill == null) return incoming
 
     // The four numbers first, one object at the end. Written out rather than with `let`, because
@@ -209,7 +209,7 @@ internal fun ResolvedModifier.applyTo(incoming: Constraints): Constraints {
     ) {
         return incoming
     }
-    return Constraints(minWidth, maxWidth, minHeight, maxHeight)
+    return cache.of(minWidth, maxWidth, minHeight, maxHeight)
 }
 
 /**
@@ -226,11 +226,24 @@ internal class NodeMeasureScope : MeasureScope {
     private var placeables = arrayOfNulls<Placeable>(0)
     private var sizes = FloatArray(0)
     private var positions = FloatArray(0)
+    private var placements = FloatArray(0)
+    private var offers = emptyArray<ConstraintsCache>()
 
     override fun layout(width: Float, height: Float, place: PlacementScope.() -> Unit): MeasureResult {
         result.width = width
         result.height = height
         result.place = place
+        result.count = -1
+        return result
+    }
+
+    override fun layout(width: Float, height: Float, count: Int): MeasureResult {
+        result.width = width
+        result.height = height
+        result.place = null
+        result.count = count
+        result.placeables = placeables
+        result.placements = placements
         return result
     }
 
@@ -249,12 +262,46 @@ internal class NodeMeasureScope : MeasureScope {
         return positions
     }
 
-    /** The answer, filled in again each time rather than made again. */
+    override fun placements(count: Int): FloatArray {
+        if (placements.size < count * 2) placements = FloatArray(count * 2)
+        return placements
+    }
+
+    override fun offers(count: Int): Array<ConstraintsCache> {
+        if (offers.size < count) offers = Array(count) { ConstraintsCache() }
+        return offers
+    }
+
+    /**
+     * The answer, filled in again each time rather than made again.
+     *
+     * It holds whichever of the two ways of placing the layout chose: a block to run, or a count
+     * of children and the corners they go at. [count] is -1 when there is a block.
+     */
     private class ReusableResult : MeasureResult {
         override var width = 0f
         override var height = 0f
-        var place: PlacementScope.() -> Unit = {}
+        var place: (PlacementScope.() -> Unit)? = null
+        var count = -1
+        var placeables: Array<Placeable?> = EMPTY_PLACEABLES
+        var placements: FloatArray = EMPTY_FLOATS
 
-        override fun placeChildren(scope: PlacementScope) = scope.place()
+        override fun placeChildren(scope: PlacementScope) {
+            val place = place
+            if (place != null) {
+                scope.place()
+                return
+            }
+            with(scope) {
+                for (index in 0 until count) {
+                    placeables[index]?.at(placements[index * 2], placements[index * 2 + 1])
+                }
+            }
+        }
+
+        private companion object {
+            val EMPTY_PLACEABLES = arrayOfNulls<Placeable>(0)
+            val EMPTY_FLOATS = FloatArray(0)
+        }
     }
 }

@@ -20,6 +20,7 @@ import composegl.ui.layout.Measurable
 import composegl.ui.layout.MeasurePolicy
 import composegl.ui.layout.MeasureResult
 import composegl.ui.layout.MeasureScope
+import composegl.ui.layout.Placeable
 import composegl.ui.modifier.Modifier
 import composegl.ui.modifier.alpha
 import composegl.ui.skin.styled
@@ -180,36 +181,50 @@ private class BarPolicy(
         val height = constraints.constrainHeight(if (horizontal) thickness else along)
         val span = if (horizontal) width else height
 
-        fun piece(measurable: Measurable, howMuch: Float) = measurable.measure(
-            if (horizontal) Constraints.fixed(span * howMuch, thickness)
-            else Constraints.fixed(thickness, span * howMuch),
-        )
+        // Lent by the node and used again next frame; see MeasureScope.
+        val count = measurables.size
+        val placeables = placeables(count)
+        val placements = placements(count)
+        val offers = offers(count)
 
-        val track = piece(measurables[0], 1f)
-        val trail = piece(measurables[1], trailFraction)
-        val fill = piece(measurables[2], fraction)
-        val notches = measurables.drop(3).map {
-            it.measure(
-                if (horizontal) Constraints.fixed(SegmentWidth, thickness)
-                else Constraints.fixed(thickness, SegmentWidth),
-            )
-        }
-
-        return layout(width, height) {
-            track.at(0f, 0f)
-            // A vertical bar fills from the bottom, which is where a player expects a tank to empty
-            // from, so both of the moving pieces hang off the bottom edge rather than the top.
-            if (horizontal) {
-                trail.at(0f, 0f)
-                fill.at(0f, 0f)
+        fun piece(index: Int, howMuch: Float): Placeable {
+            val offer = offers[index]
+            val fixed = if (horizontal) {
+                offer.of(span * howMuch, span * howMuch, thickness, thickness)
             } else {
-                trail.at(0f, height - trail.height)
-                fill.at(0f, height - fill.height)
+                offer.of(thickness, thickness, span * howMuch, span * howMuch)
             }
-            notches.forEachIndexed { index, notch ->
-                val at = span * (index + 1) / segments.toFloat() - SegmentWidth / 2f
-                if (horizontal) notch.at(at, 0f) else notch.at(0f, at)
-            }
+            return measurables[index].measure(fixed)
         }
+
+        val track = piece(0, 1f)
+        val trail = piece(1, trailFraction)
+        val fill = piece(2, fraction)
+        placeables[0] = track
+        placeables[1] = trail
+        placeables[2] = fill
+
+        // A vertical bar fills from the bottom, which is where a player expects a tank to empty
+        // from, so both of the moving pieces hang off the bottom edge rather than the top.
+        placements[1] = 0f
+        placements[3] = if (horizontal) 0f else height - trail.height
+        placements[5] = if (horizontal) 0f else height - fill.height
+        placements[0] = 0f
+        placements[2] = 0f
+        placements[4] = 0f
+
+        for (index in 3 until count) {
+            val offer = offers[index]
+            val notch = measurables[index].measure(
+                if (horizontal) offer.of(SegmentWidth, SegmentWidth, thickness, thickness)
+                else offer.of(thickness, thickness, SegmentWidth, SegmentWidth),
+            )
+            placeables[index] = notch
+            val at = span * (index - 2) / segments.toFloat() - SegmentWidth / 2f
+            placements[index * 2] = if (horizontal) at else 0f
+            placements[index * 2 + 1] = if (horizontal) 0f else at
+        }
+
+        return layout(width, height, count)
     }
 }

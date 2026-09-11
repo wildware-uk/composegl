@@ -273,9 +273,11 @@ class TextWidgetTest {
 
         fun assertBalanced() = inner.assertBalanced()
 
-        override fun text(layout: TextLayout, at: Offset, colour: Colour) {
+        // The two-float form, not the Offset one: that is what a widget actually calls, and the
+        // Offset one only forwards to it.
+        override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) {
             drawn += layout
-            inner.text(layout, at, colour)
+            inner.text(layout, x, y, colour)
         }
     }
 }

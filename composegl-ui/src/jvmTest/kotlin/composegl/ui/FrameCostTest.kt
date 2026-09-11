@@ -140,11 +140,11 @@ class FrameCostTest {
         }
         val perFrame = (allocatedBytes() - before) / 20
 
-        // Where it stands today, measured: about 2.9k of it is the layout pass and 1.3k the draw.
-        // A ratchet rather than a target. What is left is two things, both of them one small
-        // object per node per frame: the closure a policy hands back to place its children with,
-        // and the Constraints a node that asks for a size or a share of one still makes.
-        assertTrue(perFrame < 5_120, "a still frame of a whole HUD allocated $perFrame bytes")
+        // Where it stands today, measured: about 40 bytes of it is the layout pass and 40 the
+        // draw. Neither pass makes anything per node any more — what is left is the recomposer
+        // being asked for a frame it has nothing to do in, plus the throwaway passes this loop
+        // makes itself. A ratchet rather than a target.
+        assertTrue(perFrame < 1_536, "a still frame of a whole HUD allocated $perFrame bytes")
     }
 
     @Test

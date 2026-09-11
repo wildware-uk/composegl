@@ -2,7 +2,6 @@ package composegl.ui.widget
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
 import composegl.ui.graphics.UiCanvas
@@ -133,6 +132,7 @@ private class TextPainter(
 
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
         // Null only if a frame is drawn before anything measured, which the passes do not do.
-        measured?.let { text(it, Offset(bounds.left + shift, bounds.top), colour) }
+        // The two-float call, not the Offset one: this runs for every run of text every frame.
+        measured?.let { text(it, bounds.left + shift, bounds.top, colour) }
     }
 }

@@ -12,6 +12,7 @@ import composegl.ui.animation.Easings
 import composegl.ui.animation.FloatVectoriser
 import composegl.ui.animation.LocalClocks
 import composegl.ui.animation.Tween
+import composegl.ui.draw.RectCache
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
 import composegl.ui.graphics.UiCanvas
@@ -194,19 +195,28 @@ private class ReticlePainter(
 
     private val quad = FloatArray(8)
 
+    /**
+     * The five rectangles a crosshair is made of, handed back when they have not moved.
+     *
+     * A crosshair is drawn every frame of the whole game, and a still one is the same five
+     * rectangles every time; see RectCache. One cache each, because two of them sharing one would
+     * mean neither is ever the one that was kept.
+     */
+    private val rects = Array(5) { RectCache() }
+
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
         val x = (bounds.left + bounds.right) / 2f
         val y = (bounds.top + bounds.bottom) / 2f
         val half = thickness / 2f
 
         if (arm > 0f && thickness > 0f) {
-            rect(Rect(x - half, y - gap - arm, x + half, y - gap), arms)
-            rect(Rect(x - half, y + gap, x + half, y + gap + arm), arms)
-            rect(Rect(x - gap - arm, y - half, x - gap, y + half), arms)
-            rect(Rect(x + gap, y - half, x + gap + arm, y + half), arms)
+            rect(rects[0].of(x - half, y - gap - arm, x + half, y - gap), arms)
+            rect(rects[1].of(x - half, y + gap, x + half, y + gap + arm), arms)
+            rect(rects[2].of(x - gap - arm, y - half, x - gap, y + half), arms)
+            rect(rects[3].of(x + gap, y - half, x + gap + arm, y + half), arms)
         }
         if (dot > 0f) {
-            rect(Rect(x - dot / 2f, y - dot / 2f, x + dot / 2f, y + dot / 2f), arms)
+            rect(rects[4].of(x - dot / 2f, y - dot / 2f, x + dot / 2f, y + dot / 2f), arms)
         }
         if (markerAlpha > 0f) drawMarker(this, x, y)
     }

@@ -21,7 +21,7 @@ internal data class BoxPolicy(val contentAlignment: Alignment) : MeasurePolicy {
         val placeables = placeables(count)
         // Worked out once, and only when there is somebody to offer it to: every child of a box
         // gets the same room, and an empty box has no children to give any to.
-        val offered = if (count == 0) constraints else constraints.loosen()
+        val offered = if (count == 0) constraints else constraints.loosen(offers(1)[0])
 
         var widest = 0f
         var tallest = 0f
@@ -35,16 +35,17 @@ internal data class BoxPolicy(val contentAlignment: Alignment) : MeasurePolicy {
         val width = constraints.constrainWidth(widest)
         val height = constraints.constrainHeight(tallest)
 
-        return layout(width, height) {
-            for (index in 0 until count) {
-                val placeable = placeables[index] ?: continue
-                val alignment = measurables[index].layoutData.alignment ?: contentAlignment
-                placeable.at(
-                    alignment.xIn(width, placeable.width),
-                    alignment.yIn(height, placeable.height),
-                )
-            }
+        // Where each child goes is known now, so it is written down rather than closed over; see
+        // MeasureScope.layout.
+        val placements = placements(count)
+        for (index in 0 until count) {
+            val placeable = placeables[index] ?: continue
+            val alignment = measurables[index].layoutData.alignment ?: contentAlignment
+            placements[index * 2] = alignment.xIn(width, placeable.width)
+            placements[index * 2 + 1] = alignment.yIn(height, placeable.height)
         }
+
+        return layout(width, height, count)
     }
 }
 

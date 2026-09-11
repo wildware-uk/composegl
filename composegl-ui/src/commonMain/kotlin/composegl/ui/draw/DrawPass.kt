@@ -4,6 +4,7 @@ import composegl.ui.effect.ShaderEffect
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.UiCanvas
+import composegl.ui.layout.Padding
 import composegl.ui.modifier.BackgroundElement
 import composegl.ui.modifier.BorderElement
 import composegl.ui.modifier.DrawBehindElement
@@ -44,7 +45,13 @@ class DrawPass(private val canvas: UiCanvas) {
         // fading panel costs a comparison instead of a subtree.
         if (resolved.alpha <= 0f) return
 
-        val bounds = Rect.of(originX + node.x, originY + node.y, node.width, node.height)
+        // Kept on the node and handed back when it has not moved; see RectCache.
+        val bounds = node.drawnBounds.of(
+            originX + node.x,
+            originY + node.y,
+            originX + node.x + node.width,
+            originY + node.y + node.height,
+        )
         val faded = resolved.alpha < 1f
         if (faded) canvas.pushAlpha(resolved.alpha)
 
@@ -78,7 +85,12 @@ class DrawPass(private val canvas: UiCanvas) {
             val padding = resolved.padding
             content(
                 canvas,
-                bounds.inset(padding.left, padding.top, padding.right, padding.bottom),
+                node.drawnContent.of(
+                    bounds.left + padding.left,
+                    bounds.top + padding.top,
+                    bounds.right - padding.right,
+                    bounds.bottom - padding.bottom,
+                ),
             )
         }
 
@@ -127,7 +139,18 @@ class DrawPass(private val canvas: UiCanvas) {
      * paints across the node, and both are things people write on purpose.
      */
     private fun paint(op: PaintOp, bounds: Rect) {
-        val rect = bounds.inset(op.inset.left, op.inset.top, op.inset.right, op.inset.bottom)
+        val inset = op.inset
+        // Kept on the op and handed back when it has not moved; see RectCache.
+        val rect = if (inset == Padding.None) {
+            bounds
+        } else {
+            op.painted.of(
+                bounds.left + inset.left,
+                bounds.top + inset.top,
+                bounds.right - inset.right,
+                bounds.bottom - inset.bottom,
+            )
+        }
         when (val element = op.element) {
             is BackgroundElement -> canvas.rect(rect, element.colour, element.corner)
             is BorderElement -> canvas.border(rect, element.colour, element.width, element.corner)
@@ -138,5 +161,29 @@ class DrawPass(private val canvas: UiCanvas) {
             is DrawInFrontElement -> element.draw(canvas, rect)
             else -> Unit
         }
+    }
+}
+
+/**
+ * The last rectangle worked out for a node, handed back when it has not moved.
+ *
+ * A draw pass runs every frame, and for a screen that is standing still every rectangle in it is
+ * the same one as last time. Four float comparisons instead of an allocation, per node, per frame.
+ *
+ * [Rect] is immutable, so handing the same one back twice is safe however far it travels — a
+ * recording canvas that keeps it is keeping a value, not a view onto something that will change.
+ */
+internal class RectCache {
+
+    private var held: Rect? = null
+
+    fun of(left: Float, top: Float, right: Float, bottom: Float): Rect {
+        val held = held
+        if (held != null &&
+            held.left == left && held.top == top && held.right == right && held.bottom == bottom
+        ) {
+            return held
+        }
+        return Rect(left, top, right, bottom).also { this.held = it }
     }
 }

@@ -1,5 +1,6 @@
 package composegl.ui.modifier
 
+import composegl.ui.draw.RectCache
 import composegl.ui.effect.ShaderEffect
 import composegl.ui.focus.FocusRequester
 import composegl.ui.focus.FocusWithinHandler
@@ -21,7 +22,16 @@ import composegl.ui.layout.Padding
  * across the whole node and records an inset of nothing. Both are things people want, and a
  * toolkit that flattened modifiers into a bag of properties could express only one of them.
  */
-data class PaintOp(val element: Modifier.Element, val inset: Padding)
+data class PaintOp(val element: Modifier.Element, val inset: Padding) {
+
+    /**
+     * The rectangle this op was last painted into, handed back when it has not moved.
+     *
+     * Outside the constructor on purpose: it is scratch space, not part of what makes two ops
+     * equal. See [composegl.ui.draw.RectCache].
+     */
+    internal val painted = RectCache()
+}
 
 /**
  * A modifier chain read once, into the questions layout and drawing actually ask.
