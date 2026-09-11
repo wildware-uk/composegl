@@ -91,6 +91,35 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         drawing = false
     }
 
+    /**
+     * Points the following quads somewhere else — an offscreen layer, and back again.
+     *
+     * Flushes first, because whatever is queued was queued for the old one and would otherwise be
+     * drawn into the new one at the wrong size and in the wrong place.
+     */
+    fun projection(projection: FloatArray) {
+        require(projection.size == 16) { "a projection is sixteen floats, not ${projection.size}" }
+        flush()
+        projection.copyInto(this.projection)
+    }
+
+    /**
+     * Whether the colours coming in are already multiplied by their own opacity.
+     *
+     * True for a layer being drawn back onto the screen, since that is what [begin]'s blending
+     * produced when the layer was drawn; false for everything else. Blending it the ordinary way
+     * would multiply by the opacity a second time and edge every soft thing in black.
+     */
+    fun premultiplied(premultiplied: Boolean) {
+        flush()
+        GL14.glBlendFuncSeparate(
+            if (premultiplied) GL11.GL_ONE else GL11.GL_SRC_ALPHA,
+            GL11.GL_ONE_MINUS_SRC_ALPHA,
+            GL11.GL_ONE,
+            GL11.GL_ONE_MINUS_SRC_ALPHA,
+        )
+    }
+
     fun flush() {
         if (used == 0) return
         val quads = used / (4 * FloatsPerVertex)

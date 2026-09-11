@@ -50,6 +50,54 @@ class GlRenderTargetTest {
     }
 
     @Test
+    fun `an effect inside a panel in the world draws into the panel, not the window`() {
+        // A layer binds a framebuffer of its own and has to put back the one it found. What it
+        // found here is the panel's, not the window's — and nothing can ask OpenGL which, because
+        // LibGDX answers that question wrongly and asking costs a stall. So the canvas is told.
+        val canvas = GlCanvas()
+        val target = GlRenderTarget(size, size)
+        try {
+            Gl.render {
+                GL11.glClearColor(0f, 0f, 0f, 1f)
+                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+
+                target.draw(canvas, clear = Colour.rgb(0x000000)) {
+                    val bounds = Rect.of(0f, 0f, size.toFloat(), size.toFloat())
+                    val picture = canvas.layer(bounds) { canvas.rect(panel, fill) }
+                    canvas.drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds)
+                }
+
+                GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, target.framebufferName)
+                val inside = readPixels(size, size)
+                GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, 0)
+                val window = readPixels(Gl.size, Gl.size)
+
+                // The panel's own pixels have the rectangle; the window behind it is still the
+                // black it was cleared to. Put the framebuffer back wrongly and the two swap.
+                assertEquals(
+                    0x3366CCFF.toInt(),
+                    colour(inside, size, 60, 50),
+                    "the rectangle should have landed in the panel",
+                )
+                assertEquals(
+                    0x000000FF.toInt(),
+                    colour(window, Gl.size, 60, 50),
+                    "and nothing should have landed on the window",
+                )
+            }
+        } finally {
+            target.close()
+            canvas.close()
+        }
+    }
+
+    /** One pixel of a frame read back, with y counted down from the top like the toolkit's. */
+    private fun colour(pixels: IntArray, width: Int, x: Int, y: Int): Int {
+        val height = pixels.size / width
+        return pixels[(height - 1 - y) * width + x]
+    }
+
+    @Test
     fun `a panel in the world is the same pixels as the same panel on the hud`() = Gl.render {
         val canvas = GlCanvas()
         val target = GlRenderTarget(size, size)

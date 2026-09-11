@@ -86,6 +86,108 @@ class GdxCanvasTest {
     }
 
     @Test
+    fun `a layer lands exactly where drawing straight onto the screen would have`() {
+        val bounds = Rect.of(40f, 40f, 120f, 120f)
+        val frame = draw {
+            val picture = layer(bounds) { rect(Rect.of(60f, 60f, 60f, 60f), red) }
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds)
+        }
+
+        assertColour(Color.RED, frame.pixels.at(90, 90), "the middle of the rectangle")
+        assertColour(Color.BLACK, frame.pixels.at(50, 50), "inside the layer but outside the rectangle")
+        assertColour(Color.BLACK, frame.pixels.at(20, 20), "outside the layer altogether")
+    }
+
+    @Test
+    fun `a layer fades as one object rather than as a pile of parts`() {
+        // The whole reason layers exist. Two overlapping opaque boxes at half opacity: drawn
+        // straight, the overlap is two fades stacked and the red shows through the blue. Through a
+        // layer they are one object, so the overlap is only the blue.
+        val bounds = Rect.of(0f, 0f, 200f, 200f)
+        val frame = draw {
+            pushAlpha(0.5f)
+            val picture = layer(bounds) {
+                rect(Rect.of(20f, 20f, 100f, 100f), red)
+                rect(Rect.of(60f, 60f, 100f, 100f), blue)
+            }
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds)
+            popAlpha()
+        }
+
+        val overlap = frame.pixels.at(90, 90)
+        assertTrue(overlap.r < 0.06f, "the red should be hidden under the blue, but the overlap is ${overlap.r} red")
+        assertTrue(
+            kotlin.math.abs(overlap.b - 0.5f) < 0.1f,
+            "expected half the blue, got ${overlap.b}",
+        )
+    }
+
+    @Test
+    fun `a layer inside a layer draws the same as one on its own`() {
+        val inner = Rect.of(60f, 60f, 60f, 60f)
+        val bounds = Rect.of(40f, 40f, 120f, 120f)
+        val frame = draw {
+            val outer = layer(bounds) {
+                val nested = layer(inner) { rect(inner, red) }
+                drawLayer(checkNotNull(nested) { "this driver gave us no layer" }, inner)
+            }
+            drawLayer(checkNotNull(outer) { "this driver gave us no layer" }, bounds)
+        }
+
+        assertColour(Color.RED, frame.pixels.at(90, 90), "the middle of the rectangle")
+        assertColour(Color.BLACK, frame.pixels.at(50, 50), "outside it")
+    }
+
+    @Test
+    fun `a clip inside a layer cuts in the layer's own pixels`() {
+        // The scissor has a different origin and a different height inside a layer. Getting that
+        // wrong cuts the wrong half off, which is invisible until somebody clips inside an effect.
+        val bounds = Rect.of(40f, 40f, 120f, 120f)
+        val frame = draw {
+            val picture = layer(bounds) {
+                pushClip(Rect.of(40f, 40f, 60f, 120f))
+                rect(bounds, red)
+                popClip()
+            }
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds)
+        }
+
+        assertColour(Color.RED, frame.pixels.at(70, 100), "the left half, which the clip kept")
+        assertColour(Color.BLACK, frame.pixels.at(130, 100), "the right half, which it cut")
+    }
+
+    @Test
+    fun `the frame carries on normally after a layer`() {
+        // A layer binds a framebuffer, moves the viewport, changes the projection and turns the
+        // scissor off. Everything after it is drawn on the assumption that all four came back.
+        val bounds = Rect.of(0f, 0f, 100f, 100f)
+        val frame = draw {
+            pushClip(Rect.of(0f, 0f, 300f, 200f))
+            val picture = layer(bounds) { rect(bounds, blue) }
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds)
+            rect(Rect.of(150f, 150f, 100f, 100f), red)
+            popClip()
+        }
+
+        assertColour(Color.BLUE, frame.pixels.at(50, 50), "the layer")
+        assertColour(Color.RED, frame.pixels.at(200, 180), "drawn after it, inside the clip")
+        assertColour(Color.BLACK, frame.pixels.at(200, 220), "drawn after it, outside the clip")
+    }
+
+    @Test
+    fun `a layer nobody could draw is refused rather than half drawn`() {
+        var asked = false
+        val frame = draw {
+            val picture = layer(Rect.of(0f, 0f, 0f, 50f)) { asked = true }
+            assertEquals(null, picture, "an empty layer has no picture")
+            rect(Rect.of(10f, 10f, 50f, 50f), red)
+        }
+
+        assertTrue(!asked, "nothing should have been drawn for a layer that was refused")
+        assertColour(Color.RED, frame.pixels.at(30, 30), "the caller's own drawing still works")
+    }
+
+    @Test
     fun `a hundred nodes cost a handful of draw calls`() {
         val frame = draw {
             repeat(100) { index ->

@@ -98,7 +98,12 @@ class GlRenderTarget(width: Int, height: Int) : AutoCloseable {
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
 
         return try {
-            canvas.begin(Viewport.oneToOne(Size(width.toFloat(), height.toFloat())))
+            canvas.begin(
+                Viewport.oneToOne(Size(width.toFloat(), height.toFloat())),
+                // Ours is bound, so anything inside that binds one of its own — a layer, an
+                // effect — knows what to put back when it is done.
+                framebuffer = framebuffer,
+            )
             try {
                 block()
             } finally {

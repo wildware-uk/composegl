@@ -44,6 +44,33 @@ fun scenes(): List<Scene> = listOf(
         text(art.fonts.measure("Panel", Body), Offset(48f, 48f), Paper)
     },
 
+    Scene("layer") { art ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+
+        // Top: two overlapping boxes faded one at a time, so the overlap is two fades stacked and
+        // the seam between them shows.
+        pushAlpha(0.5f)
+        rect(Rect.of(20f, 20f, 90f, 70f), Accent)
+        rect(Rect.of(70f, 45f, 90f, 70f), Paper)
+        popAlpha()
+
+        // Bottom: the same pair through a layer, so they fade together as one object and the seam
+        // is gone. The clip and the text are in here to prove that a layer is drawn in the same
+        // coordinates as the screen — a backend that shifts either of them by the layer's origin
+        // produces a visibly different picture.
+        pushAlpha(0.5f)
+        val bounds = Rect.of(20f, 130f, 140f, 95f)
+        val picture = layer(bounds) {
+            rect(Rect.of(20f, 130f, 90f, 70f), Accent)
+            pushClip(Rect.of(70f, 155f, 60f, 50f))
+            rect(Rect.of(70f, 155f, 90f, 70f), Paper)
+            popClip()
+            text(art.fonts.measure("Layer", Small), Offset(28f, 204f), Paper)
+        }
+        if (picture != null) drawLayer(picture, bounds) else rect(bounds, Accent)
+        popAlpha()
+    },
+
     Scene("shadow") { _ ->
         rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
         // Nothing on top of it, so the falloff itself is what the golden is watching.
