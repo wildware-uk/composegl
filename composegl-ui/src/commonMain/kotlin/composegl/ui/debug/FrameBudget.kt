@@ -15,11 +15,12 @@ import kotlin.time.TimeSource
  *
  * ```kotlin
  * val budget = FrameBudget()
+ * val draw = DrawPass(canvas)
  * // in the game loop:
  * val changed = budget.recompose { host.frame(nanos) }
  * budget.layout { MeasurePass().run(host.root, viewport) }
  * canvas.begin(viewport)
- * budget.draw { DrawPass(canvas).draw(host.root) }
+ * budget.draw { draw.draw(host.root) }
  * canvas.end()
  * budget.endFrame(canvas.drawCalls, changed)
  * ```

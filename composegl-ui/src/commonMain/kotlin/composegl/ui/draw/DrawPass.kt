@@ -24,9 +24,12 @@ import composegl.ui.node.UiNode
  * chain put in front — which is exactly the order a person reading the modifier chain expects.
  *
  * The pass holds no state of its own beyond the canvas, so drawing the same tree twice draws the
- * same thing, and a test can draw a tree without a GPU anywhere near it.
+ * same thing, and a test can draw a tree without a GPU anywhere near it. That also means a game
+ * whose canvas does not change can make one of these once and keep it, rather than one a frame —
+ * see the demos. [canvas] is public so that a caller holding one can check it is still the right
+ * one.
  */
-class DrawPass(private val canvas: UiCanvas) {
+class DrawPass(val canvas: UiCanvas) {
 
     /** Draws [node] and everything under it. [origin] is where its parent's content box starts. */
     fun draw(node: UiNode, origin: Offset = Offset.Zero) = draw(node, origin.x, origin.y)
