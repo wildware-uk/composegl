@@ -108,7 +108,12 @@ class ContainerTest {
     /** Every control a pad could land on, in tree order. A button is a box, so it has no name. */
     private fun buttons(): List<UiNode> {
         val found = mutableListOf<UiNode>()
-        host.root.forEach { if (it.resolved.focusable?.enabled == true && it.resolved.alpha > 0f) found += it }
+        host.root.forEach { node ->
+            if (node.resolved.focusable?.enabled != true) return@forEach
+            var walk: UiNode? = node
+            while (walk != null && walk.resolved.alpha > 0f) walk = walk.parent
+            if (walk == null) found += node
+        }
         return found
     }
 
@@ -369,7 +374,16 @@ class ContainerTest {
         assertTrue("PAGE 0" in drawn)
         assertFalse("PAGE 1" in drawn, "the hidden page was drawn: $drawn")
 
-        repeat(8) { key(Key.Tab) }
+        // A hidden page is measured at no size at all, so a focused node with an empty rectangle
+        // is a cursor that has walked off onto the page nobody can see.
+        repeat(8) {
+            key(Key.Tab)
+            val where = focus.focused?.boundsInRoot
+            assertTrue(
+                where != null && !where.isEmpty,
+                "focus landed on something with no size, which is a widget on the hidden page",
+            )
+        }
         assertFalse(focusedLabel() == "PAGE 1", "focus reached a page nobody can see")
     }
 

@@ -141,24 +141,37 @@ internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink
     }
 
     /**
-     * Plays a keyboard script, for the same reason [pretendPadDid] exists.
+     * Splits a keyboard script into its steps, for the same reason [pretendPadDid] exists.
      *
-     * [script] is a comma-separated list of `tab`, `shift-tab`, `up`, `down`, `left`, `right`,
-     * `enter`, `escape` and the digits `1` to `9` and `0`. Each is one keystroke, down and up.
+     * A step is `tab`, `shift-tab`, `up`, `down`, `left`, `right`, `enter`, `escape`, one of the
+     * digits `1` to `9` and `0`, or `text:HELLO` — the other input stream, what the platform says
+     * was typed, which is how a scripted run gets something into a text field.
+     *
+     * They come back as a list rather than being played here because a backend must put a frame
+     * between them: pressing a tab heading changes what is on screen, and the keystroke that walks
+     * into the new page cannot be sent before the page exists.
      */
-    fun pretendKeysWere(script: String) {
-        script.split(',').map { it.trim() }.filter { it.isNotEmpty() }.forEach { step ->
-            when (step) {
-                "tab" -> type(Key.Tab)
-                "shift-tab" -> type(Key.Tab, Modifiers.Shift)
-                "up" -> type(Key.Up)
-                "down" -> type(Key.Down)
-                "left" -> type(Key.Left)
-                "right" -> type(Key.Right)
-                "enter" -> type(Key.Enter)
-                "escape" -> type(Key.Escape)
-                in numbers -> type(numbers.getValue(step))
-                else -> error("a key script step is tab, shift-tab, a direction, enter, escape or a digit, not '$step'")
+    fun keyScript(script: String): List<String> =
+        script.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+
+    /** Plays one step of a [keyScript]. */
+    fun pretendKeyWas(step: String) {
+        when (step) {
+            "tab" -> type(Key.Tab)
+            "shift-tab" -> type(Key.Tab, Modifiers.Shift)
+            "up" -> type(Key.Up)
+            "down" -> type(Key.Down)
+            "left" -> type(Key.Left)
+            "right" -> type(Key.Right)
+            "enter" -> type(Key.Enter)
+            "escape" -> type(Key.Escape)
+            in numbers -> type(numbers.getValue(step))
+            else -> {
+                val typed = step.removePrefix("text:")
+                if (typed == step) {
+                    error("a key script step is tab, shift-tab, a direction, enter, escape, a digit or text:…, not '$step'")
+                }
+                typed.forEach { onText(TextEvent(it.toString())) }
             }
         }
     }

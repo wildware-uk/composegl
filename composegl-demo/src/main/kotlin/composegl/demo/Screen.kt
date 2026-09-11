@@ -43,16 +43,19 @@ import composegl.ui.skin.rememberStates
 import composegl.ui.skin.rememberStyle
 import composegl.ui.skin.styled
 import composegl.ui.text.FontProvider
+import composegl.ui.backend.Clipboard
 import composegl.ui.widget.Button
 import composegl.ui.widget.Checkbox
 import composegl.ui.widget.Dialog
 import composegl.ui.widget.Image
 import composegl.ui.widget.ImageFit
+import composegl.ui.widget.LocalClipboard
 import composegl.ui.widget.LocalFonts
 import composegl.ui.widget.ProvideBackStack
 import composegl.ui.widget.rememberLazyListState
 import composegl.ui.widget.LazyColumn
 import composegl.ui.widget.Slider
+import composegl.ui.widget.TextField
 import composegl.ui.widget.Tabs
 import composegl.ui.widget.Text
 import composegl.ui.widget.Toggle
@@ -68,10 +71,11 @@ import composegl.ui.widget.Toggle
  * is `ui/demo.skin.json` — saved while the example runs, seen on the next frame.
  */
 @Composable
-fun Screen(fonts: FontProvider, skin: Skin, state: DemoState) {
+fun Screen(fonts: FontProvider, skin: Skin, state: DemoState, clipboard: Clipboard = Clipboard.None) {
     CompositionLocalProvider(
         LocalFonts provides fonts,
         LocalInputSource provides state.source,
+        LocalClipboard provides clipboard,
     ) {
         ProvideSkin(skin) {
             ProvideBackStack(state.backs) {
@@ -172,7 +176,7 @@ private fun StatusPanel(modifier: Modifier, state: DemoState) {
             modifier = Modifier.fillMaxSize(),
             spacing = 10f,
         ) { page ->
-            if (page == 0) StatusPage(state) else GearPage()
+            if (page == 0) StatusPage(state) else GearPage(state)
         }
     }
 }
@@ -223,7 +227,7 @@ private fun StatusPage(state: DemoState) {
  * keeps its composition instead of being thrown away and built again.
  */
 @Composable
-private fun GearPage() {
+private fun GearPage(state: DemoState) {
     var cutter by remember { mutableStateOf(true) }
     var flares by remember { mutableStateOf(false) }
     var rebreather by remember { mutableStateOf(true) }
@@ -231,6 +235,18 @@ private fun GearPage() {
 
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12f)) {
         Heading("LOADOUT")
+        // Somewhere to type. Cut and paste reach the system clipboard through whichever backend is
+        // running, which is the only part of a text field a game cannot write for itself.
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4f)) {
+            Text("Callsign", style = "label.dim")
+            TextField(
+                value = state.callsign,
+                onValueChange = { state.callsign = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = "unnamed",
+                maxLength = 16,
+            )
+        }
         Checkbox(cutter, onCheckedChange = { cutter = it }, label = "Plasma cutter")
         Checkbox(flares, onCheckedChange = { flares = it }, label = "Flares")
         Checkbox(rebreather, onCheckedChange = { rebreather = it }, label = "Rebreather")
@@ -432,6 +448,9 @@ class DemoState {
     var subtitles by mutableStateOf(true)
 
     var selected by mutableStateOf(3)
+
+    /** What the player typed into the callsign field. */
+    var callsign by mutableStateOf("")
 
     /** Which page of the status panel is showing. */
     var tab by mutableStateOf(0)
