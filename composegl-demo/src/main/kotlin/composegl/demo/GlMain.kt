@@ -44,6 +44,9 @@ fun main() {
 
     val art = GlTexture.decode(resource("ui/ui.png"))
     val canvas = GlCanvas(fonts)
+
+    // Made once, not once a frame: a pass holds the canvas and nothing else.
+    val drawPass = DrawPass(canvas)
     val state = DemoState()
     val host = UiHost()
     val skin = demoSkin(atlas(art), fonts)
@@ -103,7 +106,7 @@ fun main() {
             GL11.glClearColor(0.03f, 0.04f, 0.05f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
             canvas.begin(viewport)
-            state.budget.draw { DrawPass(canvas).draw(host.root) }
+            state.budget.draw { drawPass.draw(host.root) }
             canvas.end()
 
             // After end(), because that is when the last batch is actually handed over.

@@ -88,9 +88,13 @@ class WorldPanel(
      * The canvas is the backend's, already pointed at wherever the pixels go — a framebuffer, in
      * practice. Nothing here knows what one is.
      */
+    private var drawPass: DrawPass? = null
+
     fun draw(canvas: UiCanvas) {
         MeasurePass().run(host.root, Constraints.fixed(size.width, size.height))
-        DrawPass(canvas).draw(host.root)
+        // Kept rather than made each frame: a pass holds the canvas and nothing else.
+        val pass = drawPass?.takeIf { it.canvas === canvas } ?: DrawPass(canvas).also { drawPass = it }
+        pass.draw(host.root)
         dirty = false
         draws++
     }

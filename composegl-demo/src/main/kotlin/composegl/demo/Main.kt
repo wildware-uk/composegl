@@ -44,6 +44,9 @@ class Demo : ApplicationAdapter() {
     private lateinit var atlas: TextureAtlas
     private lateinit var skin: ReloadingSkin
     private lateinit var canvas: GdxCanvas
+
+    /** Made once, not once a frame: a pass holds the canvas and nothing else. */
+    private lateinit var drawPass: DrawPass
     private lateinit var sprites: SpriteBatch
     private lateinit var host: UiHost
     private lateinit var pointerInput: GdxPointerInput
@@ -95,6 +98,7 @@ class Demo : ApplicationAdapter() {
 
         sprites = SpriteBatch()
         canvas = GdxCanvas(sprites, fonts.atlas)
+        drawPass = DrawPass(canvas)
         host = UiHost()
         host.setContent { Screen(fonts, skin.skin, state, GdxClipboard(), GdxSoftKeyboard()) }
 
@@ -137,7 +141,7 @@ class Demo : ApplicationAdapter() {
         Gdx.gl.glClearColor(0.03f, 0.04f, 0.05f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
         canvas.begin(viewport)
-        state.budget.draw { DrawPass(canvas).draw(host.root) }
+        state.budget.draw { drawPass.draw(host.root) }
         canvas.end()
 
         // After end(), because that is when the last batch is actually handed over.

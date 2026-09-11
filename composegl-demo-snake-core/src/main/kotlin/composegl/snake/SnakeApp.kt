@@ -90,8 +90,13 @@ class SnakeApp(
      */
     fun draw(canvas: UiCanvas) {
         board.draw(canvas, BoardArea, session.game, session.showGrid, session.stepProgress)
-        budget.draw { DrawPass(canvas).draw(host.root) }
+        // Kept rather than made each frame: a pass holds the canvas and nothing else, and the
+        // canvas is the same one for the life of the window.
+        val pass = drawPass?.takeIf { it.canvas === canvas } ?: DrawPass(canvas).also { drawPass = it }
+        budget.draw { pass.draw(host.root) }
     }
+
+    private var drawPass: DrawPass? = null
 
     /** Closes the frame off, after the backend has flushed and can say what it cost. */
     fun endFrame(drawCalls: Int) = budget.endFrame(drawCalls, changed)

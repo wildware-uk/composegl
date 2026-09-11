@@ -49,6 +49,9 @@ class Showcase : ApplicationAdapter() {
     private lateinit var skin: ReloadingSkin
     private lateinit var sprites: SpriteBatch
     private lateinit var canvas: GdxCanvas
+
+    /** Made once, not once a frame: a pass holds the canvas and nothing else. */
+    private lateinit var drawPass: DrawPass
     private lateinit var host: UiHost
     private lateinit var input: ShowcaseInput
     private lateinit var pointerInput: GdxPointerInput
@@ -93,6 +96,7 @@ class Showcase : ApplicationAdapter() {
         skin = showcaseSkin(fonts)
         sprites = SpriteBatch()
         canvas = GdxCanvas(sprites, fonts.atlas)
+        drawPass = DrawPass(canvas)
 
         scene.create()
         particles.create()
@@ -149,7 +153,7 @@ class Showcase : ApplicationAdapter() {
         }
 
         canvas.begin(viewport)
-        budget.draw { DrawPass(canvas).draw(host.root) }
+        budget.draw { drawPass.draw(host.root) }
         canvas.end()
 
         // After end(), because that is when the last batch is actually handed over.
