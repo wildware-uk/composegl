@@ -25,7 +25,9 @@ renderer from a tree the Compose runtime maintains. The STATUS panel is drawn by
 quad for its corner, border and shadow together. The BRIEFING panel is nine-patch art out of a
 texture atlas, and the gap between its frame and its text is a number in the atlas file rather than
 a number in the source. The headings sit on a ribbon whose hatch repeats sideways and stretches
-downwards.*
+downwards. The whole screen costs five draw calls: every glyph at every size, and the white texel
+solid colour is drawn from, share one page — so the only texture changes left are the game's own
+art.*
 
 ## The thing it is for
 

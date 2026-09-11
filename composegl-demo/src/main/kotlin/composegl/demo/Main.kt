@@ -70,7 +70,7 @@ class Demo : ApplicationAdapter() {
         )
 
         sprites = SpriteBatch()
-        canvas = GdxCanvas(sprites)
+        canvas = GdxCanvas(sprites, fonts.atlas)
         host = UiHost()
         host.setContent { Screen(fonts, skin, state.health, state.selected, state.pointer) }
 

@@ -43,11 +43,19 @@ class GdxTextLayout internal constructor(
  * a size nobody anticipated is exactly the kind of stutter a game cannot afford. Asking for a size
  * that was never registered is an error that names the sizes that exist.
  *
+ * Every size of every family generated here goes onto one page — see [GdxAtlas] — along with the
+ * white texel the renderer draws solid colour from. Hand that atlas to [GdxCanvas] and a screen
+ * of panels and labels is one texture and, barring a clip, one draw call.
+ *
  * Note for later: a design pixel is not a screen pixel. On a screen where the viewport scales
  * everything by three, glyphs generated at sixteen are stretched to forty-eight and look soft.
  * Registering the sizes a game actually needs at the scales it expects is the current answer.
+ *
+ * @param atlas where generated glyphs are packed. One is made and disposed for you unless you
+ *   supply one to share between two registries.
  */
-class GdxFonts : FontProvider, Disposable {
+class GdxFonts(val atlas: GdxAtlas = GdxAtlas(), private val ownsAtlas: Boolean = true) :
+    FontProvider, Disposable {
 
     private data class Key(val family: String, val size: Int)
 
@@ -69,8 +77,11 @@ class GdxFonts : FontProvider, Disposable {
     /**
      * Generates each of [sizes] from a `.ttf` and registers them under [family].
      *
-     * Needs an OpenGL context, because each size becomes a texture. Call it at startup, not in a
-     * frame.
+     * Every size is packed into the shared [atlas] rather than being given a texture of its own,
+     * which is what keeps a screen mixing three text sizes down to one draw call.
+     *
+     * Needs an OpenGL context, because the atlas is uploaded at the end of it. Call it at startup,
+     * not in a frame.
      */
     fun registerTrueType(
         family: String,
@@ -84,10 +95,14 @@ class GdxFonts : FontProvider, Disposable {
                 val parameter = FreeTypeFontGenerator.FreeTypeFontParameter().apply {
                     this.size = size
                     configure()
+                    // After `configure`, so a game cannot accidentally take the shared page away
+                    // and get its own texture back without noticing.
+                    packer = atlas.packer
                 }
                 register(family, size.toFloat(), generator.generateFont(parameter), owned = true)
             }
         }
+        atlas.refresh()
     }
 
     /** The font behind [style]. Throws, naming what is registered, when there is none. */
@@ -187,8 +202,11 @@ class GdxFonts : FontProvider, Disposable {
     }
 
     override fun dispose() {
+        // The fonts first: a font packed into the atlas does not own its texture, so letting go of
+        // the atlas before them would leave them pointing at a texture that is already gone.
         fonts.values.forEach { if (it.owned) it.font.dispose() }
         fonts.clear()
+        if (ownsAtlas) atlas.dispose()
     }
 
     private inline fun <T : Disposable, R> T.use(block: (T) -> R): R = try {
