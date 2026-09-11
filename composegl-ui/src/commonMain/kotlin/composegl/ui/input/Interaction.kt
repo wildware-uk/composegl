@@ -1,6 +1,7 @@
 package composegl.ui.input
 
 import androidx.compose.runtime.Stable
+import composegl.ui.focus.FocusDirection
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -91,6 +92,22 @@ fun interface PointerHandler {
  */
 fun interface KeyHandler {
     fun onKey(event: KeyEvent): Boolean
+}
+
+/**
+ * A direction, offered to the focused node before focus moves off it.
+ *
+ * What a slider, a set of tabs or a scrolling list needs: Left on a slider is a smaller number,
+ * not the control to its left. Return true to say the direction was used, and focus stays put.
+ *
+ * The same hook serves the keyboard and the pad, because the arrow keys and the stick both ask
+ * focus to move and this is asked first — a widget claims its axis once and works on both.
+ *
+ * A handler written inline is a new object every recomposition and so never compares equal —
+ * `remember` it, exactly as with [PointerHandler].
+ */
+fun interface DirectionHandler {
+    fun onDirection(direction: FocusDirection): Boolean
 }
 
 /**

@@ -45,10 +45,9 @@ import composegl.ui.text.FontProvider
 import composegl.ui.widget.Button
 import composegl.ui.widget.Checkbox
 import composegl.ui.widget.Image
-import composegl.ui.widget.Button
-import composegl.ui.widget.Checkbox
 import composegl.ui.widget.ImageFit
 import composegl.ui.widget.LocalFonts
+import composegl.ui.widget.Slider
 import composegl.ui.widget.Text
 import composegl.ui.widget.Toggle
 
@@ -134,6 +133,19 @@ private fun StatusPanel(modifier: Modifier, state: DemoState) {
             Bar("Shield", 0.42f, "bar.fill.shield")
             Bar("Stamina", 0.78f, "bar.fill.stamina")
             Spacer(Modifier.weight(1f))
+            // A value the player drags, nudges with the arrow keys, or pushes the stick at — all
+            // three the widget's, and all three landing on the same five-point steps.
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Music", style = "label.dim")
+                Text("${state.music.toInt()}", style = "label.dim")
+            }
+            Slider(
+                value = state.music,
+                onValueChange = { state.music = it },
+                modifier = Modifier.fillMaxWidth(),
+                range = 0f..100f,
+                step = 5f,
+            )
             Checkbox(state.invertY, onCheckedChange = { state.invertY = it }, label = "Invert Y")
             Toggle(state.subtitles, onCheckedChange = { state.subtitles = it }, label = "Subtitles")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -268,7 +280,8 @@ class DemoState {
 
     var health by mutableStateOf(0.86f)
 
-    /** Two settings, so the example has something a checkbox and a switch can be about. */
+    /** Three settings, so the example has something a slider, a checkbox and a switch are about. */
+    var music by mutableStateOf(70f)
     var invertY by mutableStateOf(false)
     var subtitles by mutableStateOf(true)
 

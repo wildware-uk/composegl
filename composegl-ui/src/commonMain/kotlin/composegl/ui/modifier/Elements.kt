@@ -6,6 +6,7 @@ import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
 import composegl.ui.graphics.NinePatch
 import composegl.ui.graphics.UiCanvas
+import composegl.ui.input.DirectionHandler
 import composegl.ui.input.InteractionState
 import composegl.ui.input.KeyHandler
 import composegl.ui.input.PointerHandler
@@ -117,6 +118,9 @@ data class FocusableElement(
     val state: InteractionState?,
     val initial: Boolean,
 ) : Modifier.Element
+
+/** Directions this node uses itself rather than letting focus move off it. See [DirectionHandler]. */
+data class FocusDirectionElement(val handler: DirectionHandler) : Modifier.Element
 
 /** A handle on this node, so focus can be sent here by name rather than found by geometry. */
 data class FocusRequesterElement(val requester: FocusRequester) : Modifier.Element
@@ -251,6 +255,18 @@ fun Modifier.focusable(
     enabled: Boolean = true,
     initial: Boolean = false,
 ) = then(FocusableElement(enabled, state, initial))
+
+/**
+ * Lets this node use a direction instead of losing focus to it.
+ *
+ * Left on a slider is a smaller number; Down in a list is the next row. The handler is asked
+ * before focus goes looking for a neighbour, and returning true keeps focus here. Returning false
+ * at the end of a range is what lets a player leave the control — a slider that is already at its
+ * maximum should not swallow another press to the right.
+ *
+ * Both the arrow keys and the pad arrive here, because both ask focus to move.
+ */
+fun Modifier.onFocusDirection(handler: DirectionHandler) = then(FocusDirectionElement(handler))
 
 fun Modifier.focusRequester(requester: FocusRequester) = then(FocusRequesterElement(requester))
 

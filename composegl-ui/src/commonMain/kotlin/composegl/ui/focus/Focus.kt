@@ -139,6 +139,12 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
             return true
         }
 
+        // The focused node gets first refusal: Left on a slider is a smaller number rather than
+        // the control to its left. It is asked after an explicit focus order, because a screen
+        // that wired a direction by hand meant it, and it may say no — a slider already at its
+        // maximum lets the next press to the right take focus away, which is how a player leaves.
+        if (from.resolved.focusDirections.any { it.onDirection(direction) }) return true
+
         val next = when (direction) {
             FocusDirection.Next -> step(focusable, from, 1)
             FocusDirection.Previous -> step(focusable, from, -1)
