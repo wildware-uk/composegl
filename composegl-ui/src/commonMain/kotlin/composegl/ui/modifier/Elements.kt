@@ -3,6 +3,7 @@ package composegl.ui.modifier
 import composegl.ui.graphics.Colour
 import composegl.ui.graphics.NinePatch
 import composegl.ui.graphics.UiCanvas
+import composegl.ui.focus.FocusRequester
 import composegl.ui.geometry.Rect
 import composegl.ui.input.InteractionState
 import composegl.ui.input.PointerHandler
@@ -91,6 +92,37 @@ data class ClickableElement(val enabled: Boolean, val onClick: () -> Unit) : Mod
 /** Raw pointer events for this node, in its own coordinates. See [PointerHandler]. */
 data class PointerInputElement(val handler: PointerHandler) : Modifier.Element
 
+/**
+ * The node can hold focus, so keys and pad presses can reach it.
+ *
+ * [initial] is how a screen says where focus should start. Exactly one node per screen should
+ * claim it; the first in the tree wins if two do.
+ */
+data class FocusableElement(
+    val enabled: Boolean,
+    val state: InteractionState?,
+    val initial: Boolean,
+) : Modifier.Element
+
+/** A handle on this node, so focus can be sent here by name rather than found by geometry. */
+data class FocusRequesterElement(val requester: FocusRequester) : Modifier.Element
+
+/**
+ * Where a direction goes from this node, when the geometry would get it wrong.
+ *
+ * Null on a direction means "work it out", which is the right answer almost everywhere. The places
+ * it is not are the ones every console interface has: the end of a wrapped row, either side of a
+ * gap, the corner of an L.
+ */
+data class FocusOrderElement(
+    val up: FocusRequester? = null,
+    val down: FocusRequester? = null,
+    val left: FocusRequester? = null,
+    val right: FocusRequester? = null,
+    val next: FocusRequester? = null,
+    val previous: FocusRequester? = null,
+) : Modifier.Element
+
 // --- the sentences --------------------------------------------------------------------------
 
 fun Modifier.size(width: Float, height: Float) = then(SizeElement(width, height))
@@ -168,3 +200,27 @@ fun Modifier.clickable(enabled: Boolean = true, onClick: () -> Unit) =
     then(ClickableElement(enabled, onClick))
 
 fun Modifier.onPointer(handler: PointerHandler) = then(PointerInputElement(handler))
+
+/**
+ * Lets this node hold focus.
+ *
+ * @param state the same [InteractionState] the node's hover and press go through, so a widget
+ *   reads one object and draws its focus ring from `isFocused`.
+ * @param initial true on the one node a screen should open with focus on.
+ */
+fun Modifier.focusable(
+    state: InteractionState? = null,
+    enabled: Boolean = true,
+    initial: Boolean = false,
+) = then(FocusableElement(enabled, state, initial))
+
+fun Modifier.focusRequester(requester: FocusRequester) = then(FocusRequesterElement(requester))
+
+fun Modifier.focusOrder(
+    up: FocusRequester? = null,
+    down: FocusRequester? = null,
+    left: FocusRequester? = null,
+    right: FocusRequester? = null,
+    next: FocusRequester? = null,
+    previous: FocusRequester? = null,
+) = then(FocusOrderElement(up, down, left, right, next, previous))

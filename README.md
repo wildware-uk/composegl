@@ -43,9 +43,10 @@ Compose, and it survives without Compose UI.
 ## Status
 
 Nothing is shippable yet, and there is no release. What works today is the picture above: layout,
-the modifier chain, the renderer, fonts, nine-patch art, pointer input, and hit testing — the chips
-and the hotbar in the example light up under the pointer and respond to a click. There is no widget
-set and no skin file yet; those are the next milestones.
+the modifier chain, the renderer, fonts, nine-patch art, pointer input, hit testing and focus — the
+chips and the hotbar in the example light up under the pointer, respond to a click, and draw a
+focus ring. Nothing drives focus from a keyboard or a pad yet. There is no widget set and no skin
+file; those are the next milestones.
 
 | | |
 |---|---|

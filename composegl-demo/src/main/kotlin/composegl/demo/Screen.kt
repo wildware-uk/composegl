@@ -25,6 +25,7 @@ import composegl.ui.modifier.background
 import composegl.ui.modifier.border
 import composegl.ui.modifier.clickable
 import composegl.ui.modifier.fillMaxHeight
+import composegl.ui.modifier.focusable
 import composegl.ui.modifier.fillMaxSize
 import composegl.ui.modifier.fillMaxWidth
 import composegl.ui.modifier.height
@@ -127,8 +128,8 @@ private fun LorePanel(modifier: Modifier, state: DemoState) {
             )
             Spacer(Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(10f)) {
-                Chip("ACCEPT", Accent, state.briefing == "ACCEPT") { state.answer("ACCEPT") }
-                Chip("DECLINE", Danger, state.briefing == "DECLINE") { state.answer("DECLINE") }
+                Chip("ACCEPT", Accent, state.briefing == "ACCEPT", first = true) { state.answer("ACCEPT") }
+                Chip("DECLINE", Danger, state.briefing == "DECLINE", first = false) { state.answer("DECLINE") }
             }
         }
     }
@@ -142,7 +143,7 @@ private fun LorePanel(modifier: Modifier, state: DemoState) {
  * Compose state, this recomposes when the pointer enters or leaves and at no other time.
  */
 @Composable
-private fun Chip(label: String, colour: Colour, chosen: Boolean, onClick: () -> Unit) {
+private fun Chip(label: String, colour: Colour, chosen: Boolean, first: Boolean, onClick: () -> Unit) {
     val touch = remember { InteractionState() }
     val fill = when {
         chosen -> colour.withAlpha(0x50)
@@ -150,16 +151,36 @@ private fun Chip(label: String, colour: Colour, chosen: Boolean, onClick: () -> 
         touch.isHovered -> colour.withAlpha(0x28)
         else -> Colour.argb(0x20FFFFFF)
     }
-    Box(
-        Modifier
-            .interaction(touch)
-            .clickable(onClick = onClick)
-            .background(fill, corner = 6f)
-            .border(colour, width = if (chosen || touch.isHovered) 2f else 1f, corner = 6f)
-            .padding(horizontal = 14f, vertical = 8f),
-    ) {
-        Text(label, style = Small, colour = colour)
+    FocusRing(touch.isFocused, corner = 6f) {
+        Box(
+            Modifier
+                .interaction(touch)
+                .focusable(touch, initial = first)
+                .clickable(onClick = onClick)
+                .background(fill, corner = 6f)
+                .border(colour, width = if (chosen || touch.isHovered) 2f else 1f, corner = 6f)
+                .padding(horizontal = 14f, vertical = 8f),
+        ) {
+            Text(label, style = Small, colour = colour)
+        }
     }
+}
+
+/**
+ * The ring that says where the player is.
+ *
+ * A separate box around the widget rather than a thicker border on it, because a focus ring is
+ * outside the thing it marks — and because the padding is there whether or not the ring is, so
+ * gaining focus never shifts the layout.
+ */
+@Composable
+private fun FocusRing(focused: Boolean, corner: Float, content: @Composable () -> Unit) {
+    val outline = if (focused) {
+        Modifier.border(Colour.White, width = 1f, corner = corner + 3f)
+    } else {
+        Modifier
+    }
+    Box(outline.padding(3f), content = content)
 }
 
 /** Ten slots, one of them lit, and now one of them pickable. */
@@ -184,24 +205,27 @@ private fun Slot(slot: Int, lit: Boolean, onClick: () -> Unit) {
         touch.isHovered -> Colour.argb(0x80FFFFFF)
         else -> Colour.argb(0x30FFFFFF)
     }
-    Box(
-        Modifier
-            .interaction(touch)
-            .clickable(onClick = onClick)
-            .size(54f)
-            .background(
-                when {
-                    touch.isPressed -> Colour.argb(0x604CC2FF)
-                    lit -> Colour.argb(0x304CC2FF)
-                    touch.isHovered -> Colour.argb(0x18FFFFFF)
-                    else -> Colour.argb(0x30000000)
-                },
-                corner = 8f,
-            )
-            .border(edge, width = if (lit) 2f else 1f, corner = 8f),
-        contentAlignment = Alignment.Centre,
-    ) {
-        Text("${(slot + 1) % 10}", style = Body, colour = if (lit) Accent else Dim)
+    FocusRing(touch.isFocused, corner = 8f) {
+        Box(
+            Modifier
+                .interaction(touch)
+                .focusable(touch)
+                .clickable(onClick = onClick)
+                .size(54f)
+                .background(
+                    when {
+                        touch.isPressed -> Colour.argb(0x604CC2FF)
+                        lit -> Colour.argb(0x304CC2FF)
+                        touch.isHovered -> Colour.argb(0x18FFFFFF)
+                        else -> Colour.argb(0x30000000)
+                    },
+                    corner = 8f,
+                )
+                .border(edge, width = if (lit) 2f else 1f, corner = 8f),
+            contentAlignment = Alignment.Centre,
+        ) {
+            Text("${(slot + 1) % 10}", style = Body, colour = if (lit) Accent else Dim)
+        }
     }
 }
 
