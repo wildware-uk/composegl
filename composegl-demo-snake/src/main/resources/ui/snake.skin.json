@@ -1,0 +1,123 @@
+{
+  // Snake's skin.
+  //
+  // Everything the interface looks like is here: colours, corners, padding, text sizes. Nothing in
+  // Snake's Kotlin names a colour. Save this file while the game is running and it changes on the
+  // next frame.
+
+  "defaults": {
+    "textColour": "#E6EAF2",
+    "text": { "font": "body", "size": 16 }
+  },
+
+  "styles": {
+
+    // --- surfaces ---
+
+    "panel": {
+      "background": { "fill": "#F21B1F2A", "corner": 12, "border": "#404CC2FF", "padding": 22 }
+    },
+
+    "panel.quiet": {
+      "background": { "fill": "#E0161A24", "corner": 12, "border": "#28FFFFFF", "padding": 20 }
+    },
+
+    // A wash over the board: dark enough to read on, light enough that the game shows through.
+    "scrim": { "background": { "fill": "#B00B0E13" } },
+
+    "badge": {
+      "background": { "fill": "#4046D160", "corner": 6, "border": "#46D160", "padding": [10, 4] }
+    },
+
+    // --- text ---
+
+    "label": {},
+    "label.dim": { "textColour": "#8A94A6", "text": { "size": 13 } },
+    "label.title": { "textColour": "#4CC2FF", "text": { "size": 20 } },
+    "label.display": { "textColour": "#4CC2FF", "text": { "font": "display", "size": 34 } },
+    "label.score": { "textColour": "#4CC2FF", "text": { "font": "display", "size": 34 } },
+    "label.badge": { "textColour": "#46D160", "text": { "size": 13 } },
+
+    // --- the things you press ---
+
+    "button": {
+      "background": { "fill": "#404CC2FF", "corner": 8, "border": "#4CC2FF", "padding": [16, 10] },
+      "textColour": "#E6F4FF",
+      "hovered": { "background": { "fill": "#604CC2FF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#804CC2FF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#404CC2FF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "button.quiet": {
+      "background": { "fill": "#18FFFFFF", "corner": 8, "border": "#30FFFFFF", "padding": [16, 10] },
+      "textColour": "#9AA4B2",
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 8, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#484CC2FF", "corner": 8, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "chip": {
+      "background": { "fill": "#20FFFFFF", "corner": 6, "border": "#404CC2FF", "padding": [12, 7] },
+      "textColour": "#8A94A6",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 6, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#604CC2FF", "corner": 6, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#20FFFFFF", "corner": 6, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "chip.chosen": {
+      "background": { "fill": "#504CC2FF", "corner": 6, "border": "#4CC2FF", "borderWidth": 2, "padding": [12, 7] },
+      "textColour": "#E6F4FF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#604CC2FF", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#504CC2FF", "corner": 6, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    // --- the settings controls ---
+
+    "toggle": {
+      "background": { "fill": "#2000FFFF", "corner": 11, "border": "#404CC2FF", "padding": 3 },
+      "hovered": { "background": { "fill": "#3000FFFF", "corner": 11, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#2000FFFF", "corner": 11, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "toggle.on": {
+      "background": { "fill": "#604CC2FF", "corner": 11, "border": "#8ADBFF", "padding": 3 },
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 11, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 11, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "toggle.knob": { "background": { "fill": "#E8F4FF", "corner": 8 } },
+
+    "slider.track": { "background": { "fill": "#40000000", "corner": 3 } },
+    "slider.fill": { "background": { "fill": "#4CC2FF", "corner": 3 } },
+
+    "slider.knob": {
+      "background": { "fill": "#E8F4FF", "corner": 8, "border": "#4CC2FF" },
+      "hovered": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    // --- typing your name in ---
+
+    "field": {
+      "background": { "fill": "#600B0E13", "corner": 6, "border": "#304CC2FF", "padding": [10, 7] },
+      "hovered": { "background": { "fill": "#600B0E13", "corner": 6, "border": "#604CC2FF" } },
+      "focused": { "background": { "fill": "#600B0E13", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    "field.placeholder": { "textColour": "#5A6675" },
+    "field.caret": { "background": { "fill": "#E6F0FF" } },
+    "field.selection": { "background": { "fill": "#504CC2FF" } },
+
+    // --- the table of best runs ---
+
+    "scrollbar.track": { "background": { "fill": "#30000000", "corner": 4 } },
+
+    "scrollbar.thumb": {
+      "background": { "fill": "#604CC2FF", "corner": 4 },
+      "hovered": { "background": { "fill": "#4CC2FF", "corner": 4 } }
+    }
+  }
+}
