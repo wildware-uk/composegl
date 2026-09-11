@@ -143,7 +143,7 @@ class Demo : ApplicationAdapter() {
  * Nothing is consumed — every method answers false — because the interface has nothing to click
  * yet. When hit testing arrives this is the object it replaces.
  */
-private class PointerWatcher(private val state: DemoState) : InputSink {
+internal class PointerWatcher(private val state: DemoState) : InputSink {
 
     override fun onPointer(event: PointerEvent): Boolean {
         state.pointer = when (event) {

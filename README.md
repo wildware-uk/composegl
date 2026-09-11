@@ -45,7 +45,9 @@ yet, nothing is clickable, and there is no skin file — those are the next mile
 | | |
 |---|---|
 | `composegl-ui` | the toolkit. Depends on the Compose runtime and coroutines, and nothing else |
-| `composegl-gdx` | the LibGDX backend: renderer, fonts, input |
+| `composegl-gdx` | the LibGDX backend: renderer, fonts, input. The one to use |
+| `composegl-lwjgl3` | a second backend, on raw OpenGL and stb_truetype. Exists to disagree |
+| `composegl-testing` | the scenes both backends draw, and the golden comparison |
 | `composegl-demo` | the example in the picture |
 | Design | [`docs/superpowers/specs/2026-09-09-runtime-ui-design.md`](docs/superpowers/specs/2026-09-09-runtime-ui-design.md) |
 | Spike, and its numbers | [`docs/superpowers/spikes/s6-runtime-ui.md`](docs/superpowers/spikes/s6-runtime-ui.md) |
@@ -59,12 +61,20 @@ decision can be asserted directly — so the toolkit is tested through a canvas 
 it was asked to draw instead of drawing it.
 
 What is left is the part only a GPU can answer: whether the pixels are right. That is a handful of
-golden images under `composegl-gdx/src/test/resources/goldens`, compared with a tolerance that
-survives two different software rasterisers disagreeing about the last bit of an antialiased edge.
+golden images, compared with a tolerance that survives two different software rasterisers
+disagreeing about the last bit of an antialiased edge.
+
+Both backends draw the same six scenes, out of `composegl-testing`, and each keeps its own goldens
+beside its own tests. They are not shared on purpose: FreeType and stb_truetype will never agree on
+a glyph pixel for pixel, and a tolerance loose enough to cover that would catch nothing. What the
+two sets are for is the comparison a person makes by looking at them — shapes, positions and
+clipping have to match, and where they do not, the toolkit has leaked something into one backend
+that the other never heard about.
 
 ```bash
-./gradlew check                                          # everything that needs no display
-xvfb-run -a ./gradlew :composegl-gdx:test                # the renderer, on software OpenGL
+./gradlew check                                           # everything that needs no display
+xvfb-run -a ./gradlew :composegl-gdx:test                 # the renderer, on software OpenGL
+xvfb-run -a ./gradlew :composegl-lwjgl3:test              # and the same scenes with no LibGDX
 COMPOSEGL_UPDATE_GOLDENS=1 xvfb-run -a ./gradlew :composegl-gdx:test   # after an intended change
 ```
 
@@ -84,6 +94,7 @@ work this project can do. Everything it taught us is in `docs/superpowers/spikes
 
 ```bash
 ./gradlew :composegl-demo:run                             # the example in the picture
+./gradlew :composegl-demo:runGl                           # the same example, with no LibGDX in it
 SPIKE_S6_HEADLESS=1 ./gradlew :spikes:s6-runtime-ui:run   # the redraw experiment, no window needed
 ```
 

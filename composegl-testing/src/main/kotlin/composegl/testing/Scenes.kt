@@ -105,3 +105,49 @@ fun scenes(): List<Scene> = listOf(
         rect(Rect.of(44f, 186f, 152f, 10f), Paper, corner = 5f)
     },
 )
+
+/** A picture as raw bytes: four to a pixel, red first, the top row first. */
+class RawImage(val width: Int, val height: Int, val pixels: ByteArray)
+
+/**
+ * The nine-patch art the scenes draw, as arithmetic rather than as a file.
+ *
+ * A picture in the repository is a picture that can be edited by accident; twenty-four pixels of
+ * arithmetic cannot be. It lives here rather than in either backend's tests because both of them
+ * draw it, and art that differed between the two would make the two sets of goldens impossible to
+ * compare by eye.
+ *
+ * Nothing in it is translucent. Every backend blends slightly differently in the last bit, and the
+ * art is supposed to be the constant in this comparison.
+ */
+fun bevel(): RawImage {
+    val size = 24
+    val pixels = ByteArray(size * size * 4)
+
+    fun set(x: Int, y: Int, red: Int, green: Int, blue: Int) {
+        val at = (y * size + x) * 4
+        pixels[at] = red.toByte()
+        pixels[at + 1] = green.toByte()
+        pixels[at + 2] = blue.toByte()
+        pixels[at + 3] = 0xFF.toByte()
+    }
+
+    fun fill(left: Int, top: Int, width: Int, height: Int, red: Int, green: Int, blue: Int) {
+        for (y in top until top + height) for (x in left until left + width) set(x, y, red, green, blue)
+    }
+
+    fill(0, 0, size, size, 31, 41, 56)
+    // A cross through the middle eight pixels, so tiling and stretching look different.
+    fill(8, 11, 8, 2, 42, 79, 106)
+    fill(11, 8, 2, 8, 42, 79, 106)
+    // The frame, and one corner marked, so a corner drawn from the wrong place is unmistakable.
+    for (at in 0 until size) {
+        set(at, 0, 77, 194, 255)
+        set(at, size - 1, 77, 194, 255)
+        set(0, at, 77, 194, 255)
+        set(size - 1, at, 77, 194, 255)
+    }
+    fill(2, 2, 3, 3, 255, 217, 77)
+
+    return RawImage(size, size, pixels)
+}
