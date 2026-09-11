@@ -27,6 +27,8 @@ from the space reserved for it.
 Text("GAME OVER", style = "display")
 ```
 
+![four text styles: a title, the default, a dim one and a wrapped paragraph](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-text.png)
+
 ---
 
 ## Buttons
@@ -46,8 +48,22 @@ Button(onClick = { equip(sword) }) {
 IconButton(closeIcon, onClick = { dismiss() })
 ```
 
+Every state comes from the skin — no Kotlin here names a colour:
+
+| | |
+|---|---|
+| ![a button at rest](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-button.png) | resting |
+| ![a button under the pointer](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-button-hover.png) | under the pointer |
+| ![a button being pressed](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-button-pressed.png) | held down |
+| ![a focused button, ringed in white](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-button-focused.png) | focused, which is where a pad and the arrow keys are |
+| ![a greyed-out button](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-button-disabled.png) | disabled |
+
 A disabled button still swallows the click, so it cannot fall through to whatever
 is behind it.
+
+Same widget, a different style name, and it is a chip:
+
+![four chips, one chosen and one in the danger style](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-chips.png)
 
 ---
 
@@ -67,6 +83,10 @@ Tabs(selected, onSelect = { selected = it }, titles = listOf("GEAR", "SKILLS")) 
 }
 ```
 
+`Panel` is one widget and two style names here — the art-backed one and a flat one:
+
+![two panels side by side, one cut from art and one a flat fill](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-panel.png)
+
 `Dialog` puts itself on the back stack, so Escape and the pad's B button close it
 without you wiring anything up. `OnBack { }` is how anything else joins that stack.
 
@@ -84,6 +104,12 @@ RadioButton(quality == High, onSelect = { quality = High }, label = "High")
 Slider(volume, onValueChange = { volume = it }, range = 0f..1f, step = 0.05f)
 ```
 
+![three text fields: one with text, one showing a placeholder, one focused](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-field.png)
+
+![two toggles and two checkboxes, on and off](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-toggle.png)
+
+![two sliders at different values, the second focused](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-slider.png)
+
 `TextField` handles selection, the clipboard, and the phone's keyboard, and
 `onSubmit` fires on Enter. It works with a pad too: focus it and the on-screen
 keyboard comes up on platforms that have one.
@@ -98,6 +124,8 @@ LazyRow(count = 9, spacing = 4f) { slot -> HotbarSlot(slot) }
 
 ScrollArea(Modifier.fillMaxSize()) { LongPatchNotes() }
 ```
+
+![a panel of save slots with a scrollbar down the side](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-scroll.png)
 
 `LazyColumn` measures only what is on screen. `ScrollArea` is for content that is
 one piece and simply too tall.
@@ -128,6 +156,8 @@ TooltipHost {                       // once, around the screen
 
 PromptGlyph(Action.Interact)        // draws E or Ⓐ, depending on what the player is using
 ```
+
+![a tooltip under a button, explaining what it costs](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-tooltip.png)
 
 `PromptGlyph` changes the moment somebody picks up a pad, without anything being
 reloaded.
@@ -165,6 +195,8 @@ Bar(
 )
 ```
 
+![four bars: health, a segmented shield, stamina, and stamina under its threshold](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-bars.png)
+
 The trail is the thing: a hit drops the bar instantly and leaves a pale tail that
 catches up a moment later, which is how a player sees *how much* they just lost.
 
@@ -178,6 +210,8 @@ Reticle(reticle, Modifier.align(Alignment.Centre))
 reticle.spread = movement * 1.4f
 reticle.hit(kill = true)
 ```
+
+![a crosshair standing still, and a wider red one over something hostile](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-reticle.png)
 
 Spread, bloom, hit markers. It is driven from your game code, not from state the
 interface owns.
@@ -211,6 +245,12 @@ val alerts = rememberNotifications()
 Notifications(alerts)
 alerts.show("SHIELD DOWN")
 ```
+
+| | |
+|---|---|
+| ![a dark wedge over an ability icon, with the seconds left on it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-cooldown.png) | the wedge sweeps away as the ability comes back |
+| ![five hotbar slots, one selected, two holding charges](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-hotbar.png) | slots, charges, and which one is selected |
+| ![a minimap frame with a compass and three markers](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-minimap.png) | your own map in the middle, the chrome and the markers from the skin |
 
 ## Particles
 

@@ -47,6 +47,30 @@
     "label.dim": { "textColour": "#9AA4B2", "text": { "size": 13 } },
     "label.body": { "textColour": "#9AA4B2" },
 
+    // --- the things you press ---
+    //
+    // Four states in one style. A game writes the ones it cares about: anything left out falls
+    // back to the style's own look, so a button with no "pressed" simply does not change when it
+    // is pressed rather than disappearing.
+
+    "button": {
+      "background": { "fill": "#404CC2FF", "corner": 8, "border": "#4CC2FF", "padding": [16, 10] },
+      "textColour": "#E6F4FF",
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#FF4CC2FF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 }, "textColour": "#0B1119" },
+      "focused": { "background": { "fill": "#404CC2FF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } },
+      "disabled": { "background": { "fill": "#141A22", "corner": 8, "border": "#2A3440" }, "textColour": "#5A6675" }
+    },
+
+    "button.quiet": {
+      "background": { "fill": "#18FFFFFF", "corner": 8, "border": "#30FFFFFF", "padding": [16, 10] },
+      "textColour": "#9AA4B2",
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 8, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#484CC2FF", "corner": 8, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
     // --- the chips under the briefing ---
     //
     // Four styles rather than one with a flag, because "chosen" is not a state the toolkit knows

@@ -96,6 +96,16 @@ Focus has its own page: [[Input]].
 
 ---
 
+The decoration ones, on the same box:
+
+![four boxes showing background, border, shadow and alpha](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-decoration.png)
+
+And what `padding` does to what is inside it:
+
+![the same blue box inside a dark one, without and with padding](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-padding.png)
+
+---
+
 ## Rule 1: order matters, and it is visible
 
 ```kotlin

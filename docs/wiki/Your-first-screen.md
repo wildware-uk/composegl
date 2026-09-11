@@ -222,7 +222,9 @@ fun main() {
 }
 ```
 
-Run it. You get a dark window with a panel in the middle and a button that counts.
+Run it. You get a dark window with a panel in the middle and a button that counts:
+
+![a panel in the middle of a dark window with a title, a count and a button](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/first-screen.png)
 
 You did not write a skin, and it still looks like something. That is `Skin.Default`,
 the neutral dark skin that ships with the toolkit. Replacing it is its own page.
@@ -260,6 +262,12 @@ Row { Text("one"); Text("two") }      // side by side
 Box { Text("on top of each other") }  // piled up
 ```
 
+![three boxes stacked downwards](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-column.png)
+
+![three boxes side by side](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-row.png)
+
+![five labels piled into one box, one in each corner](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-box.png)
+
 Spacing and alignment are arguments, not spacer widgets:
 
 ```kotlin
@@ -283,6 +291,8 @@ Panel(
         .width(280f)
 ) { … }
 ```
+
+![the same blue box inside a dark one, without and with padding](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-padding.png)
 
 Order matters where you would expect it to. `padding(8f).background(Colour.Blue)`
 paints the blue inside the padding; `background(Colour.Blue).padding(8f)` paints it

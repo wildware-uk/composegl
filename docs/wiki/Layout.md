@@ -23,6 +23,12 @@ Row    { Text("one"); Text("two") }   // across
 Box    { Text("one"); Text("two") }   // on top of each other
 ```
 
+![three boxes side by side in a Row](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-row.png)
+
+![three boxes stacked in a Column](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-column.png)
+
+![five labels in a Box, one in each corner and one in the middle](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-box.png)
+
 ---
 
 ## Sizes are floats, not `dp`
@@ -79,6 +85,8 @@ Row(Modifier.fillMaxWidth()) {
 }
 ```
 
+![a row where one child is twice as wide as another and a third is fixed](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-weight.png)
+
 As in Compose, `weight` only means anything inside a `Row` or a `Column`.
 
 ---
@@ -117,6 +125,10 @@ Column(verticalArrangement = Arrangement.spacedBy(10f)) {
 }
 ```
 
+All of them, doing the same three boxes:
+
+![the same three boxes under each arrangement](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-arrangements.png)
+
 ---
 
 ## Lining them up: alignment
@@ -149,6 +161,10 @@ Box(Modifier.fillMaxSize()) {
 
 The nine you would expect: `TopStart`, `TopCentre`, `TopEnd`, `CentreStart`,
 `Centre`, `CentreEnd`, `BottomStart`, `BottomCentre`, `BottomEnd`.
+
+A row lining its children up down the middle, with two of them overruling it:
+
+![three slabs in a row: one centred, one at the top, one at the bottom](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-alignment-cross.png)
 
 That last example is a whole HUD's worth of positioning, and it is three lines.
 
@@ -208,6 +224,10 @@ ScrollArea {
     }
 }
 ```
+
+The same eight lines in the same too-short panel, without and with:
+
+![a column printed over itself on the left, and scrolling on the right](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-overflow.png)
 
 It is the same size as before when the contents fit, so wrapping a menu in one
 costs nothing on a screen where it was never a problem. Moving focus to a child
