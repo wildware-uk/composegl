@@ -1,0 +1,47 @@
+# Asks Central what it made of a deployment.
+#
+# `publishToMavenCentral` uploads and does not wait, so a green Release run means "Central took the
+# bundle", not "Central liked it". Validation happens afterwards and can still fail — an unverified
+# namespace, a missing signature, a POM without the fields Central insists on.
+#
+# Run this from the Actions tab with the deployment id the Release run printed. It only reads.
+#
+#   VALIDATED   it is waiting for you to press publish in the portal
+#   PUBLISHING  you pressed it; it is on its way to Maven Central
+#   PUBLISHED   it is on Maven Central, permanently
+#   FAILED      it was refused; the errors say why, and nothing was published
+
+name: Central deployment status
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: The deployment id from the Release run
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  status:
+    name: Ask Central
+    runs-on: ubuntu-latest
+    steps:
+      - name: Status
+        env:
+          USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ID: ${{ inputs.deployment_id }}
+        run: |
+          token=$(printf '%s:%s' "$USERNAME" "$PASSWORD" | base64 -w0)
+          body=$(curl -sS -X POST -H "Authorization: Bearer $token" \
+            "https://central.sonatype.com/api/v1/publisher/status?id=$ID")
+          echo "$body" | jq . || echo "$body"
+          state=$(echo "$body" | jq -r '.deploymentState // "unknown"')
+          echo "### $state" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo "$body" | jq . >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "$body" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          [ "$state" = "FAILED" ] && { echo "::error::Central refused this deployment"; exit 1; }
+          exit 0
