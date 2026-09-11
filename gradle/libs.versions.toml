@@ -47,3 +47,7 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+# Publishing to Maven Central. It knows how to publish a multiplatform module — every target, the
+# sources jar, the javadoc jar, the signature on each — which is the part that is a day's work by
+# hand and wrong the first three times.
+maven-publish = { id = "com.vanniktech.maven.publish", version = "0.37.0" }
