@@ -71,7 +71,15 @@ class UiShapeBatch(
         renderCalls = 0
         this.projection.set(projection)
         Gdx.gl.glEnable(GL20.GL_BLEND)
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA)
+        // Separate on purpose: the colour half is the ordinary one, and the alpha half
+        // accumulates rather than being interpolated, so what lands in a framebuffer a game is
+        // using as a texture is premultiplied. On a window it changes nothing.
+        Gdx.gl.glBlendFuncSeparate(
+            GL20.GL_SRC_ALPHA,
+            GL20.GL_ONE_MINUS_SRC_ALPHA,
+            GL20.GL_ONE,
+            GL20.GL_ONE_MINUS_SRC_ALPHA,
+        )
     }
 
     fun end() {
