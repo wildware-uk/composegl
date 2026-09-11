@@ -22,6 +22,11 @@ Box(Modifier.fillMaxSize()) {
 }
 ```
 
+![a heads-up display: a hull bar and an ammo count in the corner, a crosshair in the middle](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/home-hud.png)
+
+Every picture on this wiki is a photograph of the real toolkit, taken by
+`./gradlew :composegl-demo:docShots` — never a drawing of it.
+
 ---
 
 ## Start here

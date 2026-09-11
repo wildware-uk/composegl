@@ -35,6 +35,20 @@ tasks.register<JavaExec>("runGl") {
 }
 
 /**
+ * Every picture in the wiki, regenerated.
+ *
+ * Writes `docs/wiki/images`. Needs a display, so on a headless machine it is
+ * `xvfb-run -a ./gradlew :composegl-demo:docShots`.
+ */
+tasks.register<JavaExec>("docShots") {
+    group = "documentation"
+    description = "Takes the screenshots the wiki uses."
+    mainClass.set("composegl.demo.docs.MainKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = rootDir
+}
+
+/**
  * No tarball. The example is run with `./gradlew :composegl-demo:run`, never shipped.
  *
  * The application plugin's distribution copies every dependency into one directory by file name,
