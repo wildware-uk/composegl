@@ -42,15 +42,17 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.4.20"
 }
 
+repositories {
+    mavenCentral()
+    google()   // the Compose runtime reaches for androidx, which lives here and not on Central
+}
+
 dependencies {
-    implementation("dev.wildware.composegl:composegl-ui:0.1.0-SNAPSHOT")
+    implementation("dev.wildware.composegl:composegl-ui:0.1.0")
     // One backend. This one draws through LibGDX.
-    implementation("dev.wildware.composegl:composegl-gdx:0.1.0-SNAPSHOT")
+    implementation("dev.wildware.composegl:composegl-gdx:0.1.0")
 }
 ```
-
-> **Not on Maven Central yet.** Until it is, clone the repo and run
-> `./gradlew publishToMavenLocal`, then add `mavenLocal()` to your repositories.
 
 > **Backends.** A backend is the piece that turns "draw a rounded box here" into
 > actual OpenGL calls. There are two: `composegl-gdx` (LibGDX) and
