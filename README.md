@@ -45,7 +45,10 @@ Compose, and it survives without Compose UI.
 ## Getting it
 
 ```kotlin
-repositories { mavenCentral() }
+repositories {
+    mavenCentral()
+    google()   // the Compose runtime reaches for androidx, which lives here and not on Central
+}
 
 dependencies {
     implementation("dev.wildware.composegl:composegl-ui:0.1.0")     // the toolkit
