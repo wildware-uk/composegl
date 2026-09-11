@@ -11,8 +11,12 @@ import composegl.ui.node.UiNode
  * children, chooses its own size, and then places them. Positions are stored relative to the
  * parent, so nothing has to be revisited when the parent itself moves.
  *
- * A pass is a throwaway object rather than state on the nodes, which is what makes
- * "measured exactly once" cheap to check: the bookkeeping is born and dies with the pass.
+ * A pass is a throwaway object, and it is the only thing here that is. The small objects a walk
+ * needs — the wrapper round each child, the list they go in, the placeable each node hands back —
+ * live on the nodes and are used again next frame, because a game runs this every frame whether
+ * anything changed or not: making them fresh each time is a few hundred pieces of rubbish a frame
+ * for a screen that is standing still. Which pass is running is a reference, compared by identity,
+ * so "measured exactly once" is still checked and still costs nothing.
  */
 class MeasurePass {
 
@@ -32,7 +36,7 @@ class MeasurePass {
         // children is each policy's own decision, and every one of them makes it.
         val content = outer.shrink(padding.horizontal, padding.vertical)
 
-        val measurables = node.children.map { OnceMeasurable(it) }
+        val measurables = measurables(node)
         val result = with(node.measurePolicy) { scope.measure(measurables, content) }
 
         val size = outer.constrain(
@@ -43,35 +47,87 @@ class MeasurePass {
 
         // Children are placed now, in this node's coordinates. Where *this* node ends up is its
         // parent's business and does not change any of them.
-        result.placeChildren(Inset(padding.left, padding.top))
+        result.placeChildren(node.inset.at(padding.left, padding.top))
 
-        return NodePlaceable(node, resolved)
+        return node.placeable.on(resolved)
     }
 
-    /** A child, wrapped so that measuring it twice is an error rather than a quiet cost. */
-    private inner class OnceMeasurable(private val node: UiNode) : Measurable {
-
-        private var measured = false
-
-        override val layoutData = LayoutData(node.resolved.weight, node.resolved.alignment)
-
-        override fun measure(constraints: Constraints): Placeable {
-            check(!measured) {
-                "${node.name} was measured twice in one pass. A layout that measures a child more " +
-                    "than once doubles the cost of every node beneath it, and nesting two of them " +
-                    "squares it. Measure once and use the Placeable you got back."
+    /**
+     * This node's children, each wrapped, in a list that belongs to the node.
+     *
+     * The list is refilled rather than rebuilt, and in the ordinary case — the same children as
+     * last frame, in the same order — refilling it writes nothing at all.
+     */
+    private fun measurables(node: UiNode): List<Measurable> {
+        val children = node.children
+        val measurables = node.measurables
+        if (measurables.size != children.size) {
+            measurables.clear()
+            for (index in children.indices) measurables.add(children[index].measurable.begin(this))
+        } else {
+            for (index in children.indices) {
+                val wrapped = children[index].measurable.begin(this)
+                if (measurables[index] !== wrapped) measurables[index] = wrapped
             }
-            measured = true
-            return this@MeasurePass.measure(node, constraints)
         }
+        return measurables
     }
 }
 
-/** Placing a node writes its position, plus whatever its `offset` modifier asked for. */
-private class NodePlaceable(
-    private val node: UiNode,
-    private val resolved: ResolvedModifier,
-) : Placeable() {
+/**
+ * A child, wrapped so that measuring it twice is an error rather than a quiet cost.
+ *
+ * One per node, kept on the node. [begin] is what makes it safe to keep: it hands the wrapper to
+ * whichever pass is running now, which is what the check below compares against.
+ */
+internal class OnceMeasurable(private val node: UiNode) : Measurable {
+
+    private var pass: MeasurePass? = null
+    private var measuredBy: MeasurePass? = null
+    private var data = LayoutData.None
+
+    override val layoutData: LayoutData get() = data
+
+    fun begin(pass: MeasurePass): OnceMeasurable {
+        this.pass = pass
+        measuredBy = null
+
+        // Rebuilt only when it actually differs, which for almost every node is never: a weight
+        // and an alignment are written in a modifier chain and then stay there.
+        val resolved = node.resolved
+        if (data.weight != resolved.weight || data.alignment != resolved.alignment) {
+            data = if (resolved.weight == null && resolved.alignment == null) LayoutData.None
+            else LayoutData(resolved.weight, resolved.alignment)
+        }
+        return this
+    }
+
+    override fun measure(constraints: Constraints): Placeable {
+        val pass = checkNotNull(pass) { "${node.name} was measured outside a pass" }
+        check(measuredBy !== pass) {
+            "${node.name} was measured twice in one pass. A layout that measures a child more " +
+                "than once doubles the cost of every node beneath it, and nesting two of them " +
+                "squares it. Measure once and use the Placeable you got back."
+        }
+        measuredBy = pass
+        return pass.measure(node, constraints)
+    }
+}
+
+/**
+ * Placing a node writes its position, plus whatever its `offset` modifier asked for.
+ *
+ * One per node, kept on the node, and [on] points it at the resolution this pass read — which can
+ * be a different object from last frame's even when it says the same thing.
+ */
+internal class NodePlaceable(private val node: UiNode) : Placeable() {
+
+    private var resolved: ResolvedModifier = ResolvedModifier.None
+
+    fun on(resolved: ResolvedModifier): NodePlaceable {
+        this.resolved = resolved
+        return this
+    }
 
     override val width get() = node.width
     override val height get() = node.height
@@ -82,8 +138,23 @@ private class NodePlaceable(
     }
 }
 
-/** Placement inside a padded node: the content box starts in from the edge. */
-private class Inset(private val dx: Float, private val dy: Float) : PlacementScope {
+/**
+ * Placement inside a padded node: the content box starts in from the edge.
+ *
+ * One per node, kept on the node. Nothing nests here — a node places its own children and then
+ * hands back, so the two numbers are only ever read by the placement they were set for.
+ */
+internal class Inset : PlacementScope {
+
+    private var dx = 0f
+    private var dy = 0f
+
+    fun at(dx: Float, dy: Float): Inset {
+        this.dx = dx
+        this.dy = dy
+        return this
+    }
+
     override fun Placeable.at(x: Float, y: Float) = placeAt(x + dx, y + dy)
 }
 
