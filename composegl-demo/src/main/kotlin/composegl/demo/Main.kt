@@ -66,6 +66,10 @@ class Demo : ApplicationAdapter() {
     /** A keyboard script, one step per frame, the same as the other backend plays. */
     private var scriptedKeys: List<String> = emptyList()
 
+    /** A pad script, played once after the first layout: focus moves by geometry, and there is
+     *  none before then. Only a screenshot ever sets it. */
+    private val scriptedPad: String? = System.getenv("COMPOSEGL_DEMO_PAD")
+
     /**
      * Where to pretend the mouse is, as `x,y` or `x,y,press`.
      *
@@ -127,6 +131,7 @@ class Demo : ApplicationAdapter() {
         )
         MeasurePass().run(host.root, viewport)
         input.frame(System.nanoTime() / 1_000_000)
+        if (frames == 0) scriptedPad?.let { input.pretendPadDid(it) }
         if (frames < scriptedKeys.size) input.pretendKeyWas(scriptedKeys[frames])
 
         Gdx.gl.glClearColor(0.03f, 0.04f, 0.05f, 1f)

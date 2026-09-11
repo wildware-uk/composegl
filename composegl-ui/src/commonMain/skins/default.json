@@ -51,6 +51,15 @@
       "text": { "size": 14 }
     },
 
+    // What the game is telling the player: the card, its second line, and the count of the ones
+    // still waiting behind it.
+    "notification": {
+      "background": { "fill": "#232A35", "corner": 5, "border": "#4A5568", "padding": [12, 9] },
+      "textColour": "#E8ECF2"
+    },
+    "notification.detail": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "notification.more": { "textColour": "#7C8798", "text": { "size": 13 } },
+
     // --- text ---
 
     "label": {
