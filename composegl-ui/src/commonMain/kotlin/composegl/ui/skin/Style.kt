@@ -122,14 +122,23 @@ data class ResolvedStyle(
     val contentOffset: Offset,
 ) {
 
-    /** This, with anything [state] names changed. */
+    /**
+     * This, with anything [state] names changed.
+     *
+     * One rule that is not simply "the override wins": a state that brings its own background and
+     * says nothing about padding takes the padding the *art* carries. Art with a six-pixel bevel
+     * and a four-pixel glow needs its contents ten pixels in, and that number belongs to the
+     * picture rather than to the code using it — change the picture and the gap changes with it.
+     * A drawable whose padding is [Padding.None] has no opinion, and leaves the padding alone.
+     */
     fun with(state: StateStyle?): ResolvedStyle {
         if (state == null) return this
+        val fromArt = state.background?.padding?.takeIf { it != Padding.None }
         return ResolvedStyle(
             state.background ?: background,
             state.textColour ?: textColour,
             state.tint ?: tint,
-            state.padding ?: padding,
+            state.padding ?: fromArt ?: padding,
             state.textStyle ?: textStyle,
             state.contentOffset ?: contentOffset,
         )
