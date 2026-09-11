@@ -5,6 +5,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import composegl.ui.geometry.Offset
+import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Arrangement
@@ -23,6 +25,7 @@ import composegl.ui.modifier.fillMaxHeight
 import composegl.ui.modifier.fillMaxSize
 import composegl.ui.modifier.fillMaxWidth
 import composegl.ui.modifier.height
+import composegl.ui.modifier.offset
 import composegl.ui.modifier.padding
 import composegl.ui.modifier.size
 import composegl.ui.modifier.weight
@@ -48,7 +51,7 @@ private val Small = TextStyle(family = "body", size = 13f)
  * LibGDX.
  */
 @Composable
-fun Screen(fonts: FontProvider, skin: DemoSkin, health: Float, selected: Int) {
+fun Screen(fonts: FontProvider, skin: DemoSkin, health: Float, selected: Int, pointer: Offset?) {
     CompositionLocalProvider(LocalFonts provides fonts, LocalSkin provides skin) {
         Box(Modifier.fillMaxSize().background(Background)) {
             Column(Modifier.fillMaxSize().padding(28f), verticalArrangement = Arrangement.spacedBy(20f)) {
@@ -62,6 +65,11 @@ fun Screen(fonts: FontProvider, skin: DemoSkin, health: Float, selected: Int) {
 
                 Hotbar(selected)
             }
+
+            // Proof that a window coordinate made it all the way to a design coordinate, through
+            // the HDPI scale and the letterbox. Nothing is clickable yet — hit testing is the next
+            // milestone — so this is as far as a pointer gets for now.
+            pointer?.let { Reticle(it) }
         }
     }
 }
@@ -157,8 +165,27 @@ private fun Hotbar(selected: Int) {
     }
 }
 
+/** A cross where the pointer is, drawn straight onto the canvas. */
+@Composable
+private fun Reticle(at: Offset) {
+    LeafLayout(
+        Modifier.offset(at.x - ReticleSize / 2f, at.y - ReticleSize / 2f).size(ReticleSize),
+        name = "reticle",
+        draw = { bounds ->
+            val centre = bounds.centre
+            rect(Rect(bounds.left, centre.y - 0.5f, bounds.right, centre.y + 0.5f), Accent)
+            rect(Rect(centre.x - 0.5f, bounds.top, centre.x + 0.5f, bounds.bottom), Accent)
+        },
+    )
+}
+
+private const val ReticleSize = 18f
+
 /** What the demo animates, so that a frame is worth redrawing. */
 class DemoState {
     var health by mutableStateOf(0.86f)
     var selected by mutableStateOf(3)
+
+    /** Where the pointer is, in design units. Null until it has moved at least once. */
+    var pointer: Offset? by mutableStateOf(null)
 }
