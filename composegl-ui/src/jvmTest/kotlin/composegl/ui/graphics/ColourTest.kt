@@ -49,6 +49,39 @@ class ColourTest {
     }
 
     @Test
+    fun `the named colours are opaque and are the colour they say`() {
+        val named = mapOf(
+            Colour.Red to Triple(255, 0, 0),
+            Colour.Green to Triple(0, 255, 0),
+            Colour.Blue to Triple(0, 0, 255),
+            Colour.Yellow to Triple(255, 255, 0),
+            Colour.Cyan to Triple(0, 255, 255),
+            Colour.Magenta to Triple(255, 0, 255),
+            Colour.Orange to Triple(255, 128, 0),
+        )
+
+        named.forEach { (colour, channels) ->
+            val (red, green, blue) = channels
+            assertEquals(255, colour.alpha, "$colour should be opaque")
+            assertEquals(red, colour.red, "$colour red")
+            assertEquals(green, colour.green, "$colour green")
+            assertEquals(blue, colour.blue, "$colour blue")
+        }
+    }
+
+    @Test
+    fun `the greys are grey, and get lighter in the order they are named`() {
+        listOf(Colour.DarkGrey, Colour.Grey, Colour.LightGrey).forEach {
+            assertEquals(it.red, it.green, "$it is not grey")
+            assertEquals(it.green, it.blue, "$it is not grey")
+            assertEquals(255, it.alpha, "$it should be opaque")
+        }
+
+        assertTrue(Colour.DarkGrey.red < Colour.Grey.red)
+        assertTrue(Colour.Grey.red < Colour.LightGrey.red)
+    }
+
+    @Test
     fun `transparent is transparent`() {
         assertTrue(Colour.Transparent.isTransparent)
         assertTrue(Colour.White.scaleAlpha(0f).isTransparent)

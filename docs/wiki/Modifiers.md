@@ -64,6 +64,12 @@ Modifier.drawInFront { bounds -> border(bounds, Colour.White, 1f) }
 The receiver is a [`UiCanvas`](https://github.com/wildware-uk/composegl/blob/master/composegl-ui/src/commonMain/kotlin/composegl/ui/graphics/UiCanvas.kt)
 and the argument is the widget's rectangle in screen coordinates.
 
+**A note on colours.** `Colour.rgb(0x…)` and `Colour.argb(0x…)` are how you write
+one. There are also about a dozen named ones — `Colour.Red`, `Colour.Grey`,
+`Colour.Orange` — for a debug box, an example, or a prototype nobody has skinned
+yet. They are deliberately plain and deliberately few: your game's actual colours
+belong in its **[[Skins|skin]]**, where one edit changes every panel at once.
+
 **Input**
 
 ```kotlin
