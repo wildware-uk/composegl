@@ -38,15 +38,38 @@ Compose, and it survives without Compose UI.
 
 ## Status
 
-Nothing is shippable yet. The repository currently holds the design, the spike that justifies it,
-and nothing else.
+Nothing is shippable yet, and there is no release. What works today is the picture above: layout,
+the modifier chain, the renderer, fonts, nine-patch art and pointer input. There are no widgets
+yet, nothing is clickable, and there is no skin file — those are the next milestones.
 
 | | |
 |---|---|
+| `composegl-ui` | the toolkit. Depends on the Compose runtime and coroutines, and nothing else |
+| `composegl-gdx` | the LibGDX backend: renderer, fonts, input |
+| `composegl-demo` | the example in the picture |
 | Design | [`docs/superpowers/specs/2026-09-09-runtime-ui-design.md`](docs/superpowers/specs/2026-09-09-runtime-ui-design.md) |
 | Spike, and its numbers | [`docs/superpowers/spikes/s6-runtime-ui.md`](docs/superpowers/spikes/s6-runtime-ui.md) |
 | Everything else written down | [`docs/`](docs/README.md) |
 | Work | the [issues](https://github.com/wildware-uk/composegl/issues), milestones M5 onwards |
+
+## Testing
+
+Almost nothing here needs a GPU. A widget's job is to decide *what* to draw and *where*, and a
+decision can be asserted directly — so the toolkit is tested through a canvas that writes down what
+it was asked to draw instead of drawing it.
+
+What is left is the part only a GPU can answer: whether the pixels are right. That is a handful of
+golden images under `composegl-gdx/src/test/resources/goldens`, compared with a tolerance that
+survives two different software rasterisers disagreeing about the last bit of an antialiased edge.
+
+```bash
+./gradlew check                                          # everything that needs no display
+xvfb-run -a ./gradlew :composegl-gdx:test                # the renderer, on software OpenGL
+COMPOSEGL_UPDATE_GOLDENS=1 xvfb-run -a ./gradlew :composegl-gdx:test   # after an intended change
+```
+
+A failed golden writes the actual, the expected and a difference map into `build/screenshots`, and
+CI keeps them.
 
 ## The previous version
 
@@ -57,11 +80,11 @@ into the game's framebuffer. It worked, it was tested, and it is preserved at th
 It was abandoned for one reason: skiko publishes no Android or iOS binary, and building one is not
 work this project can do. Everything it taught us is in `docs/superpowers/spikes/s1`…`s6`.
 
-## Running the spike
+## Running it
 
 ```bash
-SPIKE_S6_HEADLESS=1 ./gradlew :spikes:s6-runtime-ui:run   # the experiment, no window needed
-./gradlew :spikes:s6-runtime-ui:run                       # the window in the screenshot
+./gradlew :composegl-demo:run                             # the example in the picture
+SPIKE_S6_HEADLESS=1 ./gradlew :spikes:s6-runtime-ui:run   # the redraw experiment, no window needed
 ```
 
 Everything here has only ever run on Mesa's software rasteriser. No real GPU, no macOS, no Windows,

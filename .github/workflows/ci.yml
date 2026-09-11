@@ -61,6 +61,9 @@ jobs:
           SPIKE_S6_FRAMES: '300'
         run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :spikes:s6-runtime-ui:run --stacktrace
 
+      # A failed screenshot leaves the actual, the expected and a difference map side by side.
+      # Without these, the first question a broken golden raises — what does it look like now? —
+      # can only be answered by rerunning the job on a machine nobody has.
       - name: Keep what went wrong
         if: failure()
         uses: actions/upload-artifact@v4
@@ -68,3 +71,4 @@ jobs:
           name: gl-test-output
           path: |
             **/build/reports/tests/**
+            **/build/screenshots/**
