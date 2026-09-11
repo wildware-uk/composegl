@@ -86,6 +86,9 @@ import composegl.ui.widget.Tabs
 import composegl.ui.widget.Text
 import composegl.ui.widget.Toggle
 import composegl.ui.widget.Tooltip
+import composegl.ui.widget.Typewriter
+import composegl.ui.widget.TypewriterEffect
+import composegl.ui.widget.rememberTypewriter
 import composegl.ui.widget.TooltipHost
 
 /**
@@ -442,10 +445,21 @@ private fun LorePanel(modifier: Modifier, state: DemoState) {
     Panel(modifier) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
             Heading("BRIEFING")
-            Text(
+
+            // Typed rather than printed, resting at the full stops, each letter fading up as it
+            // lands. Click it and the rest of the line arrives at once, which is what a player who
+            // has already read it wants. The box is its final size from the first character, so
+            // the log underneath does not jump while the briefing is still arriving.
+            val briefing = rememberTypewriter(
                 "The relay went quiet six hours ago. Whatever is down there has already " +
                     "rewritten the door codes, so bring the cutter and do not count on the lift.",
+            )
+            Typewriter(
+                briefing,
+                Modifier.fillMaxWidth().clickable { briefing.skip() },
                 style = "label.body",
+                charactersPerSecond = 38f,
+                effect = TypewriterEffect.fadeIn(),
             )
 
             // Five hundred lines of log, of which about a dozen exist. The wheel, a drag, the
