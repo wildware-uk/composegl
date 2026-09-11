@@ -13,6 +13,7 @@ import composegl.gdx.GdxFonts
 import composegl.gdx.GdxKeyboardInput
 import composegl.gdx.GdxPointerInput
 import composegl.android.AndroidSoftKeyboard
+import composegl.android.AndroidTextInput
 import composegl.snake.SnakeApp
 import composegl.ui.geometry.Size
 import composegl.ui.layout.Padding
@@ -58,11 +59,21 @@ class SnakeGdxApp : ApplicationAdapter() {
             (Gdx.app as AndroidApplication).window,
             (Gdx.graphics as AndroidGraphics).view,
         ) { app.input.focus.clearFocus() }
+
+        // The phone's input method, which is the difference between a name field that can be typed
+        // into in English and one that can be typed into at all. Gboard's autocorrect, swipe typing
+        // and every keyboard for a language you cannot type a key at a time all need this.
+        //
+        // The edits are handed back onto the render thread: the keyboard calls in on the main
+        // thread, and a field is not two threads' to edit.
+        val textInput = AndroidTextInput(Gdx.app as AndroidApplication) { Gdx.app.postRunnable(it) }
+
         app = SnakeApp(
             fonts,
             GdxHighScores(),
             GdxClipboard(),
             keyboard,
+            textInput,
             // A phone is a touch screen until something else is plugged into it.
             InputSource.Touch,
         )

@@ -44,7 +44,10 @@ import composegl.ui.modifier.onTextEvent
 import composegl.ui.modifier.styled as styledWith
 import composegl.ui.skin.ResolvedStyle
 import composegl.ui.skin.rememberStates
+import composegl.ui.backend.TextInput
+import composegl.ui.backend.TextInputSession
 import composegl.ui.skin.rememberStyle
+import composegl.ui.text.EditCommand
 import composegl.ui.text.FontProvider
 import composegl.ui.text.KeyboardEditor
 import composegl.ui.text.TextFieldValue
@@ -52,6 +55,7 @@ import composegl.ui.text.TextGestures
 import composegl.ui.text.TextLayout
 import composegl.ui.text.TextRange
 import composegl.ui.text.TextStyle
+import composegl.ui.text.apply
 import composegl.ui.text.graphemeAfter
 
 /** The system clipboard, for the fields inside it. A game provides its backend's. */
@@ -72,6 +76,18 @@ val LocalSoftKeyboard: ProvidableCompositionLocal<SoftKeyboard> =
 @Composable
 fun ProvideSoftKeyboard(keyboard: SoftKeyboard, content: @Composable () -> Unit) =
     CompositionLocalProvider(LocalSoftKeyboard provides keyboard, content = content)
+
+/**
+ * The platform's input method, for the fields inside it. A game provides its backend's.
+ *
+ * The default is none, which is correct anywhere a key event is the whole story. See [TextInput]
+ * for why that is not everywhere.
+ */
+val LocalTextInput: ProvidableCompositionLocal<TextInput> = staticCompositionLocalOf { TextInput.None }
+
+@Composable
+fun ProvideTextInput(input: TextInput, content: @Composable () -> Unit) =
+    CompositionLocalProvider(LocalTextInput provides input, content = content)
 
 /**
  * Somewhere to type.
@@ -115,6 +131,7 @@ fun TextField(
     onSubmit: (() -> Unit)? = null,
     clipboard: Clipboard = LocalClipboard.current,
     softKeyboard: SoftKeyboard = LocalSoftKeyboard.current,
+    textInput: TextInput = LocalTextInput.current,
     interaction: InteractionState = remember { InteractionState() },
 ) {
     val resolved = rememberStyle(style, rememberStates(interaction, enabled))
@@ -154,6 +171,48 @@ fun TextField(
         // this runs, focus has already gone, and a field leaving the screen while focused — a
         // dialogue closing over one — has to put the keyboard away on its way out too.
         onDispose { if (wantsKeyboard) softKeyboard.hide() }
+    }
+
+    // The platform's own input method, for the languages a key event cannot express and for a
+    // phone's autocorrect. It is handed the same EditCommands the keyboard sends, so nothing below
+    // here finds out that an input method exists.
+    val ime = remember(session, multiline, maxLength, enabled) {
+        object : TextInputSession {
+            override val value: TextFieldValue get() = session.value
+            override val multiline: Boolean get() = multiline
+
+            override fun edit(commands: List<EditCommand>) {
+                if (!enabled) return
+                // Applied as one edit: an input method means a batch as a batch, and a field that
+                // told the game about each half separately would report a value that never was.
+                var after = session.value
+                for (command in commands) {
+                    val next = after.apply(command)
+                    // At the limit, typing does nothing — the same rule the keyboard follows.
+                    // Never refuse the whole batch: an input method that has its edit dropped
+                    // silently goes on believing it happened.
+                    if (maxLength > 0 && next.text.length > maxLength && next.text.length > after.text.length) continue
+                    after = next
+                }
+                if (after != session.value) session.emit(after, change)
+            }
+
+            override fun submit() {
+                submit?.invoke()
+            }
+        }
+    }
+
+    DisposableEffect(textInput, wantsKeyboard, ime) {
+        if (wantsKeyboard) textInput.start(ime)
+        onDispose { if (wantsKeyboard) textInput.stop(ime) }
+    }
+
+    // An input method keeps its own copy of the text, so anything that changed the field from
+    // somewhere else — a key, a paste, a click, the game — has to be reported back to it.
+    // Without this, a phone's autocorrect happily replaces a word that is no longer there.
+    LaunchedEffect(textInput, wantsKeyboard, value) {
+        if (wantsKeyboard) textInput.update(value)
     }
 
     // The caret is solid for a moment after every change, and blinks after that. Restarting the
@@ -285,6 +344,7 @@ fun TextField(
     onSubmit: (() -> Unit)? = null,
     clipboard: Clipboard = LocalClipboard.current,
     softKeyboard: SoftKeyboard = LocalSoftKeyboard.current,
+    textInput: TextInput = LocalTextInput.current,
     interaction: InteractionState = remember { InteractionState() },
 ) {
     // The caret lives here, because a plain string cannot carry one. A game that sets the text from
@@ -308,6 +368,7 @@ fun TextField(
         onSubmit = onSubmit,
         clipboard = clipboard,
         softKeyboard = softKeyboard,
+        textInput = textInput,
         interaction = interaction,
     )
 }

@@ -11,6 +11,7 @@ import composegl.ui.animation.Tween
 import composegl.ui.animation.animateFloatAsState
 import composegl.ui.backend.Clipboard
 import composegl.ui.backend.SoftKeyboard
+import composegl.ui.backend.TextInput
 import composegl.ui.debug.FrameBudget
 import composegl.ui.debug.FrameBudgetOverlay
 import composegl.ui.input.InputSource
@@ -39,6 +40,7 @@ import composegl.ui.widget.LocalClipboard
 import composegl.ui.widget.LocalFonts
 import composegl.ui.widget.LocalInputSource
 import composegl.ui.widget.LocalSoftKeyboard
+import composegl.ui.widget.LocalTextInput
 import composegl.ui.widget.Panel
 import composegl.ui.widget.ScrollArea
 import composegl.ui.widget.Slider
@@ -61,6 +63,7 @@ fun SnakeUi(
     skin: Skin,
     clipboard: Clipboard = Clipboard.None,
     softKeyboard: SoftKeyboard = SoftKeyboard.None,
+    textInput: TextInput = TextInput.None,
     source: InputSourceTracker = InputSourceTracker(),
     budget: FrameBudget = FrameBudget().also { it.isOn = false },
 ) {
@@ -70,6 +73,9 @@ fun SnakeUi(
         // On a desktop this is a no-op; on a phone it is what puts the keyboard up when the name
         // field takes focus, and takes it away again when the field loses it.
         LocalSoftKeyboard provides softKeyboard,
+        // The phone's own keyboard driving the name field, rather than one character per key. It
+        // is what makes autocorrect, swipe typing and a Japanese keyboard work at all.
+        LocalTextInput provides textInput,
         LocalInputSource provides source,
     ) {
         ProvideSkin(skin) {
