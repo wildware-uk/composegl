@@ -56,7 +56,17 @@ interface PlacementScope {
     fun Placeable.at(x: Float, y: Float) = placeAt(x, y)
 }
 
-/** Where measuring happens. Exists so that [layout] can only be called at the right moment. */
+/**
+ * Where measuring happens. Exists so that [layout] can only be called at the right moment.
+ *
+ * It also lends a layout the scratch space it needs while it works. A layout has to hold on to its
+ * children between measuring them and placing them, and the obvious way — a list built on the spot
+ * — is a list per node per frame, for a tree that is measured every frame whether it changed or
+ * not. So the room is lent instead: it belongs to the node, it is used again next frame, and it is
+ * good until this measure returns. Keeping it past that is keeping somebody else's paper.
+ *
+ * A layout is free to ignore all three and build its own lists. Nothing checks.
+ */
 interface MeasureScope {
 
     /**
@@ -71,6 +81,15 @@ interface MeasureScope {
             override val height = height
             override fun placeChildren(scope: PlacementScope) = scope.place()
         }
+
+    /** Room for [count] children, from index zero. May be longer than asked for. */
+    fun placeables(count: Int): Array<Placeable?> = arrayOfNulls(count)
+
+    /** Room for [count] numbers: how big each child turned out. */
+    fun sizes(count: Int): FloatArray = FloatArray(count)
+
+    /** Room for [count] numbers: where each child starts. A different array from [sizes]. */
+    fun positions(count: Int): FloatArray = FloatArray(count)
 }
 
 /**
@@ -91,12 +110,21 @@ fun interface MeasurePolicy {
          * `Layout` calls behaves sensibly instead of collapsing to nothing.
          */
         val Stack = MeasurePolicy { measurables, constraints ->
-            val placeables = measurables.map { it.measure(constraints.loosen()) }
-            layout(
-                constraints.constrainWidth(placeables.maxOfOrNull { it.width } ?: 0f),
-                constraints.constrainHeight(placeables.maxOfOrNull { it.height } ?: 0f),
-            ) {
-                placeables.forEach { it.at(0f, 0f) }
+            val count = measurables.size
+            val placeables = placeables(count)
+            val offered = constraints.loosen()
+
+            var widest = 0f
+            var tallest = 0f
+            for (index in 0 until count) {
+                val placeable = measurables[index].measure(offered)
+                placeables[index] = placeable
+                if (placeable.width > widest) widest = placeable.width
+                if (placeable.height > tallest) tallest = placeable.height
+            }
+
+            layout(constraints.constrainWidth(widest), constraints.constrainHeight(tallest)) {
+                for (index in 0 until count) placeables[index]?.at(0f, 0f)
             }
         }
 

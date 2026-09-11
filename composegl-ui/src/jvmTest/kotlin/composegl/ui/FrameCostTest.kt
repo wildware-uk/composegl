@@ -140,10 +140,10 @@ class FrameCostTest {
         }
         val perFrame = (allocatedBytes() - before) / 20
 
-        // Where it stands today, measured: about 13k of it is the layout pass and 4k the draw.
-        // A ratchet rather than a target — the layouts themselves still build a list or two per
-        // node per frame, and that is its own piece of work.
-        assertTrue(perFrame < 24_576, "a still frame of a whole HUD allocated $perFrame bytes")
+        // Where it stands today, measured: about 5.5k of it is the layout pass and 4.3k the draw.
+        // A ratchet rather than a target — the draw pass has not been looked at yet, and neither
+        // has Constraints, which is still an object per node per frame on the nodes that resize.
+        assertTrue(perFrame < 12_288, "a still frame of a whole HUD allocated $perFrame bytes")
     }
 
     @Test

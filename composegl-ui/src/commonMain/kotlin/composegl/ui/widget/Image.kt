@@ -121,7 +121,8 @@ internal fun fitInto(
     if (textureWidth <= 0f || textureHeight <= 0f || bounds.isEmpty) return bounds to null
 
     fun placed(width: Float, height: Float): Rect {
-        val (x, y) = alignment.offsetIn(bounds.width, bounds.height, width, height)
+        val x = alignment.xIn(bounds.width, width)
+        val y = alignment.yIn(bounds.height, height)
         return Rect.of(bounds.left + x, bounds.top + y, width, height)
     }
 
@@ -141,7 +142,8 @@ internal fun fitInto(
             val scale = maxOf(bounds.width / textureWidth, bounds.height / textureHeight)
             val across = (bounds.width / scale).coerceAtMost(textureWidth)
             val down = (bounds.height / scale).coerceAtMost(textureHeight)
-            val (x, y) = alignment.offsetIn(textureWidth, textureHeight, across, down)
+            val x = alignment.xIn(textureWidth, across)
+            val y = alignment.yIn(textureHeight, down)
             bounds to Rect.of(x, y, across, down)
         }
     }
