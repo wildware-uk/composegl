@@ -214,6 +214,15 @@ class Showcase : ApplicationAdapter() {
             WorldAnchor { it.set(drone.position.x, drone.position.y + 0.35f, drone.position.z) },
             critical,
         )
+        // The sparks are in the interface's own coordinates, so the game hands over where the
+        // drone is on screen — which it already worked out for the readouts.
+        if (state.isOn(Exhibit.Sparks)) {
+            val readout = state.targets[index]
+            if (readout.onScreen) {
+                state.sparks.burst(if (critical) 44 else 24, readout.screenX, readout.screenY, HitSparks)
+            }
+        }
+
         state.ammo = (state.ammo - 1).coerceAtLeast(0)
     }
 

@@ -8,6 +8,8 @@ import composegl.effects.outline
 import composegl.ui.effect.ShaderEffect
 import composegl.ui.effect.ShaderSource
 import composegl.ui.effect.Uniform
+import composegl.ui.game.ParticleEmitter
+import composegl.ui.game.ParticleStyle
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
@@ -110,6 +112,36 @@ fun scenes(): List<Scene> = listOf(
 
         val gone = listOf(dissolve(progress = 0.4f, scale = 18f, edge = Accent))
         through(gone, Rect.of(128f, 136f, 96f, 88f)) { tile(art, Rect.of(128f, 136f, 96f, 88f), "Gone") }
+    },
+
+    Scene("particles") { _ ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+
+        // A seeded burst, wound on by a fixed step. Nothing here reads a clock, so the picture is
+        // the same every time it is drawn — which is the only way a pool full of random numbers can
+        // be checked by a golden at all. A burst that came out differently on another platform
+        // would show up here as a different picture rather than as a shrug.
+        val embers = ParticleEmitter(capacity = 120, seed = 4L)
+        embers.burst(
+            60,
+            SceneSize / 2f,
+            200f,
+            ParticleStyle(
+                life = 1.1f,
+                speed = 150f,
+                direction = -90f,
+                spread = 55f,
+                gravity = 180f,
+                size = 7f,
+                endSize = 0.2f,
+                colour = Accent,
+                endColour = Paper.withAlpha(0),
+                corner = 3.5f,
+            ),
+        )
+        // Six hundred milliseconds in, in the steps a game would have taken to get there.
+        repeat(36) { embers.update(1f / 60f) }
+        embers.drawInto(this, Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()))
     },
 
     Scene("shadow") { _ ->

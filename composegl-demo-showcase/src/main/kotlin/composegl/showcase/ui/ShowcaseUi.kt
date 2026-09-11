@@ -24,6 +24,7 @@ import composegl.ui.game.Hotbar
 import composegl.ui.game.HotbarSlot
 import composegl.ui.game.HotbarState
 import composegl.ui.game.MinimapFrame
+import composegl.ui.game.ParticleLayer
 import composegl.ui.game.MinimapMarker
 import composegl.ui.game.Reticle
 import composegl.ui.game.WorldProjection
@@ -91,6 +92,10 @@ fun ShowcaseUi(
                 if (state.isOn(Exhibit.Tracking)) TargetTags(state)
 
                 if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
+
+                // Over the scene and under the panels, which is where a hit happens. The game
+                // fills the pool from its own loop; this only draws it.
+                if (state.isOn(Exhibit.Sparks)) ParticleLayer(state.sparks, Modifier.fillMaxSize())
 
                 // The numbers live in the pool the game writes to; this only draws them, through
                 // the game's own camera.
