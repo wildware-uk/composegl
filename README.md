@@ -85,6 +85,14 @@ sweep needs no arc and no smoothness setting. Drawing it added the one primitive
 short drawing interface was missing — a triangle fan — which is also what a radial menu and a
 compass needle are made of.
 
+The bar those go in is a widget too. A hotbar answers the number keys, a click and a pad at once,
+because a player uses all three; an empty slot looks different from a slot holding something that
+cannot be used right now, because those mean different things to somebody deciding what to press;
+and a press that would do nothing — empty, switched off, out of charges, still cooling down — is
+not drawn as a press and never reaches the game. The number keys have to work wherever the player
+is, and a key event only reaches a widget while focus is inside it, so the press is hoisted into a
+`HotbarState` a game puts on its screen or calls from its own bindings.
+
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and
 GLFW's own contracts say and have not been measured.

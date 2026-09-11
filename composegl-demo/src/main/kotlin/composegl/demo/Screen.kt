@@ -55,6 +55,9 @@ import androidx.compose.runtime.LaunchedEffect
 import composegl.ui.game.Bar
 import androidx.compose.runtime.LaunchedEffect
 import composegl.ui.game.BarThreshold
+import composegl.ui.game.Hotbar
+import composegl.ui.game.HotbarSlot
+import composegl.ui.game.HotbarState
 import composegl.ui.game.RadialCooldown
 import composegl.ui.game.rememberCooldown
 import composegl.ui.backend.SoftKeyboard
@@ -101,22 +104,12 @@ fun Screen(
     ) {
         ProvideSkin(skin) {
             ProvideBackStack(state.backs) {
-                // A screen-level shortcut, on the outermost node: the number keys pick a hotbar slot
-                // the way they do in every game that has one. It sits above every button, so it works
-                // wherever focus happens to be — which is exactly what bubbling outwards buys.
-                val hotkeys = remember {
-                    Modifier.onKeyEvent { event ->
-                        if (event.type != KeyEventType.Down) false else {
-                            val slot = digits.indexOf(event.key)
-                            if (slot < 0) false else {
-                                state.select(if (slot == 0) 9 else slot - 1)
-                                true
-                            }
-                        }
-                    }
-                }
-
-                Box(Modifier.fillMaxSize().styled("screen").then(hotkeys)) {
+                // The hotbar's press, hoisted to the screen. A key event only reaches a widget
+                // while focus is inside it, and the number keys have to work wherever the player
+                // is — so they are answered here, above every button, and the bar is handed the
+                // same state to press.
+                val hotbar = remember { HotbarState() }
+                Box(Modifier.fillMaxSize().styled("screen").onKeyEvent(hotbar::onKey)) {
                     Column(
                         Modifier.fillMaxSize().padding(28f),
                         verticalArrangement = Arrangement.spacedBy(20f),
@@ -136,7 +129,7 @@ fun Screen(
                             LorePanel(Modifier.weight(1f).fillMaxHeight(), state)
                         }
 
-                        Hotbar(state)
+                        DemoHotbar(state, hotbar)
                     }
 
                     // A question the player has to answer: focus cannot leave it, nothing behind it
@@ -429,37 +422,45 @@ private fun Chip(label: String, style: String, chosen: Boolean, first: Boolean, 
     }
 }
 
-/** Ten slots, one of them lit, and now one of them pickable. */
+/**
+ * The toolkit's hotbar, with the demo's own ten slots in it.
+ *
+ * The number keys, a click and a pad all press the same slots, and the last three show what a slot
+ * can say about itself: a cooldown sweeping over it, how many charges are left, an ability that is
+ * switched off, and a hole in the bar where there is nothing at all.
+ */
 @Composable
-private fun Hotbar(state: DemoState) {
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8f, Arrangement.Centre),
-        verticalAlignment = VerticalAlignment.Centre,
-    ) {
-        repeat(10) { slot ->
-            Slot(slot, lit = slot == state.selected) { state.select(slot) }
-        }
-    }
-}
+private fun DemoHotbar(state: DemoState, hotbar: HotbarState) {
+    val blink = rememberCooldown(2_500, Clock.World)
+    val heal = rememberCooldown(7_000, Clock.World)
 
-@Composable
-private fun Slot(slot: Int, lit: Boolean, onClick: () -> Unit) {
-    val touch = remember { InteractionState() }
-    val resolved = rememberStyle(if (lit) "slot.lit" else "slot", rememberStates(touch))
+    val slots = listOf(
+        HotbarSlot(label = "1", prompt = "1"),
+        HotbarSlot(label = "2", prompt = "2"),
+        HotbarSlot(label = "3", prompt = "3"),
+        HotbarSlot(label = "4", prompt = "4"),
+        HotbarSlot(label = "5", prompt = "5"),
+        HotbarSlot(label = "6", prompt = "6"),
+        HotbarSlot(label = "BLK", prompt = "7", cooldown = blink),
+        HotbarSlot(label = "MED", prompt = "8", cooldown = heal, charges = 2),
+        HotbarSlot(label = "AMP", prompt = "9", enabled = false),
+        HotbarSlot(prompt = "0"),
+    )
 
-    FocusRing(touch.isFocused) {
-        Box(
-            Modifier
-                .interaction(touch)
-                .focusable(touch)
-                .clickable(onClick = onClick)
-                .size(54f)
-                .styledWith(resolved),
-            contentAlignment = Alignment.Centre,
-        ) {
-            Text("${(slot + 1) % 10}", textStyle = resolved.textStyle, colour = resolved.textColour)
-        }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0f, Arrangement.Centre)) {
+        Hotbar(
+            slots = slots,
+            state = hotbar,
+            hotkeys = false,
+            selected = state.selected,
+            onSelect = { state.select(it) },
+            onUse = { index ->
+                // What a game does with a press: use the ability, which starts its cooldown. A
+                // press that arrives while it is still running never reaches here.
+                slots[index].cooldown?.trigger()
+            },
+            slotSize = 54f,
+        )
     }
 }
 
