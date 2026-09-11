@@ -2,13 +2,20 @@
 
 How things end up where they end up.
 
-There are three layouts and a handful of modifiers. That is the whole system —
-no grid, no constraint solver, no flexbox. It is enough for every HUD, menu and
-inventory screen we have built with it.
+If you have used Compose's layouts, you already know this one: same two-pass model,
+same `Column`/`Row`/`Box`, same `weight` and `Arrangement`. The
+[Compose layout basics](https://developer.android.com/develop/ui/compose/layouts/basics)
+guide applies almost word for word.
+
+This page is the differences and the things that are ours.
 
 ---
 
 ## The three layouts
+
+`Column`, `Row`, `Box`. There is no `FlowRow`, no `ConstraintLayout`, no grid —
+these three plus `weight` have covered every HUD, menu and inventory screen we
+have built.
 
 ```kotlin
 Column { Text("one"); Text("two") }   // downwards
@@ -16,60 +23,38 @@ Row    { Text("one"); Text("two") }   // across
 Box    { Text("one"); Text("two") }   // on top of each other
 ```
 
-That is genuinely it. A menu is a `Column`. A toolbar is a `Row`. A HUD is a
-`Box` with things pinned to its corners.
-
-They nest, and nesting is how you get anything complicated:
-
-```kotlin
-Column {
-    Text("INVENTORY")
-    Row {
-        Text("Sword")
-        Text("x1")
-    }
-    Row {
-        Text("Potion")
-        Text("x3")
-    }
-}
-```
-
 ---
 
-## How big is a widget?
+## Sizes are floats, not `dp`
 
-Every widget gets asked one question by its parent: **"you may be up to this big —
-how big do you want to be?"** The widget answers, and the parent then decides where
-to put it.
-
-That is the entire model. Two steps, no arguing, no second guesses.
-
-By default a widget asks for the smallest size that fits what is in it. A `Text`
-asks for the width of its text; a `Panel` asks for whatever is inside it plus its
-own padding.
-
-Three modifiers change the answer:
+The one change you have to make coming from Compose UI.
 
 ```kotlin
-Modifier.width(280f)     // "I want to be 280 wide"
-Modifier.height(40f)     // "…and 40 tall"
-Modifier.size(64f)       // both, square
+Modifier.width(280f)        // not 280.dp
+Modifier.size(64f)
+Modifier.fillMaxWidth(0.5f)
 ```
 
-And two more ask for a share of what is on offer:
+There is no density, no `Dp`, no `LocalDensity`. You design against one fixed
+screen — say 1280×720 — and `Viewport` scales the whole interface to whatever it
+actually lands on:
 
 ```kotlin
-Modifier.fillMaxWidth()       // all the width the parent will give
-Modifier.fillMaxWidth(0.5f)   // half of it
-Modifier.fillMaxSize()        // everything, both ways
+Viewport(
+    design = Size(1280f, 720f),
+    physical = Size(Gdx.graphics.backBufferWidth.toFloat(), …),
+    policy = ScalePolicy.Fit,
+)
 ```
 
-> **Why `280f` and not `280.dp`?** Because of the viewport. You design against one
-> fixed size — say 1280×720 — and the viewport scales the whole interface to
-> whatever screen it lands on. So `280f` always means the same fraction of the
-> screen, on every device. See [[Your first screen]] for the two lines that set
-> that up.
+So `280f` is the same fraction of the screen on a phone, a laptop and a 4K
+television, and there is nothing per-device to think about. That is the trade: you
+lose "physically the same size everywhere" and gain "looks like the mock-up
+everywhere", which is what a game wants.
+
+Constraints work as you would expect — a parent offers a range, a child answers
+with a size inside it — and `Constraints` has `minWidth`, `maxWidth`, `minHeight`,
+`maxHeight` as floats.
 
 ---
 
@@ -94,8 +79,7 @@ Row(Modifier.fillMaxWidth()) {
 }
 ```
 
-`weight` only means anything inside a `Row` or a `Column` — a `Box` piles its
-children up rather than sharing anything out, so there is nothing to share.
+As in Compose, `weight` only means anything inside a `Row` or a `Column`.
 
 ---
 
@@ -137,8 +121,8 @@ Column(verticalArrangement = Arrangement.spacedBy(10f)) {
 
 ## Lining them up: alignment
 
-Arrangement handles the direction a `Row` or `Column` runs in. Alignment handles
-the other one.
+Same idea as Compose, different type names — and British spelling throughout:
+`Centre`, not `Center`.
 
 ```kotlin
 Row(verticalAlignment = VerticalAlignment.Centre) { … }      // centred top-to-bottom
@@ -172,23 +156,21 @@ That last example is a whole HUD's worth of positioning, and it is three lines.
 
 ## Padding
 
-Padding is room *inside* a widget, between its edge and what is in it.
-
 ```kotlin
 Modifier.padding(12f)                        // all four sides
 Modifier.padding(horizontal = 16f, vertical = 8f)
 Modifier.padding(left = 28f, bottom = 28f)   // name the ones you want
 ```
 
-There is no margin. Space *between* things is the parent's job — use
-`Arrangement.spacedBy`.
+There is no margin, and no `Spacer` in a typical chain. Space *between* things is
+the parent's job: `Arrangement.spacedBy`.
 
 ---
 
 ## Long lists
 
-A list of fifty save games should not measure fifty rows to show eight of them.
-`LazyColumn` builds only what is on screen:
+`LazyColumn` and `LazyRow`, with a simpler signature than Compose's: a `count` and
+an item composable, rather than a `LazyListScope` DSL.
 
 ```kotlin
 LazyColumn(count = saves.size, spacing = 6f) { index ->
@@ -199,25 +181,25 @@ LazyColumn(count = saves.size, spacing = 6f) { index ->
 }
 ```
 
-It scrolls, it has scrollbars, and it recycles. `LazyRow` is the same thing lying
-down — a hotbar, a filmstrip of cards.
+It scrolls, draws its own scrollbars, and only measures what is on screen plus a
+couple either side. `key` and `spacing` do what you expect.
 
 ---
 
 ## The one rule that catches people out
 
-**A widget is never measured twice.** If a layout asks a child how big it is and
-then asks again, that is an error, and the toolkit says so by name:
+**A widget is never measured twice.** Compose UI tolerates it; we do not. Ask a
+child its size twice in one pass and you get an exception naming the widget:
 
 ```
 Panel was measured twice in one pass.
 ```
 
-Why it is an error rather than merely slow: measuring twice doubles the cost of
-everything underneath, and two of them nested squares it. A tree ten deep with a
-double-measure at each level is a thousand times the work.
+It is an error rather than a warning because measuring twice doubles the cost of
+everything underneath, and two of them nested squares it. At 60 frames a second
+that is the difference between a HUD costing nothing and a HUD costing the frame.
 
-So: measure once, keep what you got back, and place it.
+Measure once, keep the `Placeable`, place it.
 
 ---
 
