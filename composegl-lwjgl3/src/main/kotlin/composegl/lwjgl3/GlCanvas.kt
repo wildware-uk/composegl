@@ -119,6 +119,19 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         shape(rect, corner = corner, shadow = colour, shadowSpread = spread)
     }
 
+    override fun fan(points: FloatArray, colour: Colour) {
+        if (state.isHidden || points.size < 6) return
+        // Flipped here, like every other call: the toolkit counts y downwards and the batch up.
+        val flipped = FloatArray(points.size)
+        var at = 0
+        while (at < points.size) {
+            flipped[at] = points[at]
+            flipped[at + 1] = flip(points[at + 1])
+            at += 2
+        }
+        batch.fan(white(), flipped, colour.scaleAlpha(state.alpha))
+    }
+
     private fun shape(
         rect: Rect,
         fill: Colour = Colour.Transparent,

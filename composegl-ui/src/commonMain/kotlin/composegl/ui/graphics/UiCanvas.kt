@@ -51,6 +51,21 @@ interface UiCanvas {
         source: Rect? = null,
     )
 
+    /**
+     * A triangle fan: a filled shape a rectangle cannot be.
+     *
+     * [points] is x, y, x, y… in design coordinates, and the first point is the hub every triangle
+     * shares. So a cooldown's wedge, a radial menu's slice and a compass's needle are all one call
+     * with a handful of points in it, rather than three primitives every backend has to write.
+     *
+     * It is the only shape here that is not a box, and it is deliberately low level: no curve, no
+     * radius, no stroke. Whatever wants a circle walks one itself, at whatever smoothness it is
+     * being drawn at, which is the only place that knows.
+     *
+     * Fewer than three points draws nothing.
+     */
+    fun fan(points: FloatArray, colour: Colour)
+
     /** Nothing outside [rect] is drawn until the matching [popClip]. Nests by intersection. */
     fun pushClip(rect: Rect)
 

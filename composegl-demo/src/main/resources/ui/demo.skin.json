@@ -202,6 +202,12 @@
     "bar.stamina.trail": { "background": { "fill": "#707BE08A", "corner": 5 } },
     "bar.stamina.segment": { "background": { "fill": "#0A1018" } },
 
+    // --- abilities ---
+
+    "cooldown.sweep": { "background": { "fill": "#B0060A12" } },
+    "cooldown.flash": { "background": { "fill": "#804CC2FF" } },
+    "cooldown.seconds": { "textColour": "#FFFFFF", "text": { "size": 16 } },
+
     // --- where the player is ---
     //
     // A ring outside the thing it marks, with its padding there whether the ring is drawn or not,

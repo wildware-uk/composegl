@@ -128,6 +128,44 @@ class GlCanvasTest {
     }
 
     @Test
+    fun `a fan fills the shape it describes`() {
+        // The hub, then three corners: the top-left half of a square, cut across the diagonal.
+        val frame = draw {
+            fan(floatArrayOf(0f, 0f, 200f, 0f, 200f, 200f, 0f, 200f), red)
+        }
+
+        assertColour(red, frame.at(60, 40), "above the diagonal, inside the fan")
+        assertColour(red, frame.at(160, 180), "and below it, in the fan's second triangle")
+        assertColour(Colour.Black, frame.at(300, 40), "outside it, where nothing was drawn")
+    }
+
+    @Test
+    fun `a fan is drawn at its colour's own opacity`() {
+        val frame = draw {
+            rect(Rect.of(0f, 0f, 200f, 200f), red)
+            fan(floatArrayOf(0f, 0f, 200f, 0f, 200f, 200f, 0f, 200f), blue.scaleAlpha(0.5f))
+        }
+
+        val over = frame.at(60, 40)
+        assertTrue(
+            abs((over shr 16 and 0xFF) - 128) < 24 && abs((over and 0xFF) - 128) < 24,
+            "a fan at half opacity should half cover what is under it, got %06X".format(over and 0xFFFFFF),
+        )
+    }
+
+    @Test
+    fun `a fan obeys the clip and the alpha stack`() {
+        val frame = draw {
+            pushClip(Rect.of(0f, 0f, 100f, 100f))
+            fan(floatArrayOf(0f, 0f, 300f, 0f, 300f, 300f, 0f, 300f), red)
+            popClip()
+        }
+
+        assertColour(red, frame.at(50, 20), "inside the clip")
+        assertColour(Colour.Black, frame.at(200, 20), "outside it")
+    }
+
+    @Test
     fun `a clip stops drawing outside it`() {
         val frame = draw {
             pushClip(Rect.of(0f, 0f, 100f, 100f))

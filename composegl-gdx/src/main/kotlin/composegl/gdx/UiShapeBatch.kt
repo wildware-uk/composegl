@@ -149,6 +149,49 @@ class UiShapeBatch(
         )
     }
 
+    /**
+     * A triangle fan, in whatever coordinates the caller has already flipped.
+     *
+     * The batch draws quads and nothing else, so each quad here carries *two* of the fan's
+     * triangles: the quad's own winding — 0,1,2 then 2,3,0 — is already hub, a, b and then b, c,
+     * hub. An odd point at the end repeats, which draws a triangle of no area.
+     *
+     * [points] is x, y pairs with the hub first, exactly as it reached the canvas.
+     */
+    fun fan(points: FloatArray, colour: Float) {
+        if (points.size < 6) return
+        val source = white?.takeIf { it.texture != null }
+        val u = source?.let { (it.u + it.u2) / 2f } ?: 0.5f
+        val v = source?.let { (it.v + it.v2) / 2f } ?: 0.5f
+        val texture = source?.texture ?: fallbackWhite()
+        val hubX = points[0]
+        val hubY = points[1]
+
+        var at = 2
+        while (at + 3 < points.size) {
+            val cx = if (at + 5 < points.size) points[at + 4] else points[at + 2]
+            val cy = if (at + 5 < points.size) points[at + 5] else points[at + 3]
+            use(texture)
+            flat(hubX, hubY, u, v, colour)
+            flat(points[at], points[at + 1], u, v, colour)
+            flat(points[at + 2], points[at + 3], u, v, colour)
+            flat(cx, cy, u, v, colour)
+            at += 4
+        }
+    }
+
+    /** One vertex of solid colour, with the distance field switched off. */
+    private fun flat(x: Float, y: Float, u: Float, v: Float, colour: Float) {
+        vertex(
+            x = x, y = y, u = u, v = v,
+            colour = colour, border = 0f, shadow = 0f,
+            localX = 0f, localY = 0f,
+            halfWidth = 0f, halfHeight = 0f,
+            radius = 0f, borderWidth = 0f, shadowSpread = 0f,
+            aa = 0f,
+        )
+    }
+
     /** A picture, or a glyph. No shape, no softened edge — whatever the texture says. */
     @Suppress("LongParameterList")
     fun textured(

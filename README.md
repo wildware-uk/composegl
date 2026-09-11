@@ -76,6 +76,15 @@ again, healing has no trail at all, and the whole thing runs on `Clock.World`, s
 not still visibly bleeding. Thresholds name their own fill style — "red below a quarter" is one
 line at the call site and a colour in the skin file — and a bar that low breathes.
 
+Next to them is the ability cooldown: a dark wedge that covers what is left and sweeps away
+clockwise, the seconds remaining on top of it, and a flash when it comes back. Triggering one that
+is already running is ignored rather than starting it again, so the key a player is mashing cannot
+push the end of it further away. The wedge covers a square icon's corners rather than a circle
+inside it, and it is exact at any size: the edge of a rectangle is four straight lines, so the
+sweep needs no arc and no smoothness setting. Drawing it added the one primitive this toolkit's
+short drawing interface was missing — a triangle fan — which is also what a radial menu and a
+compass needle are made of.
+
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and
 GLFW's own contracts say and have not been measured.
