@@ -6,6 +6,7 @@ kotlin = "2.4.20"
 compose = "1.12.0"
 coroutines = "1.9.0"
 gdx = "1.14.2"
+gdxControllers = "2.2.3"
 lwjgl = "3.3.3"
 junit = "5.14.0"
 
@@ -21,6 +22,8 @@ gdx-freetype-platform = { module = "com.badlogicgames.gdx:gdx-freetype-platform"
 gdx-backend-headless = { module = "com.badlogicgames.gdx:gdx-backend-headless", version.ref = "gdx" }
 gdx-backend-lwjgl3 = { module = "com.badlogicgames.gdx:gdx-backend-lwjgl3", version.ref = "gdx" }
 gdx-platform = { module = "com.badlogicgames.gdx:gdx-platform", version.ref = "gdx" }
+gdx-controllers = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-core", version.ref = "gdxControllers" }
+gdx-controllers-desktop = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-desktop", version.ref = "gdxControllers" }
 lwjgl = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
 lwjgl-glfw = { module = "org.lwjgl:lwjgl-glfw", version.ref = "lwjgl" }
 lwjgl-opengl = { module = "org.lwjgl:lwjgl-opengl", version.ref = "lwjgl" }

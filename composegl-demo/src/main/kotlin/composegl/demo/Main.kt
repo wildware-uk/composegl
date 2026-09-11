@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureAtlas
 import composegl.gdx.GdxCanvas
 import composegl.gdx.GdxFonts
+import composegl.gdx.GdxGamepadInput
 import composegl.gdx.GdxPointerInput
 import composegl.gdx.ninePatch
 import composegl.ui.draw.DrawPass
@@ -41,6 +42,7 @@ class Demo : ApplicationAdapter() {
     private lateinit var sprites: SpriteBatch
     private lateinit var host: UiHost
     private lateinit var pointerInput: GdxPointerInput
+    private lateinit var padInput: GdxGamepadInput
     private lateinit var input: DemoInput
 
     /** The viewport the last frame used, which is what a pointer event must be read against. */
@@ -76,6 +78,11 @@ class Demo : ApplicationAdapter() {
         input = DemoInput(state, host.root)
         pointerInput = GdxPointerInput(input, { viewport })
         Gdx.input.inputProcessor = pointerInput
+
+        // Pads are pushed rather than polled here: gdx-controllers listens to the driver and
+        // calls back, so the loop below has nothing to do for them.
+        padInput = GdxGamepadInput(input)
+        padInput.start()
     }
 
     override fun render() {
@@ -92,7 +99,7 @@ class Demo : ApplicationAdapter() {
             policy = ScalePolicy.Fit,
         )
         MeasurePass().run(host.root, viewport)
-        input.frame()
+        input.frame(System.nanoTime() / 1_000_000)
 
         Gdx.gl.glClearColor(0.03f, 0.04f, 0.05f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
@@ -130,6 +137,7 @@ class Demo : ApplicationAdapter() {
     }
 
     override fun dispose() {
+        if (::padInput.isInitialized) padInput.stop()
         host.dispose()
         canvas.dispose()
         sprites.dispose()
