@@ -11,6 +11,8 @@ import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
 import composegl.ui.input.InputSourceTracker
+import composegl.ui.input.Key
+import composegl.ui.input.KeyEventType
 import composegl.ui.input.InteractionState
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Arrangement
@@ -33,6 +35,7 @@ import composegl.ui.modifier.fillMaxWidth
 import composegl.ui.modifier.height
 import composegl.ui.modifier.interaction
 import composegl.ui.modifier.offset
+import composegl.ui.modifier.onKeyEvent
 import composegl.ui.modifier.padding
 import composegl.ui.modifier.size
 import composegl.ui.modifier.weight
@@ -64,7 +67,22 @@ fun Screen(fonts: FontProvider, skin: DemoSkin, state: DemoState) {
         LocalSkin provides skin,
         LocalInputSource provides state.source,
     ) {
-        Box(Modifier.fillMaxSize().background(Background)) {
+        // A screen-level shortcut, on the outermost node: the number keys pick a hotbar slot the
+        // way they do in every game that has one. It sits above every button, so it works wherever
+        // focus happens to be — which is exactly what bubbling outwards buys.
+        val hotkeys = remember {
+            Modifier.onKeyEvent { event ->
+                if (event.type != KeyEventType.Down) false else {
+                    val slot = digits.indexOf(event.key)
+                    if (slot < 0) false else {
+                        state.select(if (slot == 0) 9 else slot - 1)
+                        true
+                    }
+                }
+            }
+        }
+
+        Box(Modifier.fillMaxSize().background(Background).then(hotkeys)) {
             Column(Modifier.fillMaxSize().padding(28f), verticalArrangement = Arrangement.spacedBy(20f)) {
                 Text("COMPOSEGL", style = Title, colour = Accent)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -257,6 +275,12 @@ private fun Reticle(at: Offset) {
 }
 
 private const val ReticleSize = 18f
+
+/** The number row, in the order it is printed: 1 to 9 then 0, which is the tenth slot. */
+private val digits = listOf(
+    Key.Digit0, Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4,
+    Key.Digit5, Key.Digit6, Key.Digit7, Key.Digit8, Key.Digit9,
+)
 
 /** What the player is using, so a widget can ask without being handed it. */
 val LocalInputSource = staticCompositionLocalOf<InputSourceTracker> { error("no input source tracker") }

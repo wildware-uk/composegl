@@ -6,7 +6,9 @@ import composegl.ui.graphics.UiCanvas
 import composegl.ui.focus.FocusRequester
 import composegl.ui.geometry.Rect
 import composegl.ui.input.InteractionState
+import composegl.ui.input.KeyHandler
 import composegl.ui.input.PointerHandler
+import composegl.ui.input.TextHandler
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Padding
 
@@ -91,6 +93,12 @@ data class ClickableElement(val enabled: Boolean, val onClick: () -> Unit) : Mod
 
 /** Raw pointer events for this node, in its own coordinates. See [PointerHandler]. */
 data class PointerInputElement(val handler: PointerHandler) : Modifier.Element
+
+/** Keys for this node while it has focus, and for its children. See [KeyHandler]. */
+data class KeyInputElement(val handler: KeyHandler) : Modifier.Element
+
+/** Committed text for this node while it has focus. See [TextHandler]. */
+data class TextInputElement(val handler: TextHandler) : Modifier.Element
 
 /**
  * The node can hold focus, so keys and pad presses can reach it.
@@ -200,6 +208,27 @@ fun Modifier.clickable(enabled: Boolean = true, onClick: () -> Unit) =
     then(ClickableElement(enabled, onClick))
 
 fun Modifier.onPointer(handler: PointerHandler) = then(PointerInputElement(handler))
+
+/**
+ * Keys for this node, while focus is on it or on something inside it.
+ *
+ * A key starts at the focused node and walks outwards until something says it used it, so a
+ * dialogue three deep can put Escape on itself and close the innermost one — the one focus is in —
+ * without knowing anything about the two outside it.
+ *
+ * The node does not have to be focusable itself. A panel that handles Escape for whatever is
+ * inside it is the common case, and it never takes focus of its own.
+ */
+fun Modifier.onKeyEvent(handler: KeyHandler) = then(KeyInputElement(handler))
+
+/**
+ * Committed text for this node, while it has focus.
+ *
+ * Only the focused node is offered text, and it is never passed outwards: a character belongs to
+ * the thing being typed into, and a parent quietly collecting the leftovers would be a parent
+ * quietly collecting the player's password.
+ */
+fun Modifier.onTextEvent(handler: TextHandler) = then(TextInputElement(handler))
 
 /**
  * Lets this node hold focus.

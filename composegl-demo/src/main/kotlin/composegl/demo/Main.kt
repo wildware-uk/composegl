@@ -2,6 +2,7 @@ package composegl.demo
 
 import com.badlogic.gdx.ApplicationAdapter
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3WindowAdapter
@@ -13,6 +14,7 @@ import com.badlogic.gdx.graphics.g2d.TextureAtlas
 import composegl.gdx.GdxCanvas
 import composegl.gdx.GdxFonts
 import composegl.gdx.GdxGamepadInput
+import composegl.gdx.GdxKeyboardInput
 import composegl.gdx.GdxPointerInput
 import composegl.gdx.ninePatch
 import composegl.ui.draw.DrawPass
@@ -43,6 +45,7 @@ class Demo : ApplicationAdapter() {
     private lateinit var host: UiHost
     private lateinit var pointerInput: GdxPointerInput
     private lateinit var padInput: GdxGamepadInput
+    private lateinit var keyboardInput: GdxKeyboardInput
     private lateinit var input: DemoInput
 
     /** The viewport the last frame used, which is what a pointer event must be read against. */
@@ -77,7 +80,9 @@ class Demo : ApplicationAdapter() {
         // toolkit's business and has nothing to do with LibGDX.
         input = DemoInput(state, host.root)
         pointerInput = GdxPointerInput(input, { viewport })
-        Gdx.input.inputProcessor = pointerInput
+        keyboardInput = GdxKeyboardInput(input)
+        // Two translators, one keyboard and one mouse, neither knowing about the other.
+        Gdx.input.inputProcessor = InputMultiplexer(pointerInput, keyboardInput)
 
         // Pads are pushed rather than polled here: gdx-controllers listens to the driver and
         // calls back, so the loop below has nothing to do for them.
@@ -133,6 +138,7 @@ class Demo : ApplicationAdapter() {
     fun windowLostFocus() {
         if (!::pointerInput.isInitialized) return
         pointerInput.cancelAll()
+        keyboardInput.releaseAll()
         input.windowLostFocus()
     }
 

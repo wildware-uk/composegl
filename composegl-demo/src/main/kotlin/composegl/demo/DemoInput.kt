@@ -7,7 +7,12 @@ import composegl.ui.input.GamepadEvent
 import composegl.ui.input.GamepadId
 import composegl.ui.input.GamepadNavigator
 import composegl.ui.input.InputSink
+import composegl.ui.input.Modifiers
+import composegl.ui.input.Key
 import composegl.ui.input.KeyEvent
+import composegl.ui.input.KeyEventType
+import composegl.ui.input.KeyNavigator
+import composegl.ui.input.KeyRouter
 import composegl.ui.input.PointerEvent
 import composegl.ui.input.PointerId
 import composegl.ui.input.PointerRouter
@@ -40,11 +45,21 @@ internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink
     /** The pad's end of the same thing: a direction moves focus, South presses what it is on. */
     private val pad = GamepadNavigator(focus, onBack = { state.back() })
 
-    /** The toolkit's two halves behind one contract, so the backend sees a single sink. */
+    /** Keys, to whatever has focus and then outwards. */
+    private val keyRouter = KeyRouter(focus, root)
+
+    /** And the keyboard's own navigation, for the keys nothing wanted. */
+    private val keys = KeyNavigator(focus, onBack = { state.back() })
+
+    /** The toolkit's three halves behind one contract, so a backend sees a single sink. */
     private val toolkit = object : InputSink {
         override fun onPointer(event: PointerEvent) = router.onPointer(event)
-        override fun onKey(event: KeyEvent) = false
-        override fun onText(event: TextEvent) = false
+
+        // The router first, always. A widget that wanted a key has consumed it by the time the
+        // navigator is asked, which is the whole of "a field takes the keys it needs".
+        override fun onKey(event: KeyEvent) = keyRouter.onKey(event) || keys.onKey(event)
+
+        override fun onText(event: TextEvent) = keyRouter.onText(event)
         override fun onGamepad(event: GamepadEvent) = pad.onGamepad(event)
     }
 
@@ -119,9 +134,46 @@ internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink
         }
     }
 
+    /**
+     * Plays a keyboard script, for the same reason [pretendPadDid] exists.
+     *
+     * [script] is a comma-separated list of `tab`, `shift-tab`, `up`, `down`, `left`, `right`,
+     * `enter`, `escape` and the digits `1` to `9` and `0`. Each is one keystroke, down and up.
+     */
+    fun pretendKeysWere(script: String) {
+        script.split(',').map { it.trim() }.filter { it.isNotEmpty() }.forEach { step ->
+            when (step) {
+                "tab" -> type(Key.Tab)
+                "shift-tab" -> type(Key.Tab, Modifiers.Shift)
+                "up" -> type(Key.Up)
+                "down" -> type(Key.Down)
+                "left" -> type(Key.Left)
+                "right" -> type(Key.Right)
+                "enter" -> type(Key.Enter)
+                "escape" -> type(Key.Escape)
+                in numbers -> type(numbers.getValue(step))
+                else -> error("a key script step is tab, shift-tab, a direction, enter, escape or a digit, not '$step'")
+            }
+        }
+    }
+
+    private fun type(key: Key, modifiers: Modifiers = Modifiers.None) {
+        onKey(KeyEvent(key, KeyEventType.Down, modifiers))
+        onKey(KeyEvent(key, KeyEventType.Up, modifiers))
+    }
+
     private fun tap(button: GamepadButton) {
         onGamepad(GamepadEvent.ButtonDown(GamepadId.First, button))
         onGamepad(GamepadEvent.ButtonUp(GamepadId.First, button))
+    }
+
+    private companion object {
+        /** What each digit key is called in a script, as it is printed on the keyboard. */
+        val numbers = mapOf(
+            "1" to Key.Digit1, "2" to Key.Digit2, "3" to Key.Digit3, "4" to Key.Digit4,
+            "5" to Key.Digit5, "6" to Key.Digit6, "7" to Key.Digit7, "8" to Key.Digit8,
+            "9" to Key.Digit9, "0" to Key.Digit0,
+        )
     }
 
     /** The window is no longer in front, so nothing is left holding a capture or a highlight. */
