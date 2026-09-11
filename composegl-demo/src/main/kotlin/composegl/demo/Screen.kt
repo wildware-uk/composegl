@@ -42,10 +42,15 @@ import composegl.ui.skin.rememberStates
 import composegl.ui.skin.rememberStyle
 import composegl.ui.skin.styled
 import composegl.ui.text.FontProvider
+import composegl.ui.widget.Button
+import composegl.ui.widget.Checkbox
 import composegl.ui.widget.Image
+import composegl.ui.widget.Button
+import composegl.ui.widget.Checkbox
 import composegl.ui.widget.ImageFit
 import composegl.ui.widget.LocalFonts
 import composegl.ui.widget.Text
+import composegl.ui.widget.Toggle
 
 /**
  * The example interface.
@@ -95,7 +100,7 @@ fun Screen(fonts: FontProvider, skin: Skin, state: DemoState) {
                         Modifier.fillMaxWidth().weight(1f),
                         horizontalArrangement = Arrangement.spacedBy(20f),
                     ) {
-                        StatusPanel(Modifier.width(300f).fillMaxHeight(), state.health)
+                        StatusPanel(Modifier.width(300f).fillMaxHeight(), state)
                         LorePanel(Modifier.weight(1f).fillMaxHeight(), state)
                     }
 
@@ -113,7 +118,7 @@ fun Screen(fonts: FontProvider, skin: Skin, state: DemoState) {
 
 /** Drawn by the shader: a rounded fill, a hairline border, a soft shadow, no art at all. */
 @Composable
-private fun StatusPanel(modifier: Modifier, health: Float) {
+private fun StatusPanel(modifier: Modifier, state: DemoState) {
     Panel(modifier, style = "panel.flat") {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12f)) {
             Row(
@@ -125,10 +130,12 @@ private fun StatusPanel(modifier: Modifier, health: Float) {
                 Image("icon/crest", Modifier.size(26f), fit = ImageFit.Contain)
                 Heading("STATUS")
             }
-            Bar("Health", health, "bar.fill")
+            Bar("Health", state.health, "bar.fill")
             Bar("Shield", 0.42f, "bar.fill.shield")
             Bar("Stamina", 0.78f, "bar.fill.stamina")
             Spacer(Modifier.weight(1f))
+            Checkbox(state.invertY, onCheckedChange = { state.invertY = it }, label = "Invert Y")
+            Toggle(state.subtitles, onCheckedChange = { state.subtitles = it }, label = "Subtitles")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Level 12", style = "label.dim")
                 Text("2,480 XP", style = "label.dim")
@@ -172,28 +179,24 @@ private fun LorePanel(modifier: Modifier, state: DemoState) {
 }
 
 /**
- * A button, four states deep, and not one colour in it.
+ * The toolkit's button, wearing one of the game's own style names.
  *
- * `interaction` is what the pointer is doing to it, `clickable` is what that means, and
- * `rememberStates` turns the first into the words the skin uses. The widget names a style and draws
- * what it is handed; the file decides what "hovered" looks like. Because the interaction booleans
- * are Compose state, this recomposes when the pointer enters or leaves and at no other time.
+ * All this adds is the ring around it, which is the example's rather than the toolkit's. The four
+ * states, the press that fires only if it ends on the button, and the pad and keyboard reaching it
+ * through focus are all `Button`.
  */
 @Composable
 private fun Chip(label: String, style: String, chosen: Boolean, first: Boolean, onClick: () -> Unit) {
     val touch = remember { InteractionState() }
-    val name = if (chosen) "$style.chosen" else style
-    val resolved = rememberStyle(name, rememberStates(touch))
 
     FocusRing(touch.isFocused) {
-        Box(
-            Modifier
-                .interaction(touch)
-                .focusable(touch, initial = first)
-                .clickable(onClick = onClick)
-                .styledWith(resolved),
+        Button(
+            onClick = onClick,
+            style = if (chosen) "$style.chosen" else style,
+            initialFocus = first,
+            interaction = touch,
         ) {
-            Text(label, textStyle = resolved.textStyle, colour = resolved.textColour)
+            Text(label)
         }
     }
 }
@@ -264,6 +267,11 @@ class DemoState {
     val source = InputSourceTracker()
 
     var health by mutableStateOf(0.86f)
+
+    /** Two settings, so the example has something a checkbox and a switch can be about. */
+    var invertY by mutableStateOf(false)
+    var subtitles by mutableStateOf(true)
+
     var selected by mutableStateOf(3)
 
     /** Where the pointer is, in design units. Null until it has moved at least once. */

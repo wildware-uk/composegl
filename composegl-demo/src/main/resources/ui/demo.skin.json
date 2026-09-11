@@ -53,6 +53,31 @@
     // about — a game invents its own names, and a name that falls back is free. Each is written
     // out whole: a style that exists is used as it is, and only a name nobody wrote falls back.
 
+    // The two settings controls, in the example's own blue. The widgets are the toolkit's; which
+    // blue, how round and how much padding are all here.
+
+    "checkbox": {
+      "background": { "fill": "#2000FFFF", "corner": 4, "border": "#4CC2FF", "padding": 3 },
+      "hovered": { "background": { "fill": "#3000FFFF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#2000FFFF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    "checkbox.tick": { "background": { "fill": "#4CC2FF", "corner": 2 } },
+
+    "toggle": {
+      "background": { "fill": "#2000FFFF", "corner": 11, "border": "#4CC2FF", "padding": 3 },
+      "hovered": { "background": { "fill": "#3000FFFF", "corner": 11, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#2000FFFF", "corner": 11, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    "toggle.on": {
+      "background": { "fill": "#604CC2FF", "corner": 11, "border": "#8ADBFF", "padding": 3 },
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 11, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 11, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "toggle.knob": { "background": { "fill": "#E8F4FF", "corner": 8 } },
+
     "chip": {
       "background": { "fill": "#20FFFFFF", "corner": 6, "border": "#4CC2FF", "padding": [14, 8] },
       "textColour": "#4CC2FF",

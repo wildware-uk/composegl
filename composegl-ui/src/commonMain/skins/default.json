@@ -45,7 +45,9 @@
 
     // --- text ---
 
-    "label": {},
+    "label": {
+      "disabled": { "textColour": "#5E6B7E" }
+    },
     "label.title": { "text": { "size": 22 } },
     "label.heading": { "text": { "size": 18 } },
     "label.dim": { "textColour": "#9BA6B6" },
@@ -111,6 +113,26 @@
     },
 
     "radio.dot": { "background": { "fill": "#5B8DEF", "corner": 5 } },
+
+    // A switch says which way it is by where its knob is, so the track only has to say on or off.
+    // The knob is as tall as the track's padding leaves it: fatten the track here and the knob
+    // follows without anybody editing a widget.
+
+    "toggle": {
+      "background": { "fill": "#10131A", "corner": 11, "border": "#39445A", "padding": 3 },
+      "hovered": { "background": { "fill": "#1A1F28", "corner": 11, "border": "#5B8DEF" } },
+      "focused": { "background": { "fill": "#10131A", "corner": 11, "border": "#5B8DEF", "borderWidth": 2 } },
+      "disabled": { "tint": "#A0FFFFFF" }
+    },
+
+    "toggle.on": {
+      "background": { "fill": "#2F53A8", "corner": 11, "border": "#5B8DEF", "padding": 3 },
+      "hovered": { "background": { "fill": "#3F6BD6", "corner": 11, "border": "#7BA5F5" } },
+      "focused": { "background": { "fill": "#2F53A8", "corner": 11, "border": "#7BA5F5", "borderWidth": 2 } },
+      "disabled": { "tint": "#A0FFFFFF" }
+    },
+
+    "toggle.knob": { "background": { "fill": "#E8ECF2", "corner": 8 } },
 
     "slider.track": { "background": { "fill": "#2C3545", "corner": 3 } },
     "slider.fill": { "background": { "fill": "#5B8DEF", "corner": 3 } },

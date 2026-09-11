@@ -53,8 +53,8 @@ Every colour, corner, padding and slice in that picture comes from
 the example's Kotlin. Save the file while the example is running and it changes on the next frame.
 A skin that will not parse names the line and suggests the nearest region or key that would have
 worked, and a broken save leaves the last skin that worked on screen. The widget set has started:
-`Text` and `Image` ship with the toolkit, and the example draws its labels and its crest with them.
-Buttons, sliders and lists are next.
+`Text`, `Image`, `Button`, `IconButton`, `Checkbox`, `RadioButton` and `Toggle` ship with the
+toolkit, and the example is built from them. Sliders, lists and dialogues are next.
 
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and
