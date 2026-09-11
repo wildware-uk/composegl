@@ -6,7 +6,7 @@ plugins {
 description = "The Android half of a backend: the parts of a phone no engine reports."
 
 android {
-    namespace = "dev.wildware.composegl.android"
+    namespace = "uk.wildware.composegl.android"
     compileSdk = 36
 
     defaultConfig {

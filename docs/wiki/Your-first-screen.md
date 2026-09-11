@@ -43,9 +43,9 @@ plugins {
 }
 
 dependencies {
-    implementation("dev.wildware.composegl:composegl-ui:0.1.0-SNAPSHOT")
+    implementation("uk.wildware.composegl:composegl-ui:0.1.0-SNAPSHOT")
     // One backend. This one draws through LibGDX.
-    implementation("dev.wildware.composegl:composegl-gdx:0.1.0-SNAPSHOT")
+    implementation("uk.wildware.composegl:composegl-gdx:0.1.0-SNAPSHOT")
 }
 ```
 
@@ -125,9 +125,9 @@ about LibGDX, windows, or OpenGL:
 ```kotlin
 // Hello.kt
 import androidx.compose.runtime.*
-import dev.wildware.composegl.ui.layout.*
-import dev.wildware.composegl.ui.modifier.*
-import dev.wildware.composegl.ui.widget.*
+import uk.wildware.composegl.ui.layout.*
+import uk.wildware.composegl.ui.modifier.*
+import uk.wildware.composegl.ui.widget.*
 
 @Composable
 fun Hello() {
@@ -156,12 +156,12 @@ import com.badlogic.gdx.*
 import com.badlogic.gdx.backends.lwjgl3.*
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import dev.wildware.composegl.gdx.*
-import dev.wildware.composegl.ui.geometry.Size
-import dev.wildware.composegl.ui.host.UiHost
-import dev.wildware.composegl.ui.host.UiRenderer
-import dev.wildware.composegl.ui.input.PointerRouter
-import dev.wildware.composegl.ui.layout.*
+import uk.wildware.composegl.gdx.*
+import uk.wildware.composegl.ui.geometry.Size
+import uk.wildware.composegl.ui.host.UiHost
+import uk.wildware.composegl.ui.host.UiRenderer
+import uk.wildware.composegl.ui.input.PointerRouter
+import uk.wildware.composegl.ui.layout.*
 
 class HelloGame : ApplicationAdapter() {
 

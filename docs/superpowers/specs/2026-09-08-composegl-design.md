@@ -310,7 +310,7 @@ Fonts: Compose desktop resolves `FontFamily.Default` through Skiko's `FontMgr`, 
 ## 11. LibGDX adapter API
 
 ```kotlin
-package dev.wildware.composegl.gdx
+package uk.wildware.composegl.gdx
 
 /** Process-wide holder for the one ComposeGlContext. Created lazily on first use. */
 object ComposeGdx {
