@@ -218,7 +218,7 @@ touching costs a comparison a frame.*
 
 The showcase is the second demo of the pair and it runs on the LibGDX backend, where Snake runs on
 raw OpenGL: between them they prove a game can take either one. Its one interesting file is
-[`PanelPlane.kt`](composegl-demo-showcase/src/main/kotlin/composegl/showcase/world/PanelPlane.kt) —
+[`PanelPlane.kt`](composegl-demo-showcase/src/main/kotlin/dev/wildware/composegl/showcase/world/PanelPlane.kt) —
 the ray-versus-quad arithmetic, pulled out on its own so it can be tested without a window, because
 where a panel hangs in a scene is the game's business and nothing the toolkit should have an
 opinion about. Everything after the hit is `WorldPointer`, and is the same code as a mouse.
@@ -243,7 +243,7 @@ and a canvas, and calls four methods in order; the desktop one does it on raw Op
 nothing in the toolkit changed for the phone, which is a claim a diff can check.
 
 Three things a phone needs that a desktop does not. A finger has no arrow keys, so a flick is a turn
-([`SwipeSteering`](composegl-demo-snake-core/src/main/kotlin/composegl/snake/SwipeSteering.kt), and
+([`SwipeSteering`](composegl-demo-snake-core/src/main/kotlin/dev/wildware/composegl/snake/SwipeSteering.kt), and
 a press the interface already took never steers). And the hint under the score names whatever the
 player is actually holding — *Swipe to steer* here, *Arrows or WASD* on a desktop, *D-pad steers*
 on a pad — which is the toolkit's `InputSourceTracker` doing the deciding, not the game.
@@ -278,7 +278,7 @@ the shader decides what that picture comes out as. The shader is text — a frag
 dialect, `varying` and `texture2D` and `gl_FragColor` — because text is the only thing that crosses
 from common code, where there is no OpenGL, into a backend, where there is. It arrives with the
 picture, its size in real pixels, the widget's size in design units, and the opacity in force;
-whatever else it wants is a named [`Uniform`](composegl-ui/src/commonMain/kotlin/composegl/ui/effect/ShaderEffect.kt).
+whatever else it wants is a named [`Uniform`](composegl-ui/src/commonMain/kotlin/dev/wildware/composegl/ui/effect/ShaderEffect.kt).
 
 The four we ship — blur, outline, colour grade, dissolve — live in `composegl-effects`, which is a
 separate module that depends on `composegl-ui` and nothing else, and has a build check that fails if

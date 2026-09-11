@@ -61,7 +61,7 @@ Modifier.drawBehind { bounds -> rect(bounds, Colour.rgb(0xE5484D)) }
 Modifier.drawInFront { bounds -> border(bounds, Colour.White, 1f) }
 ```
 
-The receiver is a [`UiCanvas`](https://github.com/wildware-uk/composegl/blob/master/composegl-ui/src/commonMain/kotlin/composegl/ui/graphics/UiCanvas.kt)
+The receiver is a [`UiCanvas`](https://github.com/wildware-uk/composegl/blob/master/composegl-ui/src/commonMain/kotlin/dev/wildware/composegl/ui/graphics/UiCanvas.kt)
 and the argument is the widget's rectangle in screen coordinates.
 
 **A note on colours.** `Colour.rgb(0x…)` and `Colour.argb(0x…)` are how you write
