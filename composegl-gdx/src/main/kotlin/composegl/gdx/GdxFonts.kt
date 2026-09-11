@@ -112,7 +112,7 @@ class GdxFonts(val atlas: GdxAtlas = GdxAtlas(), private val ownsAtlas: Boolean 
 
     private companion object {
         /** The punctuation real text has in it that ASCII does not. */
-        const val Typography = "—–…‘’“”·«»×÷°≤≥←→↑↓"
+        const val Typography = "—–…‘’“”·«»×÷°≤≥←→↑↓○△□✕✓●☰"
     }
 
     /** The font behind [style]. Throws, naming what is registered, when there is none. */
