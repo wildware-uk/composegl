@@ -96,10 +96,9 @@ sealed interface EditCommand {
     /**
      * Backspace: the selection if there is one, otherwise the character before the caret.
      *
-     * "Character" means one code point, so backspacing an emoji removes the emoji rather than half
-     * of it. A letter with a combining accent after it is still two — real grapheme clustering
-     * needs the text shaper this toolkit does not have yet, and pretending otherwise here would
-     * only move the lie.
+     * "Character" means what a player would point at, not a `Char` and not a code point: an emoji
+     * with a skin tone on it is one backspace, and so is a family, and so is a flag. See
+     * [graphemeBefore] for exactly how far those rules go.
      */
     data object DeleteBackward : EditCommand
 
@@ -123,12 +122,12 @@ fun TextFieldValue.apply(command: EditCommand): TextFieldValue = when (command) 
     EditCommand.DeleteBackward ->
         if (!selection.collapsed) replace(selection, "")
         else if (selection.min == 0) this
-        else replace(TextRange(text.startOfCharBefore(selection.min), selection.min), "")
+        else replace(TextRange(text.graphemeBefore(selection.min), selection.min), "")
 
     EditCommand.DeleteForward ->
         if (!selection.collapsed) replace(selection, "")
         else if (selection.max == text.length) this
-        else replace(TextRange(selection.max, text.endOfCharAfter(selection.max)), "")
+        else replace(TextRange(selection.max, text.graphemeAfter(selection.max)), "")
 }
 
 /** A whole keystroke's worth, in order. A key can mean more than one change — paste over a word. */
