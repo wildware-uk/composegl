@@ -39,6 +39,16 @@ kotlin {
     jvm()
     linuxX64()
 
+    // The iPhone, and a simulator on an Apple Silicon Mac. They compile here, on Linux —
+    // Kotlin/Native cross-compiles the library itself, and only linking a finished app needs a
+    // Mac. So the promise this module makes about iOS is checked by the ordinary build rather
+    // than taken on trust.
+    //
+    // No iosX64: the Compose runtime stopped publishing for the Intel simulator, and a target we
+    // cannot resolve a dependency for is not a target.
+    iosArm64()
+    iosSimulatorArm64()
+
     // `expect class` is still officially Beta, and the warning is an error here. One internal
     // lock uses it, deliberately: see `internal/Guard.kt`.
     compilerOptions { freeCompilerArgs.add("-Xexpect-actual-classes") }
