@@ -94,6 +94,11 @@ class GdxFonts(val atlas: GdxAtlas = GdxAtlas(), private val ownsAtlas: Boolean 
             sizes.forEach { size ->
                 val parameter = FreeTypeFontGenerator.FreeTypeFontParameter().apply {
                     this.size = size
+                    // FreeType bakes a fixed set of glyphs, and LibGDX's default set stops at
+                    // ASCII — so an em dash, a curly quote or an ellipsis is drawn as a box. Every
+                    // game writes one of those eventually, so they are here rather than left to be
+                    // discovered. Before `configure`, so a game can name its own set instead.
+                    characters = FreeTypeFontGenerator.DEFAULT_CHARS + Typography
                     configure()
                     // After `configure`, so a game cannot accidentally take the shared page away
                     // and get its own texture back without noticing.
@@ -103,6 +108,11 @@ class GdxFonts(val atlas: GdxAtlas = GdxAtlas(), private val ownsAtlas: Boolean 
             }
         }
         atlas.refresh()
+    }
+
+    private companion object {
+        /** The punctuation real text has in it that ASCII does not. */
+        const val Typography = "—–…‘’“”·«»×÷°≤≥←→↑↓"
     }
 
     /** The font behind [style]. Throws, naming what is registered, when there is none. */

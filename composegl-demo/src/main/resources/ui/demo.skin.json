@@ -257,6 +257,13 @@
     "reticle.hit": { "background": { "fill": "#FFFFFF" } },
     "reticle.kill": { "background": { "fill": "#FF5A4F" } },
 
+    // A tooltip, which is drawn over everything else on the screen.
+    "tooltip": {
+      "background": { "fill": "#F0151B26", "corner": 4, "border": "#4CC2FF", "padding": [8, 5] },
+      "textColour": "#E8ECF2",
+      "text": { "size": 13 }
+    },
+
     // What is being shot at on the range.
     "target": { "background": { "fill": "#2A3446", "corner": 6, "border": "#5A6B86", "borderWidth": 2 } }
   }

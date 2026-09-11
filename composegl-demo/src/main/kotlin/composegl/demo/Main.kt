@@ -66,6 +66,14 @@ class Demo : ApplicationAdapter() {
     /** A keyboard script, one step per frame, the same as the other backend plays. */
     private var scriptedKeys: List<String> = emptyList()
 
+    /**
+     * Where to pretend the mouse is, as `x,y` or `x,y,press`.
+     *
+     * A screenshot of a hover is otherwise impossible to take: a script cannot move a real mouse.
+     * Re-applied every frame, because the real one is still there and still reporting.
+     */
+    private val scriptedPointer: String? = System.getenv("COMPOSEGL_DEMO_POINTER")
+
     override fun create() {
         fonts = GdxFonts()
         val file = Gdx.files.internal("fonts/DejaVuSans.ttf")
@@ -105,6 +113,8 @@ class Demo : ApplicationAdapter() {
     override fun render() {
         elapsed += Gdx.graphics.deltaTime
         state.tick(elapsed)
+
+        scriptedPointer?.let { input.pretendPointerIsAt(it) }
 
         // One look at a timestamp. An artist saving the skin file is seen on the next frame.
         skin.reloadIfChanged()

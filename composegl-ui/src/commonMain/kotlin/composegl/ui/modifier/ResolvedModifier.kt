@@ -1,6 +1,7 @@
 package composegl.ui.modifier
 
 import composegl.ui.focus.FocusRequester
+import composegl.ui.focus.FocusWithinHandler
 import composegl.ui.focus.RevealHandler
 import composegl.ui.geometry.Offset
 import composegl.ui.input.DirectionHandler
@@ -68,6 +69,8 @@ class ResolvedModifier private constructor(
     val focusDirections: List<DirectionHandler>,
     /** Asked to bring a descendant into view when focus lands on it. */
     val reveals: List<RevealHandler>,
+    /** Told when focus arrives anywhere inside this node, or leaves it. */
+    val focusWithin: List<FocusWithinHandler>,
     /** Whether focus is confined to this node's subtree. */
     val focusTrap: Boolean,
 ) {
@@ -110,6 +113,7 @@ class ResolvedModifier private constructor(
             var focusOrder: FocusOrderElement? = null
             val focusDirections = mutableListOf<DirectionHandler>()
             val reveals = mutableListOf<RevealHandler>()
+            val focusWithin = mutableListOf<FocusWithinHandler>()
             var focusTrap = false
 
             modifier.fold(Unit) { _, element ->
@@ -144,6 +148,7 @@ class ResolvedModifier private constructor(
                     is FocusOrderElement -> focusOrder = element
                     is FocusDirectionElement -> focusDirections += element.handler
                     is RevealElement -> reveals += element.handler
+                    is FocusWithinElement -> focusWithin += element.handler
                     is FocusTrapElement -> focusTrap = element.enabled
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
@@ -155,7 +160,7 @@ class ResolvedModifier private constructor(
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click,
                 focusable, focusRequester, focusOrder, focusDirections.toList(),
-                reveals.toList(), focusTrap,
+                reveals.toList(), focusWithin.toList(), focusTrap,
             )
         }
     }
