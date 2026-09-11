@@ -24,6 +24,7 @@ import composegl.ui.layout.LeafLayout
 import composegl.ui.layout.Row
 import composegl.ui.layout.Spacer
 import composegl.ui.layout.VerticalAlignment
+import composegl.ui.modifier.align
 import composegl.ui.modifier.alpha
 import composegl.ui.modifier.Modifier
 import composegl.ui.modifier.clickable
@@ -60,6 +61,8 @@ import composegl.ui.game.Reticle
 import composegl.ui.game.ReticleState
 import composegl.ui.game.WorldProjection
 import composegl.ui.game.rememberDamageNumbers
+import composegl.ui.game.NotificationQueue
+import composegl.ui.game.Notifications
 import composegl.ui.game.rememberReticleState
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
@@ -156,6 +159,15 @@ fun Screen(
 
                             DemoHotbar(state, hotbar)
                         }
+
+                        // What the game is telling the player, in the corner games put it in.
+                        // Three at a time and the rest counted: pressing ACCEPT sets off a burst
+                        // of eight, which is the moment a queue earns its keep.
+                        Notifications(
+                            state.notices,
+                            Modifier.align(Alignment.TopEnd).padding(right = 40f, top = 150f).width(250f),
+                            width = 250f,
+                        )
 
                         // A question the player has to answer: focus cannot leave it, nothing behind it
                         // can be clicked, and Escape or the pad's Back button closes it.
@@ -636,6 +648,11 @@ class DemoState {
     /** What each action is bound to, and which pad's letters to draw. */
     val prompts = Prompts()
 
+    /** What the game is telling the player about. Three on screen, the rest counted. */
+    val notices = NotificationQueue(capacity = 3, holdMillis = 3_200)
+
+    private var noticeStep = -1
+
     var health by mutableStateOf(HealthSteps.first())
         private set
 
@@ -666,6 +683,13 @@ class DemoState {
         if (shot != shotStep) {
             shotStep = shot
             shots++
+        }
+        // And something to say about it every few seconds, so the queue has work to do.
+        val notice = (seconds / 4.5f).toInt()
+        if (notice != noticeStep) {
+            val (text, detail) = quietNotices[notice % quietNotices.size]
+            if (noticeStep >= 0) notices.show(text, detail)
+            noticeStep = notice
         }
         if (autoCycle) selected = (seconds / 0.8f).toInt() % 10
     }
@@ -707,6 +731,9 @@ class DemoState {
 
     fun answer(choice: String) {
         briefing = choice
+        // A burst, the way a game hands out the contents of a chest: three are shown and the
+        // rest are counted rather than covering the screen.
+        if (choice == "ACCEPT") burst.forEach { notices.show(it.first, it.second) }
     }
 
     /** What the pad's East and Back buttons do here: undo the answer, so it can be given again. */
@@ -717,5 +744,25 @@ class DemoState {
     private companion object {
         /** Somewhere for health to go. Arbitrary, and the point is that it arrives smoothly. */
         val HealthSteps = listOf(0.86f, 0.62f, 0.41f, 0.74f, 0.33f, 0.95f)
+
+        /** The slow drip: one every few seconds while nobody is doing anything. */
+        val quietNotices = listOf(
+            "Relay signal found" to "Bearing 042, two kilometres",
+            "Suit telemetry restored" to null,
+            "Objective updated" to "Reach the lift",
+            "Cutter charged" to "Four cuts left",
+        )
+
+        /** And the burst, for the moment the briefing is accepted. */
+        val burst = listOf(
+            "Loadout issued" to "Cutter, breacher, two stims",
+            "Stim x2" to null,
+            "Breaching charge" to null,
+            "Relay codes" to "Expire in six hours",
+            "Squad channel open" to null,
+            "Achievement" to "Took the job",
+            "Waypoint set" to "Lift, level four",
+            "Insurance waived" to null,
+        )
     }
 }
