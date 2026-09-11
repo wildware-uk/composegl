@@ -116,6 +116,10 @@ dependencies {
     // exists. Between them that is the whole port.
     implementation(project(":composegl-demo-snake-core"))
     implementation(project(":composegl-gdx"))
+
+    // The parts of a phone LibGDX does not report: what the keyboard is covering, and when the
+    // player dismissed it.
+    implementation(project(":composegl-android"))
     implementation(libs.gdx.backend.android)
 
     // The native halves of LibGDX and FreeType, one bucket per processor kind. Not ordinary

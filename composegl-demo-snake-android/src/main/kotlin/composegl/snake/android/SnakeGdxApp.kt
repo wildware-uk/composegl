@@ -3,6 +3,8 @@ package composegl.snake.android
 import com.badlogic.gdx.ApplicationAdapter
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.InputMultiplexer
+import com.badlogic.gdx.backends.android.AndroidApplication
+import com.badlogic.gdx.backends.android.AndroidGraphics
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import composegl.gdx.GdxCanvas
@@ -10,9 +12,10 @@ import composegl.gdx.GdxClipboard
 import composegl.gdx.GdxFonts
 import composegl.gdx.GdxKeyboardInput
 import composegl.gdx.GdxPointerInput
-import composegl.gdx.GdxSoftKeyboard
+import composegl.android.AndroidSoftKeyboard
 import composegl.snake.SnakeApp
 import composegl.ui.geometry.Size
+import composegl.ui.layout.Padding
 import composegl.ui.input.InputSource
 import composegl.ui.input.PointerType
 import composegl.ui.layout.ScalePolicy
@@ -35,6 +38,8 @@ class SnakeGdxApp : ApplicationAdapter() {
     private lateinit var canvas: GdxCanvas
     private lateinit var app: SnakeApp
 
+    private lateinit var keyboard: AndroidSoftKeyboard
+
     private var viewport = Viewport.oneToOne(SnakeApp.Design)
 
     override fun create() {
@@ -45,11 +50,19 @@ class SnakeGdxApp : ApplicationAdapter() {
 
         sprites = SpriteBatch()
         canvas = GdxCanvas(sprites, fonts.atlas)
+
+        // The window's keyboard rather than the engine's: LibGDX can raise one and nothing more,
+        // and both of the remaining problems — how tall it is, and the player swiping it away —
+        // are answered by window insets.
+        keyboard = AndroidSoftKeyboard(
+            (Gdx.app as AndroidApplication).window,
+            (Gdx.graphics as AndroidGraphics).view,
+        ) { app.input.focus.clearFocus() }
         app = SnakeApp(
             fonts,
             GdxHighScores(),
             GdxClipboard(),
-            GdxSoftKeyboard(),
+            keyboard,
             // A phone is a touch screen until something else is plugged into it.
             InputSource.Touch,
         )
@@ -74,6 +87,10 @@ class SnakeGdxApp : ApplicationAdapter() {
                 Gdx.graphics.backBufferHeight.toFloat(),
             ),
             policy = ScalePolicy.Fit,
+            // Everything lays out above the keyboard, so a field near the bottom is not behind it.
+            // No widget knows a keyboard exists; the viewport's safe area was already the way to
+            // say "keep off this edge", and a keyboard is just another thing in the way.
+            safeArea = Padding(bottom = keyboard.heightPixels),
         )
         app.layout(viewport, System.nanoTime())
 
