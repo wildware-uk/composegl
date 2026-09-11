@@ -203,6 +203,28 @@ Text is separate from keys on purpose: a key is a physical button, and text is w
 the platform decided those buttons meant — which depends on layout, modifiers and
 the input method. `TextField` already does all of this.
 
+### Japanese, Chinese and Korean
+
+Those languages are not typed one key at a time. You type `ni`, the input method
+holds it as **provisional** text — shown underlined, not decided yet — and offers
+you `に`, `二`, `荷` to choose from. A phone's autocorrect is the same machinery:
+the keyboard keeps a word open and commits something other than what you pressed.
+
+A stream of characters cannot express that, because both go back and edit text they
+already sent. So a backend can drive a field directly instead:
+
+```kotlin
+// desktop
+ProvideTextInput(GlfwTextInput(window)) { Hud() }
+
+// Android
+ProvideTextInput(AndroidTextInput(activity) { Gdx.app.postRunnable(it) }) { Hud() }
+```
+
+Pass nothing and you get `TextInput.None`, which is key events alone — correct for
+any language you can type one key at a time, and what everything did before this
+existed.
+
 ---
 
 ## What next

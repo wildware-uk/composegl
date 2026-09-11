@@ -7,7 +7,8 @@ compose = "1.12.0"
 coroutines = "1.9.0"
 gdx = "1.14.2"
 gdxControllers = "2.2.3"
-lwjgl = "3.3.3"
+lwjgl = "3.4.3"
+jspecify = "1.0.0"
 junit = "5.14.0"
 # The Android Gradle plugin, only ever applied to the two Android modules.
 agp = "9.2.1"
@@ -31,6 +32,10 @@ gdx-platform = { module = "com.badlogicgames.gdx:gdx-platform", version.ref = "g
 gdx-controllers = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-core", version.ref = "gdxControllers" }
 gdx-controllers-desktop = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-desktop", version.ref = "gdxControllers" }
 lwjgl = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
+# LWJGL 3.4 puts @Nullable on its return types. Kotlin refuses to infer a type whose
+# annotation it cannot see, so the annotations have to be on the compile classpath —
+# they are not needed at runtime, which is what compileOnly says.
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
 lwjgl-glfw = { module = "org.lwjgl:lwjgl-glfw", version.ref = "lwjgl" }
 lwjgl-opengl = { module = "org.lwjgl:lwjgl-opengl", version.ref = "lwjgl" }
 lwjgl-stb = { module = "org.lwjgl:lwjgl-stb", version.ref = "lwjgl" }

@@ -7,6 +7,7 @@ description = "The raw OpenGL backend: a GLFW window, one shader and stb_truetyp
 dependencies {
     api(project(":composegl-ui"))
     api(libs.lwjgl)
+    compileOnly(libs.jspecify)
     api(libs.lwjgl.glfw)
     api(libs.lwjgl.opengl)
     api(libs.lwjgl.stb)
