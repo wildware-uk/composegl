@@ -19,10 +19,10 @@ import composegl.ui.modifier.styled
  * Static, so a new skin rebuilds the interface rather than being diffed into it. A skin changes
  * when a game starts and when an artist saves a file, and neither is a thing to optimise for.
  *
- * The default is [Skin.Nothing]: no styles, no art, no fonts. A widget under it still draws — plain,
- * readable and obviously nobody's choice — which is what a game looks like before it loads a skin.
+ * The default is [Skin.Default], the neutral dark skin that ships with the toolkit, so a game that
+ * has registered nothing at all still has an interface somebody can use.
  */
-val LocalSkin: ProvidableCompositionLocal<Skin> = staticCompositionLocalOf { Skin.Nothing }
+val LocalSkin: ProvidableCompositionLocal<Skin> = staticCompositionLocalOf { Skin.Default }
 
 /**
  * The game's skin, for everything inside.

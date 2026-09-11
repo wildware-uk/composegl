@@ -9,19 +9,17 @@ import composegl.lwjgl3.GlfwWindow
 import composegl.lwjgl3.StbFonts
 import composegl.ui.draw.DrawPass
 import composegl.ui.geometry.Size
-import composegl.ui.graphics.EdgeMode
-import composegl.ui.graphics.NinePatch
+import composegl.ui.graphics.ArtAtlas
 import composegl.ui.host.UiHost
 import composegl.ui.layout.MeasurePass
-import composegl.ui.layout.Padding
 import composegl.ui.layout.ScalePolicy
 import composegl.ui.layout.run
-import org.lwjgl.glfw.GLFW
-import org.lwjgl.opengl.GL11
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.math.sin
+import org.lwjgl.glfw.GLFW
+import org.lwjgl.opengl.GL11
 
 /**
  * The same example, on the backend that has never heard of LibGDX.
@@ -48,7 +46,8 @@ fun main() {
     val canvas = GlCanvas(fonts)
     val state = DemoState()
     val host = UiHost()
-    host.setContent { Screen(fonts, skin(art), state) }
+    val skin = demoSkin(atlas(art), fonts)
+    host.setContent { Screen(fonts, skin.skin, state) }
 
     var viewport = window.viewport(Design, ScalePolicy.Fit)
     val input = DemoInput(state, host.root)
@@ -88,6 +87,8 @@ fun main() {
 
             scriptedPointer?.let { input.pretendPointerIsAt(it) }
             padInput.poll()
+            // One look at a timestamp. An artist saving the skin file is seen on the next frame.
+            skin.reloadIfChanged()
             host.frame(System.nanoTime())
 
             viewport = window.viewport(Design, ScalePolicy.Fit)
@@ -124,24 +125,17 @@ fun main() {
 private val Design = Size(1280f, 720f)
 
 /**
- * The art, cut out of one picture by hand.
+ * The art, by name.
  *
- * The LibGDX example reads the same two regions out of an `.atlas` file beside the picture. There
- * is no atlas reader on this backend, so the numbers are written out here — which is exactly the
- * kind of thing a skin format is for, and that lands in a later milestone.
+ * Two regions of one picture, and nothing about what they mean: which of them is a panel, where its
+ * slices are and how far in its contents sit are all in the skin file. The LibGDX example reads the
+ * same names out of an `.atlas` file beside the picture, which is why the same skin file works on
+ * both without knowing that either backend exists.
  */
-private fun skin(art: GlTexture) = DemoSkin(
-    panel = NinePatch(
-        texture = art.region(0, 0, 48, 48),
-        slice = Padding(16f, 16f, 16f, 16f),
-        padding = Padding(20f, 18f, 20f, 18f),
-    ),
-    ribbon = NinePatch(
-        texture = art.region(52, 0, 24, 24),
-        slice = Padding(8f, 10f, 8f, 10f),
-        padding = Padding(14f, 5f, 14f, 6f),
-        // The hatch keeps its pitch across the ribbon and fills whatever height the text needs.
-        centreAcross = EdgeMode.Tile,
+private fun atlas(art: GlTexture) = ArtAtlas.of(
+    mapOf(
+        "panel" to art.region(0, 0, 48, 48),
+        "ribbon" to art.region(52, 0, 24, 24),
     ),
 )
 

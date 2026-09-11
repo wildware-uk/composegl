@@ -93,7 +93,7 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
             fail("a background is \"none\" or an object, not \"${value.value}\"", value)
         }
         val json = value.obj("a background")
-        json.allow(setOf("patch", "fill", "image", "slice", "padding", "corner", "edges"))
+        json.allow(setOf("patch", "fill", "image", "slice", "padding", "corner", "border", "borderWidth", "edges"))
         val kinds = listOf("patch", "fill", "image").filter { it in json.keys }
         if (kinds.size != 1) {
             fail(
@@ -107,6 +107,8 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
             "fill" -> SkinDrawable.Fill(
                 colour = json.getValue("fill").colour(),
                 corner = json["corner"]?.number("\"corner\"") ?: 0f,
+                border = json["border"]?.colour(),
+                borderWidth = json["borderWidth"]?.number("\"borderWidth\"") ?: json["border"]?.let { 1f } ?: 0f,
                 padding = json["padding"]?.padding() ?: Padding.None,
             )
             else -> SkinDrawable.Image(

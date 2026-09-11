@@ -37,19 +37,27 @@ sealed interface SkinDrawable {
     }
 
     /**
-     * A flat rounded box, drawn by the shader with no art at all.
+     * A flat rounded box, optionally outlined, drawn by the shader with no art at all.
      *
      * Worth having beside [Patch]: a default skin, a placeholder and a debug overlay all want a
-     * box and no artist, and this costs no texture and no atlas slot.
+     * box and no artist, and this costs no texture and no atlas slot. The outline is here rather
+     * than as a fifth kind because a box with a line round it is one thing to everybody except a
+     * renderer — a field, a focus ring, a selected slot — and splitting it would make every skin
+     * that wants one write two.
      */
     data class Fill(
         val colour: Colour,
         val corner: Float = 0f,
+        val border: Colour? = null,
+        val borderWidth: Float = 0f,
         override val padding: Padding = Padding.None,
     ) : SkinDrawable {
         override val minimumSize: Size get() = Size(corner * 2f, corner * 2f)
         override fun drawInto(canvas: UiCanvas, destination: Rect, tint: Colour) {
-            canvas.rect(destination, colour.modulate(tint), corner)
+            if (!colour.isTransparent) canvas.rect(destination, colour.modulate(tint), corner)
+            if (border != null && borderWidth > 0f) {
+                canvas.border(destination, border.modulate(tint), borderWidth, corner)
+            }
         }
     }
 

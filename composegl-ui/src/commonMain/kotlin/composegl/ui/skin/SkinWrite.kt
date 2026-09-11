@@ -74,6 +74,10 @@ internal class SkinWrite(private val art: ArtAtlas?) {
         is SkinDrawable.Fill -> obj {
             key("fill") { colour(drawable.colour) }
             if (drawable.corner != 0f) key("corner") { number(drawable.corner) }
+            drawable.border?.let { key("border") { colour(it) } }
+            if (drawable.border != null && drawable.borderWidth != 1f) {
+                key("borderWidth") { number(drawable.borderWidth) }
+            }
             if (drawable.padding != Padding.None) key("padding") { padding(drawable.padding) }
         }
         is SkinDrawable.Image -> obj {

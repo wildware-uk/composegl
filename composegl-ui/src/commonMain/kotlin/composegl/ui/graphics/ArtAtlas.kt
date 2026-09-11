@@ -17,4 +17,21 @@ interface ArtAtlas {
 
     /** Every name in the atlas. What a loader lists when it wants to say which one was meant. */
     val names: Set<String>
+
+    companion object {
+
+        /**
+         * An atlas that is simply a map.
+         *
+         * What a backend that has already cut its picture up hands over, and what a test uses. A
+         * real packer has a file format and a tool behind it; this is the last half-inch between
+         * whatever came out of that and a name a skin file can say.
+         */
+        fun of(regions: Map<String, TextureHandle>): ArtAtlas = MapAtlas(regions)
+    }
+}
+
+private class MapAtlas(private val regions: Map<String, TextureHandle>) : ArtAtlas {
+    override fun region(name: String): TextureHandle? = regions[name]
+    override val names: Set<String> get() = regions.keys
 }
