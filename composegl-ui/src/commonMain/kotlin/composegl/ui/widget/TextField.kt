@@ -34,6 +34,7 @@ import composegl.ui.layout.MeasureResult
 import composegl.ui.layout.MeasureScope
 import composegl.ui.modifier.Modifier
 import composegl.ui.modifier.clip
+import composegl.ui.modifier.drawBehind
 import composegl.ui.modifier.fillMaxWidth
 import composegl.ui.modifier.focusable
 import composegl.ui.modifier.interaction
@@ -205,6 +206,11 @@ fun TextField(
 
     val gestures = remember(view) { TextGestures(indexAt = { view.indexAt(it) }) }
 
+    // Nothing is painted: this is how the widget learns where it is. First in the chain, because
+    // that is the one place it is handed the whole widget rather than whatever a padding before it
+    // has left — and remembered, so the chain still compares equal from one frame to the next.
+    val locate = remember(view) { locator(view) }
+
     val keys = remember(editor, enabled, view, session) {
         KeyHandler { event ->
             // Every key says which modifiers were held, and a pointer event says nothing at all, so
@@ -247,7 +253,9 @@ fun TextField(
     }
 
     Box(
-        modifier = modifier
+        modifier = Modifier
+            .drawBehind(locate)
+            .then(modifier)
             .interaction(interaction)
             .focusable(interaction, enabled = enabled, initial = initialFocus)
             .onKeyEvent(keys)
@@ -303,6 +311,9 @@ fun TextField(
         interaction = interaction,
     )
 }
+
+/** Records where the field is on the screen, every frame, without drawing anything. */
+private fun locator(view: FieldView): UiCanvas.(Rect) -> Unit = { bounds -> view.node = bounds.topLeft }
 
 /** Half a second on, half a second off, which is what every platform has settled on. */
 private const val BlinkNanos = 500_000_000L
@@ -362,15 +373,22 @@ private class FieldView {
     /** Whether shift is down, learned from the keys, so a shift-click can extend a selection. */
     var shiftHeld = false
 
-    /** Where the text starts inside the widget, once the skin's padding is taken off. */
+    /** Where the text starts on the screen, once the skin's padding is taken off. */
     var origin = Offset(0f, 0f)
+
+    /** Where the widget itself starts on the screen. What a pointer's position is measured from. */
+    var node = Offset(0f, 0f)
 
     var metrics: FieldMetrics? = null
 
     /** Which character a point in the widget is over. Clamped, so a drag off the edge still works. */
     fun indexAt(point: Offset): Int {
         val metrics = metrics ?: return 0
-        return metrics.indexAt(Offset(point.x - origin.x + scrollX, point.y - origin.y + scrollY))
+        // A handler is given a point in its own widget's coordinates and the text was drawn in the
+        // screen's, so the widget's own corner is what turns one into the other. Without it a field
+        // anywhere but the top-left corner of the screen puts every caret at the start of its text.
+        val onScreen = point + node
+        return metrics.indexAt(Offset(onScreen.x - origin.x + scrollX, onScreen.y - origin.y + scrollY))
     }
 }
 
