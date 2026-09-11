@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Mesh
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.VertexAttribute
 import com.badlogic.gdx.graphics.VertexAttributes
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
@@ -23,10 +24,18 @@ import com.badlogic.gdx.utils.Disposable
  * would mean flushing between two widgets that happen to want different corner radii, and an
  * interface is nothing but widgets that want different corner radii.
  *
- * Text and pictures come through the same batch with the shape switched off, so a label on a panel
- * costs a texture change and nothing else.
+ * Text and pictures come through the same batch with the shape switched off. Give it the white
+ * texel out of the glyph atlas and a label on a panel costs nothing at all, because the panel and
+ * the letters are then the same texture.
+ *
+ * @param white where solid colour is sampled from. Pass [GdxAtlas.white] to share a texture with
+ *   the fonts; leave it out and the batch keeps a one-pixel texture of its own, which works and
+ *   costs a draw call every time the interface alternates between a box and a word.
  */
-class UiShapeBatch(private val maxQuads: Int = 2048) : Disposable {
+class UiShapeBatch(
+    private val maxQuads: Int = 2048,
+    private val white: TextureRegion? = null,
+) : Disposable {
 
     private val mesh = Mesh(
         Mesh.VertexDataType.VertexArray,
@@ -112,7 +121,14 @@ class UiShapeBatch(private val maxQuads: Int = 2048) : Disposable {
         val halfHeight = height / 2f
         val radius = corner.coerceIn(0f, minOf(halfWidth, halfHeight))
 
-        use(white)
+        // The atlas's white texel if there is one, and the batch's own if there is not. Resolved
+        // per call rather than at construction, because the atlas gets its texture when the first
+        // font is registered, which may be after this batch was made.
+        val source = white?.takeIf { it.texture != null }
+        val u = source?.let { (it.u + it.u2) / 2f } ?: 0.5f
+        val v = source?.let { (it.v + it.v2) / 2f } ?: 0.5f
+
+        use(source?.texture ?: fallbackWhite())
         quad(
             left = left - margin,
             bottom = bottom - margin,
@@ -120,7 +136,7 @@ class UiShapeBatch(private val maxQuads: Int = 2048) : Disposable {
             top = bottom + height + margin,
             centreX = left + halfWidth,
             centreY = bottom + halfHeight,
-            u = 0.5f, v = 0.5f, u2 = 0.5f, v2 = 0.5f,
+            u = u, v = v, u2 = u, v2 = v,
             colour = fill,
             border = border,
             shadow = shadow,
@@ -169,11 +185,21 @@ class UiShapeBatch(private val maxQuads: Int = 2048) : Disposable {
         )
     }
 
-    /** The one white pixel every plain rectangle is made of. */
-    private val white: Texture = Pixmap(1, 1, Pixmap.Format.RGBA8888).let { pixmap ->
+    /**
+     * The fallback white pixel, made only if nobody supplied one.
+     *
+     * Held rather than created eagerly, so a batch sharing the glyph atlas never allocates a
+     * texture it will not use — and so [dispose] knows whether there is one to let go of.
+     */
+    private var ownWhite: Texture? = null
+
+    private fun fallbackWhite(): Texture = ownWhite ?: Pixmap(1, 1, Pixmap.Format.RGBA8888).let { pixmap ->
         pixmap.setColor(1f, 1f, 1f, 1f)
         pixmap.fill()
-        Texture(pixmap).also { pixmap.dispose() }
+        Texture(pixmap).also {
+            pixmap.dispose()
+            ownWhite = it
+        }
     }
 
     private fun use(next: Texture) {
@@ -229,7 +255,7 @@ class UiShapeBatch(private val maxQuads: Int = 2048) : Disposable {
     override fun dispose() {
         mesh.dispose()
         shader.dispose()
-        white.dispose()
+        ownWhite?.dispose()
     }
 
     private fun compile(): ShaderProgram {

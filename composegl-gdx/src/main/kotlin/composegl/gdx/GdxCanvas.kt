@@ -33,10 +33,15 @@ import kotlin.math.roundToInt
  *
  * @param spriteBatch what [raw] hands a game. Optional: without one, [raw] is refused rather than
  *   silently handing over something a game's existing code cannot use.
+ * @param atlas the glyph atlas, if there is one. Sharing it means solid colour and text come from
+ *   the same texture, which is the difference between a screen costing forty draw calls and one.
  */
-class GdxCanvas(private val spriteBatch: Batch? = null) : UiCanvas, Disposable {
+class GdxCanvas(
+    private val spriteBatch: Batch? = null,
+    atlas: GdxAtlas? = null,
+) : UiCanvas, Disposable {
 
-    private val batch = UiShapeBatch()
+    private val batch = UiShapeBatch(white = atlas?.white)
 
     private var state = CanvasState(Rect.Zero)
     private var viewport: Viewport = Viewport.oneToOne(composegl.ui.geometry.Size(1f, 1f))
