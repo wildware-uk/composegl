@@ -60,6 +60,13 @@
     "notification.detail": { "textColour": "#9AA4B2", "text": { "size": 13 } },
     "notification.more": { "textColour": "#7C8798", "text": { "size": 13 } },
 
+    // The chrome round a minimap. The frame's padding is the hole the game draws its map into.
+    "minimap": {
+      "background": { "fill": "#141922", "corner": 6, "border": "#4A5568", "padding": [6, 6] }
+    },
+    "minimap.marker": { "background": { "fill": "#F2C94C" } },
+    "minimap.compass": { "textColour": "#9AA4B2", "text": { "size": 12 } },
+
     // --- text ---
 
     "label": {

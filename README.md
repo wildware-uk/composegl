@@ -55,7 +55,7 @@ A skin that will not parse names the line and suggests the nearest region or key
 worked, and a broken save leaves the last skin that worked on screen. The widget set has started:
 `Text`, `Image`, `Button`, `IconButton`, `Checkbox`, `RadioButton`, `Toggle`, `Slider`,
 `ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog`, `Tabs`, `TextField`, `Bar`, `Hotbar`,
-`RadialCooldown`, `DamageNumberLayer`, `Reticle`, `Tooltip`, `Typewriter`, `PromptGlyph` and `Notifications` ship with
+`RadialCooldown`, `DamageNumberLayer`, `Reticle`, `Tooltip`, `Typewriter`, `PromptGlyph`, `Notifications` and `MinimapFrame` ship with
 the toolkit, and the example is built from them. Typing works the whole way through: a caret that blinks
 and stops blinking mid-word, selection by shift or by dragging, double-click for a word, word-wise
 movement, the system clipboard through whichever backend is running, and a field that scrolls
@@ -127,6 +127,15 @@ talking rather than a machine printing, and a player who has read ahead presses 
 the rest at once. An effect can take each character on its own — a shake as it lands, a fade up, a
 colour — and it costs what it costs: with an effect the line is drawn a character at a time rather
 than a line at a time, which is why there is a fast path without one.
+
+The minimap is a frame with a hole in it. A game's map is its own — a texture it renders, a tile
+grid, a mesh — so the toolkit draws the border, clips a rectangle and hands it over, and the game
+either draws with our canvas or reaches the backend underneath with `raw { }`. What is left is the
+chrome: an arrow at the edge for every objective that is off the map, and the cardinal letters. The
+edge arrow is the part worth getting right — it is a ray meeting a **rectangle**, not a circle,
+because a minimap is hardly ever square and the round version puts an objective due east in the
+middle of nothing. A live map is redrawn every frame, because everything on it moves outside the
+composition; one that is not live is not redrawn at all.
 
 What the game has to say is a queue, not a list. A chest with twenty things in it or a quest that
 finishes four steps at once is an ordinary moment, and a widget that shows everything it is handed
