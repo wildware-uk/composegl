@@ -9,6 +9,7 @@ import composegl.ui.modifier.shadow
 import composegl.ui.modifier.styled as styledWith
 import composegl.ui.skin.rememberStyle
 import composegl.ui.skin.styled
+import composegl.ui.widget.LocalInputSource
 import composegl.ui.widget.Text
 
 /**

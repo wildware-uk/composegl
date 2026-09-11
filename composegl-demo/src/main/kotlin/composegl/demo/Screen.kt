@@ -7,11 +7,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.staticCompositionLocalOf
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.input.BackStack
+import composegl.ui.input.Action
 import composegl.ui.input.InputSourceTracker
+import composegl.ui.input.Prompts
 import composegl.ui.input.InteractionState
 import composegl.ui.input.Key
 import composegl.ui.input.KeyEventType
@@ -86,6 +87,9 @@ import composegl.ui.widget.Tabs
 import composegl.ui.widget.Text
 import composegl.ui.widget.Toggle
 import composegl.ui.widget.Tooltip
+import composegl.ui.widget.LocalInputSource
+import composegl.ui.widget.LocalPrompts
+import composegl.ui.widget.PromptGlyph
 import composegl.ui.widget.Typewriter
 import composegl.ui.widget.TypewriterEffect
 import composegl.ui.widget.rememberTypewriter
@@ -112,6 +116,9 @@ fun Screen(
     CompositionLocalProvider(
         LocalFonts provides fonts,
         LocalInputSource provides state.source,
+        // What the player has each action bound to. A rebinding screen would write into this and
+        // every prompt on screen would change on the next frame.
+        LocalPrompts provides state.prompts,
         LocalClipboard provides clipboard,
         LocalSoftKeyboard provides softKeyboard,
     ) {
@@ -479,6 +486,19 @@ private fun LorePanel(modifier: Modifier, state: DemoState) {
                 Chip("ACCEPT", "chip", state.briefing == "ACCEPT", first = true) { state.answer("ACCEPT") }
                 Chip("DECLINE", "chip.danger", state.briefing == "DECLINE", first = false) { state.declining = true }
             }
+
+            // The buttons those two chips answer to. They say E and ESC now and A and B the moment
+            // the player picks up a pad, with nothing reloaded and no event sent to either of them.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6f),
+                verticalAlignment = VerticalAlignment.Centre,
+            ) {
+                PromptGlyph(Action.Confirm)
+                Text("accept", style = "label.dim")
+                Spacer(Modifier.width(8f))
+                PromptGlyph(Action.Cancel)
+                Text("stand down", style = "label.dim")
+            }
         }
     }
 }
@@ -608,13 +628,13 @@ private val digits = listOf(
     Key.Digit5, Key.Digit6, Key.Digit7, Key.Digit8, Key.Digit9,
 )
 
-/** What the player is using, so a widget can ask without being handed it. */
-val LocalInputSource = staticCompositionLocalOf<InputSourceTracker> { error("no input source tracker") }
-
 /** What the demo animates, and what the player has changed. */
 class DemoState {
 
     val source = InputSourceTracker()
+
+    /** What each action is bound to, and which pad's letters to draw. */
+    val prompts = Prompts()
 
     var health by mutableStateOf(HealthSteps.first())
         private set

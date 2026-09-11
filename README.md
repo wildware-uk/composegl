@@ -55,7 +55,7 @@ A skin that will not parse names the line and suggests the nearest region or key
 worked, and a broken save leaves the last skin that worked on screen. The widget set has started:
 `Text`, `Image`, `Button`, `IconButton`, `Checkbox`, `RadioButton`, `Toggle`, `Slider`,
 `ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog`, `Tabs`, `TextField`, `Bar`, `Hotbar`,
-`RadialCooldown`, `DamageNumberLayer`, `Reticle`, `Tooltip` and `Typewriter` ship with
+`RadialCooldown`, `DamageNumberLayer`, `Reticle`, `Tooltip`, `Typewriter` and `PromptGlyph` ship with
 the toolkit, and the example is built from them. Typing works the whole way through: a caret that blinks
 and stops blinking mid-word, selection by shift or by dragging, double-click for a word, word-wise
 movement, the system clipboard through whichever backend is running, and a field that scrolls
@@ -127,6 +127,17 @@ talking rather than a machine printing, and a player who has read ahead presses 
 the rest at once. An effect can take each character on its own — a shake as it lands, a fade up, a
 colour — and it costs what it costs: with an effect the line is drawn a character at a time rather
 than a line at a time, which is why there is a fast path without one.
+
+Button prompts are the toolkit's answer to a question every game asks badly: `PromptGlyph(Action.Confirm)`
+draws **E** on a keyboard, **A** on an Xbox pad and **✕** on a PlayStation one, and it changes on
+the frame the player puts one down and picks the other up — nothing reloaded, no event sent to each
+prompt, because what device is in use and what it is bound to are both Compose state. A rebinding
+screen writes the new binding into `Prompts` and every prompt on screen follows. An action nobody
+bound draws a dash rather than an empty box. The glyph sits in the middle of a sentence on the
+sentence's own baseline, which is fiddlier than it sounds: a prompt is drawn a size smaller than
+the words around it, so lining the boxes up puts the letter off the line, and it lines up the
+baselines instead. A skin with real button art names `"prompt.pad.south"` and the plain box is the
+fallback, so a skin that draws half the buttons is not half broken.
 
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and

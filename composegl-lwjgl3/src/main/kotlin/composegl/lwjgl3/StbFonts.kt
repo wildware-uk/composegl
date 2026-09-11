@@ -414,6 +414,15 @@ class StbFonts(private val pageSize: Int = 512) : FontProvider, AutoCloseable {
             0x20..0x7E,
             0xA0..0xFF,
             0x2010..0x2027,
+            // The shapes a prompt draws, one at a time rather than by the block: a page holds a
+            // fixed number of glyphs, and two hundred box-drawing characters nobody asks for is
+            // the difference between fitting and not.
+            0x25A0..0x25A1, // ■ □
+            0x25B2..0x25B3, // ▲ △
+            0x25CB..0x25CB, // ○
+            0x25CF..0x25CF, // ●
+            0x2630..0x2630, // ☰
+            0x2713..0x2716, // ✓ ✔ ✕ ✖
         )
 
         private const val WhiteBlock = 8
