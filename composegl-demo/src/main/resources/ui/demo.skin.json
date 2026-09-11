@@ -233,6 +233,13 @@
     "cooldown.flash": { "background": { "fill": "#804CC2FF" } },
     "cooldown.seconds": { "textColour": "#FFFFFF", "text": { "size": 16 } },
 
+    // --- what a hit is worth ---
+    //
+    // A critical is a different colour and a size up, so it is read as "that was a big one"
+    // without anybody reading the number.
+    "damage": { "textColour": "#FFE9A8", "text": { "size": 16 } },
+    "damage.critical": { "textColour": "#FF7A45", "text": { "size": 20 } },
+
     // --- where the player is ---
     //
     // A ring outside the thing it marks, with its padding there whether the ring is drawn or not,

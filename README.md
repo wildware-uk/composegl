@@ -93,6 +93,15 @@ not drawn as a press and never reaches the game. The number keys have to work wh
 is, and a key event only reaches a widget while focus is inside it, so the press is hoisted into a
 `HotbarState` a game puts on its screen or calls from its own bindings.
 
+Damage numbers are the first thing here that belongs to the world rather than the screen. A hit
+puts a number over the thing that was hit, it floats, fades and goes; a critical is bigger and
+lasts longer. Two hundred of them at once is an ordinary moment in a game, so the whole layer is
+one node that measures each number once and draws the rest straight onto the canvas — no node per
+number to make and throw away, and a test that watches the thread's own allocation counter says it
+costs nothing per frame once they are up. Where a number goes is the game's to say: it hands over
+an anchor that writes a world position and a projection that turns it into a screen one, so a
+number over a walking target walks with it, and one behind the camera is simply not drawn.
+
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and
 GLFW's own contracts say and have not been measured.

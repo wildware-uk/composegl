@@ -33,8 +33,17 @@ interface UiCanvas {
      */
     fun shadow(rect: Rect, colour: Colour, spread: Float, corner: Float = 0f)
 
-    /** Text that has already been measured, with [at] as its top-left. */
-    fun text(layout: TextLayout, at: Offset, colour: Colour)
+    /**
+     * Text that has already been measured, with [x] and [y] as its top-left.
+     *
+     * Floats rather than an [Offset] because of what draws the most text per frame: a layer of
+     * damage numbers places a couple of hundred runs every frame and would otherwise make a
+     * couple of hundred throwaway objects doing it.
+     */
+    fun text(layout: TextLayout, x: Float, y: Float, colour: Colour)
+
+    /** The same, for the ordinary case where the caller already has the point. */
+    fun text(layout: TextLayout, at: Offset, colour: Colour) = text(layout, at.x, at.y, colour)
 
     /**
      * A picture, stretched to fill [destination]. [tint] multiplies; white leaves it alone.

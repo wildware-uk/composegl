@@ -159,7 +159,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
     // --- text and pictures ---
 
-    override fun text(layout: TextLayout, at: Offset, colour: Colour) {
+    override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) {
         if (state.isHidden) return
         val measured = layout as? StbTextLayout
             ?: error("this canvas can only draw text measured by StbFonts, not ${layout::class}")
@@ -169,8 +169,8 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         measured.placed.forEach { placed ->
             batch.textured(
                 name = atlas.name,
-                left = at.x + placed.left,
-                bottom = flip(at.y + placed.top + placed.height),
+                left = x + placed.left,
+                bottom = flip(y + placed.top + placed.height),
                 width = placed.width,
                 height = placed.height,
                 u = placed.glyph.u,

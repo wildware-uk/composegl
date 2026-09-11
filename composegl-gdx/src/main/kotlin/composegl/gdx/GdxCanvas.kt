@@ -150,7 +150,7 @@ class GdxCanvas(
 
     // --- text and pictures ---
 
-    override fun text(layout: TextLayout, at: Offset, colour: Colour) {
+    override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) {
         if (state.isHidden) return
         val gdx = layout as? GdxTextLayout
             ?: error("this canvas can only draw text measured by GdxFonts, not ${layout::class}")
@@ -158,19 +158,19 @@ class GdxCanvas(
         val packed = colour.packed(state.alpha)
         val regions = gdx.font.regions
         val data = gdx.font.data
-        val top = flip(at.y)
+        val top = flip(y)
 
         gdx.glyphs.runs.forEach { run ->
-            var x = at.x + run.x
-            val y = top + run.y
+            var at = x + run.x
+            val baseline = top + run.y
             for (index in 0 until run.glyphs.size) {
                 val glyph = run.glyphs[index]
-                x += run.xAdvances[index]
+                at += run.xAdvances[index]
                 val region = regions[glyph.page]
                 batch.textured(
                     texture = region.texture,
-                    left = x + glyph.xoffset * data.scaleX,
-                    bottom = y + glyph.yoffset * data.scaleY,
+                    left = at + glyph.xoffset * data.scaleX,
+                    bottom = baseline + glyph.yoffset * data.scaleY,
                     width = glyph.width * data.scaleX,
                     height = glyph.height * data.scaleY,
                     u = glyph.u,
