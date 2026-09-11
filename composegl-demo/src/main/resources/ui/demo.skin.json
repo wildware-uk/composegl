@@ -126,6 +126,8 @@
     "field.placeholder": { "textColour": "#5A6675" },
     "field.caret": { "background": { "fill": "#E6F0FF" } },
     "field.selection": { "background": { "fill": "#504CC2FF" } },
+    // The underline under text an input method has not committed yet.
+    "field.composition": { "background": { "fill": "#8ADBFF" } },
 
     // --- the tabs and the dialogue ---
 

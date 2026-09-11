@@ -110,6 +110,7 @@
     "field.placeholder": { "textColour": "#5A6675" },
     "field.caret": { "background": { "fill": "#E6F0FF" } },
     "field.selection": { "background": { "fill": "#504CC2FF" } },
+    "field.composition": { "background": { "fill": "#8ADBFF" } },
 
     // --- the table of best runs ---
 
