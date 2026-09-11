@@ -1,5 +1,7 @@
 package composegl.ui.graphics
 
+import composegl.ui.effect.ShaderEffect
+import composegl.ui.effect.ShaderSource
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.text.TextLayout
@@ -107,15 +109,21 @@ interface UiCanvas {
     fun layer(bounds: Rect, block: () -> Unit): TextureHandle? = null
 
     /**
-     * Draws a picture that [layer] made, filling [destination].
+     * Draws a picture that [layer] made, filling [destination], optionally through a shader.
      *
      * Its own call rather than [image] because the colours in a layer are already multiplied by
      * their own opacity, and a backend has to blend it differently — drawing one through [image]
      * puts a dark halo round everything soft. Nothing else should be passed here.
      *
-     * The canvas's current opacity applies, as it does to every other call.
+     * With an [effect], the shader decides what each pixel comes out as; see [ShaderSource] for
+     * what it is handed. A backend that cannot compile shaders draws the picture plainly and says
+     * nothing, which is the same bargain [layer] makes: an effect degrades to no effect.
+     *
+     * The canvas's current opacity applies, as it does to every other call. A shader gets it as
+     * `u_alpha` and is expected to multiply by it, since nothing outside the shader can.
      */
-    fun drawLayer(layer: TextureHandle, destination: Rect) = image(layer, destination)
+    fun drawLayer(layer: TextureHandle, destination: Rect, effect: ShaderEffect? = null) =
+        image(layer, destination)
 
     /**
      * The backend's own drawing object, for whatever this interface does not cover — a shader, a

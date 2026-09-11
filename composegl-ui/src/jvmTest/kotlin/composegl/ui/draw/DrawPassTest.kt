@@ -1,9 +1,13 @@
 package composegl.ui.draw
 
+import composegl.ui.effect.ShaderEffect
+import composegl.ui.effect.ShaderSource
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
 import composegl.ui.graphics.DrawCall
 import composegl.ui.graphics.RecordingCanvas
+import composegl.ui.graphics.TextureHandle
+import composegl.ui.graphics.UiCanvas
 import composegl.ui.layout.Constraints
 import composegl.ui.layout.MeasurePass
 import composegl.ui.layout.MeasurePolicy
@@ -13,6 +17,7 @@ import composegl.ui.modifier.background
 import composegl.ui.modifier.border
 import composegl.ui.modifier.clip
 import composegl.ui.modifier.drawInFront
+import composegl.ui.modifier.effect
 import composegl.ui.modifier.padding
 import composegl.ui.modifier.shadow
 import composegl.ui.modifier.size
@@ -50,6 +55,75 @@ class DrawPassTest {
     }
 
     private fun kinds() = canvas.calls.map { it::class.simpleName }
+
+    // --- effects ---
+
+    private val invert = ShaderEffect(ShaderSource("invert", "void main() { }"))
+    private val glow = ShaderEffect(ShaderSource("glow", "void main() { }"), bleed = 6f)
+
+    /** A backend with no offscreen drawing: everything else recorded, but no layers. */
+    private class Plain(canvas: RecordingCanvas) : UiCanvas by canvas {
+        override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? = null
+    }
+
+    @Test
+    fun `an effect draws the subtree into a layer and then draws the layer`() {
+        val node = node("panel", Modifier.size(40f).effect(invert).background(red))
+
+        draw(node)
+
+        // The background is recorded first, because it happened inside the layer; the Layer call
+        // is the moment the picture came back.
+        assertEquals(listOf("Rectangle", "Layer"), kinds())
+        val layer = canvas.calls.last() as DrawCall.Layer
+        assertEquals(invert, layer.effect)
+        assertEquals(Rect.of(0f, 0f, 40f, 40f), layer.bounds)
+    }
+
+    @Test
+    fun `bleed makes the picture bigger than the node`() {
+        // Without it a blur or a glow would be cut off square at the widget's edge.
+        val node = node("panel", Modifier.size(40f).effect(glow).background(red))
+
+        draw(node)
+
+        val layer = canvas.calls.last() as DrawCall.Layer
+        assertEquals(Rect.of(-6f, -6f, 52f, 52f), layer.bounds)
+    }
+
+    @Test
+    fun `two effects are the second one working on the first one's answer`() {
+        val node = node("panel", Modifier.size(40f).effect(invert).effect(glow).background(red))
+
+        draw(node)
+
+        val layers = canvas.calls.filterIsInstance<DrawCall.Layer>()
+        assertEquals(listOf(invert, glow), layers.map { it.effect }, "the chain's order, innermost first")
+    }
+
+    @Test
+    fun `an effect wraps the children too`() {
+        val child = node("child", Modifier.size(10f).background(blue))
+        val parent = node("parent", Modifier.size(40f).effect(invert), children = listOf(child))
+
+        draw(parent)
+
+        assertEquals(listOf("Rectangle", "Layer"), kinds(), "the child is inside the picture")
+    }
+
+    @Test
+    fun `a canvas with no layers draws the subtree straight through`() {
+        // The bargain the whole feature rests on: an effect degrades to no effect rather than to a
+        // widget that is not there.
+        val plain = Plain(canvas)
+        val node = node("panel", Modifier.size(40f).effect(invert).background(red))
+        tree.root.insertAt(0, node)
+        MeasurePass().run(tree.root, Constraints.atMost(500f, 500f))
+
+        DrawPass(plain).draw(tree.root)
+
+        assertEquals(listOf("Rectangle"), kinds(), "drawn once, with no effect and nothing missing")
+    }
 
     // --- order ---
 

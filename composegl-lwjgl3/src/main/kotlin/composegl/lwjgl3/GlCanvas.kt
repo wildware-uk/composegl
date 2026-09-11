@@ -3,6 +3,7 @@ package composegl.lwjgl3
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.geometry.Size
+import composegl.ui.effect.ShaderEffect
 import composegl.ui.graphics.CanvasState
 import composegl.ui.graphics.Colour
 import composegl.ui.graphics.TextureHandle
@@ -11,6 +12,7 @@ import composegl.ui.layout.Viewport
 import composegl.ui.text.TextLayout
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11
+import org.lwjgl.opengl.GL20
 import org.lwjgl.opengl.GL30
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -68,6 +70,8 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     private var ownWhite: GlTexture? = null
 
     private val layers = GlLayers()
+
+    private val effects = GlEffects()
 
     /**
      * The offscreen picture being drawn into, or null when that is the window.
@@ -382,10 +386,15 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         return GlTexture(target.textureName, pixelWidth, pixelHeight, u = 0f, v = 1f, u2 = 1f, v2 = 0f)
     }
 
-    override fun drawLayer(layer: TextureHandle, destination: Rect) {
+    override fun drawLayer(layer: TextureHandle, destination: Rect, effect: ShaderEffect?) {
         if (state.isHidden || destination.isEmpty) return
         val picture = layer as? GlTexture
             ?: error("this canvas can only draw layers it made, not ${layer::class}")
+
+        if (effect != null) {
+            drawThrough(effect, picture, destination)
+            return
+        }
 
         batch.premultiplied(true)
         // The opacity goes into all four channels, because a premultiplied colour that faded only
@@ -425,6 +434,49 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         if (on) GL11.glEnable(GL11.GL_SCISSOR_TEST) else GL11.glDisable(GL11.GL_SCISSOR_TEST)
     }
 
+    /**
+     * The same picture, through somebody's shader.
+     *
+     * The quad is worked out here, in clip space, because this is the class that knows where a
+     * design coordinate ends up: the projection, the y flip and the layer's own origin all live
+     * here and none of them are the shader's business.
+     */
+    private fun drawThrough(effect: ShaderEffect, picture: GlTexture, destination: Rect) {
+        // Whatever is queued was queued to land under this, so it goes first.
+        batch.flush()
+
+        val bottom = flip(destination.bottom)
+        val top = flip(destination.top)
+        effects.draw(
+            effect = effect,
+            texture = picture.name,
+            left = clipX(destination.left),
+            top = clipY(top),
+            right = clipX(destination.right),
+            bottom = clipY(bottom),
+            u = picture.u,
+            v = picture.v,
+            u2 = picture.u2,
+            v2 = picture.v2,
+            textureWidth = picture.width.toFloat(),
+            textureHeight = picture.height.toFloat(),
+            designWidth = destination.width,
+            designHeight = destination.height,
+            alpha = state.alpha.coerceIn(0f, 1f),
+        )
+
+        // The batch set the blending and the program it wants at the start of the frame, and the
+        // shader has just changed both.
+        GL20.glUseProgram(0)
+        batch.premultiplied(false)
+    }
+
+    /** A design x, through the frame's projection, as the clip cube sees it. */
+    private fun clipX(x: Float) = x * projection[0] + projection[12]
+
+    /** The same for a y that has already been flipped the right way up. */
+    private fun clipY(y: Float) = y * projection[5] + projection[13]
+
     override fun raw(block: (Any) -> Unit) {
         // Our own quads first, so the game's drawing lands on top of what came before it.
         batch.flush()
@@ -434,6 +486,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     override fun close() {
         batch.close()
         layers.close()
+        effects.close()
         ownWhite?.close()
         ownWhite = null
     }

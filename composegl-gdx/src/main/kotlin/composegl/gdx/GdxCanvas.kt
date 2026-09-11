@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.utils.Disposable
+import composegl.ui.effect.ShaderEffect
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.CanvasState
@@ -59,6 +60,8 @@ class GdxCanvas(
     private val projection = Matrix4()
 
     private val layers = GdxLayers()
+
+    private val effects = GdxEffects()
 
     /**
      * The offscreen picture being drawn into, or null when that is the window.
@@ -394,11 +397,16 @@ class GdxCanvas(
         return target.texture
     }
 
-    override fun drawLayer(layer: TextureHandle, destination: Rect) {
+    override fun drawLayer(layer: TextureHandle, destination: Rect, effect: ShaderEffect?) {
         if (state.isHidden || destination.isEmpty) return
         val picture = layer as? GdxTexture
             ?: error("this canvas can only draw layers it made, not ${layer::class}")
         val region = picture.region
+
+        if (effect != null) {
+            drawThrough(effect, picture, destination)
+            return
+        }
 
         batch.premultiplied(true)
         // The opacity goes into all four channels, because a premultiplied colour that faded only
@@ -418,6 +426,48 @@ class GdxCanvas(
         )
         batch.premultiplied(false)
     }
+
+    /**
+     * The same picture, through somebody's shader.
+     *
+     * The quad is worked out here, in clip space, because this is the class that knows where a
+     * design coordinate ends up: the projection, the y flip and the layer's own origin all live
+     * here and none of them are the shader's business.
+     */
+    private fun drawThrough(effect: ShaderEffect, picture: GdxTexture, destination: Rect) {
+        // Whatever is queued was queued to land under this, so it goes first.
+        batch.flush()
+
+        val region = picture.region
+        val values = projection.values
+        effects.draw(
+            effect = effect,
+            texture = region.texture,
+            left = clipX(destination.left, values),
+            top = clipY(flip(destination.top), values),
+            right = clipX(destination.right, values),
+            bottom = clipY(flip(destination.bottom), values),
+            u = region.u,
+            v = region.v,
+            u2 = region.u2,
+            v2 = region.v2,
+            textureWidth = region.regionWidth.toFloat(),
+            textureHeight = region.regionHeight.toFloat(),
+            designWidth = destination.width,
+            designHeight = destination.height,
+            alpha = state.alpha.coerceIn(0f, 1f),
+        )
+
+        // The batch set the blending and the program it wants at the start of the frame, and the
+        // shader has just changed both.
+        batch.premultiplied(false)
+    }
+
+    /** A design x, through the frame's projection, as the clip cube sees it. */
+    private fun clipX(x: Float, matrix: FloatArray) = x * matrix[Matrix4.M00] + matrix[Matrix4.M03]
+
+    /** The same for a y that has already been flipped the right way up. */
+    private fun clipY(y: Float, matrix: FloatArray) = y * matrix[Matrix4.M11] + matrix[Matrix4.M13]
 
     private fun setViewport(x: Int, y: Int, width: Int, height: Int) {
         viewportBox[0] = x
@@ -456,6 +506,7 @@ class GdxCanvas(
     override fun dispose() {
         batch.dispose()
         layers.dispose()
+        effects.dispose()
     }
 
     /**

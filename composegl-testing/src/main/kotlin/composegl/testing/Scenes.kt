@@ -1,5 +1,8 @@
 package composegl.testing
 
+import composegl.ui.effect.ShaderEffect
+import composegl.ui.effect.ShaderSource
+import composegl.ui.effect.Uniform
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
@@ -69,6 +72,20 @@ fun scenes(): List<Scene> = listOf(
         }
         if (picture != null) drawLayer(picture, bounds) else rect(bounds, Accent)
         popAlpha()
+    },
+
+    Scene("effect") { art ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+
+        // Top: the panel as it is. Bottom: the same panel through somebody's GLSL — a plain box
+        // blur, written against the public API and compiled by whichever backend is drawing. The
+        // bleed is what lets the blur spread past the panel instead of being cut off square.
+        panel(art, Rect.of(30f, 20f, 180f, 80f))
+
+        val bounds = Rect.of(30f, 130f, 180f, 80f)
+        val area = bounds.inset(-Blur.bleed)
+        val picture = layer(area) { panel(art, bounds) }
+        if (picture != null) drawLayer(picture, area, Blur) else panel(art, bounds)
     },
 
     Scene("shadow") { _ ->
@@ -178,3 +195,38 @@ fun bevel(): RawImage {
 
     return RawImage(size, size, pixels)
 }
+
+/** The scene's panel, drawn twice: once plainly, once through a shader. */
+private fun UiCanvas.panel(art: SceneArt, at: Rect) {
+    rect(at, Panel, corner = 14f)
+    border(at, Accent, width = 2f, corner = 14f)
+    text(art.fonts.measure("Effect", Body), Offset(at.left + 18f, at.top + 18f), Paper)
+}
+
+/**
+ * A box blur, as a user would write one.
+ *
+ * Twenty-five taps and no cleverness: this is a golden, and what it is watching is whether two
+ * backends hand the same picture to the same GLSL, not how fast a blur can be.
+ */
+private val Blur = ShaderEffect(
+    source = ShaderSource(
+        name = "box-blur",
+        fragment = """
+            uniform float u_radius;
+
+            void main() {
+                vec2 step = u_radius / u_textureSize;
+                vec4 total = vec4(0.0);
+                for (int across = -2; across <= 2; across++) {
+                    for (int down = -2; down <= 2; down++) {
+                        total += texture2D(u_texture, v_texCoord + vec2(float(across), float(down)) * step);
+                    }
+                }
+                gl_FragColor = total / 25.0 * u_alpha;
+            }
+        """.trimIndent(),
+    ),
+    uniforms = mapOf("u_radius" to Uniform.Number(2f)),
+    bleed = 6f,
+)

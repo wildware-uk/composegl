@@ -1,5 +1,6 @@
 package composegl.ui.modifier
 
+import composegl.ui.effect.ShaderEffect
 import composegl.ui.focus.FocusRequester
 import composegl.ui.focus.FocusWithinHandler
 import composegl.ui.focus.RevealHandler
@@ -45,6 +46,8 @@ class ResolvedModifier private constructor(
     val alignment: Alignment?,
     val alpha: Float,
     val clip: ClipElement?,
+    /** The shaders this node is drawn through, in the order the chain wrote them. */
+    val effects: List<ShaderEffect>,
     /** Backgrounds, borders, shadows and `drawBehind`, in chain order, under the node's content. */
     val behind: List<PaintOp>,
     /** `drawInFront`, in chain order, over the node and its children. */
@@ -101,6 +104,7 @@ class ResolvedModifier private constructor(
             var alignment: Alignment? = null
             var alpha = 1f
             var clip: ClipElement? = null
+            val effects = mutableListOf<ShaderEffect>()
             val behind = mutableListOf<PaintOp>()
             val inFront = mutableListOf<PaintOp>()
             val interactions = mutableListOf<InteractionState>()
@@ -134,6 +138,7 @@ class ResolvedModifier private constructor(
                     is AlignElement -> alignment = element.alignment
                     is AlphaElement -> alpha *= element.alpha.coerceIn(0f, 1f)
                     is ClipElement -> clip = element
+                    is EffectElement -> effects += element.effect
                     is BackgroundElement, is BorderElement, is ShadowElement,
                     is NinePatchElement, is SkinBackgroundElement, is DrawBehindElement ->
                         behind += PaintOp(element, padding)
@@ -155,7 +160,7 @@ class ResolvedModifier private constructor(
             }
 
             return ResolvedModifier(
-                size, fill, padding, offset, weight, alignment, alpha, clip,
+                size, fill, padding, offset, weight, alignment, alpha, clip, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click,

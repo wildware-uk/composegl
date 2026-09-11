@@ -1,5 +1,8 @@
 package composegl.lwjgl3
 
+import composegl.ui.effect.ShaderEffect
+import composegl.ui.effect.ShaderSource
+import composegl.ui.effect.Uniform
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.geometry.Size
@@ -31,6 +34,11 @@ class GlCanvasTest {
     )
 
     private val red = Colour.rgb(0xFF0000)
+
+    /** The plainest effect there is: the picture, unchanged, faded by whatever is in force. */
+    private val passThrough = ShaderEffect(
+        ShaderSource("pass-through", "void main() { gl_FragColor = texture2D(u_texture, v_texCoord) * u_alpha; }"),
+    )
     private val blue = Colour.rgb(0x0000FF)
     private val body = TextStyle(family = "body", size = 48f)
 
@@ -334,6 +342,106 @@ class GlCanvasTest {
 
         assertTrue(!asked, "nothing should have been drawn for a layer that was refused")
         assertColour(red, frame.at(30, 30), "the caller's own drawing still works")
+    }
+
+    @Test
+    fun `an effect draws where the picture would have gone`() {
+        val bounds = Rect.of(40f, 40f, 120f, 120f)
+        val frame = draw {
+            val picture = layer(bounds) { rect(bounds, red) }
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds, passThrough)
+        }
+
+        assertColour(red, frame.at(100, 100), "the middle of the effect")
+        assertColour(red, frame.at(42, 42), "its top-left corner")
+        assertColour(Colour.Black, frame.at(30, 100), "left of it")
+        assertColour(Colour.Black, frame.at(170, 100), "right of it")
+        assertColour(Colour.Black, frame.at(100, 170), "below it")
+    }
+
+    @Test
+    fun `an effect is handed the picture the interface drew`() {
+        // Half the layer painted, half not. A shader that samples and passes through has to come
+        // out as the same two halves, the right way up.
+        val bounds = Rect.of(0f, 0f, 200f, 200f)
+        val frame = draw {
+            val picture = layer(bounds) { rect(Rect.of(0f, 0f, 200f, 100f), red) }
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds, passThrough)
+        }
+
+        assertColour(red, frame.at(100, 40), "the painted half")
+        assertColour(Colour.Black, frame.at(100, 160), "the empty half")
+    }
+
+    @Test
+    fun `a shader reads the uniforms it was given`() {
+        val bounds = Rect.of(0f, 0f, 200f, 200f)
+        val tint = ShaderEffect(
+            source = ShaderSource(
+                "tint",
+                """
+                uniform vec4 u_tint;
+                void main() {
+                    gl_FragColor = vec4(u_tint.rgb * u_tint.a, u_tint.a) * u_alpha;
+                }
+                """.trimIndent(),
+            ),
+            uniforms = mapOf("u_tint" to Uniform.of(blue)),
+        )
+        val frame = draw {
+            val picture = layer(bounds) { rect(bounds, red) }
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds, tint)
+        }
+
+        assertColour(blue, frame.at(100, 100), "the shader's own colour, not the picture's")
+    }
+
+    @Test
+    fun `an effect is faded by the opacity in force`() {
+        val bounds = Rect.of(0f, 0f, 200f, 200f)
+        val frame = draw {
+            pushAlpha(0.5f)
+            val picture = layer(bounds) { rect(bounds, red) }
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds, passThrough)
+            popAlpha()
+        }
+
+        val lit = frame.at(100, 100) shr 16 and 0xFF
+        assertTrue(abs(lit - 128) < 24, "expected half the red, got $lit")
+    }
+
+    @Test
+    fun `the frame carries on normally after an effect`() {
+        // The shader leaves a different program bound and a different blend set. Whatever the
+        // interface draws next is drawn on the assumption that both came back.
+        val bounds = Rect.of(0f, 0f, 100f, 100f)
+        val frame = draw {
+            val picture = layer(bounds) { rect(bounds, red) }
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds, passThrough)
+            rect(Rect.of(150f, 150f, 100f, 100f), blue)
+        }
+
+        assertColour(red, frame.at(50, 50), "the effect")
+        assertColour(blue, frame.at(200, 200), "an ordinary rectangle drawn after it")
+    }
+
+    @Test
+    fun `a shader that will not compile says so, with its name and the driver's words`() {
+        assumeTrue(Gl.available, "no display; this test needs a real GL context")
+        val broken = ShaderEffect(ShaderSource("broken", "void main() { this is not GLSL }"))
+
+        val thrown = assertThrows<IllegalArgumentException> {
+            draw {
+                val bounds = Rect.of(0f, 0f, 100f, 100f)
+                val picture = layer(bounds) { rect(bounds, red) }
+                drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds, broken)
+            }
+        }
+
+        assertTrue(
+            thrown.message.orEmpty().contains("broken"),
+            "the message should name the shader, but it was: ${thrown.message}",
+        )
     }
 
     @Test
