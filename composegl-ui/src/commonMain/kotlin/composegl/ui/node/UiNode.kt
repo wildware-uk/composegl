@@ -1,7 +1,9 @@
 package composegl.ui.node
 
+import composegl.ui.draw.RectCache
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.UiCanvas
+import composegl.ui.layout.ConstraintsCache
 import composegl.ui.layout.Inset
 import composegl.ui.layout.Measurable
 import composegl.ui.layout.MeasurePolicy
@@ -103,6 +105,14 @@ class UiNode(var name: String = "node") {
 
     /** This node's children, wrapped, refilled by each pass rather than rebuilt. */
     internal val measurables: MutableList<Measurable> = mutableListOf()
+
+    /** The room this node was offered, and the room left inside its padding. */
+    internal val outerConstraints = ConstraintsCache()
+    internal val contentConstraints = ConstraintsCache()
+
+    /** Where this node sits on screen, and where its contents sit inside it. */
+    internal val drawnBounds = RectCache()
+    internal val drawnContent = RectCache()
 
     private var cachedResolution: ResolvedModifier? = null
 

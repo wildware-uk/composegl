@@ -65,7 +65,7 @@ interface PlacementScope {
  * not. So the room is lent instead: it belongs to the node, it is used again next frame, and it is
  * good until this measure returns. Keeping it past that is keeping somebody else's paper.
  *
- * A layout is free to ignore all three and build its own lists. Nothing checks.
+ * A layout is free to ignore all of it and build its own lists. Nothing checks.
  */
 interface MeasureScope {
 
@@ -90,6 +90,47 @@ interface MeasureScope {
 
     /** Room for [count] numbers: where each child starts. A different array from [sizes]. */
     fun positions(count: Int): FloatArray = FloatArray(count)
+
+    /**
+     * Room for [count] corners: x, y, x, y…, the top-left each child is going to be placed at.
+     *
+     * Filled in while measuring and handed to the [layout] below, for layouts that already know
+     * where everything goes by the time they know how big they are — which is most of them.
+     */
+    fun placements(count: Int): FloatArray = FloatArray(count * 2)
+
+    /**
+     * Room for [count] remembered offers, one per child: what each was last measured with.
+     *
+     * A layout that works out a child's [Constraints] rather than passing on its own — a line
+     * handing out what is left, a bar sizing its pieces — would otherwise make one per child per
+     * frame. One cache each, kept on the node, means a screen standing still makes none.
+     */
+    fun offers(count: Int): Array<ConstraintsCache> = Array(count) { ConstraintsCache() }
+
+    /**
+     * The same as the [layout] above, but placing the first [count] of [placeables] at the corners
+     * in [placements] instead of running a block.
+     *
+     * Worth the second way of saying it because of what the block costs. A block that mentions
+     * anything around it — the children, their number, the size just chosen — is a small object
+     * made fresh every time the layout runs, and a layout runs every frame for every node on the
+     * screen whether anything moved or not. Nothing here mentions anything: the answer, the
+     * children and their corners all belong to the node already, so a screen standing still makes
+     * nothing at all.
+     *
+     * Use it when the corners are known at the end of measuring. Use the block form when they are
+     * not, or when the placing is unusual enough that arrays would obscure it.
+     */
+    fun layout(width: Float, height: Float, count: Int): MeasureResult {
+        val placeables = placeables(count)
+        val placements = placements(count)
+        return layout(width, height) {
+            for (index in 0 until count) {
+                placeables[index]?.at(placements[index * 2], placements[index * 2 + 1])
+            }
+        }
+    }
 }
 
 /**
@@ -112,7 +153,7 @@ fun interface MeasurePolicy {
         val Stack = MeasurePolicy { measurables, constraints ->
             val count = measurables.size
             val placeables = placeables(count)
-            val offered = if (count == 0) constraints else constraints.loosen()
+            val offered = if (count == 0) constraints else constraints.loosen(offers(1)[0])
 
             var widest = 0f
             var tallest = 0f
@@ -123,9 +164,12 @@ fun interface MeasurePolicy {
                 if (placeable.height > tallest) tallest = placeable.height
             }
 
-            layout(constraints.constrainWidth(widest), constraints.constrainHeight(tallest)) {
-                for (index in 0 until count) placeables[index]?.at(0f, 0f)
+            val placements = placements(count)
+            for (index in 0 until count) {
+                placements[index * 2] = 0f
+                placements[index * 2 + 1] = 0f
             }
+            layout(constraints.constrainWidth(widest), constraints.constrainHeight(tallest), count)
         }
 
         /** Nothing inside: the node takes the smallest size it is allowed. */

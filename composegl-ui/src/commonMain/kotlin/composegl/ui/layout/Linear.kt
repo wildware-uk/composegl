@@ -32,6 +32,7 @@ internal data class LinearPolicy(
         val placeables = placeables(count)
         val sizes = sizes(count)
         val positions = positions(count)
+        val offers = offers(count)
 
         var used = reserved
         var totalWeight = 0f
@@ -49,7 +50,7 @@ internal data class LinearPolicy(
                 continue
             }
             val room = if (mainMax.isFinite()) (mainMax - used).coerceAtLeast(0f) else Float.POSITIVE_INFINITY
-            val placeable = measurable.measure(childConstraints(main = room, crossMax = crossMax))
+            val placeable = measurable.measure(childConstraints(room, crossMax, offers[index]))
             placeables[index] = placeable
             used += placeable.main
         }
@@ -67,7 +68,7 @@ internal data class LinearPolicy(
                     if (index == lastWeighted) spare - handedOut else spare * (weight / totalWeight)
                 handedOut += share
                 val placeable = measurable.measure(
-                    childConstraints(main = share, crossMax = crossMax, tight = true),
+                    childConstraints(share, crossMax, offers[index], tight = true),
                 )
                 placeables[index] = placeable
                 used += placeable.main
@@ -88,18 +89,23 @@ internal data class LinearPolicy(
         val width = if (horizontal) main else crossSize
         val height = if (horizontal) crossSize else main
 
-        return layout(width, height) {
-            arrangement.arrange(main, sizes, count, positions)
-            for (index in 0 until count) {
-                val placeable = placeables[index] ?: continue
-                val alignment = measurables[index].layoutData.alignment ?: crossAlignment
-                if (horizontal) {
-                    placeable.at(positions[index], alignment.yIn(height, placeable.height))
-                } else {
-                    placeable.at(alignment.xIn(width, placeable.width), positions[index])
-                }
+        // Where each child goes is known now, so it is written down rather than closed over; see
+        // MeasureScope.layout.
+        arrangement.arrange(main, sizes, count, positions)
+        val placements = placements(count)
+        for (index in 0 until count) {
+            val placeable = placeables[index] ?: continue
+            val alignment = measurables[index].layoutData.alignment ?: crossAlignment
+            if (horizontal) {
+                placements[index * 2] = positions[index]
+                placements[index * 2 + 1] = alignment.yIn(height, placeable.height)
+            } else {
+                placements[index * 2] = alignment.xIn(width, placeable.width)
+                placements[index * 2 + 1] = positions[index]
             }
         }
+
+        return layout(width, height, count)
     }
 
     /**
@@ -107,12 +113,16 @@ internal data class LinearPolicy(
      * shrink inside. A weighted child gets a main axis it cannot argue with — that is what asking
      * for a share of the row means.
      */
-    private fun childConstraints(main: Float, crossMax: Float, tight: Boolean = false) =
-        if (horizontal) {
-            Constraints(if (tight) main else 0f, main, 0f, crossMax)
-        } else {
-            Constraints(0f, crossMax, if (tight) main else 0f, main)
-        }
+    private fun childConstraints(
+        main: Float,
+        crossMax: Float,
+        offer: ConstraintsCache,
+        tight: Boolean = false,
+    ) = if (horizontal) {
+        offer.of(if (tight) main else 0f, main, 0f, crossMax)
+    } else {
+        offer.of(0f, crossMax, if (tight) main else 0f, main)
+    }
 
     private val Placeable.main get() = if (horizontal) width else height
     private val Placeable.cross get() = if (horizontal) height else width
