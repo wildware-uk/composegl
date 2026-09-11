@@ -3,7 +3,12 @@
 # Releasing is `git tag v0.2.0 && git push --tags` and nothing else: the version comes from the tag
 # itself, so there is no number to bump in a file and no commit that says "prepare 0.2.0".
 #
-# It needs four secrets, and does nothing until they exist:
+# Running this workflow by hand from the Actions tab is a rehearsal instead. It builds, signs, and
+# checks that Central accepts the credentials — and uploads nothing. Do that first after changing a
+# secret. A Central release can never be deleted or replaced, so the cheap way to find out that a
+# key is wrong is the run that cannot publish.
+#
+# It needs four secrets, and does nothing useful until they exist:
 #
 #   MAVEN_CENTRAL_USERNAME    the two halves of a user token from central.sonatype.com
 #   MAVEN_CENTRAL_PASSWORD
@@ -14,14 +19,23 @@
 # wildware.uk. Until that is done this job will reach Central and be refused.
 #
 # `automaticRelease = false` in the root build is deliberate: this uploads and leaves the release
-# sitting in the portal for a human to press the button on. A Central release can never be deleted
-# or replaced, so the last step is a person looking at it.
+# sitting in the portal for a human to press the button on.
 
 name: Release
 
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+
+# Read-only. This job publishes to Central, not to the repository.
+permissions:
+  contents: read
+
+# One at a time. Two releases uploading at once is not something Central makes easy to undo.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -34,6 +48,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      # A tag like `v0.2.0-rc1` builds a snapshot, and Central refuses snapshots. Better to say so
+      # in the first ten seconds than after a full build.
+      - name: The tag is a release version
+        if: github.event_name == 'push'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "releasing $TAG"
+          else
+            echo "::error::$TAG is not vX.Y.Z, so the build makes a snapshot and Central will refuse it"
+            exit 1
+          fi
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -44,10 +72,56 @@ jobs:
       # anything still compiles.
       - run: ./gradlew build --stacktrace
 
+      # Does Central know this token? Asking whether a version exists is a read, so it changes
+      # nothing and still fails on a bad or revoked token. The token is sent as one base64 blob,
+      # which is what Central's API expects — it is not a password in a URL.
+      - name: Central accepts the credentials
+        env:
+          USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: |
+          if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
+            echo "::error::MAVEN_CENTRAL_USERNAME or MAVEN_CENTRAL_PASSWORD is not set"; exit 1
+          fi
+          token=$(printf '%s:%s' "$USERNAME" "$PASSWORD" | base64 -w0)
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $token" \
+            'https://central.sonatype.com/api/v1/publisher/published?namespace=uk.wildware&name=composegl-ui&version=0.0.0-does-not-exist')
+          case "$code" in
+            200) echo "credentials accepted" ;;
+            401|403) echo "::error::Central rejected the token ($code). Generate a new user token and reset both secrets."; exit 1 ;;
+            *) echo "::warning::unexpected $code from Central; carrying on" ;;
+          esac
+
+      # The rehearsal: everything a real release does, into a local folder. If the GPG key or its
+      # passphrase is wrong, it fails here, and nothing has left the runner.
+      - name: Rehearse — build and sign, upload nothing
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+        run: |
+          ./gradlew publishToMavenLocal --no-configuration-cache --stacktrace
+          signed=$(find ~/.m2/repository/uk/wildware -name '*.asc' | wc -l)
+          echo "$signed signatures written"
+          [ "$signed" -gt 0 ] || { echo "::error::nothing was signed; check SIGNING_KEY"; exit 1; }
+
       - name: Publish
+        if: github.event_name == 'push'
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
         run: ./gradlew publishToMavenCentral --no-configuration-cache --stacktrace
+
+      - name: What to do next
+        if: github.event_name == 'push'
+        run: |
+          echo "### Uploaded ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "It is sitting in the portal, not released. Open" >> "$GITHUB_STEP_SUMMARY"
+          echo "<https://central.sonatype.com/publishing/deployments>, look at it, and press publish." >> "$GITHUB_STEP_SUMMARY"
+          echo "That step is a person on purpose: a Central release can never be deleted or replaced." >> "$GITHUB_STEP_SUMMARY"

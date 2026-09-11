@@ -9,7 +9,7 @@ already set up.
 
 ## What is published
 
-Six modules, under `uk.wildware.composegl`:
+Seven modules, under `uk.wildware.composegl`:
 
 | | |
 |---|---|
@@ -18,10 +18,12 @@ Six modules, under `uk.wildware.composegl`:
 | `composegl-gdx` | the LibGDX backend. JVM |
 | `composegl-lwjgl3` | the raw OpenGL backend. JVM |
 | `composegl-android` | the Android half of a backend. An `.aar` |
+| `composegl-robovm` | the iOS half of a backend. JVM |
 | `composegl-testing` | the shared scenes and golden comparison. JVM |
 
 The demos and the spikes are not published, and the list that decides is in the
-root `build.gradle.kts`. Getting that wrong is permanent, which is why it is a
+root `build.gradle.kts`. It is opt-in: a new module stays unpublished, silently,
+until its name is added there. Getting that wrong is permanent, which is why it is a
 list of names rather than a rule about what a module is called.
 
 ---
@@ -46,8 +48,10 @@ tags, and would publish a snapshot over whatever was asked for.
 
 ## What the tag sets off
 
-`.github/workflows/release.yml`, which builds everything again — a tag is not a
-promise that anything still compiles — and then runs `publishToMavenCentral`.
+`.github/workflows/release.yml`, which first refuses any tag that is not exactly
+`vX.Y.Z` — anything else builds a snapshot, and Central refuses snapshots — then
+builds everything again (a tag is not a promise that anything still compiles) and
+runs `publishToMavenCentral`.
 
 That **uploads** the release and leaves it sitting in the Central portal for a
 human to press the button on. Deliberate: a version on Central can never be
@@ -71,7 +75,12 @@ keyserver — `keys.openpgp.org` or `keyserver.ubuntu.com` — before the first
 release.
 
 The namespace `uk.wildware` also has to be verified once, by putting a code the
-portal gives you into a **DNS TXT record on `wildware.uk`**.
+portal gives you into a **DNS TXT record on `wildware.uk`**. Until that record
+exists, a release reaches Central and is refused. Check with:
+
+```bash
+dig +short TXT wildware.uk
+```
 
 ---
 
@@ -81,8 +90,14 @@ portal gives you into a **DNS TXT record on `wildware.uk`**.
 ./gradlew publishToMavenLocal
 ```
 
-Everything lands in `~/.m2/repository/dev/wildware/composegl`. Point a real game
-at it with `mavenLocal()` and you are testing exactly what a release would be.
+Everything lands in `~/.m2/repository/uk/wildware`. Point a real game at it with
+`mavenLocal()` and you are testing exactly what a release would be.
+
+To try the **secrets** without publishing anything, run the Release workflow by
+hand from the Actions tab. A run started that way does everything a real release
+does — builds, asks Central whether it likes the token, signs every artifact —
+and uploads nothing. Do that after changing a secret. Finding out that a key is
+wrong is cheap on a run that cannot publish and expensive on one that can.
 
 ---
 
@@ -91,7 +106,7 @@ at it with `mavenLocal()` and you are testing exactly what a release would be.
 `composegl-android` ships an **empty** javadoc jar. Central refuses a release
 with no javadoc jar at all, and the Android plugin's generator is a version of
 Dokka old enough to fail on a modern JDK's version string. Everything in that
-module is documented in the source and here. The other five generate theirs
+module is documented in the source and here. The other six generate theirs
 normally.
 
 ---
