@@ -277,6 +277,14 @@
     "notification.detail": { "textColour": "#9AA4B2", "text": { "size": 13 } },
     "notification.more": { "textColour": "#7C8798", "text": { "size": 13 } },
 
+    // The chrome round the minimap. The padding is the hole the game draws its own map into.
+    "minimap": {
+      "background": { "fill": "#151B26", "corner": 6, "border": "#5A6B86", "padding": [7, 7] }
+    },
+    "minimap.marker": { "background": { "fill": "#4CC2FF" } },
+    "minimap.objective": { "background": { "fill": "#F2C94C" } },
+    "minimap.compass": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+
     // The button a player is being asked to press. One style does every device: what changes is
     // the letter in the box, and a skin with real pad art names "prompt.pad.south" and so on.
     "prompt": {

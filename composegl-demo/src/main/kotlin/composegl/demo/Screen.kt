@@ -8,6 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import composegl.ui.geometry.Offset
+import composegl.ui.graphics.Colour
+import composegl.ui.graphics.UiCanvas
 import composegl.ui.geometry.Rect
 import composegl.ui.input.BackStack
 import composegl.ui.input.Action
@@ -42,6 +44,8 @@ import composegl.ui.modifier.styled as styledWith
 import composegl.ui.modifier.weight
 import composegl.ui.modifier.width
 import composegl.ui.skin.ProvideSkin
+import kotlin.math.cos
+import kotlin.math.sin
 import composegl.ui.skin.Skin
 import composegl.ui.skin.rememberStates
 import composegl.ui.skin.rememberStyle
@@ -61,6 +65,8 @@ import composegl.ui.game.Reticle
 import composegl.ui.game.ReticleState
 import composegl.ui.game.WorldProjection
 import composegl.ui.game.rememberDamageNumbers
+import composegl.ui.game.MinimapFrame
+import composegl.ui.game.MinimapMarker
 import composegl.ui.game.NotificationQueue
 import composegl.ui.game.Notifications
 import composegl.ui.game.rememberReticleState
@@ -184,6 +190,33 @@ fun Screen(
     }
 }
 
+/**
+ * The example's stand-in for a game's own map: a few blocks and a road.
+ *
+ * Deliberately crude and deliberately too big for the hole it is given, so that the frame's
+ * clipping is something the picture shows rather than something the README claims.
+ */
+private fun drawGroundInto(canvas: UiCanvas, area: Rect) {
+    val width = area.right - area.left
+    val height = area.bottom - area.top
+    canvas.rect(area, Colour(0xFF1A2230.toInt()), 0f)
+    canvas.rect(
+        Rect(area.left - 20f, area.top + height * 0.52f, area.right + 20f, area.top + height * 0.62f),
+        Colour(0xFF243040.toInt()),
+        0f,
+    )
+    canvas.rect(
+        Rect(area.left + width * 0.16f, area.top + height * 0.16f, area.left + width * 0.36f, area.top + height * 0.42f),
+        Colour(0xFF232C3A.toInt()),
+        2f,
+    )
+    canvas.rect(
+        Rect(area.left + width * 0.62f, area.top + height * 0.66f, area.left + width * 1.2f, area.top + height * 0.92f),
+        Colour(0xFF232C3A.toInt()),
+        2f,
+    )
+}
+
 /** The confirmation. Two chips, one of which is the answer nobody should give by accident. */
 @Composable
 private fun AbortDialog(state: DemoState) {
@@ -262,6 +295,21 @@ private fun RangePanel(modifier: Modifier, state: DemoState) {
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
                 Heading("RANGE")
                 Text("target at 40m, hostile", style = "label.dim")
+
+                Spacer(Modifier.weight(1f))
+
+                // The chrome is the toolkit's and the map inside it is the game's: these four
+                // rectangles are drawn straight onto the canvas through the hole the frame hands
+                // over, and the two that run off the side are clipped by it. A real game reaches
+                // its own renderer here with `raw { }`.
+                MinimapFrame(
+                    Modifier.size(200f, 116f),
+                    heading = state.heading,
+                    rotate = true,
+                    markers = state.mapMarkers,
+                    range = 120f,
+                    compass = "NESW",
+                ) { area -> drawGroundInto(this, area) }
             }
 
             // The thing being shot at. A square, because what a game draws here is its own.
@@ -648,6 +696,17 @@ class DemoState {
     /** What each action is bound to, and which pad's letters to draw. */
     val prompts = Prompts()
 
+    /** Which way the player is facing, in degrees clockwise from north. */
+    var heading by mutableStateOf(0f)
+        private set
+
+    /** Two squadmates and an objective, moved rather than made again. */
+    val mapMarkers = listOf(
+        MinimapMarker(60f, 40f),
+        MinimapMarker(-40f, -70f),
+        MinimapMarker(0f, 0f, style = "minimap.objective"),
+    )
+
     /** What the game is telling the player about. Three on screen, the rest counted. */
     val notices = NotificationQueue(capacity = 3, holdMillis = 3_200)
 
@@ -691,6 +750,19 @@ class DemoState {
             if (noticeStep >= 0) notices.show(text, detail)
             noticeStep = notice
         }
+        // The player turning on the spot, and a squad walking round. Both are written straight
+        // onto objects the minimap already holds: nothing here allocates, and the map is redrawn
+        // because it is live rather than because anything told it.
+        heading = (seconds * 14f) % 360f
+        val walk = seconds * 0.6f
+        mapMarkers[0].x = 70f + cos(walk) * 40f
+        mapMarkers[0].y = 30f + sin(walk) * 40f
+        mapMarkers[1].x = -50f + sin(walk * 0.7f) * 30f
+        mapMarkers[1].y = -60f + cos(walk * 0.7f) * 30f
+        // The objective is a long way off, so it lives on the edge of the frame as an arrow.
+        mapMarkers[2].x = 240f
+        mapMarkers[2].y = 180f
+
         if (autoCycle) selected = (seconds / 0.8f).toInt() % 10
     }
 
