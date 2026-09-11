@@ -10,8 +10,11 @@ import composegl.ui.animation.Easings
 import composegl.ui.animation.Tween
 import composegl.ui.animation.animateFloatAsState
 import composegl.ui.backend.Clipboard
+import composegl.ui.backend.SoftKeyboard
 import composegl.ui.debug.FrameBudget
 import composegl.ui.debug.FrameBudgetOverlay
+import composegl.ui.input.InputSource
+import composegl.ui.input.InputSourceTracker
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Arrangement
 import composegl.ui.layout.Box
@@ -34,6 +37,8 @@ import composegl.ui.widget.Button
 import composegl.ui.widget.LazyColumn
 import composegl.ui.widget.LocalClipboard
 import composegl.ui.widget.LocalFonts
+import composegl.ui.widget.LocalInputSource
+import composegl.ui.widget.LocalSoftKeyboard
 import composegl.ui.widget.Panel
 import composegl.ui.widget.Slider
 import composegl.ui.widget.Text
@@ -54,11 +59,17 @@ fun SnakeUi(
     fonts: FontProvider,
     skin: Skin,
     clipboard: Clipboard = Clipboard.None,
+    softKeyboard: SoftKeyboard = SoftKeyboard.None,
+    source: InputSourceTracker = InputSourceTracker(),
     budget: FrameBudget = FrameBudget().also { it.isOn = false },
 ) {
     CompositionLocalProvider(
         LocalFonts provides fonts,
         LocalClipboard provides clipboard,
+        // On a desktop this is a no-op; on a phone it is what puts the keyboard up when the name
+        // field takes focus, and takes it away again when the field loses it.
+        LocalSoftKeyboard provides softKeyboard,
+        LocalInputSource provides source,
     ) {
         ProvideSkin(skin) {
             Box(Modifier.fillMaxSize()) {
@@ -110,9 +121,17 @@ private fun Hud(session: SnakeSession) {
             if (session.screen == Screen.Playing) {
                 Button("PAUSE", { session.pause() }, Modifier.fillMaxWidth(), style = "button.quiet")
             }
-            Text("Arrows or WASD  ·  Space pauses", style = "label.dim")
+            // Named for whatever is in the player's hands, because a phone has no arrow keys and
+            // a hint about keys nobody can press is worse than no hint.
+            Text(controlHint(LocalInputSource.current.current), style = "label.dim")
         }
     }
+}
+
+private fun controlHint(source: InputSource): String = when (source) {
+    InputSource.Touch -> "Swipe to steer  ·  PAUSE to stop"
+    InputSource.Gamepad -> "D-pad steers  ·  Start pauses"
+    InputSource.Mouse, InputSource.Keyboard -> "Arrows or WASD  ·  Space pauses"
 }
 
 @Composable
