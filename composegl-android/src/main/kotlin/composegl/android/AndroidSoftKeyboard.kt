@@ -25,6 +25,12 @@ import composegl.ui.backend.SoftKeyboard
  * Viewport(design, physical, Fit, safeArea = Padding(bottom = keyboard.heightPixels))
  * ```
  *
+ * One trap, and it is silent: a window using the old `Theme.…Fullscreen` is sent no insets at
+ * all, so this reports "no keyboard" forever and nothing looks broken. Go fullscreen in code
+ * instead — `WindowCompat.setDecorFitsSystemWindows(window, false)` and
+ * `WindowInsetsControllerCompat(window, view).hide(systemBars())` — and declare
+ * `android:windowSoftInputMode="adjustResize"` on the activity.
+ *
  * @param window the activity's window, which is what owns the keyboard.
  * @param view any view in that window — the engine's surface will do.
  * @param onDismissed called when the keyboard goes away without this object asking it to, which is
