@@ -78,3 +78,30 @@ class InteractionState {
 fun interface PointerHandler {
     fun onPointer(event: PointerEvent): Boolean
 }
+
+/**
+ * Keys for one node, while it has focus.
+ *
+ * Return true to say the key was used, which stops it going any further — not to the node's
+ * parent, and not to the game. A text field returns true for the arrows it moves its caret with
+ * and false for Escape, which is how one dialogue closes and the caret stays where it is.
+ *
+ * A handler written inline is a new object every recomposition and so never compares equal —
+ * `remember` it, exactly as with `onPointer`.
+ */
+fun interface KeyHandler {
+    fun onKey(event: KeyEvent): Boolean
+}
+
+/**
+ * Committed text for one node, while it has focus.
+ *
+ * Separate from [KeyHandler] because the two are genuinely different things: Shift and A are two
+ * keys and one character, and a Chinese input method is many keys and one character much later. A
+ * text field reads its characters here and its caret keys there.
+ *
+ * Unlike a key, text does not bubble. It belongs to the thing being typed into and nothing else.
+ */
+fun interface TextHandler {
+    fun onText(event: TextEvent): Boolean
+}

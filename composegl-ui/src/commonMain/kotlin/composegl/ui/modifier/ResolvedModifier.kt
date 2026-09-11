@@ -3,7 +3,9 @@ package composegl.ui.modifier
 import composegl.ui.focus.FocusRequester
 import composegl.ui.geometry.Offset
 import composegl.ui.input.InteractionState
+import composegl.ui.input.KeyHandler
 import composegl.ui.input.PointerHandler
+import composegl.ui.input.TextHandler
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Padding
 
@@ -48,6 +50,10 @@ class ResolvedModifier private constructor(
     val interactions: List<InteractionState>,
     /** Raw pointer handlers, in chain order. Asked deepest-first, first to consume wins. */
     val handlers: List<PointerHandler>,
+    /** Key handlers, in chain order. Asked from the focused node outwards, first to consume wins. */
+    val keyHandlers: List<KeyHandler>,
+    /** Text handlers, in chain order. Only ever asked on the focused node itself. */
+    val textHandlers: List<TextHandler>,
     /** The node's `clickable`, if it has one. A later one replaces an earlier one. */
     val click: ClickableElement?,
     /** Whether and how this node can hold focus. */
@@ -88,6 +94,8 @@ class ResolvedModifier private constructor(
             val inFront = mutableListOf<PaintOp>()
             val interactions = mutableListOf<InteractionState>()
             val handlers = mutableListOf<PointerHandler>()
+            val keyHandlers = mutableListOf<KeyHandler>()
+            val textHandlers = mutableListOf<TextHandler>()
             var click: ClickableElement? = null
             var focusable: FocusableElement? = null
             var focusRequester: FocusRequester? = null
@@ -117,6 +125,8 @@ class ResolvedModifier private constructor(
                     is DrawInFrontElement -> inFront += PaintOp(element, padding)
                     is InteractionElement -> interactions += element.state
                     is PointerInputElement -> handlers += element.handler
+                    is KeyInputElement -> keyHandlers += element.handler
+                    is TextInputElement -> textHandlers += element.handler
                     is ClickableElement -> click = element
                     is FocusableElement -> focusable = element
                     is FocusRequesterElement -> focusRequester = element.requester
@@ -128,7 +138,8 @@ class ResolvedModifier private constructor(
             return ResolvedModifier(
                 size, fill, padding, offset, weight, alignment, alpha, clip,
                 behind.toList(), inFront.toList(),
-                interactions.toList(), handlers.toList(), click,
+                interactions.toList(), handlers.toList(),
+                keyHandlers.toList(), textHandlers.toList(), click,
                 focusable, focusRequester, focusOrder,
             )
         }
