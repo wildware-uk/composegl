@@ -299,6 +299,7 @@ an effect degrades to no effect rather than to a broken frame.
 | `composegl-lwjgl3` | a second backend, on raw OpenGL and stb_truetype. Exists to disagree |
 | `composegl-testing` | the scenes both backends draw, and the golden comparison |
 | `composegl-android` | the parts of a phone no engine reports: what the keyboard covers, and when it went |
+| `composegl-robovm` | the same parts of an iPhone, through UIKit |
 | `composegl-demo` | the example in the picture |
 | `composegl-demo-snake-core` | Snake itself: rules, board, interface, input. Toolkit only, no backend |
 | `composegl-demo-snake` | Snake on a desktop, on raw OpenGL |

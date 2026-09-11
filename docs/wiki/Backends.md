@@ -9,7 +9,8 @@ Two ship. Neither is required: the toolkit names no engine anywhere.
 |---|---|
 | `composegl-gdx` | LibGDX. Desktop, Android, iOS. The one to ship a game on. |
 | `composegl-lwjgl3` | Raw OpenGL and stb_truetype. Desktop only. |
-| `composegl-android` | Not a backend — the two things about a phone LibGDX cannot answer. |
+| `composegl-android` | Not a backend — the things about an Android phone LibGDX cannot answer. |
+| `composegl-robovm` | The same, for an iPhone, through UIKit. |
 
 ---
 
