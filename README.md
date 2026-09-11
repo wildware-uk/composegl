@@ -24,14 +24,16 @@ general-purpose one bent into shape.
 
 ![The example running](docs/images/demo.png)
 
-*The example, in `composegl-demo`, on its LOADOUT tab with a callsign being typed. Every panel, border, shadow, bar and letter is drawn by our own
-renderer from a tree the Compose runtime maintains. The STATUS panel is drawn by the shader — one
-quad for its corner, border and shadow together. The BRIEFING panel is nine-patch art out of a
-texture atlas, and the gap between its frame and its text is a number in the atlas file rather than
-a number in the source. The headings sit on a ribbon whose hatch repeats sideways and stretches
-downwards. The whole screen costs five draw calls: every glyph at every size, and the white texel
-solid colour is drawn from, share one page — so the only texture changes left are the game's own
-art.*
+*The example, in `composegl-demo`. Every panel, border, shadow, bar, blip and letter is drawn by our
+own renderer from a tree the Compose runtime maintains. The STATUS and RANGE panels are drawn by the
+shader — one quad each for corner, border and shadow together. The BRIEFING panel is nine-patch art
+out of a texture atlas, and the gap between its frame and its text is a number in the atlas file
+rather than a number in the source. The headings sit on a ribbon whose hatch repeats sideways and
+stretches downwards. The reticle, the bars, the floating damage numbers, the minimap, the hotbar and
+the key prompts under it are widgets the toolkit ships. The whole screen costs eleven draw calls,
+and most of those are a scissor going on or off — the scrolling log and the minimap each clip, and a
+clip has to flush what is queued. Every glyph at every size shares one page with the white texel
+solid colour is drawn from, so the only texture changes left are the game's own art.*
 
 ## The thing it is for
 
