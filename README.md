@@ -46,8 +46,14 @@ Nothing is shippable yet, and there is no release. What works today is the pictu
 the modifier chain, the renderer, fonts, nine-patch art, and all three ways in — a mouse, a
 keyboard and a gamepad, with hit testing, focus and key routing behind them. The chips and the
 hotbar in the example light up under the pointer, respond to a click, draw a focus ring that Tab
-and a d-pad move, and answer the number keys. There is no widget set and no skin file; those are
-the next milestones.
+and a d-pad move, and answer the number keys.
+
+Every colour, corner, padding and slice in that picture comes from
+[one JSON file](composegl-demo/src/main/resources/ui/demo.skin.json); not one of them is written in
+the example's Kotlin. Save the file while the example is running and it changes on the next frame.
+A skin that will not parse names the line and suggests the nearest region or key that would have
+worked, and a broken save leaves the last skin that worked on screen. There is no widget set yet —
+that is the next milestone.
 
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and

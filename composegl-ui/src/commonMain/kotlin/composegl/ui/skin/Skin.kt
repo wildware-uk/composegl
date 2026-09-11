@@ -97,7 +97,21 @@ class Skin(
         /** A style that says nothing, so a widget with no skin at all still draws its text. */
         val Empty = Style()
 
-        /** No styles, no art, no fonts. What a game has before it loads one. */
+        /** No styles, no art, no fonts. What a widget falls back to when nobody has said anything. */
         val Nothing = Skin()
+
+        /**
+         * The skin a game gets when it has not written one.
+         *
+         * Neutral and dark, made of flat rounded boxes, and needing no atlas and no artist. A game
+         * that registers nothing still has an interface somebody can use, and a game that is
+         * writing its own can replace it a style at a time with [overriddenWith].
+         *
+         * It is an ordinary skin file — `src/commonMain/skins/default.json`, read by the same
+         * loader a game's own file goes through. Nothing in the toolkit's code knows what colour a
+         * button is, which is the whole point: if the default needed a special case, the skin
+         * system would not be finished.
+         */
+        val Default: Skin by lazy { SkinFormat.read(DEFAULT_SKIN_JSON) }
     }
 }

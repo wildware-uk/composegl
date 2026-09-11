@@ -1,0 +1,121 @@
+{
+  // The example's own skin.
+  //
+  // Everything the example looks like is in this file: colours, corners, padding, which art each
+  // panel is cut from and how far in its contents sit. Nothing in the example's Kotlin names a
+  // colour. Save this file while the example is running and it changes on the next frame.
+
+  "defaults": {
+    "textColour": "#E6EAF2",
+    "text": { "font": "body", "size": 16 }
+  },
+
+  "styles": {
+
+    "screen": { "background": { "fill": "#0E1116" } },
+
+    // --- art ---
+    //
+    // The two regions in ui.png, cut into nine here rather than in Kotlin. The padding is the
+    // art's: change the picture, change the gap between the bevel and the text, and no layout
+    // code moves.
+
+    "panel": {
+      "background": { "patch": "panel", "slice": 16, "padding": [20, 18] }
+    },
+
+    "heading": {
+      "background": {
+        "patch": "ribbon",
+        "slice": [8, 10, 8, 10],
+        "padding": [14, 5, 14, 6],
+        // The hatch keeps its pitch across the ribbon instead of smearing into a grey wash.
+        "edges": { "centreAcross": "tile" }
+      },
+      "text": { "size": 20 }
+    },
+
+    // A panel with no art behind it, for the half of the screen that is drawn by the shader.
+    "panel.flat": {
+      "background": { "fill": "#F01B1F2A", "corner": 10, "border": "#40FFFFFF", "padding": 16 }
+    },
+
+    // --- text ---
+
+    "label": {},
+    "label.title": { "textColour": "#4CC2FF", "text": { "font": "display", "size": 34 } },
+    "label.dim": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "label.body": { "textColour": "#9AA4B2" },
+
+    // --- the chips under the briefing ---
+    //
+    // Four styles rather than one with a flag, because "chosen" is not a state the toolkit knows
+    // about — a game invents its own names, and a name that falls back is free. Each is written
+    // out whole: a style that exists is used as it is, and only a name nobody wrote falls back.
+
+    "chip": {
+      "background": { "fill": "#20FFFFFF", "corner": 6, "border": "#4CC2FF", "padding": [14, 8] },
+      "textColour": "#4CC2FF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#604CC2FF", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+
+    "chip.chosen": {
+      "background": { "fill": "#504CC2FF", "corner": 6, "border": "#4CC2FF", "borderWidth": 2, "padding": [14, 8] },
+      "textColour": "#4CC2FF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#604CC2FF", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+
+    "chip.danger": {
+      "background": { "fill": "#20FFFFFF", "corner": 6, "border": "#FF5C5C", "padding": [14, 8] },
+      "textColour": "#FF5C5C",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#28FF5C5C", "corner": 6, "border": "#FF5C5C", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#60FF5C5C", "corner": 6, "border": "#FF5C5C", "borderWidth": 2 } }
+    },
+
+    "chip.danger.chosen": {
+      "background": { "fill": "#50FF5C5C", "corner": 6, "border": "#FF5C5C", "borderWidth": 2, "padding": [14, 8] },
+      "textColour": "#FF5C5C",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#60FF5C5C", "corner": 6, "border": "#FF5C5C", "borderWidth": 2 } }
+    },
+
+    // --- the hotbar ---
+
+    "slot": {
+      "background": { "fill": "#30000000", "corner": 8, "border": "#30FFFFFF" },
+      "textColour": "#9AA4B2",
+      "hovered": { "background": { "fill": "#18FFFFFF", "corner": 8, "border": "#80FFFFFF" } },
+      "pressed": { "background": { "fill": "#604CC2FF", "corner": 8, "border": "#4CC2FF" } }
+    },
+
+    "slot.lit": {
+      "background": { "fill": "#304CC2FF", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 },
+      "textColour": "#4CC2FF",
+      "hovered": { "background": { "fill": "#404CC2FF", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+
+    // --- bars ---
+
+    "bar.track": { "background": { "fill": "#40000000", "corner": 5 } },
+    "bar.fill": { "background": { "fill": "#FF5C5C", "corner": 5 } },
+    "bar.fill.shield": { "background": { "fill": "#4CC2FF", "corner": 5 } },
+    "bar.fill.stamina": { "background": { "fill": "#7BE08A", "corner": 5 } },
+
+    // --- where the player is ---
+    //
+    // A ring outside the thing it marks, with its padding there whether the ring is drawn or not,
+    // so gaining focus never shifts the layout.
+
+    "focusRing": {
+      "background": { "fill": "#00000000", "corner": 9, "border": "#FFFFFF", "padding": 3 }
+    },
+
+    "focusRing.hidden": { "background": "none", "padding": 3 },
+
+    "reticle": { "textColour": "#4CC2FF" }
+  }
+}

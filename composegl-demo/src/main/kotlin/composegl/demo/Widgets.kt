@@ -3,17 +3,15 @@ package composegl.demo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import composegl.ui.graphics.Colour
-import composegl.ui.graphics.NinePatch
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Box
 import composegl.ui.layout.LeafLayout
 import composegl.ui.layout.MeasurePolicy
 import composegl.ui.modifier.Modifier
-import composegl.ui.modifier.background
-import composegl.ui.modifier.border
-import composegl.ui.modifier.ninePatch
-import composegl.ui.modifier.padding
 import composegl.ui.modifier.shadow
+import composegl.ui.modifier.styled as styledWith
+import composegl.ui.skin.rememberStyle
+import composegl.ui.skin.styled
 import composegl.ui.text.FontProvider
 import composegl.ui.text.TextLayout
 import composegl.ui.text.TextStyle
@@ -24,28 +22,32 @@ import composegl.ui.text.TextStyle
  * That is the point of this file. The widget set lands in a later milestone; everything here is
  * built out of `Layout`, `Box` and the modifier chain, using nothing a game could not use. If a
  * game cannot write a label with what the toolkit exposes, the toolkit is wrong.
+ *
+ * None of it contains a colour. Every widget here names a style — `"panel"`, `"chip.danger"` — and
+ * draws what the skin hands back, which is why `ui/demo.skin.json` can be edited while the example
+ * is running and the example changes.
  */
 
 /** Where text measurement comes from. The toolkit will grow its own; this one is the game's. */
 val LocalFonts = staticCompositionLocalOf<FontProvider> { error("no fonts were provided") }
 
 /**
- * The game's art, in the shape the interface wants it.
- *
- * Two nine-patches out of one atlas. A real game's would have forty, and would be loaded from a
- * skin file rather than assembled by hand — that is a later milestone. The point here is that the
- * interface below never mentions a texture, a region or a corner size.
- */
-class DemoSkin(val panel: NinePatch, val ribbon: NinePatch)
-
-val LocalSkin = staticCompositionLocalOf<DemoSkin> { error("no skin was provided") }
-
-/**
- * A run of text.
+ * A run of text, in a style the skin names.
  *
  * Measuring happens inside the measure policy, because how much room there is decides where the
  * lines break, and drawing uses the layout that measuring produced — never a second one.
  */
+@Composable
+fun Label(
+    text: String,
+    style: String = "label",
+    modifier: Modifier = Modifier,
+) {
+    val resolved = rememberStyle(style)
+    Text(text, modifier, resolved.textStyle, resolved.textColour)
+}
+
+/** The same, for the few places that have a piece of text and a style already in hand. */
 @Composable
 fun Text(
     text: String,
@@ -74,22 +76,24 @@ fun Text(
 }
 
 /**
- * A panel cut out of the art, rather than drawn by the shader.
+ * A panel, whatever the skin says a panel is.
  *
- * Note what is *not* here: a padding value. The gap between the bevel and the contents is written
- * in the atlas beside the picture, so changing the art changes the layout, and a skin swap does
- * not leave the text sitting on the frame.
+ * Note what is *not* here: a colour, a texture, a set of slices or a padding value. `"panel"` is
+ * cut out of the art and `"panel.flat"` is drawn by the shader, and this composable cannot tell
+ * which it was handed. Changing the art changes the layout with it, so a skin swap does not leave
+ * the text sitting on the frame.
  */
 @Composable
-fun ArtPanel(
+fun Panel(
     modifier: Modifier = Modifier,
+    style: String = "panel",
     contentAlignment: Alignment = Alignment.TopStart,
     content: @Composable () -> Unit,
 ) {
     Box(
         modifier = modifier
             .shadow(Colour.argb(0x80000000), spread = 14f, corner = 12f)
-            .ninePatch(LocalSkin.current.panel),
+            .styled(style),
         contentAlignment = contentAlignment,
         content = content,
     )
@@ -99,32 +103,27 @@ fun ArtPanel(
  * A section heading on a ribbon whose hatch repeats sideways and stretches down.
  *
  * The reason the middle of a nine-patch has a mode per axis: stretching this pattern would smear
- * it into a grey wash at any width worth having.
+ * it into a grey wash at any width worth having. Which axis does which is in the skin file.
  */
 @Composable
-fun Heading(label: String, style: TextStyle) {
-    Box(Modifier.ninePatch(LocalSkin.current.ribbon)) {
-        Text(label, style = style)
+fun Heading(label: String, style: String = "heading") {
+    val resolved = rememberStyle(style)
+    Box(Modifier.styledWith(resolved)) {
+        Text(label, style = resolved.textStyle, colour = resolved.textColour)
     }
 }
 
-/** A raised panel: a shadow, a rounded fill and a hairline border. */
+/**
+ * The ring that says where the player is.
+ *
+ * A separate box around the widget rather than a thicker border on it, because a focus ring is
+ * outside the thing it marks — and because the skin gives both the drawn ring and the hidden one
+ * the same padding, gaining focus never shifts the layout.
+ */
 @Composable
-fun Panel(
-    modifier: Modifier = Modifier,
-    fill: Colour = Colour.argb(0xF01B1F2A),
-    edge: Colour = Colour.argb(0x40FFFFFF),
-    corner: Float = 10f,
-    contentAlignment: Alignment = Alignment.TopStart,
-    content: @Composable () -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .shadow(Colour.argb(0x80000000), spread = 14f, corner = corner)
-            .background(fill, corner)
-            .border(edge, width = 1f, corner = corner)
-            .padding(16f),
-        contentAlignment = contentAlignment,
-        content = content,
-    )
+fun FocusRing(focused: Boolean, content: @Composable () -> Unit) {
+    // Not drawn while somebody is using a mouse: a ring is a cursor for people who have no cursor,
+    // and drawn next to a hover highlight it is just a second highlight arguing with the first.
+    val shown = focused && LocalInputSource.current.showsFocusRing
+    Box(Modifier.styled(if (shown) "focusRing" else "focusRing.hidden"), content = content)
 }

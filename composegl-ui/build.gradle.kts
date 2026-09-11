@@ -17,6 +17,24 @@ description = "The toolkit: nodes, modifiers, layout, widgets, input. No engine,
  * build. The compiler does not care which one it is — what it checks is that the source is common,
  * and iOS is a target being added to a list rather than a port.
  */
+/**
+ * The default skin, as source the compiler can see on every platform.
+ *
+ * `src/commonMain/skins/default.json` is an ordinary skin file, read by the same loader a game's
+ * own file goes through — nothing in the toolkit's code knows what colour a button is. Embedding it
+ * is what lets that stay true on a platform with no file system a library may read: Kotlin/Native
+ * has no resource loader of its own, and this module is not allowed a dependency that would bring
+ * one.
+ */
+val embedDefaultSkin = tasks.register<EmbedTextAsSource>("embedDefaultSkin") {
+    description = "Turns the default skin file into a Kotlin source file."
+    group = "build"
+    source.set(layout.projectDirectory.file("src/commonMain/skins/default.json"))
+    packageName.set("composegl.ui.skin")
+    propertyName.set("DEFAULT_SKIN_JSON")
+    outputDirectory.set(layout.buildDirectory.dir("generated/skin"))
+}
+
 kotlin {
     jvm()
     linuxX64()
@@ -26,6 +44,8 @@ kotlin {
     compilerOptions { freeCompilerArgs.add("-Xexpect-actual-classes") }
 
     sourceSets {
+        commonMain { kotlin.srcDir(embedDefaultSkin) }
+
         commonMain.dependencies {
             api(libs.compose.runtime)
             api(libs.coroutines.core)

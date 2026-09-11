@@ -16,15 +16,16 @@ import composegl.gdx.GdxFonts
 import composegl.gdx.GdxGamepadInput
 import composegl.gdx.GdxKeyboardInput
 import composegl.gdx.GdxPointerInput
-import composegl.gdx.ninePatch
+import composegl.gdx.GdxTexture
 import composegl.ui.draw.DrawPass
 import composegl.ui.geometry.Size
-import composegl.ui.graphics.EdgeMode
+import composegl.ui.graphics.ArtAtlas
 import composegl.ui.host.UiHost
 import composegl.ui.layout.MeasurePass
 import composegl.ui.layout.ScalePolicy
 import composegl.ui.layout.Viewport
 import composegl.ui.layout.run
+import composegl.ui.skin.ReloadingSkin
 
 /**
  * The example, on the LibGDX backend.
@@ -39,7 +40,7 @@ class Demo : ApplicationAdapter() {
 
     private lateinit var fonts: GdxFonts
     private lateinit var atlas: TextureAtlas
-    private lateinit var skin: DemoSkin
+    private lateinit var skin: ReloadingSkin
     private lateinit var canvas: GdxCanvas
     private lateinit var sprites: SpriteBatch
     private lateinit var host: UiHost
@@ -64,16 +65,18 @@ class Demo : ApplicationAdapter() {
         fonts.registerTrueType("display", file, listOf(34))
 
         atlas = TextureAtlas(Gdx.files.internal("ui/ui.atlas"))
-        skin = DemoSkin(
-            panel = atlas.ninePatch("panel"),
-            // The hatch keeps its pitch across the ribbon and fills whatever height the text needs.
-            ribbon = atlas.ninePatch("ribbon", centreAcross = EdgeMode.Tile),
+        // The regions by name, and nothing about what they mean: which one is a panel, where its
+        // slices are and how far in its contents sit are all in the skin file, which the other
+        // backend reads too.
+        skin = demoSkin(
+            art = ArtAtlas.of(atlas.regions.associate { it.name to GdxTexture(it) }),
+            fonts = fonts,
         )
 
         sprites = SpriteBatch()
         canvas = GdxCanvas(sprites, fonts.atlas)
         host = UiHost()
-        host.setContent { Screen(fonts, skin, state) }
+        host.setContent { Screen(fonts, skin.skin, state) }
 
         // The whole of the engine's involvement in input: a translator, pointed at a sink. What
         // the sink does with an event — which node it hit, whether that is a click — is the
@@ -96,6 +99,8 @@ class Demo : ApplicationAdapter() {
         state.health = 0.5f + 0.35f * kotlin.math.sin(elapsed.toDouble()).toFloat()
         if (state.autoCycle) state.selected = ((elapsed / 0.8f).toInt()) % 10
 
+        // One look at a timestamp. An artist saving the skin file is seen on the next frame.
+        skin.reloadIfChanged()
         host.frame(System.nanoTime())
 
         viewport = Viewport(

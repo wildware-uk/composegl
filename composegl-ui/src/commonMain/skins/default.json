@@ -1,0 +1,174 @@
+{
+  // The skin a game gets before it loads one of its own.
+  //
+  // Neutral, dark, and made of flat rounded boxes so that it needs no atlas and no artist: a game
+  // that has written no skin still has a readable interface, and a game that is writing one has
+  // something to change a piece at a time.
+  //
+  // This is an ordinary skin file. Nothing in the toolkit's code knows what colour a button is;
+  // the build embeds this text, and it is read by the same loader a game's own file goes through.
+  //
+  // The palette, once, so that the rest of the file is obviously consistent:
+  //
+  //   #10131A  the screen behind everything    #E8ECF2  text
+  //   #1A1F28  a panel                         #9BA6B6  text that is secondary
+  //   #232A35  something raised off a panel    #5E6B7E  text that is unavailable
+  //   #2C3545  a line, a border, a groove      #5B8DEF  the accent: focus, selection, progress
+  //   #39445A  a raised thing, hovered         #E5484D  danger
+  //                                            #46A758  good news
+
+  "defaults": {
+    "textColour": "#E8ECF2",
+    "text": { "font": "default", "size": 16 }
+  },
+
+  "styles": {
+
+    // --- surfaces ---
+
+    "screen": { "background": { "fill": "#10131A" } },
+
+    "panel": {
+      "background": { "fill": "#1A1F28", "corner": 6, "border": "#2C3545", "padding": 12 }
+    },
+
+    "panel.raised": {
+      "background": { "fill": "#232A35", "corner": 6, "border": "#39445A", "padding": 12 }
+    },
+
+    "separator": { "background": { "fill": "#2C3545" } },
+
+    "tooltip": {
+      "background": { "fill": "#232A35", "corner": 4, "border": "#39445A", "padding": [8, 5] },
+      "text": { "size": 14 }
+    },
+
+    // --- text ---
+
+    "label": {},
+    "label.title": { "text": { "size": 22 } },
+    "label.heading": { "text": { "size": 18 } },
+    "label.dim": { "textColour": "#9BA6B6" },
+    "label.danger": { "textColour": "#E5484D" },
+    "label.good": { "textColour": "#46A758" },
+
+    // --- buttons ---
+    //
+    // Four states, and the pressed one moves its contents a pixel: the cheapest convincing thing
+    // in a game interface, and it belongs here rather than in a widget.
+
+    "button": {
+      "background": { "fill": "#232A35", "corner": 5, "border": "#2C3545", "padding": [14, 8] },
+      "hovered": { "background": { "fill": "#39445A", "corner": 5, "border": "#4A5670" } },
+      "focused": { "background": { "fill": "#2A3342", "corner": 5, "border": "#5B8DEF" } },
+      "pressed": {
+        "background": { "fill": "#1A1F28", "corner": 5, "border": "#2C3545" },
+        "contentOffset": [0, 1]
+      },
+      "disabled": { "textColour": "#5E6B7E", "tint": "#A0FFFFFF" }
+    },
+
+    "button.primary": {
+      "background": { "fill": "#3F6BD6", "corner": 5, "border": "#5B8DEF", "padding": [14, 8] },
+      "hovered": { "background": { "fill": "#5B8DEF", "corner": 5, "border": "#7BA5F5" } },
+      "pressed": { "background": { "fill": "#2F53A8", "corner": 5, "border": "#3F6BD6" } }
+    },
+
+    "button.danger": {
+      "background": { "fill": "#8E2B2E", "corner": 5, "border": "#E5484D", "padding": [14, 8] },
+      "hovered": { "background": { "fill": "#B23539", "corner": 5, "border": "#F06066" } },
+      "pressed": { "background": { "fill": "#6E2124", "corner": 5, "border": "#E5484D" } }
+    },
+
+    "button.quiet": {
+      "background": "none",
+      "textColour": "#9BA6B6",
+      "padding": [10, 6],
+      "hovered": { "textColour": "#E8ECF2", "background": { "fill": "#232A35", "corner": 5 } },
+      "pressed": { "contentOffset": [0, 1] }
+    },
+
+    "button.icon": {
+      "background": { "fill": "#232A35", "corner": 5, "border": "#2C3545", "padding": 6 },
+      "hovered": { "background": { "fill": "#39445A", "corner": 5, "border": "#4A5670" } },
+      "pressed": { "contentOffset": [0, 1] }
+    },
+
+    // --- things that take a value ---
+
+    "checkbox": {
+      "background": { "fill": "#10131A", "corner": 3, "border": "#39445A", "padding": 3 },
+      "hovered": { "background": { "fill": "#1A1F28", "corner": 3, "border": "#5B8DEF" } },
+      "focused": { "background": { "fill": "#10131A", "corner": 3, "border": "#5B8DEF" } }
+    },
+
+    "checkbox.tick": { "background": { "fill": "#5B8DEF", "corner": 2 } },
+
+    "radio": {
+      "background": { "fill": "#10131A", "corner": 8, "border": "#39445A", "padding": 3 },
+      "hovered": { "background": { "fill": "#1A1F28", "corner": 8, "border": "#5B8DEF" } },
+      "focused": { "background": { "fill": "#10131A", "corner": 8, "border": "#5B8DEF" } }
+    },
+
+    "radio.dot": { "background": { "fill": "#5B8DEF", "corner": 5 } },
+
+    "slider.track": { "background": { "fill": "#2C3545", "corner": 3 } },
+    "slider.fill": { "background": { "fill": "#5B8DEF", "corner": 3 } },
+    "slider.knob": {
+      "background": { "fill": "#E8ECF2", "corner": 8 },
+      "hovered": { "background": { "fill": "#FFFFFF", "corner": 8 } },
+      "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#5B8DEF", "borderWidth": 2 } }
+    },
+
+    "progress.track": { "background": { "fill": "#2C3545", "corner": 4 } },
+    "progress.fill": { "background": { "fill": "#5B8DEF", "corner": 4 } },
+    "progress.fill.danger": { "background": { "fill": "#E5484D", "corner": 4 } },
+    "progress.fill.good": { "background": { "fill": "#46A758", "corner": 4 } },
+
+    // --- typing ---
+
+    "field": {
+      "background": { "fill": "#10131A", "corner": 4, "border": "#2C3545", "padding": [10, 7] },
+      "hovered": { "background": { "fill": "#10131A", "corner": 4, "border": "#39445A" } },
+      "focused": {
+        "background": { "fill": "#10131A", "corner": 4, "border": "#5B8DEF", "borderWidth": 2 }
+      },
+      "disabled": { "textColour": "#5E6B7E" }
+    },
+
+    "field.placeholder": { "textColour": "#5E6B7E" },
+    "field.caret": { "background": { "fill": "#E8ECF2" } },
+    "field.selection": { "background": { "fill": "#3F6BD6" } },
+
+    // --- lists and menus ---
+
+    "item": {
+      "background": "none",
+      "padding": [10, 6],
+      "hovered": { "background": { "fill": "#232A35", "corner": 4 } },
+      "focused": { "background": { "fill": "#232A35", "corner": 4, "border": "#5B8DEF" } },
+      "pressed": { "background": { "fill": "#2C3545", "corner": 4 } },
+      "disabled": { "textColour": "#5E6B7E" }
+    },
+
+    "item.selected": {
+      "background": { "fill": "#2F53A8", "corner": 4, "padding": [10, 6] },
+      "hovered": { "background": { "fill": "#3F6BD6", "corner": 4 } }
+    },
+
+    "scrollbar.track": { "background": { "fill": "#1A1F28", "corner": 4 } },
+    "scrollbar.thumb": {
+      "background": { "fill": "#39445A", "corner": 4 },
+      "hovered": { "background": { "fill": "#4A5670", "corner": 4 } }
+    },
+
+    // --- the pad's cursor ---
+    //
+    // On a console this ring is not decoration, it is the only thing telling a player where they
+    // are, so it is bright and it is its own style for a game to make brighter.
+
+    "focusRing": {
+      "background": { "fill": "#00000000", "corner": 6, "border": "#5B8DEF", "borderWidth": 2 }
+    }
+  }
+}

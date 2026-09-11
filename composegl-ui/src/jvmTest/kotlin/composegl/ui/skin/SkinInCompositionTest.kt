@@ -124,7 +124,11 @@ class SkinInCompositionTest {
 
         val calls = draw()
 
-        assertEquals(1, calls.size, "nothing behind it, because nobody said there was anything")
-        assertEquals(Colour.White, calls.single().colour, "and plainly readable text")
+        assertEquals(1, calls.size, "nothing behind it, because no style called \"chip\" says there is")
+        assertEquals(
+            Skin.Default.resolve("chip").textColour,
+            calls.single().colour,
+            "and the shipped skin's text colour, so a game that registered nothing is still readable",
+        )
     }
 }
