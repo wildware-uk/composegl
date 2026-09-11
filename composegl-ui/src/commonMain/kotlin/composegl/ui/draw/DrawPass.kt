@@ -8,6 +8,7 @@ import composegl.ui.modifier.BorderElement
 import composegl.ui.modifier.DrawBehindElement
 import composegl.ui.modifier.DrawInFrontElement
 import composegl.ui.modifier.NinePatchElement
+import composegl.ui.modifier.SkinBackgroundElement
 import composegl.ui.modifier.PaintOp
 import composegl.ui.modifier.ShadowElement
 import composegl.ui.node.UiNode
@@ -72,6 +73,7 @@ class DrawPass(private val canvas: UiCanvas) {
             is BorderElement -> canvas.border(rect, element.colour, element.width, element.corner)
             is ShadowElement -> canvas.shadow(rect, element.colour, element.spread, element.corner)
             is NinePatchElement -> element.patch.drawInto(canvas, rect, element.tint)
+            is SkinBackgroundElement -> element.drawable.drawInto(canvas, rect, element.tint)
             is DrawBehindElement -> element.draw(canvas, rect)
             is DrawInFrontElement -> element.draw(canvas, rect)
             else -> Unit
