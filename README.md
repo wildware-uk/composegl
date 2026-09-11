@@ -55,7 +55,7 @@ A skin that will not parse names the line and suggests the nearest region or key
 worked, and a broken save leaves the last skin that worked on screen. The widget set has started:
 `Text`, `Image`, `Button`, `IconButton`, `Checkbox`, `RadioButton`, `Toggle`, `Slider`,
 `ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog`, `Tabs`, `TextField`, `Bar`, `Hotbar`,
-`RadialCooldown`, `DamageNumberLayer` and `Reticle` ship with
+`RadialCooldown`, `DamageNumberLayer`, `Reticle` and `Tooltip` ship with
 the toolkit, and the example is built from them. Typing works the whole way through: a caret that blinks
 and stops blinking mid-word, selection by shift or by dragging, double-click for a word, word-wise
 movement, the system clipboard through whichever backend is running, and a field that scrolls
@@ -109,6 +109,16 @@ towards what the game says it is, kicking faster than it settles, because a cros
 open reads as a glitch rather than as recoil. A landed shot flashes four ticks — one marker, so
 firing faster does not stack markers into a bright blob, which is the bug every hand-rolled one
 has. A hostile target changes its colour and nothing else.
+
+Tooltips are a host round a screen rather than a modifier, because a tooltip has to be drawn over
+the panel it belongs to and over whatever is next to that panel. The delay is the screen's, not each
+widget's: a player who is already reading one tooltip and runs along a row of icons has decided to
+look, so the next appears at once — every toolkit that stores the delay per widget makes a toolbar
+feel like it is arguing. It flips above the thing it belongs to rather than hanging off the bottom
+of the screen, slides back on at the sides, and appears on **focus** as well as hover, which is the
+whole of the pad story: nothing is ever hovered on a pad. That needed one new primitive,
+`Modifier.onFocusWithin`, for the difference between "this node has focus" and "focus is somewhere
+in here".
 
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and

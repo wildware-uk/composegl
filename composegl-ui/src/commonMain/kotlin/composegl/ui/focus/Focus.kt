@@ -30,6 +30,20 @@ fun interface RevealHandler {
 }
 
 /**
+ * Told when focus moves into or out of a node's subtree.
+ *
+ * The difference between "this node has focus" and "focus is somewhere in here" — which is what a
+ * group of things wants to know: a tooltip round a button, a panel that lights up while the player
+ * is inside it, a row that scrolls itself. The node itself does not have to be focusable.
+ *
+ * A handler written inline is a new object every recomposition and so never compares equal —
+ * `remember` it, exactly as with a pointer handler.
+ */
+fun interface FocusWithinHandler {
+    fun onFocusWithin(focused: Boolean)
+}
+
+/**
  * A handle on one focusable node, for the times geometry is not the whole story.
  *
  * A screen makes one, attaches it with [composegl.ui.modifier.focusRequester], and can then focus
@@ -311,7 +325,10 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         release(current)
         current = node
         node?.resolved?.focusable?.state?.focus()
-        if (node != null) reveal(node)
+        if (node != null) {
+            tellAncestors(node, focused = true)
+            reveal(node)
+        }
     }
 
     /**
@@ -339,7 +356,17 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
 
     private fun release(node: UiNode?) {
         node?.resolved?.focusable?.state?.unfocus()
+        if (node != null) tellAncestors(node, focused = false)
         if (node === current) current = null
+    }
+
+    /** Everything [node] is inside, told that focus has arrived in it or left it. */
+    private fun tellAncestors(node: UiNode, focused: Boolean) {
+        var walk = node.parent
+        while (walk != null) {
+            walk.resolved.focusWithin.forEach { it.onFocusWithin(focused) }
+            walk = walk.parent
+        }
     }
 }
 

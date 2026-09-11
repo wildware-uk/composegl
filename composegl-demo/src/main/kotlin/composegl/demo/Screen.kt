@@ -85,6 +85,8 @@ import composegl.ui.widget.TextField
 import composegl.ui.widget.Tabs
 import composegl.ui.widget.Text
 import composegl.ui.widget.Toggle
+import composegl.ui.widget.Tooltip
+import composegl.ui.widget.TooltipHost
 
 /**
  * The example interface.
@@ -112,44 +114,48 @@ fun Screen(
     ) {
         ProvideSkin(skin) {
             ProvideBackStack(state.backs) {
-                // The hotbar's press, hoisted to the screen. A key event only reaches a widget
-                // while focus is inside it, and the number keys have to work wherever the player
-                // is — so they are answered here, above every button, and the bar is handed the
-                // same state to press.
-                val hotbar = remember { HotbarState() }
+                // One host for the whole screen: a tooltip has to be drawn over every panel,
+                // including the one next to the panel it belongs to.
+                TooltipHost {
+                    // The hotbar's press, hoisted to the screen. A key event only reaches a widget
+                    // while focus is inside it, and the number keys have to work wherever the player
+                    // is — so they are answered here, above every button, and the bar is handed the
+                    // same state to press.
+                    val hotbar = remember { HotbarState() }
 
-                Box(Modifier.fillMaxSize().styled("screen").onKeyEvent(hotbar::onKey)) {
-                    Column(
-                        Modifier.fillMaxSize().padding(28f),
-                        verticalArrangement = Arrangement.spacedBy(20f),
-                    ) {
-                        Text("COMPOSEGL", style = "label.title")
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("a game interface toolkit on the Compose runtime", style = "label.dim")
-                            // Switches the moment the player picks up something else.
-                            Text("input: ${state.source.current}".uppercase(), style = "label.dim")
-                        }
-
-                        Row(
-                            Modifier.fillMaxWidth().weight(1f),
-                            horizontalArrangement = Arrangement.spacedBy(20f),
+                    Box(Modifier.fillMaxSize().styled("screen").onKeyEvent(hotbar::onKey)) {
+                        Column(
+                            Modifier.fillMaxSize().padding(28f),
+                            verticalArrangement = Arrangement.spacedBy(20f),
                         ) {
-                            StatusPanel(Modifier.width(300f).fillMaxHeight(), state)
-                            RangePanel(Modifier.weight(1f).fillMaxHeight(), state)
-                            LorePanel(Modifier.weight(1.2f).fillMaxHeight(), state)
+                            Text("COMPOSEGL", style = "label.title")
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("a game interface toolkit on the Compose runtime", style = "label.dim")
+                                // Switches the moment the player picks up something else.
+                                Text("input: ${state.source.current}".uppercase(), style = "label.dim")
+                            }
+
+                            Row(
+                                Modifier.fillMaxWidth().weight(1f),
+                                horizontalArrangement = Arrangement.spacedBy(20f),
+                            ) {
+                                StatusPanel(Modifier.width(300f).fillMaxHeight(), state)
+                                RangePanel(Modifier.weight(1f).fillMaxHeight(), state)
+                                LorePanel(Modifier.weight(1.2f).fillMaxHeight(), state)
+                            }
+
+                            DemoHotbar(state, hotbar)
                         }
 
-                        DemoHotbar(state, hotbar)
+                        // A question the player has to answer: focus cannot leave it, nothing behind it
+                        // can be clicked, and Escape or the pad's Back button closes it.
+                        if (state.declining) AbortDialog(state)
+
+                        // Proof that a window coordinate made it all the way to a design coordinate,
+                        // through the HDPI scale and the letterbox — and that the same coordinate found the
+                        // right node underneath it.
+                        state.pointer?.let { PointerCross(it) }
                     }
-
-                    // A question the player has to answer: focus cannot leave it, nothing behind it
-                    // can be clicked, and Escape or the pad's Back button closes it.
-                    if (state.declining) AbortDialog(state)
-
-                    // Proof that a window coordinate made it all the way to a design coordinate,
-                    // through the HDPI scale and the letterbox — and that the same coordinate found the
-                    // right node underneath it.
-                    state.pointer?.let { PointerCross(it) }
                 }
             }
         }
@@ -297,9 +303,9 @@ private fun StatusPage(state: DemoState) {
         LabelledBar("Stamina", 0.78f, style = "bar.stamina")
         Spacer(Modifier.height(4f))
         Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
-            Ability("Q", 3_000)
-            Ability("E", 6_000)
-            Ability("F", 9_000)
+            Ability("Q", 3_000, "overcharge, 3s")
+            Ability("E", 6_000, "pulse shield, 6s")
+            Ability("F", 9_000, "breach charge, 9s")
         }
         Spacer(Modifier.weight(1f))
         // A value the player drags, nudges with the arrow keys, or pushes the stick at — all
@@ -379,20 +385,23 @@ private fun GearPage(state: DemoState) {
  * that is already running ignores being triggered rather than starting over.
  */
 @Composable
-private fun Ability(letter: String, millis: Int) {
+private fun Ability(letter: String, millis: Int, description: String) {
     val cooldown = rememberCooldown(millis)
 
     LaunchedEffect(cooldown.isReady) {
         if (cooldown.isReady) cooldown.trigger()
     }
 
-    RadialCooldown(
-        cooldown = cooldown,
-        modifier = Modifier.size(44f).styled("slot").clickable { cooldown.trigger() },
-    ) {
-        // The key while it is usable, the seconds while it is not: two things to say in one square,
-        // and only ever one of them at a time.
-        if (cooldown.isReady) Text(letter, style = "label")
+    // Rest the pointer on one — or reach it with Tab or a pad — and the tooltip says what it does.
+    Tooltip("$letter — $description") {
+        RadialCooldown(
+            cooldown = cooldown,
+            modifier = Modifier.size(44f).styled("slot").clickable { cooldown.trigger() },
+        ) {
+            // The key while it is usable, the seconds while it is not: two things to say in one
+            // square, and only ever one of them at a time.
+            if (cooldown.isReady) Text(letter, style = "label")
+        }
     }
 }
 

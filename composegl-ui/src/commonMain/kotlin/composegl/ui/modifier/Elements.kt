@@ -1,6 +1,7 @@
 package composegl.ui.modifier
 
 import composegl.ui.focus.FocusRequester
+import composegl.ui.focus.FocusWithinHandler
 import composegl.ui.focus.RevealHandler
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
@@ -126,6 +127,9 @@ data class FocusDirectionElement(val handler: DirectionHandler) : Modifier.Eleme
 /** A handle on this node, so focus can be sent here by name rather than found by geometry. */
 /** Asked to bring a descendant into view when focus lands on it. */
 data class RevealElement(val handler: RevealHandler) : Modifier.Element
+
+/** Told when focus arrives anywhere inside this node, or leaves it. */
+data class FocusWithinElement(val handler: FocusWithinHandler) : Modifier.Element
 
 /** Focus cannot leave this node's subtree while it is in the tree. */
 data class FocusTrapElement(val enabled: Boolean) : Modifier.Element
@@ -282,6 +286,15 @@ fun Modifier.onFocusDirection(handler: DirectionHandler) = then(FocusDirectionEl
  * contents can answer it: the toolkit asks, and what "into view" means is the node's own business.
  */
 fun Modifier.onReveal(handler: RevealHandler) = then(RevealElement(handler))
+
+/**
+ * Told when focus arrives anywhere inside this node, and when it leaves.
+ *
+ * Not the same as the node itself being focused: this is what something wrapped *round* a control
+ * asks — a tooltip over a button, a panel that lights up while the player is in it. It is the only
+ * way a pad ever triggers those, because nothing is ever hovered on a pad.
+ */
+fun Modifier.onFocusWithin(handler: FocusWithinHandler) = then(FocusWithinElement(handler))
 
 /**
  * Focus stays inside this node.
