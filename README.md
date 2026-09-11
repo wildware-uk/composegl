@@ -139,6 +139,16 @@ the names being handed out again rather than marching upwards. The point of doin
 all is the last part: **a panel is drawn only when its tree changes**, so a terminal nobody is
 looking at costs one comparison a frame.
 
+Pointing at one of those panels is a raycast. The game is the only thing that knows where its quad
+is, so it does the geometry and says where on the panel the ray landed, in the panel's own units;
+everything after that is the code a mouse already goes through — the same router, the same hit
+testing, the same capture, the same click. A panel moving under the ray takes care of itself,
+because the game works out the new landing point each frame and that is what a drag is. The one
+rule worth writing down: **a release is delivered because this pointer pressed on this panel**,
+never because the toolkit said it did something with the press. Pressing the background of a panel
+hits nothing and says so, and the release still has to arrive — it is what ends the gesture.
+Gating it the other way is what leaves an in-world panel dead after one click.
+
 The minimap is a frame with a hole in it. A game's map is its own — a texture it renders, a tile
 grid, a mesh — so the toolkit draws the border, clips a rectangle and hands it over, and the game
 either draws with our canvas or reaches the backend underneath with `raw { }`. What is left is the
