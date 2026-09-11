@@ -9,7 +9,7 @@ already set up.
 
 ## What is published
 
-Six modules, under `uk.wildware.composegl`:
+Six modules, under `dev.wildware.composegl`:
 
 | | |
 |---|---|
@@ -70,8 +70,8 @@ Central refuses unsigned artifacts, so the public half of that key has to be on 
 keyserver — `keys.openpgp.org` or `keyserver.ubuntu.com` — before the first
 release.
 
-The namespace `uk.wildware` also has to be verified once, by putting a code the
-portal gives you into a **DNS TXT record on `wildware.uk`**.
+The namespace `dev.wildware` also has to be verified once, by putting a code the
+portal gives you into a **DNS TXT record on `wildware.dev`**.
 
 ---
 
@@ -81,7 +81,7 @@ portal gives you into a **DNS TXT record on `wildware.uk`**.
 ./gradlew publishToMavenLocal
 ```
 
-Everything lands in `~/.m2/repository/uk/wildware/composegl`. Point a real game
+Everything lands in `~/.m2/repository/dev/wildware/composegl`. Point a real game
 at it with `mavenLocal()` and you are testing exactly what a release would be.
 
 ---
