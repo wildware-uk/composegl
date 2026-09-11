@@ -16,20 +16,28 @@ data class Alignment(
     val vertical: VerticalAlignment = VerticalAlignment.Top,
 ) {
 
-    /** Where a child of [childWidth] × [childHeight] goes inside a space of [width] × [height]. */
-    fun offsetIn(width: Float, height: Float, childWidth: Float, childHeight: Float): Pair<Float, Float> {
-        val x = when (horizontal) {
-            HorizontalAlignment.Start -> 0f
-            HorizontalAlignment.Centre -> (width - childWidth) / 2f
-            HorizontalAlignment.End -> width - childWidth
-        }
-        val y = when (vertical) {
-            VerticalAlignment.Top -> 0f
-            VerticalAlignment.Centre -> (height - childHeight) / 2f
-            VerticalAlignment.Bottom -> height - childHeight
-        }
-        return x to y
+    /** How far in from the left a child of [childWidth] goes, across a space [width] wide. */
+    fun xIn(width: Float, childWidth: Float): Float = when (horizontal) {
+        HorizontalAlignment.Start -> 0f
+        HorizontalAlignment.Centre -> (width - childWidth) / 2f
+        HorizontalAlignment.End -> width - childWidth
     }
+
+    /** How far down from the top a child of [childHeight] goes, down a space [height] tall. */
+    fun yIn(height: Float, childHeight: Float): Float = when (vertical) {
+        VerticalAlignment.Top -> 0f
+        VerticalAlignment.Centre -> (height - childHeight) / 2f
+        VerticalAlignment.Bottom -> height - childHeight
+    }
+
+    /**
+     * Both at once, for the callers that want a pair rather than two numbers.
+     *
+     * The two above are what the layouts themselves use: a pair of boxed floats per child per
+     * frame is three objects that a game running at sixty frames a second does not need to make.
+     */
+    fun offsetIn(width: Float, height: Float, childWidth: Float, childHeight: Float): Pair<Float, Float> =
+        xIn(width, childWidth) to yIn(height, childHeight)
 
     companion object {
         val TopStart = Alignment(HorizontalAlignment.Start, VerticalAlignment.Top)

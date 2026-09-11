@@ -45,15 +45,24 @@ data class Constraints(
      * Both ends shrink, and neither goes below zero: a box smaller than its own padding has no
      * room for content rather than negative room for it.
      */
-    fun shrink(horizontal: Float = 0f, vertical: Float = 0f) = Constraints(
-        minWidth = (minWidth - horizontal).coerceAtLeast(0f),
-        maxWidth = if (hasBoundedWidth) (maxWidth - horizontal).coerceAtLeast(0f) else maxWidth,
-        minHeight = (minHeight - vertical).coerceAtLeast(0f),
-        maxHeight = if (hasBoundedHeight) (maxHeight - vertical).coerceAtLeast(0f) else maxHeight,
-    )
+    fun shrink(horizontal: Float = 0f, vertical: Float = 0f): Constraints {
+        // Taking nothing out changes nothing, and most nodes have no padding at all. Worth the
+        // line: this is called once per node per frame, and the object it would have made is
+        // thrown away a few microseconds later.
+        if (horizontal == 0f && vertical == 0f) return this
+        return Constraints(
+            minWidth = (minWidth - horizontal).coerceAtLeast(0f),
+            maxWidth = if (hasBoundedWidth) (maxWidth - horizontal).coerceAtLeast(0f) else maxWidth,
+            minHeight = (minHeight - vertical).coerceAtLeast(0f),
+            maxHeight = if (hasBoundedHeight) (maxHeight - vertical).coerceAtLeast(0f) else maxHeight,
+        )
+    }
 
     /** The same maxima with no minimum, which is what most parents actually want to offer. */
-    fun loosen() = copy(minWidth = 0f, minHeight = 0f)
+    fun loosen(): Constraints {
+        if (minWidth == 0f && minHeight == 0f) return this
+        return Constraints(0f, maxWidth, 0f, maxHeight)
+    }
 
     /** Nothing but this size is allowed. */
     fun tighten(width: Float = minWidth, height: Float = minHeight) =

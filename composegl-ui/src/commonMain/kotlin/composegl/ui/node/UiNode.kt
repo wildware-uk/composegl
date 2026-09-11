@@ -5,6 +5,7 @@ import composegl.ui.graphics.UiCanvas
 import composegl.ui.layout.Inset
 import composegl.ui.layout.Measurable
 import composegl.ui.layout.MeasurePolicy
+import composegl.ui.layout.NodeMeasureScope
 import composegl.ui.layout.NodePlaceable
 import composegl.ui.layout.OnceMeasurable
 import composegl.ui.geometry.Size
@@ -97,6 +98,8 @@ class UiNode(var name: String = "node") {
     internal val placeable = NodePlaceable(this)
 
     internal val inset = Inset()
+
+    internal val scope = NodeMeasureScope()
 
     /** This node's children, wrapped, refilled by each pass rather than rebuilt. */
     internal val measurables: MutableList<Measurable> = mutableListOf()

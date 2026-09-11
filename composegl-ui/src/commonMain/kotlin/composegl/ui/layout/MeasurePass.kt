@@ -1,6 +1,5 @@
 package composegl.ui.layout
 
-import composegl.ui.geometry.Size
 import composegl.ui.modifier.ResolvedModifier
 import composegl.ui.node.UiNode
 
@@ -20,8 +19,6 @@ import composegl.ui.node.UiNode
  */
 class MeasurePass {
 
-    private val scope = object : MeasureScope {}
-
     /** Measures and places [node] and everything under it. The root ends up at the origin. */
     fun run(node: UiNode, constraints: Constraints) {
         measure(node, constraints).placeAt(0f, 0f)
@@ -37,13 +34,12 @@ class MeasurePass {
         val content = outer.shrink(padding.horizontal, padding.vertical)
 
         val measurables = measurables(node)
-        val result = with(node.measurePolicy) { scope.measure(measurables, content) }
+        val result = with(node.measurePolicy) { node.scope.measure(measurables, content) }
 
-        val size = outer.constrain(
-            Size(result.width + padding.horizontal, result.height + padding.vertical),
-        )
-        node.width = size.width
-        node.height = size.height
+        // The two axes separately rather than through a Size: the object would be made and read
+        // once each, per node, every frame.
+        node.width = outer.constrainWidth(result.width + padding.horizontal)
+        node.height = outer.constrainHeight(result.height + padding.vertical)
 
         // Children are placed now, in this node's coordinates. Where *this* node ends up is its
         // parent's business and does not change any of them.
@@ -169,21 +165,79 @@ internal class Inset : PlacementScope {
  * is 50 tall and as wide as it can be.
  */
 internal fun ResolvedModifier.applyTo(incoming: Constraints): Constraints {
+    // Written out rather than with `let`, because a lambda that assigns to `result` captures it:
+    // Kotlin puts the variable in a box on the heap and makes a fresh lambda to reach it, four
+    // times over, for every node on the screen, every frame.
     var result = incoming
 
-    size?.width?.let { result = result.tightenWidth(incoming.constrainWidth(it)) }
-    size?.height?.let { result = result.tightenHeight(incoming.constrainHeight(it)) }
+    val width = size?.width
+    if (width != null) result = result.tightenWidth(incoming.constrainWidth(width))
+    val height = size?.height
+    if (height != null) result = result.tightenHeight(incoming.constrainHeight(height))
 
-    fill?.widthFraction?.let { fraction ->
-        if (incoming.hasBoundedWidth) result = result.tightenWidth(incoming.constrainWidth(incoming.maxWidth * fraction))
+    val widthFraction = fill?.widthFraction
+    if (widthFraction != null && incoming.hasBoundedWidth) {
+        result = result.tightenWidth(incoming.constrainWidth(incoming.maxWidth * widthFraction))
     }
-    fill?.heightFraction?.let { fraction ->
-        if (incoming.hasBoundedHeight) result = result.tightenHeight(incoming.constrainHeight(incoming.maxHeight * fraction))
+    val heightFraction = fill?.heightFraction
+    if (heightFraction != null && incoming.hasBoundedHeight) {
+        result = result.tightenHeight(incoming.constrainHeight(incoming.maxHeight * heightFraction))
     }
 
     return result
 }
 
-private fun Constraints.tightenWidth(width: Float) = copy(minWidth = width, maxWidth = width)
+private fun Constraints.tightenWidth(width: Float) =
+    if (minWidth == width && maxWidth == width) this
+    else Constraints(width, width, minHeight, maxHeight)
 
-private fun Constraints.tightenHeight(height: Float) = copy(minHeight = height, maxHeight = height)
+private fun Constraints.tightenHeight(height: Float) =
+    if (minHeight == height && maxHeight == height) this
+    else Constraints(minWidth, maxWidth, height, height)
+
+/**
+ * The scope one node is measured in: its scratch space, and the result it hands back.
+ *
+ * One per node, kept on the node, which is what makes the room it lends free. Nothing here nests —
+ * a node's policy runs to the end before the node's parent carries on, and a child measured in the
+ * middle of it is using its own scope, not this one.
+ */
+internal class NodeMeasureScope : MeasureScope {
+
+    private val result = ReusableResult()
+
+    private var placeables = arrayOfNulls<Placeable>(0)
+    private var sizes = FloatArray(0)
+    private var positions = FloatArray(0)
+
+    override fun layout(width: Float, height: Float, place: PlacementScope.() -> Unit): MeasureResult {
+        result.width = width
+        result.height = height
+        result.place = place
+        return result
+    }
+
+    override fun placeables(count: Int): Array<Placeable?> {
+        if (placeables.size < count) placeables = arrayOfNulls(count)
+        return placeables
+    }
+
+    override fun sizes(count: Int): FloatArray {
+        if (sizes.size < count) sizes = FloatArray(count)
+        return sizes
+    }
+
+    override fun positions(count: Int): FloatArray {
+        if (positions.size < count) positions = FloatArray(count)
+        return positions
+    }
+
+    /** The answer, filled in again each time rather than made again. */
+    private class ReusableResult : MeasureResult {
+        override var width = 0f
+        override var height = 0f
+        var place: PlacementScope.() -> Unit = {}
+
+        override fun placeChildren(scope: PlacementScope) = scope.place()
+    }
+}

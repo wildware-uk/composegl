@@ -23,23 +23,30 @@ internal data class LinearPolicy(
         measurables: List<Measurable>,
         constraints: Constraints,
     ): MeasureResult {
+        val count = measurables.size
         val mainMax = if (horizontal) constraints.maxWidth else constraints.maxHeight
         val crossMax = if (horizontal) constraints.maxHeight else constraints.maxWidth
-        val reserved = arrangement.spacing * (measurables.size - 1).coerceAtLeast(0)
+        val reserved = arrangement.spacing * (count - 1).coerceAtLeast(0)
 
-        val placeables = arrayOfNulls<Placeable>(measurables.size)
+        // Lent by the node and used again next frame; see MeasureScope.
+        val placeables = placeables(count)
+        val sizes = sizes(count)
+        val positions = positions(count)
+
         var used = reserved
         var totalWeight = 0f
         var lastWeighted = -1
 
         // Children with a fixed size first: until they are measured, there is no "left over" for
         // the weighted ones to share.
-        measurables.forEachIndexed { index, measurable ->
+        for (index in 0 until count) {
+            val measurable = measurables[index]
             val weight = measurable.layoutData.weight
             if (weight != null) {
                 totalWeight += weight
                 lastWeighted = index
-                return@forEachIndexed
+                placeables[index] = null
+                continue
             }
             val room = if (mainMax.isFinite()) (mainMax - used).coerceAtLeast(0f) else Float.POSITIVE_INFINITY
             val placeable = measurable.measure(childConstraints(main = room, crossMax = crossMax))
@@ -50,8 +57,9 @@ internal data class LinearPolicy(
         if (totalWeight > 0f) {
             val spare = if (mainMax.isFinite()) (mainMax - used).coerceAtLeast(0f) else 0f
             var handedOut = 0f
-            measurables.forEachIndexed { index, measurable ->
-                val weight = measurable.layoutData.weight ?: return@forEachIndexed
+            for (index in 0 until count) {
+                val measurable = measurables[index]
+                val weight = measurable.layoutData.weight ?: continue
                 // The last weighted child takes exactly what is left rather than its own share.
                 // Shares are floats, and a row of three thirds that adds up to a sliver under the
                 // full width leaves a seam down the screen that nobody can find.
@@ -66,9 +74,14 @@ internal data class LinearPolicy(
             }
         }
 
-        val measured = placeables.requireNoNulls().toList()
+        var cross = 0f
+        for (index in 0 until count) {
+            val placeable = checkNotNull(placeables[index]) { "a child of this line was never measured" }
+            sizes[index] = placeable.main
+            if (placeable.cross > cross) cross = placeable.cross
+        }
+
         val main = if (horizontal) constraints.constrainWidth(used) else constraints.constrainHeight(used)
-        val cross = measured.maxOfOrNull { it.cross } ?: 0f
         val crossSize =
             if (horizontal) constraints.constrainHeight(cross) else constraints.constrainWidth(cross)
 
@@ -76,14 +89,14 @@ internal data class LinearPolicy(
         val height = if (horizontal) crossSize else main
 
         return layout(width, height) {
-            val positions = arrangement.arrange(main, measured.map { it.main })
-            measured.forEachIndexed { index, placeable ->
+            arrangement.arrange(main, sizes, count, positions)
+            for (index in 0 until count) {
+                val placeable = placeables[index] ?: continue
                 val alignment = measurables[index].layoutData.alignment ?: crossAlignment
-                val (x, y) = alignment.offsetIn(width, height, placeable.width, placeable.height)
                 if (horizontal) {
-                    placeable.at(positions[index], y)
+                    placeable.at(positions[index], alignment.yIn(height, placeable.height))
                 } else {
-                    placeable.at(x, positions[index])
+                    placeable.at(alignment.xIn(width, placeable.width), positions[index])
                 }
             }
         }

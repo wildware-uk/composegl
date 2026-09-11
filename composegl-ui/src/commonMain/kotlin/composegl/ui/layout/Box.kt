@@ -16,15 +16,32 @@ internal data class BoxPolicy(val contentAlignment: Alignment) : MeasurePolicy {
         measurables: List<Measurable>,
         constraints: Constraints,
     ): MeasureResult {
-        val placeables = measurables.map { it.measure(constraints.loosen()) }
-        val width = constraints.constrainWidth(placeables.maxOfOrNull { it.width } ?: 0f)
-        val height = constraints.constrainHeight(placeables.maxOfOrNull { it.height } ?: 0f)
+        val count = measurables.size
+        // Lent by the node and used again next frame; see MeasureScope.
+        val placeables = placeables(count)
+        // Worked out once: every child of a box is offered the same room.
+        val offered = constraints.loosen()
+
+        var widest = 0f
+        var tallest = 0f
+        for (index in 0 until count) {
+            val placeable = measurables[index].measure(offered)
+            placeables[index] = placeable
+            if (placeable.width > widest) widest = placeable.width
+            if (placeable.height > tallest) tallest = placeable.height
+        }
+
+        val width = constraints.constrainWidth(widest)
+        val height = constraints.constrainHeight(tallest)
 
         return layout(width, height) {
-            placeables.forEachIndexed { index, placeable ->
+            for (index in 0 until count) {
+                val placeable = placeables[index] ?: continue
                 val alignment = measurables[index].layoutData.alignment ?: contentAlignment
-                val (x, y) = alignment.offsetIn(width, height, placeable.width, placeable.height)
-                placeable.at(x, y)
+                placeable.at(
+                    alignment.xIn(width, placeable.width),
+                    alignment.yIn(height, placeable.height),
+                )
             }
         }
     }
