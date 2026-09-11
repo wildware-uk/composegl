@@ -78,6 +78,15 @@
 
     "toggle.knob": { "background": { "fill": "#E8F4FF", "corner": 8 } },
 
+    "slider.track": { "background": { "fill": "#40000000", "corner": 3 } },
+    "slider.fill": { "background": { "fill": "#4CC2FF", "corner": 3 } },
+
+    "slider.knob": {
+      "background": { "fill": "#E8F4FF", "corner": 8, "border": "#4CC2FF" },
+      "hovered": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
     "chip": {
       "background": { "fill": "#20FFFFFF", "corner": 6, "border": "#4CC2FF", "padding": [14, 8] },
       "textColour": "#4CC2FF",

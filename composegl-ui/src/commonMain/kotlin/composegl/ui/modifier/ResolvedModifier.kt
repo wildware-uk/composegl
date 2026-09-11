@@ -2,6 +2,7 @@ package composegl.ui.modifier
 
 import composegl.ui.focus.FocusRequester
 import composegl.ui.geometry.Offset
+import composegl.ui.input.DirectionHandler
 import composegl.ui.input.InteractionState
 import composegl.ui.input.KeyHandler
 import composegl.ui.input.PointerHandler
@@ -62,6 +63,8 @@ class ResolvedModifier private constructor(
     val focusRequester: FocusRequester?,
     /** Directions this node answers itself rather than leaving to the geometry. */
     val focusOrder: FocusOrderElement?,
+    /** Directions this node uses itself, asked before focus looks for a neighbour. */
+    val focusDirections: List<DirectionHandler>,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
@@ -100,6 +103,7 @@ class ResolvedModifier private constructor(
             var focusable: FocusableElement? = null
             var focusRequester: FocusRequester? = null
             var focusOrder: FocusOrderElement? = null
+            val focusDirections = mutableListOf<DirectionHandler>()
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -131,6 +135,7 @@ class ResolvedModifier private constructor(
                     is FocusableElement -> focusable = element
                     is FocusRequesterElement -> focusRequester = element.requester
                     is FocusOrderElement -> focusOrder = element
+                    is FocusDirectionElement -> focusDirections += element.handler
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
             }
@@ -140,7 +145,7 @@ class ResolvedModifier private constructor(
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click,
-                focusable, focusRequester, focusOrder,
+                focusable, focusRequester, focusOrder, focusDirections.toList(),
             )
         }
     }
