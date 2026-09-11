@@ -252,6 +252,7 @@
     "field.placeholder": { "textColour": "#5E6B7E" },
     "field.caret": { "background": { "fill": "#E8ECF2" } },
     "field.selection": { "background": { "fill": "#3F6BD6" } },
+    "field.composition": { "background": { "fill": "#9BA6B6" } },
 
     // --- lists and menus ---
 

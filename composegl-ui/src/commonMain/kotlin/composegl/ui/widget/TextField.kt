@@ -87,7 +87,8 @@ fun ProvideSoftKeyboard(keyboard: SoftKeyboard, content: @Composable () -> Unit)
  *
  * Five skin names. `"field"` is the box and the text colour, with its `focused` and `disabled`
  * states; `"field.placeholder"` is the colour of the hint; `"field.selection"` is the highlight;
- * `"field.caret"` is the caret. A game restyles all of it without touching this file.
+ * `"field.caret"` is the caret; `"field.composition"` is the underline under text an input method
+ * has not committed yet. A game restyles all of it without touching this file.
  *
  * @param value what the field says, and where the caret and selection are. The overload taking a
  *   plain [String] is the easy one; this is for a game that wants to move the caret itself.
@@ -119,6 +120,7 @@ fun TextField(
     val hint = rememberStyle("$style.placeholder")
     val highlight = rememberStyle("$style.selection")
     val caret = rememberStyle("$style.caret")
+    val composing = rememberStyle("$style.composition")
     val fonts = rememberFonts()
 
     val editor = remember(multiline, maxLength, clipboard) {
@@ -170,7 +172,20 @@ fun TextField(
         }
     }
 
-    val painter = remember(metrics, resolved, hint, highlight, caret, value.selection, placeholder, blinking, interaction.isFocused, view) {
+    val painter = remember(
+        metrics,
+        resolved,
+        hint,
+        highlight,
+        caret,
+        composing,
+        value.selection,
+        value.composition,
+        placeholder,
+        blinking,
+        interaction.isFocused,
+        view,
+    ) {
         FieldPainter(
             metrics = metrics,
             style = resolved,
@@ -178,7 +193,9 @@ fun TextField(
             placeholderColour = hint.textColour,
             highlight = highlight,
             caretStyle = caret,
+            composingStyle = composing,
             selection = value.selection,
+            composition = value.composition,
             focused = interaction.isFocused,
             caretShowing = interaction.isFocused && blinking,
             view = view,
@@ -289,6 +306,10 @@ fun TextField(
 
 /** Half a second on, half a second off, which is what every platform has settled on. */
 private const val BlinkNanos = 500_000_000L
+
+/** How thick the composing underline is, and how far above the bottom of the line it sits. */
+private const val UnderlineThickness = 1.5f
+private const val UnderlineInset = 2f
 
 /** How wide the caret is drawn. Not from the skin: a caret is a hairline everywhere. */
 private const val CaretWidth = 1.5f
@@ -468,7 +489,9 @@ private class FieldPainter(
     private val placeholderColour: Colour,
     private val highlight: ResolvedStyle,
     private val caretStyle: ResolvedStyle,
+    private val composingStyle: ResolvedStyle,
     private val selection: TextRange,
+    private val composition: TextRange?,
     private val focused: Boolean,
     private val caretShowing: Boolean,
     private val view: FieldView,
@@ -529,6 +552,8 @@ private class FieldPainter(
             metrics.lines.indices.forEach { line ->
                 text(metrics.layoutOf(line), Offset(left, top + line * metrics.lineHeight), style.textColour)
             }
+            // Over the words rather than behind them: this is an underline, not a highlight.
+            composition?.takeIf { !it.collapsed }?.let { drawComposition(it, left, top) }
         }
 
         if (caretShowing) {
@@ -546,16 +571,31 @@ private class FieldPainter(
         }
     }
 
+    /**
+     * The underline under text an input method has not committed yet.
+     *
+     * Typing Japanese is two steps: the letters you press become a run of provisional text, and
+     * then you choose what it turns into. The underline is how a player can see which part of the
+     * field is still provisional — without it, half-typed text looks exactly like text that is
+     * already there, and there is no way to tell what the next Enter is going to replace.
+     *
+     * Drawn from the value's own `composition` range, so any backend that can report one gets this
+     * for free.
+     */
+    private fun UiCanvas.drawComposition(range: TextRange, left: Float, top: Float) {
+        eachLineOf(range) { line, startX, endX ->
+            val baseline = top + line * metrics.lineHeight + metrics.lineHeight - UnderlineInset
+            composingStyle.background.drawInto(
+                this,
+                Rect(left + startX, baseline, left + endX, baseline + UnderlineThickness),
+                composingStyle.tint,
+            )
+        }
+    }
+
     /** One rectangle per line the selection touches, drawn behind the words. */
     private fun UiCanvas.drawSelection(left: Float, top: Float) {
-        val first = metrics.lineOf(selection.min)
-        val last = metrics.lineOf(selection.max)
-        (first..last).forEach { line ->
-            val range = metrics.lines[line]
-            val from = maxOf(selection.min, range.start)
-            val to = minOf(selection.max, range.end)
-            val startX = metrics.xOf(from)
-            val endX = metrics.xOf(to)
+        eachLineOf(selection) { line, startX, endX ->
             highlight.background.drawInto(
                 this,
                 Rect(
@@ -566,6 +606,23 @@ private class FieldPainter(
                 ),
                 highlight.tint,
             )
+        }
+    }
+
+    /**
+     * The part of [range] that falls on each line it touches, as two distances along that line.
+     *
+     * Shared by the selection and the composing underline because a range that wraps is the same
+     * arithmetic either way, and the second copy of it is always the one that forgets the last line.
+     */
+    private inline fun eachLineOf(range: TextRange, each: (Int, Float, Float) -> Unit) {
+        val first = metrics.lineOf(range.min)
+        val last = metrics.lineOf(range.max)
+        for (line in first..last) {
+            val onLine = metrics.lines[line]
+            val from = maxOf(range.min, onLine.start)
+            val to = minOf(range.max, onLine.end)
+            each(line, metrics.xOf(from), metrics.xOf(to))
         }
     }
 }

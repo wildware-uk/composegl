@@ -115,6 +115,9 @@ class TextFieldTest {
 
     private fun highlight(): List<DrawCall.Rectangle> = rectangles().filter { it.colour == fill("field.selection") }
 
+    private fun underline(): List<DrawCall.Rectangle> =
+        rectangles().filter { it.colour == fill("field.composition") }
+
     private fun drawn(): List<String> = canvas.calls.filterIsInstance<DrawCall.Text>().map { it.text }
 
     /** Where the field's text was actually drawn, which moves when the field scrolls. */
@@ -278,6 +281,44 @@ class TextFieldTest {
         val text = canvas.calls.filterIsInstance<DrawCall.Text>().first()
         val highlightIndex = canvas.calls.indexOf(highlight)
         assertTrue(highlightIndex < canvas.calls.indexOf(text), "behind, not over the top of")
+    }
+
+    // --- what an input method has not committed yet -----------------------------------------------------
+
+    @Test
+    fun `text an input method is still composing is drawn underlined`() {
+        show {
+            TextField(
+                TextFieldValue("nihongo desu", TextRange(8), composition = TextRange(0, 8)),
+                onValueChange = {},
+                modifier = Modifier.width(200f),
+                initialFocus = true,
+            )
+        }
+
+        val line = underline().singleOrNull() ?: error("no underline: ${rectangles().map { it.colour }}")
+        assertEquals(8 * character, line.rect.right - line.rect.left, 0.5f, "only the composing part")
+
+        val text = canvas.calls.filterIsInstance<DrawCall.Text>().first()
+        assertTrue(
+            canvas.calls.indexOf(line) > canvas.calls.indexOf(text),
+            "over the words, because it is an underline rather than a highlight",
+        )
+        assertTrue(line.rect.top > text.at.y, "under them, not through them")
+    }
+
+    @Test
+    fun `nothing is underlined when nothing is being composed`() {
+        show {
+            TextField(
+                TextFieldValue("committed", TextRange(9)),
+                onValueChange = {},
+                modifier = Modifier.width(200f),
+                initialFocus = true,
+            )
+        }
+
+        assertTrue(underline().isEmpty(), "a field with no composition draws no underline")
     }
 
     @Test
