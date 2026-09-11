@@ -76,6 +76,7 @@ fun main() {
 
             viewport = window.viewport(Design, ScalePolicy.Fit)
             MeasurePass().run(host.root, viewport)
+            input.frame()
 
             GL11.glClearColor(0.03f, 0.04f, 0.05f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)

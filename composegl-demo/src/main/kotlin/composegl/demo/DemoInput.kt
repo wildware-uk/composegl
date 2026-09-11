@@ -1,5 +1,6 @@
 package composegl.demo
 
+import composegl.ui.focus.FocusManager
 import composegl.ui.geometry.Offset
 import composegl.ui.input.GamepadEvent
 import composegl.ui.input.InputSink
@@ -22,7 +23,16 @@ import composegl.ui.node.UiNode
  */
 internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink {
 
-    private val router = PointerRouter(root)
+    /**
+     * Focus, which on a console is the cursor.
+     *
+     * Nothing drives it from the keyboard yet — key translation is its own milestone — so what the
+     * example shows is the half that is finished: the screen declares where focus starts, clicking
+     * a button moves it, and a focused button draws a ring.
+     */
+    val focus = FocusManager(root)
+
+    private val router = PointerRouter(root, focus)
 
     override fun onPointer(event: PointerEvent): Boolean {
         state.pointer = when (event) {
@@ -37,6 +47,9 @@ internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink
     override fun onText(event: TextEvent) = router.onText(event)
 
     override fun onGamepad(event: GamepadEvent) = router.onGamepad(event)
+
+    /** Called once a frame, after layout, so focus never points at a node that has gone. */
+    fun frame() = focus.refresh()
 
     /**
      * Puts the pointer somewhere without a mouse, so a screenshot can show a hover or a press.

@@ -92,6 +92,7 @@ class Demo : ApplicationAdapter() {
             policy = ScalePolicy.Fit,
         )
         MeasurePass().run(host.root, viewport)
+        input.frame()
 
         Gdx.gl.glClearColor(0.03f, 0.04f, 0.05f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)

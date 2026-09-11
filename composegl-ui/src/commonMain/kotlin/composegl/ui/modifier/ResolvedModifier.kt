@@ -1,5 +1,6 @@
 package composegl.ui.modifier
 
+import composegl.ui.focus.FocusRequester
 import composegl.ui.geometry.Offset
 import composegl.ui.input.InteractionState
 import composegl.ui.input.PointerHandler
@@ -49,6 +50,12 @@ class ResolvedModifier private constructor(
     val handlers: List<PointerHandler>,
     /** The node's `clickable`, if it has one. A later one replaces an earlier one. */
     val click: ClickableElement?,
+    /** Whether and how this node can hold focus. */
+    val focusable: FocusableElement?,
+    /** The handle a screen can use to send focus straight here. */
+    val focusRequester: FocusRequester?,
+    /** Directions this node answers itself rather than leaving to the geometry. */
+    val focusOrder: FocusOrderElement?,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
@@ -61,7 +68,8 @@ class ResolvedModifier private constructor(
      * mostly panels and labels.
      */
     val isInteractive: Boolean
-        get() = interactions.isNotEmpty() || handlers.isNotEmpty() || click != null
+        get() = interactions.isNotEmpty() || handlers.isNotEmpty() || click != null ||
+            focusable?.enabled == true
 
     companion object {
 
@@ -81,6 +89,9 @@ class ResolvedModifier private constructor(
             val interactions = mutableListOf<InteractionState>()
             val handlers = mutableListOf<PointerHandler>()
             var click: ClickableElement? = null
+            var focusable: FocusableElement? = null
+            var focusRequester: FocusRequester? = null
+            var focusOrder: FocusOrderElement? = null
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -107,6 +118,9 @@ class ResolvedModifier private constructor(
                     is InteractionElement -> interactions += element.state
                     is PointerInputElement -> handlers += element.handler
                     is ClickableElement -> click = element
+                    is FocusableElement -> focusable = element
+                    is FocusRequesterElement -> focusRequester = element.requester
+                    is FocusOrderElement -> focusOrder = element
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
             }
@@ -115,6 +129,7 @@ class ResolvedModifier private constructor(
                 size, fill, padding, offset, weight, alignment, alpha, clip,
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(), click,
+                focusable, focusRequester, focusOrder,
             )
         }
     }

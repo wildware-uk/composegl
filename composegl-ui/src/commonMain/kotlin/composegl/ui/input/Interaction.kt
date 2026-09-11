@@ -21,6 +21,7 @@ class InteractionState {
 
     private var hovers by mutableStateOf(0)
     private var presses by mutableStateOf(0)
+    private var focused by mutableStateOf(false)
 
     /** A pointer is over this node, with nothing held down. A mouse thing; touch never hovers. */
     val isHovered: Boolean get() = hovers > 0
@@ -34,6 +35,14 @@ class InteractionState {
      */
     val isPressed: Boolean get() = presses > 0
 
+    /**
+     * This node is where keys and pad presses go.
+     *
+     * Exactly one node in a screen has it. A game draws a focus ring from this, and on a console
+     * that ring is the cursor — the only thing telling the player where they are.
+     */
+    val isFocused: Boolean get() = focused
+
     internal fun enter() { hovers++ }
 
     internal fun leave() { if (hovers > 0) hovers-- }
@@ -42,13 +51,18 @@ class InteractionState {
 
     internal fun release() { if (presses > 0) presses-- }
 
+    internal fun focus() { focused = true }
+
+    internal fun unfocus() { focused = false }
+
     /** Nothing is touching this node any more, whatever the counters think. For cancellation. */
     internal fun clear() {
         hovers = 0
         presses = 0
     }
 
-    override fun toString(): String = "InteractionState(hovered=$isHovered, pressed=$isPressed)"
+    override fun toString(): String =
+        "InteractionState(hovered=$isHovered, pressed=$isPressed, focused=$isFocused)"
 }
 
 /**

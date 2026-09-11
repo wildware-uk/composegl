@@ -1,5 +1,6 @@
 package composegl.ui.input
 
+import composegl.ui.focus.FocusManager
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.node.UiNode
@@ -25,7 +26,16 @@ import composegl.ui.node.UiNode
  * The router holds the gesture state and nothing else: no timers, no thread, no allocation per
  * frame. It is created once with the tree's root and lives as long as the interface does.
  */
-class PointerRouter(private val root: UiNode) : InputSink {
+class PointerRouter(
+    private val root: UiNode,
+    /**
+     * Where focus lives, if the screen has any.
+     *
+     * Clicking a focusable node focuses it, because a player who clicks a button and then reaches
+     * for the keyboard expects the keyboard to be talking to the thing they just clicked.
+     */
+    private val focus: FocusManager? = null,
+) : InputSink {
 
     /** What a captured pointer is doing, and to whom. */
     private class Capture(val node: UiNode, val buttons: MutableSet<PointerButton>) {
@@ -82,6 +92,7 @@ class PointerRouter(private val root: UiNode) : InputSink {
         hover(event.pointerId, emptyList())
         captures[event.pointerId] = Capture(taker, mutableSetOf(event.button))
         taker.resolved.interactions.forEach { it.press() }
+        focus?.focusOn(taker)
         return true
     }
 
