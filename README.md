@@ -54,7 +54,8 @@ the example's Kotlin. Save the file while the example is running and it changes 
 A skin that will not parse names the line and suggests the nearest region or key that would have
 worked, and a broken save leaves the last skin that worked on screen. The widget set has started:
 `Text`, `Image`, `Button`, `IconButton`, `Checkbox`, `RadioButton`, `Toggle`, `Slider`,
-`ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog`, `Tabs`, `TextField` and `Bar` ship with
+`ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog`, `Tabs`, `TextField`, `Bar`, `Hotbar`,
+`RadialCooldown`, `DamageNumberLayer` and `Reticle` ship with
 the toolkit, and the example is built from them. Typing works the whole way through: a caret that blinks
 and stops blinking mid-word, selection by shift or by dragging, double-click for a word, word-wise
 movement, the system clipboard through whichever backend is running, and a field that scrolls
@@ -101,6 +102,13 @@ number to make and throw away, and a test that watches the thread's own allocati
 costs nothing per frame once they are up. Where a number goes is the game's to say: it hands over
 an anchor that writes a world position and a projection that turns it into a screen one, so a
 number over a walking target walks with it, and one behind the camera is simply not drawn.
+
+The crosshair is the other half of that. It draws at the centre of whatever box it is given, so it
+is right at every window size without the game working out where the middle is; the spread animates
+towards what the game says it is, kicking faster than it settles, because a crosshair that snaps
+open reads as a glitch rather than as recoil. A landed shot flashes four ticks — one marker, so
+firing faster does not stack markers into a bright blob, which is the bug every hand-rolled one
+has. A hostile target changes its colour and nothing else.
 
 The gamepad half has never met a gamepad: there is no pad on the machine this is written on, so
 the button layouts, the hot-plugging and the axis directions are written to what LibGDX's and

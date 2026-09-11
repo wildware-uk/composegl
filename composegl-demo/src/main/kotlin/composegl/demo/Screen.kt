@@ -55,8 +55,13 @@ import androidx.compose.runtime.LaunchedEffect
 import composegl.ui.game.Bar
 import composegl.ui.game.DamageNumberLayer
 import composegl.ui.game.WorldAnchor
+import composegl.ui.game.Reticle
+import composegl.ui.game.ReticleState
+import composegl.ui.game.WorldProjection
 import composegl.ui.game.rememberDamageNumbers
+import composegl.ui.game.rememberReticleState
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import composegl.ui.game.BarThreshold
 import composegl.ui.game.Hotbar
 import composegl.ui.game.HotbarSlot
@@ -113,28 +118,6 @@ fun Screen(
                 // same state to press.
                 val hotbar = remember { HotbarState() }
 
-                // Numbers that float off the health bar every time the game takes a bite out of
-                // it. They are on the world's clock, so opening the confirmation dialogue leaves
-                // them hanging in the air until the game comes back.
-                val numbers = rememberDamageNumbers()
-                var lastHealth by remember { mutableStateOf(state.health) }
-                LaunchedEffect(state.health) {
-                    val lost = lastHealth - state.health
-                    lastHealth = state.health
-                    if (lost > 0.005f) {
-                        val amount = (lost * 1000f).toInt()
-                        val critical = lost > 0.2f
-                        // Two hits in the same place would sit on top of each other, so each one
-                        // is nudged sideways by something about itself.
-                        val spread = (amount % 7) * 10f - 30f
-                        numbers.show(
-                            if (critical) "$amount!" else "$amount",
-                            WorldAnchor.at(DamageAt.x + spread, DamageAt.y),
-                            critical = critical,
-                        )
-                    }
-                }
-
                 Box(Modifier.fillMaxSize().styled("screen").onKeyEvent(hotbar::onKey)) {
                     Column(
                         Modifier.fillMaxSize().padding(28f),
@@ -152,7 +135,8 @@ fun Screen(
                             horizontalArrangement = Arrangement.spacedBy(20f),
                         ) {
                             StatusPanel(Modifier.width(300f).fillMaxHeight(), state)
-                            LorePanel(Modifier.weight(1f).fillMaxHeight(), state)
+                            RangePanel(Modifier.weight(1f).fillMaxHeight(), state)
+                            LorePanel(Modifier.weight(1.2f).fillMaxHeight(), state)
                         }
 
                         DemoHotbar(state, hotbar)
@@ -165,11 +149,7 @@ fun Screen(
                     // Proof that a window coordinate made it all the way to a design coordinate,
                     // through the HDPI scale and the letterbox — and that the same coordinate found the
                     // right node underneath it.
-                    // On top of everything the game drew, and asking for frames only while a
-                    // number is still in the air.
-                    DamageNumberLayer(numbers)
-
-                    state.pointer?.let { Reticle(it) }
+                    state.pointer?.let { PointerCross(it) }
                 }
             }
         }
@@ -211,6 +191,57 @@ private fun AbortDialog(state: DemoState) {
                     state.answer("DECLINE")
                 }
             }
+        }
+    }
+}
+
+/**
+ * The nearest thing this example has to a game: something being shot at.
+ *
+ * Everything in here is a game widget rather than an interface one. The crosshair sits exactly in
+ * the middle of the panel whatever shape the window is, opens up when a shot goes off and settles
+ * back, and flashes four ticks when one lands. The numbers come off the target on the same shot,
+ * through a camera that puts zero in the middle of the view — so nothing here knows how big the
+ * panel is, including the code that decides where a number goes.
+ */
+@Composable
+private fun RangePanel(modifier: Modifier, state: DemoState) {
+    val numbers = rememberDamageNumbers()
+    val reticle = rememberReticleState()
+    reticle.hostile = true
+
+    LaunchedEffect(state.shots) {
+        if (state.shots == 0) return@LaunchedEffect
+        val critical = state.shots % 5 == 0
+        val amount = 40 + (state.shots * 37) % 90
+        // Nudged sideways by something about the shot, so two in a row are both readable.
+        val sideways = (state.shots % 5) * 16f - 32f
+        numbers.show(
+            if (critical) "$amount!" else "$amount",
+            WorldAnchor.at(sideways, -34f),
+            critical = critical,
+        )
+        reticle.hit(kill = critical)
+        // Kicks on the shot and settles afterwards, which is the whole reason the spread is
+        // animated rather than set.
+        reticle.spread = if (critical) 1f else 0.7f
+        delay(140)
+        reticle.spread = 0.12f
+    }
+
+    Panel(modifier, style = "panel.flat") {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Centre) {
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
+                Heading("RANGE")
+                Text("target at 40m, hostile", style = "label.dim")
+            }
+
+            // The thing being shot at. A square, because what a game draws here is its own.
+            Box(Modifier.size(72f).styledWith(rememberStyle("target")))
+
+            // Both layers fill the panel, so both are measured from its middle.
+            DamageNumberLayer(numbers, projection = WorldProjection.Centred)
+            Reticle(reticle, dot = 2f)
         }
     }
 }
@@ -496,7 +527,7 @@ private fun DemoHotbar(state: DemoState, hotbar: HotbarState) {
 
 /** A cross where the pointer is, drawn straight onto the canvas. */
 @Composable
-private fun Reticle(at: Offset) {
+private fun PointerCross(at: Offset) {
     val colour = rememberStyle("reticle").textColour
     LeafLayout(
         Modifier.offset(at.x - ReticleSize / 2f, at.y - ReticleSize / 2f).size(ReticleSize),
@@ -508,9 +539,6 @@ private fun Reticle(at: Offset) {
         },
     )
 }
-
-/** Where a hit on the player lands on screen: over the health bar in the status panel. */
-private val DamageAt = Offset(178f, 300f)
 
 private const val ReticleSize = 18f
 
@@ -570,6 +598,12 @@ class DemoState {
 
     private var step = 0
 
+    /** How many shots have landed on the range. Written by [tick], read by the range panel. */
+    var shots by mutableStateOf(0)
+        private set
+
+    private var shotStep = -1
+
     /**
      * What the game is doing while nobody touches it.
      *
@@ -582,6 +616,13 @@ class DemoState {
         if (now != step) {
             step = now
             health = HealthSteps[now % HealthSteps.size]
+        }
+        // Something on the range is being shot at, twice a second. One counter, so everything
+        // that answers a shot — the crosshair, the numbers — answers the same one.
+        val shot = (seconds / 0.5f).toInt()
+        if (shot != shotStep) {
+            shotStep = shot
+            shots++
         }
         if (autoCycle) selected = (seconds / 0.8f).toInt() % 10
     }

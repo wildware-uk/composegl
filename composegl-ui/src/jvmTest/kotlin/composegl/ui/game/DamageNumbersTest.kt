@@ -183,7 +183,7 @@ class DamageNumbersTest {
                 DamageNumberLayer(
                     numbers,
                     // A camera that can only see the left half of the world.
-                    projection = WorldProjection { point, onto ->
+                    projection = WorldProjection { point, _, onto ->
                         onto.set(point.x, point.y)
                         point.x < 400f
                     },
@@ -198,6 +198,25 @@ class DamageNumbersTest {
 
         assertNotNull(drawn("near"))
         assertNull(drawn("far"), "something behind the camera was drawn anyway")
+    }
+
+    @Test
+    fun `a centred camera puts zero in the middle of the view`() {
+        val numbers = numbers()
+        host.setContent {
+            ProvideFonts(MonospaceFontProvider()) {
+                DamageNumberLayer(numbers, projection = WorldProjection.Centred)
+            }
+        }
+        repeat(2) { frame() }
+
+        numbers.show("8", WorldAnchor.at(0f, 0f))
+        frame()
+
+        // Drawn from its left edge, so the middle of the view is a character's width to its right.
+        val text = checkNotNull(drawn("8"))
+        assertTrue(text.at.x < 400f && text.at.x > 380f, "not in the middle across: ${text.at.x}")
+        assertTrue(text.at.y <= 300f && text.at.y > 240f, "not in the middle down: ${text.at.y}")
     }
 
     @Test

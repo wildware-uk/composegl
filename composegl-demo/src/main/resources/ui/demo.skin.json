@@ -251,6 +251,13 @@
 
     "focusRing.hidden": { "background": "none", "padding": 3 },
 
-    "reticle": { "textColour": "#4CC2FF" }
+    // The pointer cross uses the text colour; the crosshair on the range uses the fill.
+    "reticle": { "textColour": "#4CC2FF", "background": { "fill": "#E8ECF2" } },
+    "reticle.hostile": { "background": { "fill": "#FF5A4F" } },
+    "reticle.hit": { "background": { "fill": "#FFFFFF" } },
+    "reticle.kill": { "background": { "fill": "#FF5A4F" } },
+
+    // What is being shot at on the range.
+    "target": { "background": { "fill": "#2A3446", "corner": 6, "border": "#5A6B86", "borderWidth": 2 } }
   }
 }
