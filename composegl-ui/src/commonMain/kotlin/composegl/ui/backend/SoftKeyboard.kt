@@ -13,9 +13,24 @@ interface SoftKeyboard {
     fun show()
 
     fun hide()
+
+    companion object {
+
+        /**
+         * A keyboard that is not there.
+         *
+         * What a field gets on a desktop, and before a game has wired a phone's up: asking for it
+         * does nothing, rather than a field having to know which platform it is on.
+         */
+        val None: SoftKeyboard = object : SoftKeyboard {
+            override val isVisible: Boolean get() = false
+            override fun show() = Unit
+            override fun hide() = Unit
+        }
+    }
 }
 
-/** For desktop, and for tests. Remembers what it was asked so a test can check. */
+/** For tests. Remembers what it was asked, in order, so a test can check when a field asked. */
 class RecordingSoftKeyboard : SoftKeyboard {
 
     override var isVisible: Boolean = false

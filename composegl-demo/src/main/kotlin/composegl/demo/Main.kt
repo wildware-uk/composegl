@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.PixmapIO
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g2d.TextureAtlas
 import composegl.gdx.GdxClipboard
+import composegl.gdx.GdxSoftKeyboard
 import composegl.gdx.GdxCanvas
 import composegl.gdx.GdxFonts
 import composegl.gdx.GdxGamepadInput
@@ -80,7 +81,7 @@ class Demo : ApplicationAdapter() {
         sprites = SpriteBatch()
         canvas = GdxCanvas(sprites, fonts.atlas)
         host = UiHost()
-        host.setContent { Screen(fonts, skin.skin, state, GdxClipboard()) }
+        host.setContent { Screen(fonts, skin.skin, state, GdxClipboard(), GdxSoftKeyboard()) }
 
         // The whole of the engine's involvement in input: a translator, pointed at a sink. What
         // the sink does with an event — which node it hit, whether that is a click — is the
