@@ -4,7 +4,9 @@
 
 | | |
 |---|---|
+| [How it works](how-it-works.md) | The long tour: what is built, what it draws, and what it costs. |
 | [Design](superpowers/specs/2026-09-09-runtime-ui-design.md) | What is being built, and every decision with its reason. |
+| [Releasing](releasing.md) | How a version gets to Maven Central. |
 | [Roadmap](roadmap.md) | The milestones, M5 to M15, and what exists at the end of each. |
 | [Spike S6](superpowers/spikes/s6-runtime-ui.md) | The evidence it works: recomposition still skips work with no Compose UI. Real numbers, real OpenGL. |
 
