@@ -97,12 +97,16 @@ repeat(20) {
     MeasurePass().run(host.root, constraints)
     DrawPass(silent).draw(host.root)
 }
-assertTrue((allocatedBytes() - before) / 20 < 5_120)
+assertTrue((allocatedBytes() - before) / 20 < 1_536)
 ```
 
 `FrameCostTest` in `composegl-ui` does exactly this over a twenty-widget HUD. It is
-a ratchet: when the number goes down, the bar goes down with it. That test is what
-caught text being laid out again on every pass.
+a ratchet: when the number goes down, the bar goes down with it — it has come from
+13,247 bytes a frame to 1,178. That test is what caught text being laid out again
+on every pass, and the placement block every layout was making per node per frame.
+
+Neither pass allocates per node any more, so what is left is mostly the runtime
+being asked for a frame it has nothing to do in.
 
 ---
 
