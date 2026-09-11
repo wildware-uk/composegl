@@ -145,18 +145,90 @@ val count = measurables.size
 val placeables = placeables(count)      // Array<Placeable?>, at least `count` long
 val sizes = sizes(count)                // FloatArray
 val positions = positions(count)        // FloatArray
-
-for (index in 0 until count) {
-    val placeable = measurables[index].measure(offered)
-    placeables[index] = placeable
-    sizes[index] = placeable.width
-}
+val placements = placements(count)      // FloatArray, x, y, x, y…
+val offers = offers(count)              // one ConstraintsCache per child
 ```
 
 It is good until your `measure` returns. Keeping it past that is keeping somebody
 else's paper.
 
-Ignore all three and build your own lists if you would rather — nothing checks, and
+### The placement block is the expensive bit
+
+This looks free and is not:
+
+```kotlin
+layout(width, height) {
+    for (index in 0 until count) placeables[index]?.at(xs[index], ys[index])
+}
+```
+
+The block mentions `count` and `placeables`, so Kotlin makes a fresh object for it
+**every time the layout runs** — once per node, every frame, forever. On a HUD of
+twenty widgets that was most of what a still screen cost.
+
+So write the corners down instead, and hand back the count:
+
+```kotlin
+val placements = placements(count)
+for (index in 0 until count) {
+    val placeable = placeables[index] ?: continue
+    placements[index * 2] = …           // x
+    placements[index * 2 + 1] = …       // y
+}
+
+return layout(width, height, count)
+```
+
+Nothing is mentioned, so nothing is made. `Ring` above rewritten this way:
+
+```kotlin
+val Ring = MeasurePolicy { measurables, constraints ->
+    val radius = 90f
+    val count = measurables.size
+    val placeables = placeables(count)
+    val placements = placements(count)
+
+    var widest = 0f
+    for (index in 0 until count) {
+        val placeable = measurables[index].measure(constraints.loosen(offers(1)[0]))
+        placeables[index] = placeable
+        if (placeable.width > widest) widest = placeable.width
+    }
+    val side = radius * 2f + widest
+
+    for (index in 0 until count) {
+        val placeable = placeables[index] ?: continue
+        val angle = index * 2f * PI.toFloat() / count
+        placements[index * 2] = side / 2f + cos(angle) * radius - placeable.width / 2f
+        placements[index * 2 + 1] = side / 2f + sin(angle) * radius - placeable.height / 2f
+    }
+
+    layout(constraints.constrainWidth(side), constraints.constrainHeight(side), count)
+}
+```
+
+Keep the block form when the corners genuinely are not known until placing time, or
+when arrays would make the code harder to read than it is worth.
+
+### Constraints you work out yourself
+
+If you hand a child something other than what you were given — a share of a row, a
+fixed size — that is an object per child per frame too. `offers(count)` lends one
+remembered answer per child:
+
+```kotlin
+val offers = offers(count)
+val room = offers[index].of(0f, share, 0f, crossMax)
+```
+
+`ConstraintsCache.of(...)` hands back the same object when the four numbers have not
+moved, which on a still screen is always. `constraints.loosen(cache)` and
+`constraints.shrink(h, v, cache)` take one for the same reason.
+
+One cache per child, never shared: two different sets of numbers through one cache
+means neither is ever the one that was kept.
+
+Ignore all of it and build your own lists if you would rather — nothing checks, and
 for a layout that appears once on a settings screen it does not matter. For a HUD,
 it does: see [[Testing]] for the allocation test that watches this.
 
