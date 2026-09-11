@@ -2,7 +2,11 @@ package composegl.ui.node
 
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.UiCanvas
+import composegl.ui.layout.Inset
+import composegl.ui.layout.Measurable
 import composegl.ui.layout.MeasurePolicy
+import composegl.ui.layout.NodePlaceable
+import composegl.ui.layout.OnceMeasurable
 import composegl.ui.geometry.Size
 import composegl.ui.modifier.Modifier
 import composegl.ui.modifier.ResolvedModifier
@@ -81,6 +85,21 @@ class UiNode(var name: String = "node") {
             field = value
             invalidate()
         }
+
+    // --- what the layout pass uses again every frame ---
+    //
+    // A pass runs over the whole tree every frame in most games, whether anything changed or not,
+    // and the three objects below are the ones it would otherwise make fresh for every node every
+    // time. They hold no state that outlives a pass; see MeasurePass for why that is safe.
+
+    internal val measurable = OnceMeasurable(this)
+
+    internal val placeable = NodePlaceable(this)
+
+    internal val inset = Inset()
+
+    /** This node's children, wrapped, refilled by each pass rather than rebuilt. */
+    internal val measurables: MutableList<Measurable> = mutableListOf()
 
     private var cachedResolution: ResolvedModifier? = null
 
