@@ -101,3 +101,18 @@ sealed interface PointerEvent {
         override val timeMillis: Long = 0L,
     ) : PointerEvent
 }
+
+/**
+ * The same event, somewhere else.
+ *
+ * Used to hand a node an event in its own coordinates rather than the root's, so a handler can ask
+ * "where in me?" without knowing where it is on the screen.
+ */
+fun PointerEvent.movedTo(position: Offset): PointerEvent = when (this) {
+    is PointerEvent.Press -> copy(position = position)
+    is PointerEvent.Move -> copy(position = position)
+    is PointerEvent.Release -> copy(position = position)
+    is PointerEvent.Cancel -> copy(position = position)
+    is PointerEvent.Scroll -> copy(position = position)
+    is PointerEvent.Exit -> copy(position = position)
+}

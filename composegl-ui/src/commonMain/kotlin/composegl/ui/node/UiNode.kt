@@ -100,6 +100,27 @@ class UiNode(var name: String = "node") {
     /** Where this node sits inside its parent. */
     val bounds: Rect get() = Rect.of(x, y, width, height)
 
+    /**
+     * Where this node sits in the root's coordinates — the ones a pointer event arrives in.
+     *
+     * Walked up the parent chain rather than stored, because storing it would mean every node
+     * under a moved node had to be revisited, and the only things that ask are hit testing and
+     * focus. A child's position already includes its parent's padding, so this is a sum and
+     * nothing more.
+     */
+    val boundsInRoot: Rect
+        get() {
+            var left = 0f
+            var top = 0f
+            var node: UiNode? = this
+            while (node != null) {
+                left += node.x
+                top += node.y
+                node = node.parent
+            }
+            return Rect.of(left, top, width, height)
+        }
+
     /** Tells the tree that this frame is not the same as the last one. */
     fun invalidate() {
         tree?.invalidate()
