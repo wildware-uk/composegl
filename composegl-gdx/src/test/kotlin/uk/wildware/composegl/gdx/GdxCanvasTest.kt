@@ -20,6 +20,7 @@ import uk.wildware.composegl.ui.text.TextStyle
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
@@ -279,6 +280,11 @@ class GdxCanvasTest {
 
     @Test
     fun `a shader that will not compile says so, with its name and the driver's words`() {
+        // Skipped here rather than inside `draw`, which is where every other test lets it happen.
+        // The skip is thrown, and this is the one test that wraps `draw` in `assertThrows` — which
+        // catches it, decides it is the wrong exception, and turns "no display" into a failure.
+        assumeTrue(Gl.available, "no display; this test needs a real GL context")
+
         val broken = ShaderEffect(ShaderSource("broken", "void main() { this is not GLSL }"))
 
         val thrown = assertThrows<IllegalArgumentException> {

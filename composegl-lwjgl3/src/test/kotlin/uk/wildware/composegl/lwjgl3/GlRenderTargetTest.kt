@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11
@@ -23,6 +25,19 @@ import kotlin.math.abs
  * that it is drawn only when something changed — is the toolkit's and is asserted without a GPU.
  */
 class GlRenderTargetTest {
+
+    /**
+     * Every test here needs a real GL context, and one of them builds a [GlRenderTarget] before it
+     * gets inside [Gl.render].
+     *
+     * `Gl.render` skips on a machine with no display, but a `GlRenderTarget` built outside it
+     * reaches OpenGL with no context at all, and the native side does not raise an exception for
+     * that — it aborts the process. A crashed JVM is not a failed test: there is no report, and
+     * the whole module's `test` task dies with SIGABRT. So the skip happens here, before anything
+     * in the class can touch a driver.
+     */
+    @BeforeEach
+    fun requireDisplay() = assumeTrue(Gl.available, "no display; these tests need a real GL context")
 
     private val size = 128
 
