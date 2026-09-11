@@ -12,6 +12,7 @@ import composegl.ui.draw.DrawPass
 import composegl.ui.geometry.Size
 import composegl.ui.graphics.ArtAtlas
 import composegl.ui.host.UiHost
+import composegl.ui.host.UiRenderer
 import composegl.ui.layout.MeasurePass
 import composegl.ui.layout.ScalePolicy
 import composegl.ui.layout.run
@@ -45,8 +46,6 @@ fun main() {
     val art = GlTexture.decode(resource("ui/ui.png"))
     val canvas = GlCanvas(fonts)
 
-    // Made once, not once a frame: a pass holds the canvas and nothing else.
-    val drawPass = DrawPass(canvas)
     val state = DemoState()
     val host = UiHost()
     val skin = demoSkin(atlas(art), fonts)
@@ -86,6 +85,15 @@ fun main() {
     var frames = 0
     var elapsed = 0f
 
+    val ui = UiRenderer(host, canvas, state.budget)
+    // Set once rather than passed per frame. Input goes here because hit testing needs positions,
+    // and so do the scripted presses, since focus moves by geometry.
+    ui.onLaidOut = { millis ->
+        input.frame(millis)
+        if (frames == 0) scriptedPad?.let { input.pretendPadDid(it) }
+        if (frames < scriptedKeys.size) input.pretendKeyWas(scriptedKeys[frames])
+    }
+
     try {
         while (!window.shouldClose()) {
             elapsed = GLFW.glfwGetTime().toFloat()
@@ -95,22 +103,13 @@ fun main() {
             padInput.poll()
             // One look at a timestamp. An artist saving the skin file is seen on the next frame.
             skin.reloadIfChanged()
-            val changed = state.budget.recompose { host.frame(System.nanoTime()) }
-
             viewport = window.viewport(Design, ScalePolicy.Fit)
-            state.budget.layout { MeasurePass().run(host.root, viewport) }
-            input.frame(System.nanoTime() / 1_000_000)
-            if (frames == 0) scriptedPad?.let { input.pretendPadDid(it) }
-            if (frames < scriptedKeys.size) input.pretendKeyWas(scriptedKeys[frames])
 
             GL11.glClearColor(0.03f, 0.04f, 0.05f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
-            canvas.begin(viewport)
-            state.budget.draw { drawPass.draw(host.root) }
-            canvas.end()
-
-            // After end(), because that is when the last batch is actually handed over.
-            state.budget.endFrame(canvas.drawCalls, changed)
+            // The whole interface: recompose, lay out, hand input the positions, draw, and time
+            // all three. See UiRenderer.
+            ui.render(viewport, System.nanoTime())
 
             window.present()
 

@@ -23,6 +23,7 @@ import composegl.ui.draw.DrawPass
 import composegl.ui.geometry.Size
 import composegl.ui.graphics.ArtAtlas
 import composegl.ui.host.UiHost
+import composegl.ui.host.UiRenderer
 import composegl.ui.layout.MeasurePass
 import composegl.ui.layout.ScalePolicy
 import composegl.ui.layout.Viewport
@@ -45,8 +46,8 @@ class Demo : ApplicationAdapter() {
     private lateinit var skin: ReloadingSkin
     private lateinit var canvas: GdxCanvas
 
-    /** Made once, not once a frame: a pass holds the canvas and nothing else. */
-    private lateinit var drawPass: DrawPass
+    /** The whole interface in one call, made once; see [UiRenderer]. */
+    private lateinit var ui: UiRenderer
     private lateinit var sprites: SpriteBatch
     private lateinit var host: UiHost
     private lateinit var pointerInput: GdxPointerInput
@@ -98,7 +99,6 @@ class Demo : ApplicationAdapter() {
 
         sprites = SpriteBatch()
         canvas = GdxCanvas(sprites, fonts.atlas)
-        drawPass = DrawPass(canvas)
         host = UiHost()
         host.setContent { Screen(fonts, skin.skin, state, GdxClipboard(), GdxSoftKeyboard()) }
 
@@ -116,6 +116,15 @@ class Demo : ApplicationAdapter() {
         // calls back, so the loop below has nothing to do for them.
         padInput = GdxGamepadInput(input)
         padInput.start()
+
+        ui = UiRenderer(host, canvas, state.budget)
+        // Set once rather than passed per frame. Input goes here because hit testing needs
+        // positions, and so do the scripted presses, since focus moves by geometry.
+        ui.onLaidOut = { millis ->
+            input.frame(millis)
+            if (frames == 0) scriptedPad?.let { input.pretendPadDid(it) }
+            if (frames < scriptedKeys.size) input.pretendKeyWas(scriptedKeys[frames])
+        }
     }
 
     override fun render() {
@@ -126,26 +135,17 @@ class Demo : ApplicationAdapter() {
 
         // One look at a timestamp. An artist saving the skin file is seen on the next frame.
         skin.reloadIfChanged()
-        val changed = state.budget.recompose { host.frame(System.nanoTime()) }
-
         viewport = Viewport(
             design = Size(1280f, 720f),
             physical = Size(Gdx.graphics.backBufferWidth.toFloat(), Gdx.graphics.backBufferHeight.toFloat()),
             policy = ScalePolicy.Fit,
         )
-        state.budget.layout { MeasurePass().run(host.root, viewport) }
-        input.frame(System.nanoTime() / 1_000_000)
-        if (frames == 0) scriptedPad?.let { input.pretendPadDid(it) }
-        if (frames < scriptedKeys.size) input.pretendKeyWas(scriptedKeys[frames])
 
         Gdx.gl.glClearColor(0.03f, 0.04f, 0.05f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
-        canvas.begin(viewport)
-        state.budget.draw { drawPass.draw(host.root) }
-        canvas.end()
-
-        // After end(), because that is when the last batch is actually handed over.
-        state.budget.endFrame(canvas.drawCalls, changed)
+        // The whole interface: recompose, lay out, hand input the positions, draw, and time all
+        // three. See UiRenderer.
+        ui.render(viewport, System.nanoTime())
 
         frames++
         if (shot != null && frames >= scriptedKeys.size + 2 && elapsed >= shotAt) {

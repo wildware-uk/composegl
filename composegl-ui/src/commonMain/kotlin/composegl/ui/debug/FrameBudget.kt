@@ -13,6 +13,10 @@ import kotlin.time.TimeSource
  * Those are three different bugs with three different fixes, and guessing between them is how an
  * afternoon goes missing.
  *
+ * A [composegl.ui.host.UiRenderer] keeps one and fills it in, so a game that draws its interface
+ * with `ui.render(viewport, nanos)` already has this and only has to switch it on. A game that
+ * writes the frame out itself does the wrapping:
+ *
  * ```kotlin
  * val budget = FrameBudget()
  * val draw = DrawPass(canvas)
