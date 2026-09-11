@@ -6,9 +6,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import composegl.ui.geometry.Offset
 import composegl.ui.geometry.Rect
 import composegl.ui.graphics.Colour
+import composegl.ui.input.InputSourceTracker
 import composegl.ui.input.InteractionState
 import composegl.ui.layout.Alignment
 import composegl.ui.layout.Arrangement
@@ -57,11 +59,20 @@ private val Small = TextStyle(family = "body", size = 13f)
  */
 @Composable
 fun Screen(fonts: FontProvider, skin: DemoSkin, state: DemoState) {
-    CompositionLocalProvider(LocalFonts provides fonts, LocalSkin provides skin) {
+    CompositionLocalProvider(
+        LocalFonts provides fonts,
+        LocalSkin provides skin,
+        LocalInputSource provides state.source,
+    ) {
         Box(Modifier.fillMaxSize().background(Background)) {
             Column(Modifier.fillMaxSize().padding(28f), verticalArrangement = Arrangement.spacedBy(20f)) {
                 Text("COMPOSEGL", style = Title, colour = Accent)
-                Text("a game interface toolkit on the Compose runtime", style = Small, colour = Dim)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("a game interface toolkit on the Compose runtime", style = Small, colour = Dim)
+                    // Switches the moment the player picks up something else. Nothing but a mouse
+                    // can reach it yet — keys and pads are the next two milestones.
+                    Text("input: ${state.source.current}".uppercase(), style = Small, colour = Dim)
+                }
 
                 Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(20f)) {
                     StatusPanel(Modifier.width(300f).fillMaxHeight(), state.health)
@@ -175,7 +186,9 @@ private fun Chip(label: String, colour: Colour, chosen: Boolean, first: Boolean,
  */
 @Composable
 private fun FocusRing(focused: Boolean, corner: Float, content: @Composable () -> Unit) {
-    val outline = if (focused) {
+    // Not drawn while somebody is using a mouse: a ring is a cursor for people who have no cursor,
+    // and drawn next to a hover highlight it is just a second highlight arguing with the first.
+    val outline = if (focused && LocalInputSource.current.showsFocusRing) {
         Modifier.border(Colour.White, width = 1f, corner = corner + 3f)
     } else {
         Modifier
@@ -245,8 +258,14 @@ private fun Reticle(at: Offset) {
 
 private const val ReticleSize = 18f
 
+/** What the player is using, so a widget can ask without being handed it. */
+val LocalInputSource = staticCompositionLocalOf<InputSourceTracker> { error("no input source tracker") }
+
 /** What the demo animates, and what the player has changed. */
 class DemoState {
+
+    val source = InputSourceTracker()
+
     var health by mutableStateOf(0.86f)
     var selected by mutableStateOf(3)
 

@@ -8,6 +8,7 @@ import composegl.ui.input.KeyEvent
 import composegl.ui.input.PointerEvent
 import composegl.ui.input.PointerId
 import composegl.ui.input.PointerRouter
+import composegl.ui.input.SourceAware
 import composegl.ui.input.TextEvent
 import composegl.ui.node.UiNode
 
@@ -34,19 +35,26 @@ internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink
 
     private val router = PointerRouter(root, focus)
 
+    /**
+     * Everything goes through here first, so the interface always knows what the player is using.
+     *
+     * It wraps rather than intercepts: the answers below are the router's, unchanged.
+     */
+    private val tracked = SourceAware(state.source, router)
+
     override fun onPointer(event: PointerEvent): Boolean {
         state.pointer = when (event) {
             is PointerEvent.Exit -> null
             else -> event.position
         }
-        return router.onPointer(event)
+        return tracked.onPointer(event)
     }
 
-    override fun onKey(event: KeyEvent) = router.onKey(event)
+    override fun onKey(event: KeyEvent) = tracked.onKey(event)
 
-    override fun onText(event: TextEvent) = router.onText(event)
+    override fun onText(event: TextEvent) = tracked.onText(event)
 
-    override fun onGamepad(event: GamepadEvent) = router.onGamepad(event)
+    override fun onGamepad(event: GamepadEvent) = tracked.onGamepad(event)
 
     /** Called once a frame, after layout, so focus never points at a node that has gone. */
     fun frame() = focus.refresh()
