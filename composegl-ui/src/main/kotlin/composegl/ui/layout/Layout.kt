@@ -2,6 +2,8 @@ package composegl.ui.layout
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
+import composegl.ui.geometry.Rect
+import composegl.ui.graphics.UiCanvas
 import composegl.ui.modifier.Modifier
 import composegl.ui.node.UiApplier
 import composegl.ui.node.UiNode
@@ -25,11 +27,14 @@ import composegl.ui.node.UiNode
  * ```
  *
  * @param name what this node is called in a debug dump and in test failures.
+ * @param draw what this node paints inside itself, under its children. The rectangle handed over
+ *   is the content box: the node's bounds with its padding taken off.
  */
 @Composable
 fun Layout(
     modifier: Modifier = Modifier,
     name: String = "layout",
+    draw: (UiCanvas.(Rect) -> Unit)? = null,
     content: @Composable () -> Unit = {},
     measurePolicy: MeasurePolicy,
 ) {
@@ -39,6 +44,7 @@ fun Layout(
             set(name) { this.name = it }
             set(modifier) { this.modifier = it }
             set(measurePolicy) { this.measurePolicy = it }
+            set(draw) { this.content = it }
         },
         content = content,
     )
@@ -55,6 +61,7 @@ fun LeafLayout(
     modifier: Modifier = Modifier,
     name: String = "leaf",
     measurePolicy: MeasurePolicy = MeasurePolicy.Empty,
+    draw: (UiCanvas.(Rect) -> Unit)? = null,
 ) {
     ComposeNode<UiNode, UiApplier>(
         factory = { UiNode() },
@@ -62,6 +69,7 @@ fun LeafLayout(
             set(name) { this.name = it }
             set(modifier) { this.modifier = it }
             set(measurePolicy) { this.measurePolicy = it }
+            set(draw) { this.content = it }
         },
     )
 }

@@ -18,11 +18,11 @@ Android and iOS. It also means we are free to build the toolkit games actually n
 texture atlas, focus that works on a gamepad, animations on a clock the game can pause — instead of
 a general-purpose one bent into shape.
 
-![The spike running](docs/images/s6-runtime-ui.png)
+![The example running](docs/images/demo.png)
 
-*Spike S6. Every panel, button, bar and letter is drawn by our own renderer from a tree the Compose
-runtime maintains. Bottom left is the number that matters: 300 frames, 185 redraws — and the 115
-idle ones were free.*
+*The example, in `composegl-demo`. Every rounded panel, border, shadow, bar and letter is drawn by
+our own renderer from a tree the Compose runtime maintains. The panels, the shadows and the borders
+share one shader, so a panel with all three costs one quad.*
 
 ## The thing it is for
 
