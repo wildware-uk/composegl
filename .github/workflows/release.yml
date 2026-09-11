@@ -115,7 +115,36 @@ jobs:
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
-        run: ./gradlew publishToMavenCentral --no-configuration-cache --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew publishToMavenCentral --no-configuration-cache --stacktrace | tee publish.log
+          id=$(grep -o 'deployment id: [0-9a-f-]*' publish.log | tail -1 | cut -d' ' -f3)
+          echo "DEPLOYMENT_ID=$id" >> "$GITHUB_ENV"
+          echo "deployment $id"
+
+      # The upload does not wait, so a green publish step means Central took the bundle, not that it
+      # liked it. Validation happens afterwards and can still refuse an unverified namespace or a
+      # missing signature. Without this, a failed release looks exactly like a good one.
+      - name: Central validated the bundle
+        if: github.event_name == 'push'
+        env:
+          USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: |
+          [ -n "$DEPLOYMENT_ID" ] || { echo "::warning::no deployment id in the publish output"; exit 0; }
+          token=$(printf '%s:%s' "$USERNAME" "$PASSWORD" | base64 -w0)
+          for _ in $(seq 1 40); do
+            body=$(curl -sS -X POST -H "Authorization: Bearer $token" \
+              "https://central.sonatype.com/api/v1/publisher/status?id=$DEPLOYMENT_ID" || true)
+            state=$(echo "$body" | jq -r '.deploymentState // "unknown"')
+            echo "$state"
+            case "$state" in
+              VALIDATED|PUBLISHING|PUBLISHED) echo "$body" | jq .; exit 0 ;;
+              FAILED) echo "$body" | jq .; echo "::error::Central refused the bundle; nothing was published"; exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "::warning::still $state after ten minutes; look at the portal"
 
       - name: What to do next
         if: github.event_name == 'push'
