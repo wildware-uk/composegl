@@ -1,0 +1,159 @@
+{
+  // The showcase's skin.
+  //
+  // A combat HUD over a 3D scene: darker and thinner than the example's, because everything here
+  // sits over a moving picture and has to stay readable without hiding it. Save it while the
+  // showcase runs and it changes on the next frame.
+
+  "defaults": {
+    "textColour": "#DCE6F2",
+    "text": { "font": "body", "size": 16 }
+  },
+
+  "styles": {
+
+    // --- surfaces ---
+
+    "panel": {
+      "background": { "fill": "#C00A1018", "corner": 4, "border": "#404CC2FF", "padding": 16 }
+    },
+
+    "panel.quiet": {
+      "background": { "fill": "#B00A1018", "corner": 4, "border": "#28FFFFFF", "padding": 16 }
+    },
+
+    // The readout pinned to a drone: no fill at all, because it is over the world.
+    "tag": {
+      "background": { "fill": "#800A1018", "corner": 3, "border": "#404CC2FF", "padding": [8, 5] }
+    },
+
+    // --- text ---
+
+    "label": {},
+    "label.dim": { "textColour": "#7E8DA3", "text": { "size": 13 } },
+    "label.title": { "textColour": "#4CC2FF", "text": { "size": 20 } },
+    "label.tag": { "textColour": "#8ADBFF", "text": { "size": 13 } },
+    "label.holo": { "textColour": "#8AFFD8", "text": { "size": 16 } },
+
+    // --- the things you press ---
+
+    "button": {
+      "background": { "fill": "#304CC2FF", "corner": 4, "border": "#4CC2FF", "padding": [14, 8] },
+      "textColour": "#E6F4FF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#504CC2FF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#804CC2FF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#304CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "toggle": {
+      "background": { "fill": "#2000FFFF", "corner": 11, "border": "#404CC2FF", "padding": 3 },
+      "hovered": { "background": { "fill": "#3000FFFF", "corner": 11, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#2000FFFF", "corner": 11, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "toggle.on": {
+      "background": { "fill": "#604CC2FF", "corner": 11, "border": "#8ADBFF", "padding": 3 },
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 11, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 11, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "toggle.knob": { "background": { "fill": "#E8F4FF", "corner": 8 } },
+
+    // --- bars ---
+    //
+    // Hull is the one that matters, so it is the one that changes colour and pulses; heat is a
+    // whole set of its own, which is what a game writes when it wants a second bar that is not
+    // the first.
+
+    "bar.track": { "background": { "fill": "#60000000", "corner": 3 } },
+    "bar.fill": { "background": { "fill": "#4CC2FF", "corner": 3 } },
+    "bar.fill.low": { "background": { "fill": "#FFB454", "corner": 3 } },
+    "bar.fill.critical": { "background": { "fill": "#FF2B2B", "corner": 3 } },
+    "bar.trail": { "background": { "fill": "#704CC2FF", "corner": 3 } },
+    "bar.segment": { "background": { "fill": "#0A1018" } },
+
+    "bar.heat.track": { "background": { "fill": "#60000000", "corner": 3 } },
+    "bar.heat.fill": { "background": { "fill": "#FF7A45", "corner": 3 } },
+    "bar.heat.trail": { "background": { "fill": "#70FF7A45", "corner": 3 } },
+    "bar.heat.segment": { "background": { "fill": "#0A1018" } },
+
+    "bar.shield.track": { "background": { "fill": "#60000000", "corner": 3 } },
+    "bar.shield.fill": { "background": { "fill": "#8AFFD8", "corner": 3 } },
+    "bar.shield.trail": { "background": { "fill": "#708AFFD8", "corner": 3 } },
+    "bar.shield.segment": { "background": { "fill": "#0A1018" } },
+
+    // --- the ability bar ---
+
+    "hotbar.slot": {
+      "background": { "fill": "#800A1018", "corner": 4, "border": "#404CC2FF" },
+      "textColour": "#9AA4B2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 4, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#604CC2FF", "corner": 4, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#800A1018", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "hotbar.slot.selected": {
+      "background": { "fill": "#404CC2FF", "corner": 4, "border": "#4CC2FF", "borderWidth": 2 },
+      "textColour": "#E6F4FF",
+      "text": { "size": 13 }
+    },
+
+    "hotbar.slot.empty": {
+      "background": { "fill": "#400A1018", "corner": 4, "border": "#20FFFFFF" }
+    },
+
+    "hotbar.prompt": { "textColour": "#6E8093", "text": { "size": 13 } },
+    "hotbar.charges": { "textColour": "#FFFFFF", "text": { "size": 13 } },
+
+    "cooldown.sweep": { "background": { "fill": "#B0060A12" } },
+    "cooldown.flash": { "background": { "fill": "#804CC2FF" } },
+    "cooldown.seconds": { "textColour": "#FFFFFF", "text": { "size": 16 } },
+
+    // --- what a hit is worth ---
+
+    "damage": { "textColour": "#FFE9A8", "text": { "size": 16 } },
+    "damage.critical": { "textColour": "#FF7A45", "text": { "size": 20 } },
+
+    // --- the middle of the screen, and the radar ---
+
+    "reticle": { "textColour": "#4CC2FF", "background": { "fill": "#E8ECF2" } },
+    "reticle.hostile": { "background": { "fill": "#FF5A4F" } },
+    "reticle.hit": { "background": { "fill": "#FFFFFF" } },
+    "reticle.kill": { "background": { "fill": "#FF5A4F" } },
+
+    "minimap": {
+      "background": { "fill": "#B00A1018", "corner": 4, "border": "#404CC2FF", "padding": [7, 7] }
+    },
+    "minimap.marker": { "background": { "fill": "#4CC2FF" } },
+    "minimap.compass": { "textColour": "#7E8DA3", "text": { "size": 13 } },
+
+    "focusRing": {
+      "background": { "fill": "#00000000", "corner": 5, "border": "#FFFFFF", "padding": 3 }
+    },
+
+    "focusRing.hidden": { "background": "none", "padding": 3 },
+
+    // --- the panel standing in the scene ---
+    //
+    // Drawn into a texture and added to the frame as light, so its background is deliberately
+    // nearly black: what is dark here disappears, and what is bright glows.
+
+    "holo": {
+      "background": { "fill": "#E0030A10", "corner": 6, "border": "#608AFFD8", "padding": 18 }
+    },
+
+    // Added as light over a lit floor, so a hint has to be brighter than it would be on a screen.
+    "holo.hint": { "textColour": "#8AFFD8", "text": { "size": 13 } },
+
+    "holo.button": {
+      "background": { "fill": "#308AFFD8", "corner": 4, "border": "#8AFFD8", "padding": [14, 8] },
+      "textColour": "#D8FFF4",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#608AFFD8", "corner": 4, "border": "#D8FFF4", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#908AFFD8", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#308AFFD8", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } }
+    }
+  }
+}

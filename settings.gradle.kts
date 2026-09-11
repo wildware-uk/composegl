@@ -22,6 +22,7 @@ include(
     "composegl-testing",
     "composegl-demo",
     "composegl-demo-snake",
+    "composegl-demo-showcase",
     // Throwaway feasibility spike; see docs/superpowers/spikes/s6-runtime-ui.md.
     "spikes:s6-runtime-ui",
 )
