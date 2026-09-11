@@ -51,8 +51,12 @@ import composegl.ui.animation.LocalClocks
 import composegl.ui.animation.Tween
 import composegl.ui.animation.animateFloatAsState
 import composegl.ui.backend.Clipboard
+import androidx.compose.runtime.LaunchedEffect
 import composegl.ui.game.Bar
+import androidx.compose.runtime.LaunchedEffect
 import composegl.ui.game.BarThreshold
+import composegl.ui.game.RadialCooldown
+import composegl.ui.game.rememberCooldown
 import composegl.ui.backend.SoftKeyboard
 import composegl.ui.widget.Button
 import composegl.ui.widget.Checkbox
@@ -237,6 +241,12 @@ private fun StatusPage(state: DemoState) {
         // glance rather than measured.
         LabelledBar("Shield", 0.42f, style = "bar.shield", segments = 4)
         LabelledBar("Stamina", 0.78f, style = "bar.stamina")
+        Spacer(Modifier.height(4f))
+        Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
+            Ability("Q", 3_000)
+            Ability("E", 6_000)
+            Ability("F", 9_000)
+        }
         Spacer(Modifier.weight(1f))
         // A value the player drags, nudges with the arrow keys, or pushes the stick at — all
         // three the widget's, and all three landing on the same five-point steps.
@@ -304,6 +314,31 @@ private fun GearPage(state: DemoState) {
         )
         Spacer(Modifier.weight(1f))
         Text("Mass 18.4 kg of a 24.0 kg allowance", style = "label.dim")
+    }
+}
+
+/**
+ * An ability with a cooldown on it.
+ *
+ * The demo has no player, so each one uses itself again as soon as it is ready and the sweep never
+ * stops. Clicking it while it is still going does nothing at all, which is the point: a cooldown
+ * that is already running ignores being triggered rather than starting over.
+ */
+@Composable
+private fun Ability(letter: String, millis: Int) {
+    val cooldown = rememberCooldown(millis)
+
+    LaunchedEffect(cooldown.isReady) {
+        if (cooldown.isReady) cooldown.trigger()
+    }
+
+    RadialCooldown(
+        cooldown = cooldown,
+        modifier = Modifier.size(44f).styled("slot").clickable { cooldown.trigger() },
+    ) {
+        // The key while it is usable, the seconds while it is not: two things to say in one square,
+        // and only ever one of them at a time.
+        if (cooldown.isReady) Text(letter, style = "label")
     }
 }
 

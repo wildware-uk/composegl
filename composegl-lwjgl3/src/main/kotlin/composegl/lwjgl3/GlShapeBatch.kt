@@ -170,6 +170,67 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         )
     }
 
+    /**
+     * A triangle fan, in whatever coordinates the caller has already flipped.
+     *
+     * The batch draws quads and nothing else, so each quad here carries *two* of the fan's
+     * triangles: the quad's own winding — 0,1,2 then 2,3,0 — is already hub, a, b and then b, c,
+     * hub. An odd point at the end repeats, which draws a triangle of no area.
+     *
+     * [points] is x, y pairs with the hub first, exactly as it reached the canvas.
+     */
+    fun fan(white: GlTexture, points: FloatArray, colour: Colour) {
+        if (points.size < 6) return
+        val u = (white.u + white.u2) / 2f
+        val v = (white.v + white.v2) / 2f
+        val hubX = points[0]
+        val hubY = points[1]
+
+        var at = 2
+        while (at + 3 < points.size) {
+            val cx = if (at + 5 < points.size) points[at + 4] else points[at + 2]
+            val cy = if (at + 5 < points.size) points[at + 5] else points[at + 3]
+            use(white.name)
+            fanQuad(
+                hubX, hubY,
+                points[at], points[at + 1],
+                points[at + 2], points[at + 3],
+                cx, cy,
+                u, v, colour,
+            )
+            at += 4
+        }
+    }
+
+    @Suppress("LongParameterList")
+    private fun fanQuad(
+        hubX: Float, hubY: Float,
+        aX: Float, aY: Float,
+        bX: Float, bY: Float,
+        cX: Float, cY: Float,
+        u: Float, v: Float,
+        colour: Colour,
+    ) {
+        flat(hubX, hubY, u, v, colour)
+        flat(aX, aY, u, v, colour)
+        flat(bX, bY, u, v, colour)
+        flat(cX, cY, u, v, colour)
+    }
+
+    /** One vertex of solid colour, with the distance field switched off. */
+    private fun flat(x: Float, y: Float, u: Float, v: Float, colour: Colour) {
+        vertex(
+            x = x, y = y, u = u, v = v,
+            fill = colour,
+            border = Colour.Transparent,
+            shadow = Colour.Transparent,
+            localX = 0f, localY = 0f,
+            halfWidth = 0f, halfHeight = 0f,
+            radius = 0f, borderWidth = 0f, shadowSpread = 0f,
+            aa = 0f,
+        )
+    }
+
     /** A picture, or a glyph. No shape and no softened edge — whatever the texture says. */
     @Suppress("LongParameterList")
     fun textured(

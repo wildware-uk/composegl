@@ -99,6 +99,40 @@ class GdxCanvasTest {
     }
 
     @Test
+    fun `a fan fills the shape it describes`() {
+        // The hub, then three corners: the top-left half of a square, cut across the diagonal.
+        val frame = draw {
+            fan(floatArrayOf(0f, 0f, 200f, 0f, 200f, 200f, 0f, 200f), red)
+        }
+
+        assertColour(Color.RED, frame.pixels.at(60, 40), "above the diagonal, inside the fan")
+        assertColour(Color.RED, frame.pixels.at(160, 180), "and below it, in the fan's second triangle")
+        assertColour(Color.BLACK, frame.pixels.at(300, 40), "outside it, where nothing was drawn")
+    }
+
+    @Test
+    fun `a fan is drawn at its colour's own opacity`() {
+        val frame = draw {
+            rect(Rect.of(0f, 0f, 200f, 200f), red)
+            fan(floatArrayOf(0f, 0f, 200f, 0f, 200f, 200f, 0f, 200f), blue.scaleAlpha(0.5f))
+        }
+
+        assertColour(Color(0.5f, 0f, 0.5f, 1f), frame.pixels.at(60, 40), "half of each is what half opacity means.")
+    }
+
+    @Test
+    fun `a fan obeys the clip`() {
+        val frame = draw {
+            pushClip(Rect.of(0f, 0f, 50f, 50f))
+            fan(floatArrayOf(0f, 0f, 400f, 0f, 400f, 400f, 0f, 400f), red)
+            popClip()
+        }
+
+        assertColour(Color.RED, frame.pixels.at(25, 10))
+        assertColour(Color.BLACK, frame.pixels.at(200, 10), "the clip did not hold")
+    }
+
+    @Test
     fun `a clip stops drawing outside it`() {
         val frame = draw {
             pushClip(Rect.of(0f, 0f, 50f, 50f))

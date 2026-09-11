@@ -39,6 +39,14 @@ sealed interface DrawCall {
         override val alpha: Float,
     ) : DrawCall
 
+    /** A triangle fan. The first point is the hub; [points] is in the order it was handed over. */
+    data class Fan(
+        val points: List<Offset>,
+        val colour: Colour,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : DrawCall
+
     data class Text(
         val text: String,
         val at: Offset,
@@ -113,6 +121,12 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     override fun shadow(rect: Rect, colour: Colour, spread: Float, corner: Float) {
         recorded += DrawCall.Shadow(rect, colour, spread, corner, state.clip, state.alpha)
+    }
+
+    override fun fan(points: FloatArray, colour: Colour) {
+        if (points.size < 6) return
+        val offsets = (points.indices step 2).map { Offset(points[it], points[it + 1]) }
+        recorded += DrawCall.Fan(offsets, colour, state.clip, state.alpha)
     }
 
     override fun text(layout: TextLayout, at: Offset, colour: Colour) {

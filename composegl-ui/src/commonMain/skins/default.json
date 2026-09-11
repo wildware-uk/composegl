@@ -160,6 +160,13 @@
     "bar.trail": { "background": { "fill": "#8E2B2E", "corner": 3 } },
     "bar.segment": { "background": { "fill": "#10131A" } },
 
+    // An ability on cooldown. The wedge is a dark sheet over the icon rather than a colour of its
+    // own, so it works over whatever art a game puts underneath it.
+
+    "cooldown.sweep": { "background": { "fill": "#B0101319" } },
+    "cooldown.flash": { "background": { "fill": "#70FFFFFF" } },
+    "cooldown.seconds": { "textColour": "#E8ECF2", "text": { "size": 18 } },
+
     "progress.track": { "background": { "fill": "#2C3545", "corner": 4 } },
     "progress.fill": { "background": { "fill": "#5B8DEF", "corner": 4 } },
     "progress.fill.danger": { "background": { "fill": "#E5484D", "corner": 4 } },
