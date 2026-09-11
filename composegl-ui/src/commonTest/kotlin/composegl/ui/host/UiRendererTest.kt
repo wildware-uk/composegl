@@ -76,6 +76,31 @@ class UiRendererTest {
     }
 
     @Test
+    fun `a game's own world is drawn inside the frame and under the interface`() {
+        content()
+        val renderer = UiRenderer(host, canvas)
+        var given: UiCanvas? = null
+        renderer.drawBehind = { behind ->
+            given = behind
+            canvas.order += "board"
+        }
+
+        renderer.render(viewport, 0L)
+
+        assertEquals(listOf("begin", "board", "rect", "end"), canvas.order)
+        assertSame(canvas, given, "the same canvas the interface is drawn into, not another")
+    }
+
+    @Test
+    fun `nothing behind is the default`() {
+        content()
+
+        UiRenderer(host, canvas).render(viewport, 0L)
+
+        assertEquals(listOf("begin", "rect", "end"), canvas.order)
+    }
+
+    @Test
     fun `the budget it keeps is the one it was given`() {
         content()
         val budget = FrameBudget()
