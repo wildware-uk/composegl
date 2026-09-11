@@ -70,6 +70,7 @@ val published = setOf(
     "composegl-gdx",
     "composegl-lwjgl3",
     "composegl-android",
+    "composegl-robovm",
     "composegl-testing",
 )
 
