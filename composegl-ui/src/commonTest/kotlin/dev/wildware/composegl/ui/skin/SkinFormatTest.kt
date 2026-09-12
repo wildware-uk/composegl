@@ -168,8 +168,21 @@ class SkinFormatTest {
 
         assertEquals(Padding.all(6f), patch.slice, "the corners are 6, so the border is 6")
         assertEquals(Padding.all(9f), patch.padding, "and the file still says its own padding")
-        assertEquals(atlas.region("frame/centre"), pieces.centre)
-        assertEquals(1, pieces.centre?.width, "the middle band is one texel, which is the point")
+        // Every piece against its own name: the mistake a reader of nine keys makes is putting
+        // the right art in the wrong slot, and that draws a frame with its sides swapped rather
+        // than failing.
+        assertEquals(
+            listOf(
+                "frame/topLeft", "frame/top", "frame/topRight",
+                "frame/left", "frame/centre", "frame/right",
+                "frame/bottomLeft", "frame/bottom", "frame/bottomRight",
+            ).map { atlas.region(it) },
+            listOf(
+                pieces.topLeft, pieces.top, pieces.topRight,
+                pieces.left, pieces.centre, pieces.right,
+                pieces.bottomLeft, pieces.bottom, pieces.bottomRight,
+            ),
+        )
     }
 
     @Test
@@ -192,7 +205,8 @@ class SkinFormatTest {
             read("""{ "styles": { "b": { "background": { "patch": { "centre": "bar/fill" }, "slice": 6 } } } }""")
         }
 
-        assertTrue("slice" in problem.message.orEmpty(), problem.message.orEmpty())
+        // Not just the word "slice", which a patch that is *missing* one also says.
+        assertTrue("is its own slice" in problem.message.orEmpty(), problem.message.orEmpty())
     }
 
     @Test
@@ -291,7 +305,7 @@ class SkinFormatTest {
             read("""{ "styles": { "b": { "background": { "patch": "ui/button" } } } }""")
         }
 
-        assertTrue("slice" in problem.message.orEmpty(), problem.message.orEmpty())
+        assertTrue("needs a \"slice\"" in problem.message.orEmpty(), problem.message.orEmpty())
     }
 
     @Test

@@ -72,6 +72,9 @@ interface UiCanvas {
      * Null means all of it. It is here so that slicing a picture up — a nine-patch, a sprite
      * sheet, one frame of an animation — is arithmetic the toolkit does once, rather than a
      * feature every backend has to implement and can implement differently.
+     *
+     * [NineRegions] is nine pieces rather than one picture, and every canvas here refuses one by
+     * name — it has no size to stretch to fit. Draw it through [NinePatch] instead.
      */
     fun image(
         texture: TextureHandle,

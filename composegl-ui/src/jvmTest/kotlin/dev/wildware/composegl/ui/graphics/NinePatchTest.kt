@@ -13,7 +13,9 @@ import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.node.UiTree
+import dev.wildware.composegl.ui.skin.SkinDrawable
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -244,6 +246,13 @@ class NinePatchTest {
         bottomLeft = Art(16, 16), bottom = Art(middle, 16), bottomRight = Art(16, 16),
     )
 
+    /** The nine in the order a patch walks its cells: left to right, top row first. */
+    private fun NineRegions.inDrawOrder() = listOf(
+        topLeft, top, topRight,
+        left, centre, right,
+        bottomLeft, bottom, bottomRight,
+    )
+
     @Test
     fun `nine regions draw exactly the geometry one texture draws`() {
         val box = Rect.of(11f, 13f, 317f, 149f)
@@ -252,13 +261,22 @@ class NinePatchTest {
         val sliced = drawn().map { it.destination }
 
         canvas.clear()
-        NinePatch.of(nine()).drawInto(canvas, box)
+        val regions = nine()
+        NinePatch.of(regions).drawInto(canvas, box)
 
         assertEquals(sliced, drawn().map { it.destination }, "the two paths cannot be allowed to drift")
         assertEquals(
             Rect.of(0f, 0f, 16f, 16f),
             at(27f, 29f).source,
             "and each piece is drawn whole, rather than out of a rectangle inside a bigger picture",
+        )
+        // The destinations are the same in both paths by construction, so they prove almost
+        // nothing on their own: drawing every cell out of its *own* piece is the whole feature,
+        // and a patch that drew all nine corners from the centre would pass everything above.
+        assertEquals(
+            regions.inDrawOrder(),
+            drawn().map { it.texture },
+            "each cell comes out of the piece cut for it",
         )
     }
 
@@ -270,9 +288,18 @@ class NinePatchTest {
         val sliced = drawn().map { it.destination }
 
         canvas.clear()
-        NinePatch.of(nine(), leftEdge = EdgeMode.Tile, topEdge = EdgeMode.Tile).drawInto(canvas, box)
+        val regions = nine()
+        NinePatch.of(regions, leftEdge = EdgeMode.Tile, topEdge = EdgeMode.Tile).drawInto(canvas, box)
 
         assertEquals(sliced, drawn().map { it.destination })
+        assertSame(regions.topLeft, at(0f, 0f).texture, "the corner is still the corner's own art")
+        assertSame(regions.centre, at(16f, 16f).texture)
+        // A tiled edge is several draws of one piece, and every one of them is that piece.
+        val topBand = drawn().filter {
+            it.destination.top == 0f && it.destination.left >= 16f && it.destination.right <= 184f
+        }
+        assertTrue(topBand.isNotEmpty(), "the top edge tiles into more than nothing")
+        assertTrue(topBand.all { it.texture === regions.top }, "and every tile of it is the top piece")
     }
 
     @Test
@@ -330,10 +357,23 @@ class NinePatchTest {
     @Test
     fun `sides of different sizes are fine while they stretch`() {
         // Stretching has to keep the freedom: cutting a band to one texel depends on it.
-        val uneven = NinePatch.of(NineRegions(left = Art(6, 1), centre = Art(1, 1), right = Art(6, 40)))
+        val pieces = NineRegions(left = Art(6, 1), centre = Art(1, 1), right = Art(6, 40))
+        val uneven = NinePatch.of(pieces)
 
         uneven.drawInto(canvas, Rect.of(0f, 0f, 80f, 40f))
-        assertEquals(3, drawn().size)
+
+        assertEquals(3, drawn().size, "the row it has, and no rows above or below it")
+        // Three rectangles is not enough to know: they have to be the right three, out of the
+        // right art, each stretched from whatever size its own piece happens to be.
+        assertEquals(Rect.of(0f, 0f, 6f, 40f), at(0f, 0f).destination, "a 6-wide cap, full height")
+        assertSame(pieces.left, at(0f, 0f).texture)
+        assertEquals(Rect.of(0f, 0f, 6f, 1f), at(0f, 0f).source, "out of all one pixel of it")
+
+        assertEquals(Rect.of(6f, 0f, 68f, 40f), at(6f, 0f).destination, "the middle takes the rest")
+        assertSame(pieces.centre, at(6f, 0f).texture)
+
+        assertEquals(Rect.of(74f, 0f, 6f, 40f), at(74f, 0f).destination, "and the far cap")
+        assertSame(pieces.right, at(74f, 0f).texture)
     }
 
     @Test
@@ -344,6 +384,24 @@ class NinePatchTest {
 
         val message = thrown.message!!
         assertTrue("topLeft" in message && "left" in message, message)
+    }
+
+    @Test
+    fun `nine regions with nothing in them at all are refused`() {
+        val thrown = assertThrows(IllegalArgumentException::class.java) { NineRegions() }
+
+        assertTrue("at least one" in thrown.message!!, thrown.message)
+    }
+
+    @Test
+    fun `a piece with no size is refused, by name, rather than quietly drawing nothing`() {
+        val thrown = assertThrows(IllegalArgumentException::class.java) {
+            NineRegions(topLeft = Art(6, 6), top = Art(0, 6), topRight = Art(6, 6))
+        }
+
+        val message = thrown.message!!
+        assertTrue("the top piece" in message, "it says which piece: $message")
+        assertTrue("leave it out" in message, "and what to do instead: $message")
     }
 
     @Test
@@ -362,6 +420,22 @@ class NinePatchTest {
         val message = thrown.message!!
         assertTrue("nine separately-cut" in message, message)
         assertTrue("NinePatch" in message, "and what to do about it: $message")
+    }
+
+    @Test
+    fun `a skin's image background refuses them, where the skin says so`() {
+        val thrown = assertThrows(IllegalArgumentException::class.java) { SkinDrawable.Image(nine()) }
+
+        assertEquals(NineRegions.NotOnePicture, thrown.message, "the one sentence, not a variant")
+    }
+
+    @Test
+    fun `a canvas refuses them too, so a recorded test cannot pass against art nothing can draw`() {
+        val thrown = assertThrows(IllegalArgumentException::class.java) {
+            canvas.image(nine(), Rect.of(0f, 0f, 10f, 10f))
+        }
+
+        assertEquals(NineRegions.NotOnePicture, thrown.message)
     }
 
     // --- what it refuses ---

@@ -19,10 +19,11 @@ import dev.wildware.composegl.ui.layout.Padding
  * the narrowing inside the library are the other two: it would throw away art the host may
  * actually want drawn, and it cannot be done in common code, which has no pixels to cut.
  *
- * Every piece is optional, and a missing one means that row or column has no slice at all — the
- * same thing a zero in a slice means today. `NineRegions(left = cap, centre = track, right = cap)`
- * is a scrollbar track or a progress bar: three pieces, no top row, no bottom row. A missing middle
- * piece is a frame with a hole in it, which is also a real thing to want.
+ * Every piece is optional — all but the last one, since nine nothings are not a picture — and a
+ * missing one means that row or column has no slice at all, the same thing a zero in a slice means
+ * today. `NineRegions(left = cap, centre = track, right = cap)` is a scrollbar track or a progress
+ * bar: three pieces, no top row, no bottom row. A missing middle piece is a frame with a hole in
+ * it, which is also a real thing to want.
  *
  * Pieces down the left column must agree on their width, because that width *is* the patch's left
  * slice; the same goes for the right column and for the top and bottom rows. The middle column and
@@ -81,11 +82,16 @@ data class NineRegions(
      * emphatically **not** the art's natural size: a patch whose centre is cut to a single texel to
      * dodge the mip artefact reports a width of one more than its two corners, which is no use at
      * all to anybody laying out at the size of the picture. Nothing but [NinePatch] should read it,
-     * and the things that otherwise would — the `Image` widget, `UiCanvas.image` — refuse one of
-     * these outright rather than lay out against a fiction.
+     * and the things that otherwise would — the `Image` widget, a skin's image background, and
+     * every [UiCanvas] in this repository — refuse one of these outright rather than lay out
+     * against a fiction.
      */
     override val width: Int = slice.left.toInt() + widest(top, centre, bottom) + slice.right.toInt()
 
+    /**
+     * The same bound downwards, and just as much a fiction: the two side slices plus the tallest
+     * middle piece. Read [width] for why nothing but [NinePatch] should be asking.
+     */
     override val height: Int = slice.top.toInt() + tallest(left, centre, right) + slice.bottom.toInt()
 
     /**
@@ -93,9 +99,9 @@ data class NineRegions(
      *
      * Row 0 is the top and column 0 is the left. Indexed rather than named because slicing is a
      * loop over a grid, and a loop that has to name nine fields is nine chances to name the wrong
-     * one.
+     * one. Internal because the loop that wants it is [NinePatch]'s: a host has the nine fields.
      */
-    fun at(row: Int, column: Int): TextureHandle? = when (row) {
+    internal fun at(row: Int, column: Int): TextureHandle? = when (row) {
         0 -> when (column) {
             0 -> topLeft
             1 -> top
@@ -113,8 +119,14 @@ data class NineRegions(
         }
     }
 
-    /** Every piece there is one of, by the name a skin file calls it. What a writer walks. */
-    fun named(): List<Pair<String, TextureHandle>> =
+    /**
+     * Every piece there is one of, by the name a skin file calls it. What a writer walks.
+     *
+     * Internal because those names are the skin format's spelling, and a published graphics type
+     * should not be the place a host reads the file format off. Turning it public later costs
+     * nothing; turning it internal later would be a break.
+     */
+    internal fun named(): List<Pair<String, TextureHandle>> =
         Names.indices.mapNotNull { index ->
             at(index / 3, index % 3)?.let { Names[index] to it }
         }

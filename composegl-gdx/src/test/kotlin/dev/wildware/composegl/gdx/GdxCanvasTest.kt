@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.math.Matrix4
+import dev.wildware.composegl.ui.backend.FakeTexture
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.effect.Uniform
@@ -14,6 +15,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.layout.ScalePolicy
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextStyle
@@ -440,6 +442,35 @@ class GdxCanvasTest {
                 canvas.dispose()
             }
         }
+    }
+
+    @Test
+    fun `nine separately-cut patch pieces are refused as what they are, not as a foreign texture`() {
+        // The skip has to happen out here: inside `assertThrows`, a skip is an exception that is
+        // not the expected one, so a machine with no display would report a failure instead.
+        assumeTrue(Gl.available, "no display; this test needs a real GL context")
+
+        val pieces = NineRegions(
+            topLeft = FakeTexture(6, 6), top = FakeTexture(1, 6), topRight = FakeTexture(6, 6),
+            left = FakeTexture(6, 1), centre = FakeTexture(1, 1), right = FakeTexture(6, 1),
+            bottomLeft = FakeTexture(6, 6), bottom = FakeTexture(1, 6), bottomRight = FakeTexture(6, 6),
+        )
+
+        val thrown = assertThrows<IllegalArgumentException> {
+            Gl.render {
+                val canvas = GdxCanvas()
+                try {
+                    canvas.begin(viewport)
+                    canvas.image(pieces, Rect.of(0f, 0f, 10f, 10f))
+                } finally {
+                    canvas.dispose()
+                }
+            }
+        }
+
+        // The same sentence and the same exception the toolkit's own refusals throw: a host that
+        // catches one of them catches all of them.
+        assertEquals(NineRegions.NotOnePicture, thrown.message)
     }
 
     // --- the shader ---
