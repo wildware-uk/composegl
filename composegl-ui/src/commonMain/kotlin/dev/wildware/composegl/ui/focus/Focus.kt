@@ -86,6 +86,15 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     val focused: UiNode? get() = current
 
     /**
+     * How a direction press picks its winner, for the times a screen's geometry is the exception.
+     *
+     * The default, [BeamFocusSearch], is Android's scoring and is right nearly everywhere. Replace
+     * it for one screen by building a [FocusManager] over that screen's sub-root and setting this
+     * on it. `focusOrder` still wins: it is consulted first, and this is never asked.
+     */
+    var focusSearch: FocusSearch = BeamFocusSearch()
+
+    /**
      * Makes sure focus still points at something real.
      *
      * Called once a frame, after layout. A screen change removes the node that had focus, and
@@ -300,17 +309,24 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
 
     private fun nearest(from: UiNode, focusable: List<UiNode>, direction: FocusDirection): UiNode? {
         val source = from.boundsInRoot
+        val search = focusSearch
         var best: UiNode? = null
         var bestBounds = Rect.Zero
         focusable.forEach { candidate ->
             if (candidate === from) return@forEach
             val bounds = candidate.boundsInRoot
+            // A node with a position but no area — a collapsed panel, one part way through being
+            // inserted, one animating in — has nothing to draw a ring round and nothing to press,
+            // and being close by is enough for it to beat a real neighbour. So it is never landed
+            // on. Leaving one is a different question and still works: that node is the source
+            // here, and only candidates are measured.
+            if (bounds.isEmpty) return@forEach
             if (best == null) {
-                if (isCandidate(source, bounds, direction)) {
+                if (search.accepts(direction, source, bounds)) {
                     best = candidate
                     bestBounds = bounds
                 }
-            } else if (isBetter(direction, source, bounds, bestBounds)) {
+            } else if (search.beats(direction, source, bounds, bestBounds)) {
                 best = candidate
                 bestBounds = bounds
             }
@@ -391,88 +407,156 @@ private val UiNode.isVisible: Boolean
     }
 
 // --- the scoring -------------------------------------------------------------------------------
-//
-// Android's `FocusFinder`, in our own words and our own geometry. The shape of it is deliberately
-// unchanged: it is the one implementation that a decade of D-pads has already found the holes in.
 
-/** Whether [dest] is far enough in [direction] to be worth considering at all. */
-private fun isCandidate(source: Rect, dest: Rect, direction: FocusDirection): Boolean = when (direction) {
-    FocusDirection.Left ->
-        (source.right > dest.right || source.left >= dest.right) && source.left > dest.left
-    FocusDirection.Right ->
-        (source.left < dest.left || source.right <= dest.left) && source.right < dest.right
-    FocusDirection.Up ->
-        (source.bottom > dest.bottom || source.top >= dest.bottom) && source.top > dest.top
-    FocusDirection.Down ->
-        (source.top < dest.top || source.bottom <= dest.top) && source.bottom < dest.bottom
-    else -> false
-}
+/**
+ * How a direction press picks its winner, once `focusOrder` has had its say.
+ *
+ * Two questions, asked about rectangles in the root's coordinates: is this candidate in the
+ * pressed direction at all, and is it better than the best one found so far. [BeamFocusSearch]
+ * answers both, and is what a [FocusManager] uses unless it is given something else.
+ */
+interface FocusSearch {
 
-private fun isBetter(direction: FocusDirection, source: Rect, rect: Rect, against: Rect): Boolean {
-    if (!isCandidate(source, rect, direction)) return false
-    if (!isCandidate(source, against, direction)) return true
-    if (beamBeats(direction, source, rect, against)) return true
-    if (beamBeats(direction, source, against, rect)) return false
-    return weighted(direction, source, rect) < weighted(direction, source, against)
+    /**
+     * Whether [dest] lies far enough in [direction] from [source] to be worth considering at all.
+     *
+     * Asked twice for each candidate — once while scanning, once again inside [beats] — so an
+     * expensive answer here is paid for twice.
+     */
+    fun accepts(direction: FocusDirection, source: Rect, dest: Rect): Boolean
+
+    /** Whether [rect] is a better answer than [against], the best candidate so far. */
+    fun beats(direction: FocusDirection, source: Rect, rect: Rect, against: Rect): Boolean
 }
 
 /**
- * Whether [rect] wins purely by being in the beam — the strip directly along [direction] from the
- * source — when [against] is not.
+ * The scoring the toolkit ships with: Android's `FocusFinder`, in our own words and our own
+ * geometry. The shape of it is deliberately unchanged — it is the one implementation that a decade
+ * of D-pads has already found the holes in.
  *
- * This is the rule that stops a diagonal neighbour stealing a press that was meant for the thing
- * straight ahead, however much closer the diagonal one is by any honest measure of distance.
+ * Two ideas do the work:
+ *
+ * - **The beam.** A candidate that overlaps the source on the across axis — directly to the right
+ *   of it, rather than up and to the right — beats one that does not, however much closer the
+ *   other one looks.
+ * - **Weighted distance.** Otherwise, distance along the direction pressed counts for much more
+ *   than distance across it, so focus travels the way the player pressed instead of drifting
+ *   sideways.
+ *
+ * Subclass it when a layout is the exception. The seams are [accepts], [beats] and [beamBeats] —
+ * the beam rule lives inside [beats], and [beats] cannot be rebuilt usefully without it. The
+ * measurements ([score], [inBeam], [majorDistance], [minorDistance], [majorDistanceToFarEdge]) are
+ * protected so either seam can be rewritten out of the same parts.
+ *
+ * The case this was added for: a row of wide cards sitting above two narrow buttons. Getting out
+ * of the row downward has to reach buttons that are well off to the side and barely below, and the
+ * default [accepts] asks a candidate to clear the source's bottom edge entirely. Widening [accepts]
+ * for that one direction is the whole answer:
+ *
+ * ```
+ * class RoomierDown : BeamFocusSearch() {
+ *     override fun accepts(direction: FocusDirection, source: Rect, dest: Rect): Boolean =
+ *         super.accepts(direction, source, dest) ||
+ *             (direction == FocusDirection.Down && dest.centre.y > source.centre.y)
+ * }
+ *
+ * focus.focusSearch = RoomierDown()
+ * ```
+ *
+ * @param majorWeight how much distance along the direction pressed counts for, against distance
+ *   across it. The default of thirteen means a step forward counts thirteen times as much as the
+ *   same step sideways.
  */
-private fun beamBeats(direction: FocusDirection, source: Rect, rect: Rect, against: Rect): Boolean {
-    val inBeam = beamsOverlap(direction, source, rect)
-    val otherInBeam = beamsOverlap(direction, source, against)
-    if (otherInBeam || !inBeam) return false
-    if (!isCandidate(source, against, direction)) return true
-    // Sideways, being in the beam is enough. Up and down, a candidate in the beam still has to be
-    // closer than the far edge of the other one, or a tall neighbour beside a short one wins from
-    // implausibly far away.
-    if (direction == FocusDirection.Left || direction == FocusDirection.Right) return true
-    return majorDistance(direction, source, rect) < majorDistanceToFarEdge(direction, source, against)
-}
+open class BeamFocusSearch(private val majorWeight: Float = 13f) : FocusSearch {
 
-private fun beamsOverlap(direction: FocusDirection, source: Rect, dest: Rect): Boolean =
-    when (direction) {
-        FocusDirection.Left, FocusDirection.Right ->
-            dest.bottom >= source.top && dest.top <= source.bottom
-        else -> dest.right >= source.left && dest.left <= source.right
-    }
-
-/** Distance along the direction counts thirteen times as much as distance across it. */
-private fun weighted(direction: FocusDirection, source: Rect, dest: Rect): Float {
-    val major = majorDistance(direction, source, dest)
-    val minor = minorDistance(direction, source, dest)
-    return 13f * major * major + minor * minor
-}
-
-private fun majorDistance(direction: FocusDirection, source: Rect, dest: Rect): Float =
-    maxOf(0f, majorDistanceRaw(direction, source, dest))
-
-private fun majorDistanceRaw(direction: FocusDirection, source: Rect, dest: Rect): Float =
-    when (direction) {
-        FocusDirection.Left -> source.left - dest.right
-        FocusDirection.Right -> dest.left - source.right
-        FocusDirection.Up -> source.top - dest.bottom
-        else -> dest.top - source.bottom
-    }
-
-private fun majorDistanceToFarEdge(direction: FocusDirection, source: Rect, dest: Rect): Float =
-    maxOf(
-        1f,
+    override fun accepts(direction: FocusDirection, source: Rect, dest: Rect): Boolean =
         when (direction) {
-            FocusDirection.Left -> source.left - dest.left
-            FocusDirection.Right -> dest.right - source.right
-            FocusDirection.Up -> source.top - dest.top
-            else -> dest.bottom - source.bottom
-        },
-    )
+            FocusDirection.Left ->
+                (source.right > dest.right || source.left >= dest.right) && source.left > dest.left
+            FocusDirection.Right ->
+                (source.left < dest.left || source.right <= dest.left) && source.right < dest.right
+            FocusDirection.Up ->
+                (source.bottom > dest.bottom || source.top >= dest.bottom) && source.top > dest.top
+            FocusDirection.Down ->
+                (source.top < dest.top || source.bottom <= dest.top) && source.bottom < dest.bottom
+            else -> false
+        }
 
-private fun minorDistance(direction: FocusDirection, source: Rect, dest: Rect): Float =
-    when (direction) {
-        FocusDirection.Left, FocusDirection.Right -> abs(source.centre.y - dest.centre.y)
-        else -> abs(source.centre.x - dest.centre.x)
+    override fun beats(direction: FocusDirection, source: Rect, rect: Rect, against: Rect): Boolean {
+        if (!accepts(direction, source, rect)) return false
+        if (!accepts(direction, source, against)) return true
+        if (beamBeats(direction, source, rect, against)) return true
+        if (beamBeats(direction, source, against, rect)) return false
+        return score(direction, source, rect) < score(direction, source, against)
     }
+
+    /**
+     * Whether [rect] wins purely by being in the beam — the strip running along [direction] from
+     * the source — when [against] is not.
+     *
+     * This is the rule that stops a diagonal neighbour stealing a press meant for the thing
+     * straight ahead, however much closer the diagonal one is by any honest measure of distance.
+     */
+    protected open fun beamBeats(
+        direction: FocusDirection,
+        source: Rect,
+        rect: Rect,
+        against: Rect,
+    ): Boolean {
+        val inBeam = inBeam(direction, source, rect)
+        val otherInBeam = inBeam(direction, source, against)
+        if (otherInBeam || !inBeam) return false
+        if (!accepts(direction, source, against)) return true
+        // Sideways, being in the beam is enough. Up and down, a candidate in the beam still has to
+        // be closer than the far edge of the other one, or a tall neighbour beside a short one
+        // wins from implausibly far away.
+        if (direction == FocusDirection.Left || direction == FocusDirection.Right) return true
+        return majorDistance(direction, source, rect) < majorDistanceToFarEdge(direction, source, against)
+    }
+
+    /** Whether [dest] overlaps the source on the across axis, so it is straight ahead. */
+    protected fun inBeam(direction: FocusDirection, source: Rect, dest: Rect): Boolean =
+        when (direction) {
+            FocusDirection.Left, FocusDirection.Right ->
+                dest.bottom >= source.top && dest.top <= source.bottom
+            else -> dest.right >= source.left && dest.left <= source.right
+        }
+
+    /** Distance along the direction counts [majorWeight] times as much as distance across it. */
+    protected fun score(direction: FocusDirection, source: Rect, dest: Rect): Float {
+        val major = majorDistance(direction, source, dest)
+        val minor = minorDistance(direction, source, dest)
+        return majorWeight * major * major + minor * minor
+    }
+
+    /** The gap along the direction pressed: near edge to near edge, never below zero. */
+    protected fun majorDistance(direction: FocusDirection, source: Rect, dest: Rect): Float =
+        maxOf(0f, majorDistanceRaw(direction, source, dest))
+
+    /** The reach to the far side of [dest], which is how tall candidates are kept honest. */
+    protected fun majorDistanceToFarEdge(direction: FocusDirection, source: Rect, dest: Rect): Float =
+        maxOf(
+            1f,
+            when (direction) {
+                FocusDirection.Left -> source.left - dest.left
+                FocusDirection.Right -> dest.right - source.right
+                FocusDirection.Up -> source.top - dest.top
+                else -> dest.bottom - source.bottom
+            },
+        )
+
+    /** The drift across the direction pressed, centre to centre. */
+    protected fun minorDistance(direction: FocusDirection, source: Rect, dest: Rect): Float =
+        when (direction) {
+            FocusDirection.Left, FocusDirection.Right -> abs(source.centre.y - dest.centre.y)
+            else -> abs(source.centre.x - dest.centre.x)
+        }
+
+    private fun majorDistanceRaw(direction: FocusDirection, source: Rect, dest: Rect): Float =
+        when (direction) {
+            FocusDirection.Left -> source.left - dest.right
+            FocusDirection.Right -> dest.left - source.right
+            FocusDirection.Up -> source.top - dest.bottom
+            else -> dest.top - source.bottom
+        }
+}
