@@ -6,7 +6,7 @@ import dev.wildware.composegl.ui.modifier.focusable
 import dev.wildware.composegl.ui.modifier.onKeyEvent
 import dev.wildware.composegl.ui.modifier.onTextEvent
 import dev.wildware.composegl.ui.node.UiNode
-import dev.wildware.composegl.ui.node.UiTree
+import dev.wildware.composegl.ui.testing.TestTree
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test
  */
 class KeyRouterTest {
 
-    private val tree = UiTree()
+    private val tree = TestTree()
 
     /** What each handler saw, in the order it saw it. Proves the walk, not just the answer. */
     private val seen = mutableListOf<String>()
@@ -31,10 +31,7 @@ class KeyRouterTest {
         name: String,
         parent: UiNode = tree.root,
         modifier: Modifier = Modifier,
-    ): UiNode = UiNode(name).also {
-        it.modifier = modifier
-        parent.insertAt(parent.children.size, it)
-    }
+    ): UiNode = tree.box(name, modifier = modifier, parent = parent)
 
     /** A node that records the key and then either takes it or does not. */
     private fun watcher(

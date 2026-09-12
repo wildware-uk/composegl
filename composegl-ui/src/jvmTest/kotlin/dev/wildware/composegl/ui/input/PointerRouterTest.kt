@@ -7,8 +7,7 @@ import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.onPointer
-import dev.wildware.composegl.ui.node.UiNode
-import dev.wildware.composegl.ui.node.UiTree
+import dev.wildware.composegl.ui.testing.TestTree
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -17,32 +16,15 @@ import org.junit.jupiter.api.Test
 /**
  * Where a pointer event goes, and what it means when it gets there.
  *
- * Every test here builds the tree by hand and places it by hand, because hit testing is about
- * rectangles and ancestry and nothing else. No layout pass, no canvas, no window.
+ * Every test here is a [TestTree]: rectangles where this test put them, because hit testing is
+ * about rectangles and ancestry and nothing else. No layout pass, no canvas, no window.
  */
 class PointerRouterTest {
 
-    private val tree = UiTree()
-    private val router = PointerRouter(tree.root)
+    private val screen = TestTree()
+    private val router = PointerRouter(screen.root)
 
     private var clicks = 0
-
-    private fun node(
-        name: String,
-        x: Float,
-        y: Float,
-        width: Float,
-        height: Float,
-        modifier: Modifier = Modifier,
-        parent: UiNode = tree.root,
-    ): UiNode = UiNode(name).also {
-        it.modifier = modifier
-        parent.insertAt(parent.children.size, it)
-        it.x = x
-        it.y = y
-        it.width = width
-        it.height = height
-    }
 
     private fun press(x: Float, y: Float) =
         router.onPointer(PointerEvent.Press(PointerId.Mouse, Offset(x, y)))
@@ -57,16 +39,16 @@ class PointerRouterTest {
         router.onPointer(PointerEvent.Cancel(PointerId.Mouse, Offset(x, y)))
 
     init {
-        tree.root.width = 200f
-        tree.root.height = 200f
+        screen.root.width = 200f
+        screen.root.height = 200f
     }
 
     // --- finding the node ---------------------------------------------------------------------
 
     @Test
     fun `the deepest node under the pointer is the one that gets it`() {
-        val outer = node("outer", 0f, 0f, 100f, 100f, Modifier.clickable { clicks += 1 })
-        node("inner", 10f, 10f, 20f, 20f, Modifier.clickable { clicks += 10 }, parent = outer)
+        val outer = screen.box("outer", 0f, 0f, 100f, 100f, Modifier.clickable { clicks += 1 })
+        screen.box("inner", 10f, 10f, 20f, 20f, Modifier.clickable { clicks += 10 }, parent = outer)
 
         press(15f, 15f)
         release(15f, 15f)
@@ -76,8 +58,8 @@ class PointerRouterTest {
 
     @Test
     fun `overlapping siblings resolve to the one drawn on top`() {
-        node("under", 0f, 0f, 50f, 50f, Modifier.clickable { clicks += 1 })
-        node("over", 0f, 0f, 50f, 50f, Modifier.clickable { clicks += 10 })
+        screen.box("under", 0f, 0f, 50f, 50f, Modifier.clickable { clicks += 1 })
+        screen.box("over", 0f, 0f, 50f, 50f, Modifier.clickable { clicks += 10 })
 
         press(10f, 10f)
         release(10f, 10f)
@@ -87,8 +69,8 @@ class PointerRouterTest {
 
     @Test
     fun `a node nobody can interact with is not in the way`() {
-        val scenery = node("scenery", 0f, 0f, 100f, 100f)
-        node("button", 0f, 0f, 20f, 20f, Modifier.clickable { clicks += 1 }, parent = scenery)
+        val scenery = screen.box("scenery", 0f, 0f, 100f, 100f)
+        screen.box("button", 0f, 0f, 20f, 20f, Modifier.clickable { clicks += 1 }, parent = scenery)
 
         press(5f, 5f)
         release(5f, 5f)
@@ -98,9 +80,9 @@ class PointerRouterTest {
 
     @Test
     fun `a clip stops the pointer reaching anything outside it`() {
-        val panel = node("panel", 0f, 0f, 40f, 40f, Modifier.clip())
+        val panel = screen.box("panel", 0f, 0f, 40f, 40f, Modifier.clip())
         // Placed so that half of it hangs out of the clipping parent.
-        node("overflow", 20f, 20f, 40f, 40f, Modifier.clickable { clicks += 1 }, parent = panel)
+        screen.box("overflow", 20f, 20f, 40f, 40f, Modifier.clickable { clicks += 1 }, parent = panel)
 
         press(30f, 30f)
         release(30f, 30f)
@@ -113,7 +95,7 @@ class PointerRouterTest {
 
     @Test
     fun `something invisible cannot be clicked`() {
-        node("ghost", 0f, 0f, 50f, 50f, Modifier.alpha(0f).clickable { clicks += 1 })
+        screen.box("ghost", 0f, 0f, 50f, 50f, Modifier.alpha(0f).clickable { clicks += 1 })
 
         assertFalse(press(10f, 10f), "nothing under the pointer, so nothing consumed it")
         release(10f, 10f)
@@ -125,7 +107,7 @@ class PointerRouterTest {
     @Test
     fun `a press and a release on the node is a click`() {
         val state = InteractionState()
-        node("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
+        screen.box("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
 
         assertTrue(press(10f, 10f))
         assertTrue(state.isPressed)
@@ -138,7 +120,7 @@ class PointerRouterTest {
     @Test
     fun `dragging off the button and back presses, un-presses and presses again`() {
         val state = InteractionState()
-        node("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
+        screen.box("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
 
         press(10f, 10f)
         assertTrue(state.isPressed)
@@ -156,7 +138,7 @@ class PointerRouterTest {
     @Test
     fun `letting go somewhere else is a change of mind, not a click`() {
         val state = InteractionState()
-        node("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
+        screen.box("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
 
         press(10f, 10f)
         move(80f, 80f, setOf(PointerButton.Primary))
@@ -169,7 +151,7 @@ class PointerRouterTest {
     @Test
     fun `a cancelled gesture does not fire a click`() {
         val state = InteractionState()
-        node("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
+        screen.box("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
 
         press(10f, 10f)
         assertTrue(cancel(10f, 10f))
@@ -186,8 +168,8 @@ class PointerRouterTest {
     fun `the node that took the press hears the whole gesture, wherever it goes`() {
         val seen = mutableListOf<PointerEvent>()
         val handler = PointerHandler { seen += it; true }
-        node("pad", 0f, 0f, 50f, 50f, Modifier.onPointer(handler))
-        node("elsewhere", 100f, 100f, 50f, 50f, Modifier.clickable { clicks += 1 })
+        screen.box("pad", 0f, 0f, 50f, 50f, Modifier.onPointer(handler))
+        screen.box("elsewhere", 100f, 100f, 50f, 50f, Modifier.clickable { clicks += 1 })
 
         press(10f, 10f)
         move(120f, 120f, setOf(PointerButton.Primary))
@@ -201,8 +183,8 @@ class PointerRouterTest {
 
     @Test
     fun `a disabled node still swallows the press`() {
-        node("behind", 0f, 0f, 100f, 100f, Modifier.clickable { clicks += 1 })
-        node("greyed", 0f, 0f, 50f, 50f, Modifier.clickable(enabled = false) { clicks += 100 })
+        screen.box("behind", 0f, 0f, 100f, 100f, Modifier.clickable { clicks += 1 })
+        screen.box("greyed", 0f, 0f, 50f, 50f, Modifier.clickable(enabled = false) { clicks += 100 })
 
         assertTrue(press(10f, 10f))
         release(10f, 10f)
@@ -213,8 +195,8 @@ class PointerRouterTest {
     @Test
     fun `a handler that declines lets the event through to what is behind`() {
         val declining = PointerHandler { false }
-        node("behind", 0f, 0f, 100f, 100f, Modifier.clickable { clicks += 1 })
-        node("glass", 0f, 0f, 50f, 50f, Modifier.onPointer(declining))
+        screen.box("behind", 0f, 0f, 100f, 100f, Modifier.clickable { clicks += 1 })
+        screen.box("glass", 0f, 0f, 50f, 50f, Modifier.onPointer(declining))
 
         press(10f, 10f)
         release(10f, 10f)
@@ -228,8 +210,8 @@ class PointerRouterTest {
     fun `hover follows the pointer, and a node and its ancestors are hovered together`() {
         val panel = InteractionState()
         val button = InteractionState()
-        val outer = node("panel", 0f, 0f, 100f, 100f, Modifier.interaction(panel))
-        node("button", 10f, 10f, 20f, 20f, Modifier.interaction(button), parent = outer)
+        val outer = screen.box("panel", 0f, 0f, 100f, 100f, Modifier.interaction(panel))
+        screen.box("button", 10f, 10f, 20f, 20f, Modifier.interaction(button), parent = outer)
 
         move(15f, 15f)
         assertTrue(button.isHovered)
@@ -246,7 +228,7 @@ class PointerRouterTest {
     @Test
     fun `leaving the window ends hover but not a drag`() {
         val state = InteractionState()
-        node("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
+        screen.box("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
 
         move(10f, 10f)
         assertTrue(state.isHovered)
@@ -264,7 +246,7 @@ class PointerRouterTest {
     @Test
     fun `hover comes back when the gesture ends`() {
         val state = InteractionState()
-        node("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
+        screen.box("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
 
         move(10f, 10f)
         press(10f, 10f)
@@ -277,7 +259,7 @@ class PointerRouterTest {
     @Test
     fun `cancelling everything lets go of hover and press alike`() {
         val state = InteractionState()
-        node("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
+        screen.box("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
 
         move(10f, 10f)
         press(10f, 10f)
@@ -295,8 +277,8 @@ class PointerRouterTest {
     @Test
     fun `a scroll goes to the deepest node under the pointer and captures nothing`() {
         val seen = mutableListOf<PointerEvent>()
-        val outer = node("list", 0f, 0f, 100f, 100f, Modifier.onPointer { seen += it; true })
-        node("row", 0f, 0f, 100f, 20f, Modifier.interaction(InteractionState()), parent = outer)
+        val outer = screen.box("list", 0f, 0f, 100f, 100f, Modifier.onPointer { seen += it; true })
+        screen.box("row", 0f, 0f, 100f, 20f, Modifier.interaction(InteractionState()), parent = outer)
 
         router.onPointer(PointerEvent.Scroll(PointerId.Mouse, Offset(10f, 10f), Offset(0f, -3f)))
 
@@ -308,7 +290,7 @@ class PointerRouterTest {
     @Test
     fun `two fingers on the same node keep it pressed until both let go`() {
         val state = InteractionState()
-        node("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
+        screen.box("button", 0f, 0f, 50f, 50f, Modifier.interaction(state).clickable { clicks += 1 })
 
         router.onPointer(PointerEvent.Press(PointerId(1), Offset(10f, 10f), type = PointerType.Touch))
         router.onPointer(PointerEvent.Press(PointerId(2), Offset(20f, 20f), type = PointerType.Touch))

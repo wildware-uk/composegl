@@ -23,7 +23,7 @@ import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onTextEvent
 import dev.wildware.composegl.ui.node.UiNode
-import dev.wildware.composegl.ui.node.UiTree
+import dev.wildware.composegl.ui.testing.TestTree
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -43,7 +43,7 @@ import kotlin.test.assertTrue
  */
 class WholeInteractionTest {
 
-    private val tree = UiTree()
+    private val tree = TestTree()
 
     private val pressed = mutableListOf<String>()
     private val typed = StringBuilder()
@@ -54,41 +54,29 @@ class WholeInteractionTest {
 
     /** A dialogue: two buttons side by side, a text field under them, a map beside it. */
     private fun screen(): Triple<UiNode, UiNode, UiNode> {
-        val ok = place("ok", 0f, 0f, 60f, 20f) {
-            Modifier.interaction(okState).focusable(okState, initial = true).clickable { pressed += "ok" }
-        }
-        val cancel = place("cancel", 80f, 0f, 60f, 20f) {
-            Modifier.interaction(cancelState).focusable(cancelState).clickable { pressed += "cancel" }
-        }
-        val field = place("field", 0f, 40f, 140f, 20f) {
-            Modifier.focusable().onTextEvent { typed.append(it.text); true }
-        }
-        place("map", 0f, 80f, 140f, 60f) {
+        val ok = tree.box(
+            "ok", 0f, 0f, 60f, 20f,
+            Modifier.interaction(okState).focusable(okState, initial = true).clickable { pressed += "ok" },
+        )
+        val cancel = tree.box(
+            "cancel", 80f, 0f, 60f, 20f,
+            Modifier.interaction(cancelState).focusable(cancelState).clickable { pressed += "cancel" },
+        )
+        val field = tree.box(
+            "field", 0f, 40f, 140f, 20f,
+            Modifier.focusable().onTextEvent { typed.append(it.text); true },
+        )
+        tree.box(
+            "map", 0f, 80f, 140f, 60f,
             Modifier.onPointer { event ->
                 // The escape hatch: a widget that wants raw pointers, not clicks.
                 if (event !is PointerEvent.Move) event is PointerEvent.Press else {
                     dragged += event.position
                     true
                 }
-            }
-        }
+            },
+        )
         return Triple(ok, cancel, field)
-    }
-
-    private fun place(
-        name: String,
-        x: Float,
-        y: Float,
-        width: Float,
-        height: Float,
-        modifier: () -> Modifier,
-    ): UiNode = UiNode(name).also {
-        it.modifier = modifier()
-        tree.root.insertAt(tree.root.children.size, it)
-        it.x = x
-        it.y = y
-        it.width = width
-        it.height = height
     }
 
     @Test

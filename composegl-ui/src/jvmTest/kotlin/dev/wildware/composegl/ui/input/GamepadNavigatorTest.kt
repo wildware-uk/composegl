@@ -6,8 +6,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.focusable
 import dev.wildware.composegl.ui.modifier.interaction
-import dev.wildware.composegl.ui.node.UiNode
-import dev.wildware.composegl.ui.node.UiTree
+import dev.wildware.composegl.ui.testing.TestTree
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -21,7 +20,7 @@ import org.junit.jupiter.api.Test
  */
 class GamepadNavigatorTest {
 
-    private val tree = UiTree()
+    private val screen = TestTree()
     private val states = mutableListOf<InteractionState>()
     private var clicks = 0
     private var backs = 0
@@ -30,17 +29,15 @@ class GamepadNavigatorTest {
     private fun row(count: Int) {
         repeat(count) { index ->
             val state = InteractionState().also { states += it }
-            UiNode("$index").also {
-                it.modifier = Modifier.interaction(state).focusable(state).clickable { clicks += 1 }
-                tree.root.insertAt(index, it)
-                it.x = index * 50f
-                it.width = 40f
-                it.height = 20f
-            }
+            screen.box(
+                "$index",
+                x = index * 50f,
+                modifier = Modifier.interaction(state).focusable(state).clickable { clicks += 1 },
+            )
         }
     }
 
-    private val focus by lazy { FocusManager(tree.root) }
+    private val focus by lazy { FocusManager(screen.root) }
     private val pad by lazy { GamepadNavigator(focus, onBack = { backs += 1 }) }
 
     private fun stick(x: Float = 0f, y: Float = 0f) {
@@ -106,18 +103,10 @@ class GamepadNavigatorTest {
     @Test
     fun `up and slightly right is up, not both`() {
         // A column, so a diagonal read would go nowhere and a correct one goes up.
-        tree.root.removeAt(0, tree.root.children.size)
-        repeat(3) { index ->
-            UiNode("$index").also {
-                it.modifier = Modifier.focusable()
-                tree.root.insertAt(index, it)
-                it.y = index * 30f
-                it.width = 40f
-                it.height = 20f
-            }
-        }
+        screen.clear()
+        screen.column("0", "1", "2", modifier = Modifier.focusable())
         focus.refresh()
-        focus.focusOn(tree.root.children[2])
+        focus.focusOn(screen["2"])
 
         stick(x = 0.55f, y = -0.9f)
         assertEquals(FocusDirection.Up, pad.direction)
