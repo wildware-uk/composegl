@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.focus
 
+import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.focusOrder
@@ -287,5 +288,62 @@ class FocusManagerTest {
         assertEquals("b", focus.name())
 
         assertFalse(focus.focusOn(FocusRequester()), "a handle attached to nothing focuses nothing")
+    }
+
+    // --- nodes with no area -------------------------------------------------------------------
+
+    @Test
+    fun `a zero-size node between two real ones does not steal the press`() {
+        // A collapsed panel, or a node part way through being inserted: it has a position but no
+        // area, so there is nothing to draw a focus ring round and nothing to press. It sits
+        // nearer than the real button, and by weighted distance alone it would win.
+        box("left", 0f, 0f)
+        box("ghost", 50f, 5f, width = 0f, height = 0f)
+        box("right", 100f, 0f)
+
+        val focus = manager()
+        focus.focusOn(tree.root.children.first { it.name == "left" })
+
+        assertTrue(focus.moveFocus(FocusDirection.Right))
+        assertEquals("right", focus.name(), "the collapsed node is skipped, not landed on")
+    }
+
+    @Test
+    fun `focus can still leave a zero-size node`() {
+        // The other half of the rule. A node with no area stays reachable by tab, by a requester
+        // and by focusOrder, so if directions refused to move away from one, focus could get in
+        // and never get out.
+        val ghost = box("ghost", 50f, 50f, width = 0f, height = 0f)
+        box("below", 40f, 100f)
+
+        val focus = manager()
+        focus.focusOn(ghost)
+        assertEquals("ghost", focus.name())
+
+        assertTrue(focus.moveFocus(FocusDirection.Down))
+        assertEquals("below", focus.name(), "a node with no area is not a prison")
+    }
+
+    // --- supplying the scoring ----------------------------------------------------------------
+
+    @Test
+    fun `a screen can widen what counts as a candidate`() {
+        // A wide card with a narrow button beside and slightly below it: the default scoring wants
+        // a candidate to clear the source's bottom edge, so pressing down refuses to move.
+        box("card", 0f, 0f, width = 100f, height = 100f)
+        box("button", 200f, 50f, width = 60f, height = 20f)
+
+        val focus = manager()
+        focus.focusOn(tree.root.children.first { it.name == "card" })
+        assertFalse(focus.moveFocus(FocusDirection.Down), "the default scoring says there is nothing below")
+
+        focus.focusSearch = object : BeamFocusSearch() {
+            override fun accepts(direction: FocusDirection, source: Rect, dest: Rect): Boolean =
+                super.accepts(direction, source, dest) ||
+                    (direction == FocusDirection.Down && dest.centre.y > source.centre.y)
+        }
+
+        assertTrue(focus.moveFocus(FocusDirection.Down))
+        assertEquals("button", focus.name(), "the screen's own rule found it")
     }
 }
