@@ -533,11 +533,15 @@ class GdxCanvas(
      * Nine separately-cut nine-patch pieces are the interesting case: they *are* a TextureHandle,
      * so they arrive here looking like a picture, and "this canvas can only draw textures it made"
      * would send the reader off hunting for a backend mismatch that is not the problem at all.
+     *
+     * They throw the same [IllegalArgumentException] the toolkit's own refusal throws, because it
+     * is the same complaint about the same argument, and a host that catches one of them has to
+     * catch both. A texture from another backend keeps the [IllegalStateException] it has always
+     * thrown.
      */
-    private fun notOnePicture(texture: TextureHandle): Nothing = error(
-        if (texture is NineRegions) NineRegions.NotOnePicture
-        else "this canvas can only draw textures it made, not ${texture::class}",
-    )
+    private fun notOnePicture(texture: TextureHandle): Nothing =
+        if (texture is NineRegions) throw IllegalArgumentException(NineRegions.NotOnePicture)
+        else error("this canvas can only draw textures it made, not ${texture::class}")
 
     private companion object {
         /**

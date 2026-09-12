@@ -111,11 +111,13 @@ data class NinePatch(
         )
 
         val regions = texture as? NineRegions
-        // Only the one-texture form has cuts to work out; nine regions arrive already cut.
-        val u = if (regions != null) NoCuts else
-            floatArrayOf(0f, slice.left, texture.width - slice.right, texture.width.toFloat())
-        val v = if (regions != null) NoCuts else
-            floatArrayOf(0f, slice.top, texture.height - slice.bottom, texture.height.toFloat())
+        // Only the one-texture form has cuts to work out; nine regions arrive already cut. Null
+        // rather than an empty array, so that reading a cut on the nine-region path is a compiler
+        // error rather than a read past the end of one.
+        val cuts = if (regions != null) null else Cuts(
+            u = floatArrayOf(0f, slice.left, texture.width - slice.right, texture.width.toFloat()),
+            v = floatArrayOf(0f, slice.top, texture.height - slice.bottom, texture.height.toFloat()),
+        )
 
         for (row in 0..2) {
             for (column in 0..2) {
@@ -124,14 +126,15 @@ data class NinePatch(
 
                 val piece: TextureHandle
                 val source: Rect
-                if (regions != null) {
-                    // A piece the art does not have is a cell with nothing in it, not a hole in
-                    // the arithmetic: the row or column either has no slice or is simply blank.
-                    piece = regions.at(row, column) ?: continue
-                    source = Rect.of(0f, 0f, piece.width.toFloat(), piece.height.toFloat())
-                } else {
+                if (cuts != null) {
                     piece = texture
-                    source = Rect(u[column], v[row], u[column + 1], v[row + 1])
+                    source = Rect(cuts.u[column], cuts.v[row], cuts.u[column + 1], cuts.v[row + 1])
+                } else {
+                    // No cuts means nine regions, which is what made them null. A piece the art
+                    // does not have is a cell with nothing in it rather than a hole in the
+                    // arithmetic: the row or column either has no slice or is simply blank.
+                    piece = regions?.at(row, column) ?: continue
+                    source = Rect.of(0f, 0f, piece.width.toFloat(), piece.height.toFloat())
                 }
                 if (source.isEmpty) continue
 
@@ -212,6 +215,9 @@ data class NinePatch(
         )
     }
 
+    /** Where a one-texture patch's cuts fall, across and down. The nine-region form has none. */
+    private class Cuts(val u: FloatArray, val v: FloatArray)
+
     /** One of the three pieces that can repeat along an axis, with the mode that decides it. */
     private class Tiling(val name: String, val edge: EdgeMode, val size: Float?)
 
@@ -288,9 +294,6 @@ data class NinePatch(
         const val MaxTiles = 1024
 
         private const val Epsilon = 0.01f
-
-        /** The cuts a nine-region patch does not need, since its art arrives already cut. */
-        private val NoCuts = FloatArray(0)
 
         /** How much the corners have to give way to fit [available]. One when they all fit. */
         private fun squeeze(needed: Float, available: Float): Float =

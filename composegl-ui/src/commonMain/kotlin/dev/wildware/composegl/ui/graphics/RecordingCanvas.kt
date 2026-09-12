@@ -149,6 +149,9 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     }
 
     override fun image(texture: TextureHandle, destination: Rect, tint: Colour, source: Rect?) {
+        // Every canvas that draws refuses nine separately-cut pieces, so this one does too. A test
+        // that recorded them would be passing against art no real backend would put on a screen.
+        refuseNineRegions(texture)
         recorded += DrawCall.Image(texture, destination, tint, source, state.clip, state.alpha)
     }
 

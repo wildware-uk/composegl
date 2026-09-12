@@ -125,8 +125,9 @@ reach past:
 ```
 
 There is no `slice` here and writing one is an error: the pieces already say how
-thick each border is. **Every piece is optional**, and one you leave out means that
-row or column has no slice at all — so a scrollbar track is three pieces:
+thick each border is. **Every piece is optional** — bar the last one, since an empty
+`"patch": {}` is nine nothings and a load error — and one you leave out means that
+row or column has no slice at all, so a scrollbar track is three pieces:
 
 ```jsonc
 "track": { "background": { "patch": { "left": "bar/cap", "centre": "bar/fill", "right": "bar/cap" } } }
@@ -139,8 +140,8 @@ and the pattern down one side drifts out of step with the other — pieces that
 `stretch` are free to differ, which is what lets the middle be one texel.
 
 In Kotlin the same thing is `NinePatch.of(NineRegions(topLeft = …, top = …, …))`.
-These nine handles are not a picture: hand them to `Image` or `canvas.image` and you
-get told so.
+These nine handles are not a picture: hand them to `Image`, to a skin's `image`
+background, or to any of this toolkit's canvases and you get told so, by name.
 
 ---
 

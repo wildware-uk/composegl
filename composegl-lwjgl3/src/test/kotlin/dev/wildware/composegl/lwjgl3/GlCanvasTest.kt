@@ -1,5 +1,6 @@
 package dev.wildware.composegl.lwjgl3
 
+import dev.wildware.composegl.ui.backend.FakeTexture
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.effect.Uniform
@@ -7,6 +8,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.layout.ScalePolicy
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextStyle
@@ -41,6 +43,13 @@ class GlCanvasTest {
     )
     private val blue = Colour.rgb(0x0000FF)
     private val body = TextStyle(family = "body", size = 48f)
+
+    /** A frame the host cut for itself: nine handles, and so not a picture this canvas can draw. */
+    private val pieces = NineRegions(
+        topLeft = FakeTexture(6, 6), top = FakeTexture(1, 6), topRight = FakeTexture(6, 6),
+        left = FakeTexture(6, 1), centre = FakeTexture(1, 1), right = FakeTexture(6, 1),
+        bottomLeft = FakeTexture(6, 6), bottom = FakeTexture(1, 6), bottomRight = FakeTexture(6, 6),
+    )
 
     /** What one drawn frame came out as. */
     private class Frame(private val pixels: IntArray, val drawCalls: Int) {
@@ -453,6 +462,28 @@ class GlCanvasTest {
         assertEquals(viewport, frame.viewport)
         // The projection maps the design width onto the clip cube's two units.
         assertEquals(2f / viewport.design.width, frame.projection[0])
+    }
+
+    @Test
+    fun `nine separately-cut patch pieces are refused as what they are, not as a foreign texture`() {
+        // The skip has to happen out here, above the assertion, for the same reason as below.
+        assumeTrue(Gl.available, "no display; this test needs a real GL context")
+
+        val thrown = assertThrows<IllegalArgumentException> {
+            Gl.render {
+                val canvas = GlCanvas()
+                try {
+                    canvas.begin(viewport)
+                    canvas.image(pieces, Rect.of(0f, 0f, 10f, 10f))
+                } finally {
+                    canvas.close()
+                }
+            }
+        }
+
+        // The same sentence and the same exception the toolkit's own refusals throw: a host that
+        // catches one of them catches all of them.
+        assertEquals(NineRegions.NotOnePicture, thrown.message)
     }
 
     @Test

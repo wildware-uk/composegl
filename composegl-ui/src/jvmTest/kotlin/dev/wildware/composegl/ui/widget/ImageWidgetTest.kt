@@ -6,6 +6,7 @@ import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.graphics.ArtAtlas
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.DrawCall
+import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.graphics.RecordingCanvas
 import dev.wildware.composegl.ui.host.UiHost
 import dev.wildware.composegl.ui.layout.Alignment
@@ -144,6 +145,24 @@ class ImageWidgetTest {
         }
 
         assertTrue(failure.message.orEmpty().contains("icons/hart"), "it names it: ${failure.message}")
+    }
+
+    @Test
+    fun `nine separately-cut patch pieces are refused here, not three calls later`() {
+        // They are a TextureHandle, so they fit this parameter; they are not a picture, and the
+        // size they report is a bound. A backend could only say it did not make this texture.
+        val pieces = NineRegions(
+            topLeft = FakeTexture(6, 6), top = FakeTexture(1, 6), topRight = FakeTexture(6, 6),
+            left = FakeTexture(6, 1), centre = FakeTexture(1, 1), right = FakeTexture(6, 1),
+            bottomLeft = FakeTexture(6, 6), bottom = FakeTexture(1, 6), bottomRight = FakeTexture(6, 6),
+        )
+
+        val failure = assertThrows<IllegalArgumentException> {
+            show { Image(pieces) }
+            host.frame(0L)
+        }
+
+        assertEquals(NineRegions.NotOnePicture, failure.message)
     }
 
     @Test
