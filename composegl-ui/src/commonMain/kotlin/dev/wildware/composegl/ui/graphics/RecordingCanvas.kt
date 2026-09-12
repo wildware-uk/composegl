@@ -3,6 +3,7 @@ package dev.wildware.composegl.ui.graphics
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextLayout
 
 /** One thing a [RecordingCanvas] was asked to draw, with the clip and opacity in force at the time. */
@@ -105,14 +106,60 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     private var state = CanvasState(bounds)
     private val recorded = mutableListOf<DrawCall>()
+    private var drawing = false
 
     /** Everything drawn since the last [clear], in the order it was drawn. */
     val calls: List<DrawCall> get() = recorded
+
+    /**
+     * How many frames have been opened and closed since this canvas was made.
+     *
+     * The answer to "did my app object actually render?", with no GPU in the question. A game
+     * object that holds a canvas and a [dev.wildware.composegl.ui.host.UiRenderer] can be built in
+     * a plain test, given this canvas, and asked whether a frame came out the other end.
+     *
+     * Counted from when the canvas was made, not from the last [clear]: [clear] throws away what
+     * was drawn, and a count of frames that reset with it would be a count of one.
+     */
+    var frames: Int = 0
+        private set
 
     /** Ready to record another frame. */
     fun clear(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) {
         recorded.clear()
         state.reset(bounds)
+    }
+
+    /**
+     * Opens a frame, as strictly as a canvas that draws does.
+     *
+     * [UiCanvas] leaves these two doing nothing, for a canvas with no frame to speak of. Taking
+     * that default would make the canvas every test in this toolkit uses the most forgiving one in
+     * it: a class that ended a frame it never began, or began two in a row, would pass here and
+     * fail on a screen. Same invariants, same words, so a test finds the mistake first — which is
+     * the argument [layer] already makes for matching a real backend's clip and opacity.
+     *
+     * The clip is reset to [viewport]'s design rectangle, exactly as `GdxCanvas` and `GlCanvas`
+     * reset theirs, replacing whatever bounds this canvas was made with. A frame drawn through a
+     * viewport can reach the design area and nothing else, and a test asserting against a wider
+     * clip than a real backend would have allowed is a test asserting about a screen that does not
+     * exist.
+     */
+    override fun begin(viewport: Viewport) {
+        check(!drawing) { "begin() was called twice without an end()" }
+        drawing = true
+        state.reset(Rect.of(0f, 0f, viewport.design.width, viewport.design.height))
+    }
+
+    /** Closes the frame and counts it. What was drawn is kept; [clear] is how a test starts over. */
+    override fun end() {
+        check(drawing) { "end() without a begin()" }
+        drawing = false
+        frames++
+
+        // Complained about last, so the frame is still closed when the assertion fires and the
+        // next one can begin — the same order the canvases that draw use.
+        check(state.isBalanced) { "a clip or an alpha was pushed and never popped" }
     }
 
     /**

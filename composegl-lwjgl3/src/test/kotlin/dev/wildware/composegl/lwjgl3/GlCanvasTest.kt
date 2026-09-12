@@ -486,6 +486,24 @@ class GlCanvasTest {
         assertEquals(NineRegions.NotOnePicture, thrown.message)
     }
 
+    /**
+     * The resources are built the first time something is drawn, which puts their cost in the
+     * first frame a player sees. [GlCanvas.warmUp] is how a game moves it to a loading screen.
+     */
+    @Test
+    fun `warming up builds the batch without drawing anything`() {
+        Gl.render {
+            val canvas = GlCanvas()
+            try {
+                canvas.warmUp()
+                assertEquals(0, canvas.drawCalls, "warming up draws nothing")
+                canvas.warmUp()
+            } finally {
+                canvas.close()
+            }
+        }
+    }
+
     @Test
     fun `an unbalanced clip is caught at the end of the frame`() {
         // The skip has to happen out here: inside `assertThrows`, a skip is an exception that is

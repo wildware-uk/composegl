@@ -52,7 +52,17 @@ class GlFrame(val projection: FloatArray, val viewport: Viewport)
  */
 class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
-    private val batch = GlShapeBatch()
+    /**
+     * The quads, and the shader they go through. Made the first time something is drawn.
+     *
+     * Late rather than in the field, so that merely *having* a canvas needs no OpenGL. A game
+     * object that owns a canvas alongside its host, its renderer and its focus — which is most of
+     * them — can then be built in a plain JVM test, and its input, focus and lifecycle asserted
+     * without a window anywhere. See [warmUp] for paying the cost on purpose.
+     */
+    private var batch: GlShapeBatch? = null
+
+    private fun batch() = batch ?: GlShapeBatch().also { batch = it }
 
     private var state = CanvasState(Rect.Zero)
     private var viewport: Viewport = Viewport.oneToOne(Size(1f, 1f))
@@ -72,7 +82,9 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
     private val layers = GlLayers()
 
-    private val effects = GlEffects()
+    private var effects: GlEffects? = null
+
+    private fun effects() = effects ?: GlEffects().also { effects = it }
 
     /**
      * The offscreen picture being drawn into, or null when that is the window.
@@ -97,8 +109,23 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     private val viewportBox = IntArray(4)
     private var scissorOn = false
 
-    /** How many times the frame so far has talked to the driver. */
-    override val drawCalls: Int get() = batch.renderCalls
+    /** How many times the frame so far has talked to the driver. Nothing drawn yet is none. */
+    override val drawCalls: Int get() = batch?.renderCalls ?: 0
+
+    /**
+     * Builds the GPU resources now, instead of when something is first drawn.
+     *
+     * A buffer, a compiled shader and the texture solid colour is sampled from cost a few
+     * milliseconds, and without this they are paid for in the first frame the player sees — which
+     * is exactly the frame a stutter is noticed in. Call it on a loading screen, on the thread
+     * that holds the context. Calling it twice does nothing the second time, and never calling it
+     * is fine.
+     */
+    fun warmUp() {
+        batch()
+        effects()
+        white()
+    }
 
     /**
      * Sets up for a frame in [viewport]'s design coordinates.
@@ -127,14 +154,14 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             (viewport.design.height * viewport.scaleY).roundToInt(),
         )
         orthographic(projection, viewport.design.width, viewport.design.height)
-        batch.begin(projection)
+        batch().begin(projection)
     }
 
     /** Ends the frame and puts the GL state back the way a game expects to find it. */
     override fun end() {
         check(drawing) { "end() without a begin()" }
 
-        batch.end()
+        batch().end()
         scissor(false)
         setViewport(0, 0, viewport.physical.width.roundToInt(), viewport.physical.height.roundToInt())
         drawing = false
@@ -172,7 +199,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             flipped[at + 1] = flip(points[at + 1])
             at += 2
         }
-        batch.fan(white(), flipped, colour.scaleAlpha(state.alpha))
+        batch().fan(white(), flipped, colour.scaleAlpha(state.alpha))
     }
 
     private fun shape(
@@ -184,7 +211,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         shadow: Colour = Colour.Transparent,
         shadowSpread: Float = 0f,
     ) {
-        batch.shape(
+        batch().shape(
             white = white(),
             left = rect.left,
             bottom = flip(rect.bottom),
@@ -210,7 +237,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
         val tint = colour.scaleAlpha(state.alpha)
         measured.placed.forEach { placed ->
-            batch.textured(
+            batch().textured(
                 name = atlas.name,
                 left = x + placed.left,
                 bottom = flip(y + placed.top + placed.height),
@@ -245,7 +272,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             bottom = picture.v + source.bottom * down
         }
 
-        batch.textured(
+        batch().textured(
             name = picture.name,
             left = destination.left,
             bottom = flip(destination.bottom),
@@ -281,7 +308,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
      * first: whatever is queued was queued under the old clip.
      */
     private fun applyScissor() {
-        batch.flush()
+        batch().flush()
         val clip = state.clip
         val into = layer
         if (into != null) {
@@ -354,7 +381,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         val previousLayer = layer
         val previousProjection = projection.copyOf()
 
-        batch.flush()
+        batch().flush()
         layer = LayerFrame(bounds, pixelWidth, pixelHeight)
         // Full opacity and a clip of exactly the layer. The opacity out here is applied when the
         // picture is drawn back, which is what makes a group fade as one object.
@@ -366,17 +393,17 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         GL11.glClearColor(0f, 0f, 0f, 0f)
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
         orthographic(projection, bounds.width, bounds.height, bounds.left)
-        batch.projection(projection)
+        batch().projection(projection)
 
         try {
             block()
-            batch.flush()
+            batch().flush()
             check(state.isBalanced) { "a clip or an alpha was pushed inside a layer and never popped" }
         } finally {
             layer = previousLayer
             state = previousState
             previousProjection.copyInto(projection)
-            batch.projection(projection)
+            batch().projection(projection)
             bindFramebuffer(previousFramebuffer)
             setViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3])
             scissor(previousScissor)
@@ -398,12 +425,12 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             return
         }
 
-        batch.premultiplied(true)
+        batch().premultiplied(true)
         // The opacity goes into all four channels, because a premultiplied colour that faded only
         // its alpha would get brighter as it disappeared.
         val fade = state.alpha.coerceIn(0f, 1f)
         val grey = (fade * 255f).roundToInt().coerceIn(0, 255)
-        batch.textured(
+        batch().textured(
             name = picture.name,
             left = destination.left,
             bottom = flip(destination.bottom),
@@ -415,7 +442,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             v2 = picture.v2,
             tint = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey),
         )
-        batch.premultiplied(false)
+        batch().premultiplied(false)
     }
 
     private fun bindFramebuffer(name: Int) {
@@ -445,11 +472,11 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
      */
     private fun drawThrough(effect: ShaderEffect, picture: GlTexture, destination: Rect) {
         // Whatever is queued was queued to land under this, so it goes first.
-        batch.flush()
+        batch().flush()
 
         val bottom = flip(destination.bottom)
         val top = flip(destination.top)
-        effects.draw(
+        effects().draw(
             effect = effect,
             texture = picture.name,
             left = clipX(destination.left),
@@ -470,7 +497,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         // The batch set the blending and the program it wants at the start of the frame, and the
         // shader has just changed both.
         GL20.glUseProgram(0)
-        batch.premultiplied(false)
+        batch().premultiplied(false)
     }
 
     /** A design x, through the frame's projection, as the clip cube sees it. */
@@ -481,14 +508,24 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
     override fun raw(block: (Any) -> Unit) {
         // Our own quads first, so the game's drawing lands on top of what came before it.
-        batch.flush()
+        batch().flush()
         block(GlFrame(projection.copyOf(), viewport))
     }
 
+    /**
+     * Lets go of everything that was built. What was never built is not built here in order to be
+     * destroyed: a canvas that drew nothing closes without touching the driver at all.
+     *
+     * [batch] and [effects] are deliberately left pointing at the dead resources. Nulling them
+     * would let the next draw quietly build a fresh batch on a context that is going away, which
+     * turns use after close into a leak nobody notices rather than the mistake it is. [ownWhite]
+     * is cleared because [white] has always remade it on demand, and changing that here would be
+     * a second change hiding inside this one.
+     */
     override fun close() {
-        batch.close()
+        batch?.close()
         layers.close()
-        effects.close()
+        effects?.close()
         ownWhite?.close()
         ownWhite = null
     }

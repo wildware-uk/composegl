@@ -37,11 +37,18 @@ val fonts = GdxFonts()
 fonts.registerTrueType("default", Gdx.files.internal("fonts/DejaVuSans.ttf"), listOf(13, 16, 20))
 
 val sprites = SpriteBatch()
-val canvas = GdxCanvas(sprites, fonts.atlas)
+val backend = GdxBackend(fonts, sprites)          // canvas, fonts, clipboard, keyboard
+val canvas = backend.canvas
 
 val host = UiHost()
 host.setContent { ProvideFonts(fonts) { ProvideSkin(skin.skin) { Hud(state) } } }
 ```
+
+`GdxCanvas(sprites, fonts.atlas)` on its own is still there for a game that wants
+only the canvas. Neither builds anything on the GPU until the first thing is drawn,
+so both can be constructed before the interface is ready; `canvas.warmUp()` on a
+loading screen pays for the mesh and the shader somewhere the player will not see a
+stutter.
 
 LWJGL3:
 
@@ -60,6 +67,42 @@ ui.render(viewport, System.nanoTime())
 
 See [Your first screen](Your-first-screen) for the four calls it is made of, and
 when you would write them out instead.
+
+---
+
+## Hold the interface, not the backend
+
+Whatever class of yours owns the interface — the one with the host, the renderer, the
+focus manager and the canvas in it — should name `UiCanvas`, or `UiBackend` for the
+whole lot. Never `GdxCanvas` or `GlCanvas`.
+
+```kotlin
+class Hud(backend: UiBackend)     // yes
+class Hud(canvas: GdxCanvas)      // no
+```
+
+The difference is not tidiness. A class that names a backend can only ever be built
+with that backend running, so every test of your focus, your input routing and your
+lifecycle needs a window and a GPU — for code that has nothing to do with either.
+Name the interface and the same class takes `HeadlessBackend` in a test: a recording
+canvas, a monospace font, an in-memory clipboard, no machine. See [[Testing]] for the
+worked example.
+
+Three backends implement it, so the swap is real:
+
+| | |
+|---|---|
+| `GdxBackend(fonts, spriteBatch)` | LibGDX |
+| `Lwjgl3Backend(window, fonts)` | raw OpenGL |
+| `HeadlessBackend()` | no window at all, in `composegl-ui` |
+
+`SnakeApp` in `composegl-demo-snake-core` is the shape to copy: it takes fonts and a
+`UiCanvas` per frame, and its desktop, LibGDX and Android launchers are the only
+things that have ever heard of an engine.
+
+One thing that is *not* in `UiBackend`, on any of them: input. Translating a key, a
+pointer or a pad into the toolkit's events is per-platform and stays with the
+launcher — see [[Input]].
 
 ---
 

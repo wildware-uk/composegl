@@ -699,6 +699,24 @@ class GdxCanvasTest {
         assertColour(Color.BLUE, frame.pixels.at(30, 45), "and its last row at the bottom")
     }
 
+    /**
+     * The resources are built the first time something is drawn, which puts their cost in the
+     * first frame a player sees. [GdxCanvas.warmUp] is how a game moves it to a loading screen.
+     */
+    @Test
+    fun `warming up builds the batch without drawing anything`() {
+        Gl.render {
+            val canvas = GdxCanvas()
+            try {
+                canvas.warmUp()
+                assertEquals(0, canvas.drawCalls, "warming up draws nothing")
+                canvas.warmUp()
+            } finally {
+                canvas.dispose()
+            }
+        }
+    }
+
     @Test
     fun `an unbalanced clip is caught at the end of the frame`() {
         Gl.render {

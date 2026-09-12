@@ -158,6 +158,70 @@ asserting at the end of any test that draws a tree.
 
 ---
 
+## Testing a class that owns a canvas
+
+Most games end up with one object that owns the interface: a host, a renderer, a
+focus manager and a canvas, all in one place. Whether that object can be tested at
+all comes down to one line — what type it holds the canvas as.
+
+**Hold a `UiCanvas`, or the whole lot as a `UiBackend`. Never a `GdxCanvas`.**
+
+```kotlin
+class Hud(backend: UiBackend) : AutoCloseable {
+
+    private val host = UiHost()
+    private val renderer = UiRenderer(host, backend.canvas)
+    val focus = FocusManager(host.root).also { renderer.focus = it }
+
+    init { host.setContent { ProvideFonts(backend.fonts) { Screen() } } }
+
+    fun frame(viewport: Viewport, nanos: Long) = renderer.render(viewport, nanos)
+
+    override fun close() = host.dispose()
+}
+```
+
+Then the test is a test, with no window, no OpenGL and no engine in it:
+
+```kotlin
+val backend = HeadlessBackend()
+val hud = Hud(backend)
+
+hud.frame(Viewport.oneToOne(Size(1280f, 720f)), nanos = 0L)
+
+assertEquals(1, backend.canvas.frames, "the hud rendered a frame")
+assertEquals("play", hud.focus.focused?.name)
+assertEquals(listOf("Play", "Quit"), backend.canvas.texts())
+```
+
+`HeadlessBackend` is a whole `UiBackend` with no machine underneath it: a
+`RecordingCanvas`, `MonospaceFontProvider`, an in-memory clipboard, a recording soft
+keyboard and a map of textures. Swap it for `Lwjgl3Backend` or `GdxBackend` and the
+same class runs on a screen.
+
+`canvas.frames` is how many frames were opened and closed, so "did it render?" is a
+number rather than a guess. `begin` and `end` on a recording canvas complain about
+exactly what a real canvas complains about — a frame begun twice, a frame ended that
+never began, a clip left pushed — so those mistakes fail in a test rather than on a
+screen, and the clip inside a frame is the viewport's design area, the same as on a
+real backend.
+
+`SnakeApp` in `composegl-demo-snake-core` is the worked example: rules, board,
+interface, input and the order of a frame, with nothing in it that knows whether it
+is running on a desktop, in LibGDX or on a phone. Its launchers make the canvas; it
+only ever sees a `UiCanvas`.
+
+Both backend canvases build their GPU resources the first time they draw rather than
+when they are constructed, so even `GdxCanvas()` itself no longer needs a live
+context to exist. That is a safety net, not the design: a class that *names*
+`GdxCanvas` still drags LibGDX into every test of your focus, your input routing and
+your lifecycle. Name the interface.
+
+(A game that would rather not pay for a mesh and a shader in its first frame calls
+`canvas.warmUp()` on a loading screen, on the thread that holds the context.)
+
+---
+
 ## Testing a widget's behaviour
 
 Hand it events. There is no window, so nothing is faked:
