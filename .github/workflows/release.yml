@@ -212,7 +212,10 @@ jobs:
           ./gradlew publishToMavenCentral \
             -PcomposeglVersion=${{ steps.plan.outputs.version }} \
             --no-configuration-cache --stacktrace | tee publish.log
-          id=$(grep -o 'deployment id: [0-9a-f-]*' publish.log | tail -1 | cut -d' ' -f3)
+          # A snapshot prints no deployment id, and with pipefail a grep that matches nothing
+          # takes the whole step down — on a publish that worked. `|| id=` is what stops a
+          # successful snapshot reporting as a failed run.
+          id=$(grep -o 'deployment id: [0-9a-f-]*' publish.log | tail -1 | cut -d' ' -f3) || id=
           echo "DEPLOYMENT_ID=$id" >> "$GITHUB_ENV"
           echo "deployment ${id:-none, which is normal for a snapshot}"
 
