@@ -10,6 +10,7 @@ import androidx.compose.runtime.withFrameNanos
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.graphics.textRun
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.skin.ResolvedStyle
@@ -19,6 +20,8 @@ import dev.wildware.composegl.ui.skin.SkinDrawable
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.TextLayout
+import dev.wildware.composegl.ui.text.TextOutline
+import dev.wildware.composegl.ui.widget.LocalTextOutline
 import dev.wildware.composegl.ui.widget.rememberFonts
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -105,8 +108,9 @@ fun MinimapFrame(
 
     // The skin itself rather than a style, because a marker may name one of its own and how many
     // names there are is the game's business, not something the composition can hold a slot for.
-    val painter = remember(fonts, skin, frame, letters, compass, style) {
-        MinimapPainter(fonts, skin, frame, letters, compass, "$style.marker")
+    val outline = LocalTextOutline.current
+    val painter = remember(fonts, skin, frame, letters, compass, style, outline) {
+        MinimapPainter(fonts, skin, frame, letters, compass, "$style.marker", outline)
     }
 
     // Markers move, the player turns and the game's own map changes underneath — all of it
@@ -142,6 +146,7 @@ private class MinimapPainter(
     private val letters: ResolvedStyle,
     private val compass: String,
     private val markerStyle: String,
+    private val outline: TextOutline?,
 ) {
 
     private val triangle = FloatArray(6)
@@ -221,11 +226,12 @@ private class MinimapPainter(
             val degrees = turn + index * 90f
             val radians = degrees * Radians
             edgeOf(inner, sin(radians), -cos(radians), layout.size.height / 1.4f)
-            canvas.text(
+            canvas.textRun(
                 layout,
                 pointX - layout.size.width / 2f,
                 pointY - layout.size.height / 2f,
                 letters.textColour,
+                outline,
             )
         }
     }

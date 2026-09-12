@@ -238,7 +238,12 @@ class GdxCanvas(
         val data = gdx.font.data
         val top = flip(y)
 
-        gdx.glyphs.runs.forEach { run ->
+        // Indexed rather than `forEach`: that asks for an iterator, and an outlined run comes
+        // through here nine times, so a HUD of labels would make an object per copy per run per
+        // frame for nothing.
+        val runs = gdx.glyphs.runs
+        for (runIndex in 0 until runs.size) {
+            val run = runs.get(runIndex)
             var at = x + run.x
             val baseline = top + run.y
             for (index in 0 until run.glyphs.size) {

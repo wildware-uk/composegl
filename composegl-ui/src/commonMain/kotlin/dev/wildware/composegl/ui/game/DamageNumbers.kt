@@ -15,13 +15,16 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.graphics.textRun
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.TextLayout
+import dev.wildware.composegl.ui.text.TextOutline
 import dev.wildware.composegl.ui.text.TextStyle
+import dev.wildware.composegl.ui.widget.LocalTextOutline
 import dev.wildware.composegl.ui.widget.rememberFonts
 
 /**
@@ -246,6 +249,7 @@ fun DamageNumberLayer(
     }
     painter.ordinary(ordinary.textStyle, ordinary.textColour)
     painter.critical(critical.textStyle, critical.textColour)
+    painter.outline(LocalTextOutline.current)
 
     // Nothing is asked of the runtime while the screen is quiet: the effect only exists while
     // something is alive, and it ends with the last number.
@@ -280,6 +284,7 @@ private class NumberPainter(
     private var ordinaryColour = Colour.White
     private var criticalStyle = TextStyle.Default
     private var criticalColour = Colour.White
+    private var outline: TextOutline? = null
 
     fun ordinary(style: TextStyle, colour: Colour) {
         ordinaryStyle = style
@@ -289,6 +294,21 @@ private class NumberPainter(
     fun critical(style: TextStyle, colour: Colour) {
         criticalStyle = style
         criticalColour = colour
+    }
+
+    /**
+     * The ring round every number, or null for none.
+     *
+     * A floating number is the case an outline was invented for: it is over the game rather than
+     * over a panel, so whatever is behind it is moving and is whatever colour it likes. It is also
+     * the case that shows the stamped ring's one wart — see [TextOutline]. The ring takes the
+     * number's own alpha, so it goes out with it rather than hanging on as a silhouette; but the
+     * copies overlap, so on the way down the ring reads a shade stronger than the digits inside it.
+     * Nobody has ever noticed that on a number that has already risen half a screen, and an opaque
+     * outline colour is the guidance either way.
+     */
+    fun outline(outline: TextOutline?) {
+        this.outline = outline
     }
 
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
@@ -320,11 +340,12 @@ private class NumberPainter(
         val fade = if (age < FadeFrom) 1f else 1f - (age - FadeFrom) / (1f - FadeFrom)
 
         val colour = if (entry.critical) criticalColour else ordinaryColour
-        canvas.text(
+        canvas.textRun(
             layout,
             bounds.left + screen.x - layout.size.width / 2f + sway,
             bounds.top + screen.y - lift,
             colour.scaleAlpha(fade),
+            outline,
         )
     }
 
