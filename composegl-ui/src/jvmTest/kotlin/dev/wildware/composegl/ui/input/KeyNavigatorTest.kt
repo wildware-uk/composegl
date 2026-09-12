@@ -6,8 +6,7 @@ import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.focusable
 import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.onKeyEvent
-import dev.wildware.composegl.ui.node.UiNode
-import dev.wildware.composegl.ui.node.UiTree
+import dev.wildware.composegl.ui.testing.TestTree
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -22,30 +21,28 @@ import org.junit.jupiter.api.Test
  */
 class KeyNavigatorTest {
 
-    private val tree = UiTree()
+    private val screen = TestTree()
     private val states = mutableListOf<InteractionState>()
     private val clicks = mutableListOf<String>()
 
     /** A row of buttons, each with its own interaction state, laid out left to right. */
-    private fun row(count: Int) {
+    private fun row(count: Int, x: Float = 0f) {
         repeat(count) { index ->
             val state = InteractionState()
             states += state
-            val node = UiNode("b$index")
-            node.modifier = Modifier
-                .interaction(state)
-                .focusable(state)
-                .clickable { clicks += "b$index" }
-            tree.root.insertAt(index, node)
-            node.x = index * 50f
-            node.y = 0f
-            node.width = 40f
-            node.height = 20f
+            screen.box(
+                "b$index",
+                x = x + index * 50f,
+                modifier = Modifier
+                    .interaction(state)
+                    .focusable(state)
+                    .clickable { clicks += "b$index" },
+            )
         }
     }
 
     /** A manager as a frame leaves it: refreshed, so auto-focus has settled somewhere. */
-    private fun manager(): FocusManager = FocusManager(tree.root).also { it.refresh() }
+    private fun manager(): FocusManager = FocusManager(screen.root).also { it.refresh() }
 
     private fun down(key: Key, modifiers: Modifiers = Modifiers.None, repeat: Boolean = false) =
         KeyEvent(key, KeyEventType.Down, modifiers, repeat)
@@ -177,25 +174,24 @@ class KeyNavigatorTest {
     fun `a field asked first keeps the arrows it needs`() {
         // The whole point of asking the router before the navigator, in one test: the field's own
         // handler runs first and takes Left, so the caret moves and focus stays where it is.
-        val field = UiNode("field")
         val taken = mutableListOf<Key>()
-        field.modifier = Modifier
-            .focusable()
-            .onKeyEvent { event ->
-                if (event.key != Key.Left && event.key != Key.Right) false else {
-                    taken += event.key
-                    true
-                }
-            }
-        tree.root.insertAt(0, field)
-        field.width = 100f
-        field.height = 20f
-        row(1)
-        tree.root.children[1].x = 200f
+        val field = screen.box(
+            "field",
+            width = 100f,
+            modifier = Modifier
+                .focusable()
+                .onKeyEvent { event ->
+                    if (event.key != Key.Left && event.key != Key.Right) false else {
+                        taken += event.key
+                        true
+                    }
+                },
+        )
+        row(1, x = 200f)
 
         val focus = manager()
         focus.focusOn(field)
-        val router = KeyRouter(focus, tree.root)
+        val router = KeyRouter(focus, screen.root)
         val keys = KeyNavigator(focus)
 
         fun send(event: KeyEvent) = router.onKey(event) || keys.onKey(event)

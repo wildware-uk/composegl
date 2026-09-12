@@ -24,6 +24,51 @@ not the shape of a letter in a typeface.
 
 ---
 
+## A tree of rectangles, with no composition at all
+
+Half the questions are about geometry and nothing else: which button is to the right
+of which, where a pointer landed, what got drawn where. None of those need a
+composition, and building one to ask them is three steps in a fixed order — compose
+leaf layouts carrying offset and size modifiers, run frames until they settle, run a
+measure pass. Leave the last one out and the contents are right while every rectangle
+is still zero, so the test quietly asserts about a screen where nothing is anywhere.
+
+`TestTree` puts a named rectangle where you say, straight away:
+
+```kotlin
+val screen = TestTree()
+screen.row("cut", "copy", "paste", modifier = Modifier.focusable())
+
+val focus = FocusManager(screen.root)
+focus.focusOn(screen["cut"])
+focus.moveFocus(FocusDirection.Right)
+
+assertEquals("copy", focus.focused?.name)
+```
+
+`row` lays them out left to right — 40 wide, 10 apart, so `copy` starts at 50 — and
+`column` does the same downwards. `box` puts one anywhere, including inside another
+with `parent =`; `screen["cut"]` finds it again; `remove` takes it away the way a
+recomposition would. Nothing here draws, measures or behaves: it is rectangles with
+names.
+
+The toolkit's own focus, pointer, key and pad tests are written on it, which is what
+keeps its shape honest.
+
+Each box also writes down the `offset` and `size` that would produce the rectangle it
+was given, so a real measure pass leaves everything where you put it:
+
+```kotlin
+screen.layOut()          // Constraints.Unbounded by default, and that matters
+```
+
+The default is deliberately not the root's own size. A root nobody has measured is 0
+by 0, a `size` modifier is clamped into the constraints it is offered, and every
+rectangle in the tree would come back as nothing at all — the exact zero tree this
+exists to prevent. `layOut` checks afterwards and fails rather than hand you one.
+
+---
+
 ## One call instead of three
 
 A test that only wants to *read* the tree — what is on the screen, where it is,
