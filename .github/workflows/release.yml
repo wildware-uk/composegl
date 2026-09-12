@@ -1,12 +1,25 @@
-# Publishes to Maven Central when a version tag is pushed.
+# Publishes ComposeGL, from a button.
 #
-# Releasing is `git tag v0.2.0 && git push --tags` and nothing else: the version comes from the tag
-# itself, so there is no number to bump in a file and no commit that says "prepare 0.2.0".
+# Actions tab, "Release", "Run workflow", and pick one:
 #
-# Running this workflow by hand from the Actions tab is a rehearsal instead. It builds, signs, and
-# checks that Central accepts the credentials — and uploads nothing. Do that first after changing a
-# secret. A Central release can never be deleted or replaced, so the cheap way to find out that a
-# key is wrong is the run that cannot publish.
+#   snapshot   the next minor as X.Y.0-SNAPSHOT, pushed to Central's snapshot repository. No tag,
+#              and nothing permanent: a snapshot can be overwritten all day.
+#   patch      0.1.0 becomes 0.1.1
+#   minor      0.1.0 becomes 0.2.0
+#   major      0.1.0 becomes 1.0.0
+#   rehearse   builds and signs, uploads nothing, tags nothing
+#
+# The number is worked out from the last `vX.Y.Z` tag, so there is nothing in the repository to
+# edit and no commit that says "prepare 0.2.0". The three release kinds create the tag themselves,
+# and only after the build has compiled and signed: a commit that cannot be built should not leave
+# a tag behind.
+#
+# Pushing a `vX.Y.Z` tag by hand still works and still publishes. The tag pushed by this workflow
+# does *not* set that off a second time, because GitHub deliberately raises no workflow events for
+# anything done with GITHUB_TOKEN. That is what stops the button from publishing twice.
+#
+# `automaticRelease = false` in the root build is deliberate: a release is uploaded and left
+# sitting in the portal for a human to press the button on. Snapshots skip all of that.
 #
 # It needs four secrets, and does nothing useful until they exist:
 #
@@ -18,20 +31,29 @@
 # The namespace `dev.wildware` is verified in the Central portal, by a DNS TXT record on
 # wildware.dev. That record has to stay there. `uk.wildware` was never verified, which is why 0.1.0
 # was refused the first time with "Namespace is not allowed".
-#
-# `automaticRelease = false` in the root build is deliberate: this uploads and leaves the release
-# sitting in the portal for a human to press the button on.
 
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: What to publish
+        type: choice
+        required: true
+        default: snapshot
+        options:
+          - snapshot
+          - patch
+          - minor
+          - major
+          - rehearse
   push:
     tags: ['v*']
-  workflow_dispatch:
 
-# Read-only. This job publishes to Central, not to the repository.
+# Write, only so the job can push the tag it just worked out.
 permissions:
-  contents: read
+  contents: write
 
 # One at a time. Two releases uploading at once is not something Central makes easy to undo.
 concurrency:
@@ -40,28 +62,71 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish to Maven Central
+    name: Publish
     runs-on: ubuntu-latest
     steps:
-      # The whole history, because the version is read out of `git describe`. A shallow clone has
-      # no tags, and the build would publish "0.1.0-SNAPSHOT" over whatever was asked for.
+      # The whole history, because the version is worked out from the tags. A shallow clone has
+      # none, and every release would come out 0.1.0.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # A tag like `v0.2.0-rc1` builds a snapshot, and Central refuses snapshots. Better to say so
-      # in the first ten seconds than after a full build.
-      - name: The tag is a release version
-        if: github.event_name == 'push'
+      # Everything downstream reads these four outputs, so that "what number is this" is decided
+      # once, in one place, rather than re-derived by each step that needs it.
+      - name: Work out the version
+        id: plan
         env:
+          KIND: ${{ inputs.kind }}
           TAG: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
         run: |
-          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "releasing $TAG"
+          set -euo pipefail
+
+          if [ "$EVENT" = "push" ]; then
+            # A tag pushed by hand. Anything but vX.Y.Z would build a snapshot, and the release
+            # path would then upload it to a repository that refuses snapshots.
+            if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::$TAG is not vX.Y.Z, so the build makes a snapshot and Central will refuse it"
+              exit 1
+            fi
+            version="${TAG#v}"
+            tag_now=no
           else
-            echo "::error::$TAG is not vX.Y.Z, so the build makes a snapshot and Central will refuse it"
-            exit 1
+            # sort -V so v0.10.0 beats v0.9.0, which is the one place a plain sort gets it wrong.
+            last=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -1)
+            last="${last:-v0.0.0}"
+            base="${last#v}"
+            major="${base%%.*}"
+            rest="${base#*.}"
+            minor="${rest%%.*}"
+            patch="${rest#*.}"
+            echo "the last release was $last"
+
+            case "$KIND" in
+              major)    version="$((major + 1)).0.0" ;;
+              minor)    version="$major.$((minor + 1)).0" ;;
+              patch)    version="$major.$minor.$((patch + 1))" ;;
+              # A snapshot is named after the release it is on the way to, never after one that
+              # has already shipped.
+              *)        version="$major.$((minor + 1)).0-SNAPSHOT" ;;
+            esac
+
+            case "$KIND" in
+              major|minor|patch) tag_now=yes ;;
+              *)                 tag_now=no ;;
+            esac
           fi
+
+          case "$version" in *-SNAPSHOT) snapshot=yes ;; *) snapshot=no ;; esac
+          if [ "${KIND:-}" = "rehearse" ]; then upload=no; else upload=yes; fi
+
+          echo "publishing $version (tag: $tag_now, snapshot: $snapshot, upload: $upload)"
+          {
+            echo "version=$version"
+            echo "tag_now=$tag_now"
+            echo "snapshot=$snapshot"
+            echo "upload=$upload"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v5
         with:
@@ -71,7 +136,8 @@ jobs:
 
       # The same build the pull request passed, run again here. A tag is not a promise that
       # anything still compiles.
-      - run: ./gradlew build --stacktrace
+      - name: Build
+        run: ./gradlew build -PcomposeglVersion=${{ steps.plan.outputs.version }} --stacktrace
 
       # Does Central know this token? Asking whether a version exists is a read, so it changes
       # nothing and still fails on a bad or revoked token. The token is sent as one base64 blob,
@@ -94,23 +160,48 @@ jobs:
             *) echo "::warning::unexpected $code from Central; carrying on" ;;
           esac
 
-      # The rehearsal: everything a real release does, into a local folder. If the GPG key or its
-      # passphrase is wrong, it fails here, and nothing has left the runner.
-      - name: Rehearse — build and sign, upload nothing
-        if: github.event_name == 'workflow_dispatch'
+      # Everything a real release does, into a local folder. This runs for every kind, and it runs
+      # before the tag exists, so a wrong GPG key fails here — with nothing off the runner and no
+      # tag to go and delete.
+      - name: Build and sign, upload nothing
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
         run: |
-          ./gradlew publishToMavenLocal --no-configuration-cache --stacktrace
+          ./gradlew publishToMavenLocal \
+            -PcomposeglVersion=${{ steps.plan.outputs.version }} \
+            --no-configuration-cache --stacktrace
           signed=$(find ~/.m2/repository/dev/wildware -name '*.asc' | wc -l)
           echo "$signed signatures written"
           [ "$signed" -gt 0 ] || { echo "::error::nothing was signed; check SIGNING_KEY"; exit 1; }
 
+      - name: Tag it
+        if: steps.plan.outputs.tag_now == 'yes'
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -a "v$VERSION" -m "v$VERSION"
+          git push origin "v$VERSION"
+
+          # With no property the build reads the version out of the tag. Now that the tag exists,
+          # the two have to say the same thing — and if they ever stop agreeing, the number that
+          # was published was computed wrong, which is the one mistake this repository has never
+          # been able to make.
+          described=$(git describe --tags --always)
+          if [ "$described" != "v$VERSION" ]; then
+            echo "::error::the tag is $described but the build was told v$VERSION"; exit 1
+          fi
+          echo "tagged v$VERSION, and the build agrees"
+
+      # A snapshot goes to Central's snapshot repository and a release goes to the portal. The
+      # publishing plugin picks by looking at the version, so this is the same command either way.
       - name: Publish
-        if: github.event_name == 'push'
+        if: steps.plan.outputs.upload == 'yes'
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
@@ -118,16 +209,18 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
         run: |
           set -o pipefail
-          ./gradlew publishToMavenCentral --no-configuration-cache --stacktrace | tee publish.log
+          ./gradlew publishToMavenCentral \
+            -PcomposeglVersion=${{ steps.plan.outputs.version }} \
+            --no-configuration-cache --stacktrace | tee publish.log
           id=$(grep -o 'deployment id: [0-9a-f-]*' publish.log | tail -1 | cut -d' ' -f3)
           echo "DEPLOYMENT_ID=$id" >> "$GITHUB_ENV"
-          echo "deployment $id"
+          echo "deployment ${id:-none, which is normal for a snapshot}"
 
-      # The upload does not wait, so a green publish step means Central took the bundle, not that it
-      # liked it. Validation happens afterwards and can still refuse an unverified namespace or a
-      # missing signature. Without this, a failed release looks exactly like a good one.
+      # The upload does not wait, so a green publish step means Central took the bundle, not that
+      # it liked it. Validation happens afterwards and can still refuse an unverified namespace or
+      # a missing signature. Without this, a failed release looks exactly like a good one.
       - name: Central validated the bundle
-        if: github.event_name == 'push'
+        if: steps.plan.outputs.upload == 'yes' && steps.plan.outputs.snapshot == 'no'
         env:
           USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
@@ -148,10 +241,27 @@ jobs:
           echo "::warning::still $state after ten minutes; look at the portal"
 
       - name: What to do next
-        if: github.event_name == 'push'
+        if: always() && steps.plan.outputs.version != ''
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+          SNAPSHOT: ${{ steps.plan.outputs.snapshot }}
+          UPLOAD: ${{ steps.plan.outputs.upload }}
         run: |
-          echo "### Uploaded ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "It is sitting in the portal, not released. Open" >> "$GITHUB_STEP_SUMMARY"
-          echo "<https://central.sonatype.com/publishing/deployments>, look at it, and press publish." >> "$GITHUB_STEP_SUMMARY"
-          echo "That step is a person on purpose: a Central release can never be deleted or replaced." >> "$GITHUB_STEP_SUMMARY"
+          {
+            if [ "$UPLOAD" = "no" ]; then
+              echo "### Rehearsed $VERSION"
+              echo ""
+              echo "It built and it signed. Nothing was uploaded and nothing was tagged."
+            elif [ "$SNAPSHOT" = "yes" ]; then
+              echo "### Published $VERSION"
+              echo ""
+              echo "It is on Central's snapshot repository, now. Depend on it with"
+              echo '`https://central.sonatype.com/repository/maven-snapshots/` in your repositories.'
+            else
+              echo "### Uploaded $VERSION"
+              echo ""
+              echo "It is sitting in the portal, not released. Open"
+              echo "<https://central.sonatype.com/publishing/deployments>, look at it, and press publish."
+              echo "That step is a person on purpose: a Central release can never be deleted or replaced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

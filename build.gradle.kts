@@ -9,20 +9,41 @@ plugins {
 }
 
 /**
- * The version comes from the git tag, so a release is `git tag v0.2.0 && git push --tags` and
- * nothing else. Off a tag you get a snapshot named after the last one, which is what you want
- * when you are testing a build against a real game.
+ * The version: what the release button asked for, and failing that, the git tag.
+ *
+ * `-PcomposeglVersion=0.2.0` is how the Release workflow names a build. It needs to say, for two
+ * reasons: a snapshot is published off no tag at all, and a release is compiled and signed
+ * *before* it is tagged, so that a commit which cannot be built leaves no tag behind. The workflow
+ * makes the tag out of the same number it passed in and then checks the two agree, so the old
+ * promise still holds — a published artifact and its tag cannot disagree.
+ *
+ * With no property the tag decides, and releasing by hand is still `git tag v0.2.0 && git push
+ * --tags`.
+ *
+ * Off a tag you get a snapshot of the *next* minor rather than the last one. `0.1.0-SNAPSHOT`
+ * after 0.1.0 has been released is a mutable version wearing the name of an immutable one that
+ * already exists on Central, and whoever depends on it gets whichever they happened to fetch.
  */
 val projectVersion: String = run {
+    val asked = providers.gradleProperty("composeglVersion").orNull?.trim()
+    if (!asked.isNullOrEmpty()) return@run asked
+
     val described = providers.exec {
         commandLine("git", "describe", "--tags", "--always", "--dirty")
         isIgnoreExitValue = true
     }.standardOutput.asText.get().trim()
 
+    /** 0.1.0 becomes 0.2.0-SNAPSHOT: what the next release off this commit would most likely be. */
+    fun nextMinorSnapshot(release: String): String {
+        val parts = release.split(".")
+        val minor = parts.getOrNull(1)?.toIntOrNull() ?: return "0.1.0-SNAPSHOT"
+        return "${parts[0]}.${minor + 1}.0-SNAPSHOT"
+    }
+
     when {
         described.isEmpty() -> "0.1.0-SNAPSHOT"
         Regex("^v\\d+\\.\\d+\\.\\d+$").matches(described) -> described.removePrefix("v")
-        described.startsWith("v") -> described.removePrefix("v").substringBefore("-") + "-SNAPSHOT"
+        described.startsWith("v") -> nextMinorSnapshot(described.removePrefix("v").substringBefore("-"))
         else -> "0.1.0-SNAPSHOT"
     }
 }

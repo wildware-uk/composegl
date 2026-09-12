@@ -28,6 +28,29 @@ list of names rather than a rule about what a module is called.
 
 ---
 
+## The button
+
+Actions tab, **Release**, **Run workflow**, and pick one:
+
+| | from 0.1.0 you get |
+|---|---|
+| `snapshot` | `0.2.0-SNAPSHOT`, straight onto Central's snapshot repository |
+| `patch` | `0.1.1` |
+| `minor` | `0.2.0` |
+| `major` | `1.0.0` |
+| `rehearse` | builds and signs, uploads nothing, tags nothing |
+
+The number is worked out from the last `vX.Y.Z` tag, so there is nothing in the
+repository to edit and no commit that says "prepare 0.2.0". The three release
+kinds create the tag themselves.
+
+A snapshot is named after the release it is on the way to, never after one that
+has already shipped. `0.1.0-SNAPSHOT` once 0.1.0 is out would be a mutable
+version wearing an immutable one's name, and whoever depended on it would get
+whichever of the two they happened to fetch.
+
+---
+
 ## The version comes from the tag
 
 `build.gradle.kts` runs `git describe --tags` and reads the answer:
@@ -35,27 +58,53 @@ list of names rather than a rule about what a module is called.
 | what git says | the version |
 |---|---|
 | `v0.2.0` | `0.2.0` |
-| `v0.2.0-4-gabc1234` | `0.2.0-SNAPSHOT` |
+| `v0.2.0-4-gabc1234` | `0.3.0-SNAPSHOT` |
 | nothing | `0.1.0-SNAPSHOT` |
 
-So there is no number to bump in a file, no commit that says "prepare 0.2.0", and
-no way for the tag and the artifact to disagree.
+So there is no number to bump in a file, and no way for the tag and the artifact
+to disagree.
 
 It also means CI must check out the **whole** history. A shallow clone has no
-tags, and would publish a snapshot over whatever was asked for.
+tags, and every release would come out 0.1.0.
+
+`-PcomposeglVersion=0.2.0` overrides all of that, and the Release workflow uses
+it. It has to, for two reasons: a snapshot is published off no tag at all, and a
+release is compiled and signed *before* it is tagged, so that a commit which
+cannot be built leaves no tag behind. The workflow then makes the tag out of the
+same number it passed in and checks `git describe` agrees, so the promise above
+still holds — it is now checked rather than assumed.
 
 ---
 
-## What the tag sets off
+## Releasing by hand
 
-`.github/workflows/release.yml`, which first refuses any tag that is not exactly
-`vX.Y.Z` — anything else builds a snapshot, and Central refuses snapshots — then
-builds everything again (a tag is not a promise that anything still compiles) and
-runs `publishToMavenCentral`.
+`git tag v0.2.0 && git push --tags` still works and still publishes, and is what
+the button does underneath.
 
-That **uploads** the release and leaves it sitting in the Central portal for a
-human to press the button on. Deliberate: a version on Central can never be
-deleted or replaced, so the last step is a person looking at it.
+The tag the button pushes does **not** set that path off a second time. GitHub
+raises no workflow events for anything done with `GITHUB_TOKEN`, which is what
+stops one press from publishing twice.
+
+---
+
+## What a release does
+
+`.github/workflows/release.yml` first refuses any hand-pushed tag that is not
+exactly `vX.Y.Z` — anything else builds a snapshot, and the release path would
+upload it somewhere that refuses snapshots — then builds everything again (a tag
+is not a promise that anything still compiles), signs it into a local folder,
+tags, and runs `publishToMavenCentral`.
+
+A snapshot goes to Central's snapshot repository and is live immediately.
+Depend on it by adding that repository:
+
+```kotlin
+maven("https://central.sonatype.com/repository/maven-snapshots/")
+```
+
+A release instead **uploads** and leaves the version sitting in the Central
+portal for a human to press the button on. Deliberate: a version on Central can
+never be deleted or replaced, so the last step is a person looking at it.
 
 ---
 
@@ -113,11 +162,15 @@ dig +short TXT wildware.dev
 Everything lands in `~/.m2/repository/dev/wildware`. Point a real game at it with
 `mavenLocal()` and you are testing exactly what a release would be.
 
-To try the **secrets** without publishing anything, run the Release workflow by
-hand from the Actions tab. A run started that way does everything a real release
-does — builds, asks Central whether it likes the token, signs every artifact —
-and uploads nothing. Do that after changing a secret. Finding out that a key is
-wrong is cheap on a run that cannot publish and expensive on one that can.
+To try the **secrets** without publishing anything, run the Release workflow and
+pick `rehearse`. It does everything a real release does — builds, asks Central
+whether it likes the token, signs every artifact — and uploads nothing, and tags
+nothing. Do that after changing a secret. Finding out that a key is wrong is
+cheap on a run that cannot publish and expensive on one that can.
+
+Those two checks are not only for rehearsals: every kind asks Central about the
+token and signs into a local folder, and both happen *before* the tag is made. A
+wrong key fails the run with nothing uploaded and no tag to go and delete.
 
 ---
 
