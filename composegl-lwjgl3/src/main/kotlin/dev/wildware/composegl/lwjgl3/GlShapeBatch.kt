@@ -1,11 +1,15 @@
 package dev.wildware.composegl.lwjgl3
 
+import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL14
 import org.lwjgl.opengl.GL15
 import org.lwjgl.opengl.GL20
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Every quad an interface draws, through one shader, with nothing but OpenGL underneath.
@@ -72,17 +76,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         drawing = true
         renderCalls = 0
         projection.copyInto(this.projection)
-        GL11.glEnable(GL11.GL_BLEND)
-        // Separate on purpose. The colour half is the ordinary one; the alpha half accumulates
-        // rather than being interpolated, so what lands in a render target is premultiplied and a
-        // game can put it on a quad — or add it, for a hologram — without a shader of its own.
-        // On a window it changes nothing: nobody reads the alpha of the thing on screen.
-        GL14.glBlendFuncSeparate(
-            GL11.GL_SRC_ALPHA,
-            GL11.GL_ONE_MINUS_SRC_ALPHA,
-            GL11.GL_ONE,
-            GL11.GL_ONE_MINUS_SRC_ALPHA,
-        )
+        setBlend(BlendMode.SourceOver, premultiplied = false)
     }
 
     fun end() {
@@ -104,19 +98,46 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
     }
 
     /**
-     * Whether the colours coming in are already multiplied by their own opacity.
+     * How the following quads are combined with what is already there.
      *
-     * True for a layer being drawn back onto the screen, since that is what [begin]'s blending
-     * produced when the layer was drawn; false for everything else. Blending it the ordinary way
-     * would multiply by the opacity a second time and edge every soft thing in black.
+     * The one place this batch's blending is decided, on purpose. Two questions arrive at the same
+     * piece of GL state — what the canvas's blend stack currently says, and whether *this*
+     * particular quad's colours are already multiplied by their own opacity — and a batch with two
+     * writers of one setting would have them undoing each other: a layer composited inside an
+     * additive group would land source-over, or a glow after a layer would land as paint.
+     *
+     * Applied at once rather than remembered and applied at the next quad. A shader effect changes
+     * the blend function behind this batch's back, so a remembered "current mode" is stale the
+     * moment an effect draws, and the call that put it right would be skipped as a no-op. It is
+     * one `glBlendFuncSeparate`, and the flush before it costs nothing when nothing is queued.
+     *
+     * @param premultiplied true for a layer being drawn back onto the screen, since that is what
+     *   the blending above produced when the layer was drawn. Blending it the ordinary way would
+     *   multiply by the opacity a second time and edge every soft thing in black.
      */
-    fun premultiplied(premultiplied: Boolean) {
+    fun blend(mode: BlendMode, premultiplied: Boolean) {
         flush()
+        setBlend(mode, premultiplied)
+    }
+
+    /** The old name, kept: it is exactly [blend] with the ordinary mode. */
+    fun premultiplied(premultiplied: Boolean) = blend(BlendMode.SourceOver, premultiplied)
+
+    private fun setBlend(mode: BlendMode, premultiplied: Boolean) {
+        // Switched on here rather than once in [begin], so that whoever owns how this batch blends
+        // owns whether it blends at all. The other backend needs that — a SpriteBatch turns
+        // blending off behind it — and there is no reason for the two to differ.
+        GL11.glEnable(GL11.GL_BLEND)
+        // Separate on purpose. The alpha half accumulates rather than being interpolated, so what
+        // lands in a render target is premultiplied and a game can put it on a quad — or add it,
+        // for a hologram — without a shader of its own. On a window it changes nothing: nobody
+        // reads the alpha of the thing on screen.
+        val destination = if (mode == BlendMode.Additive) GL11.GL_ONE else GL11.GL_ONE_MINUS_SRC_ALPHA
         GL14.glBlendFuncSeparate(
             if (premultiplied) GL11.GL_ONE else GL11.GL_SRC_ALPHA,
-            GL11.GL_ONE_MINUS_SRC_ALPHA,
+            destination,
             GL11.GL_ONE,
-            GL11.GL_ONE_MINUS_SRC_ALPHA,
+            destination,
         )
     }
 
@@ -301,6 +322,81 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
             radius = 0f,
             borderWidth = 0f,
             shadowSpread = 0f,
+            // Zero says "this is a picture": the shader skips the distance field entirely.
+            aa = 0f,
+        )
+    }
+
+    /**
+     * The same picture, turned round a pivot.
+     *
+     * Four corners worked out here and written as an ordinary quad: the mesh does not care whether
+     * they happen to be axis aligned, the shader has the shape maths switched off for a picture
+     * either way, and no GL state changes. So a turned picture batches with every other quad from
+     * the same texture — a sunburst of fourteen rays is one draw call, not fourteen.
+     *
+     * [degrees] turns it clockwise as the toolkit's y-down coordinates see it. Everything reaching
+     * this batch has already been flipped the other way up, so the sign here looks back to front
+     * on purpose — that is the whole of the difference, in one place.
+     *
+     * [pivotX] and [pivotY] are a point, in the same flipped coordinates as [left] and [bottom].
+     */
+    @Suppress("LongParameterList")
+    fun textured(
+        name: Int,
+        left: Float,
+        bottom: Float,
+        width: Float,
+        height: Float,
+        pivotX: Float,
+        pivotY: Float,
+        degrees: Float,
+        u: Float,
+        v: Float,
+        u2: Float,
+        v2: Float,
+        tint: Colour,
+    ) {
+        val radians = degrees * PI.toFloat() / 180f
+        val turnCos = cos(radians)
+        val turnSin = sin(radians)
+        val right = left + width
+        val top = bottom + height
+
+        use(name)
+        // Anticlockwise from the bottom-left, exactly as `quad` winds it, so the indices fit.
+        turned(left, bottom, pivotX, pivotY, turnCos, turnSin, u, v2, tint)
+        turned(left, top, pivotX, pivotY, turnCos, turnSin, u, v, tint)
+        turned(right, top, pivotX, pivotY, turnCos, turnSin, u2, v, tint)
+        turned(right, bottom, pivotX, pivotY, turnCos, turnSin, u2, v2, tint)
+    }
+
+    /**
+     * One corner of a turned picture.
+     *
+     * The minus on the sine is the y flip: this batch counts y upwards and the toolkit counts it
+     * downwards, so turning clockwise up here means turning anticlockwise down there.
+     */
+    @Suppress("LongParameterList")
+    private fun turned(
+        x: Float, y: Float,
+        pivotX: Float, pivotY: Float,
+        turnCos: Float, turnSin: Float,
+        u: Float, v: Float,
+        tint: Colour,
+    ) {
+        val acrossX = x - pivotX
+        val acrossY = y - pivotY
+        vertex(
+            x = pivotX + acrossX * turnCos + acrossY * turnSin,
+            y = pivotY - acrossX * turnSin + acrossY * turnCos,
+            u = u, v = v,
+            fill = tint,
+            border = Colour.Transparent,
+            shadow = Colour.Transparent,
+            localX = 0f, localY = 0f,
+            halfWidth = 0f, halfHeight = 0f,
+            radius = 0f, borderWidth = 0f, shadowSpread = 0f,
             // Zero says "this is a picture": the shader skips the distance field entirely.
             aa = 0f,
         )

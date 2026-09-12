@@ -11,6 +11,7 @@ import com.badlogic.gdx.utils.Disposable
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.effect.Uniform
+import dev.wildware.composegl.ui.graphics.BlendMode
 
 /**
  * Everybody's shaders: the user's GLSL, compiled, kept, and pointed at a picture the interface
@@ -45,6 +46,10 @@ internal class GdxEffects : Disposable {
      *
      * @param alpha the canvas's opacity, handed to the shader as `u_alpha`. It cannot be applied
      *   out here: the shader writes the final colour and nothing downstream can multiply it.
+     * @param mode how the result is combined with what is already on the screen. It has to be
+     *   asked for, because this draws its own quad rather than going through the batch, and a
+     *   blurred glow that came out as paint would be the one case where pushing a mode silently
+     *   did nothing.
      */
     @Suppress("LongParameterList")
     fun draw(
@@ -63,6 +68,7 @@ internal class GdxEffects : Disposable {
         designWidth: Float,
         designHeight: Float,
         alpha: Float,
+        mode: BlendMode,
     ) {
         val program = programs.getOrPut(effect.source.fragment) { compile(effect.source) }
         program.bind()
@@ -84,13 +90,11 @@ internal class GdxEffects : Disposable {
         put(3, left, bottom, u, v2)
         mesh.setVertices(vertices)
 
-        // Premultiplied, like every other way a layer reaches the screen.
-        Gdx.gl.glBlendFuncSeparate(
-            GL20.GL_ONE,
-            GL20.GL_ONE_MINUS_SRC_ALPHA,
-            GL20.GL_ONE,
-            GL20.GL_ONE_MINUS_SRC_ALPHA,
-        )
+        // Premultiplied, like every other way a layer reaches the screen, and combined the way the
+        // canvas's blend stack says — the same two factors [UiShapeBatch] picks between, so a group
+        // that glows goes on glowing when somebody puts a blur round it.
+        val destination = if (mode == BlendMode.Additive) GL20.GL_ONE else GL20.GL_ONE_MINUS_SRC_ALPHA
+        Gdx.gl.glBlendFuncSeparate(GL20.GL_ONE, destination, GL20.GL_ONE, destination)
         mesh.render(program, GL20.GL_TRIANGLE_FAN, 0, 4)
     }
 

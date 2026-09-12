@@ -64,6 +64,30 @@ Modifier.drawInFront { bounds -> border(bounds, Colour.White, 1f) }
 The receiver is a [`UiCanvas`](https://github.com/wildware-uk/composegl/blob/master/composegl-ui/src/commonMain/kotlin/dev/wildware/composegl/ui/graphics/UiCanvas.kt)
 and the argument is the widget's rectangle in screen coordinates.
 
+**Turning a picture, and making it glow.** Two things the canvas can do that a
+plain rectangle cannot:
+
+```kotlin
+Modifier.drawBehind { bounds ->
+    // A sunburst: one picture per ray, each turned about the hub on the left edge.
+    pushBlend(BlendMode.Additive)        // light adds; paint covers
+    repeat(14) { ray ->
+        image(spark, bounds, degrees = ray * 360f / 14f, pivotX = 0f)
+    }
+    popBlend()
+}
+```
+
+`degrees` turns clockwise, because y grows downwards here. `destination` is the box
+*before* turning, so the pixels can land outside it. The rays batch together — no
+draw call per ray — but a blend mode is a batch boundary, so push it round the whole
+group rather than per call: a dozen quads between one push and one pop cost two
+boundaries, not twenty-four.
+
+Both degrade honestly on a backend that cannot do them: the picture is drawn upright
+and the glow is drawn as ordinary paint. Ask `canvas.rotatesImages` and
+`canvas.supports(BlendMode.Additive)` first if you would rather draw something else.
+
 **A note on colours.** `Colour.rgb(0x…)` and `Colour.argb(0x…)` are how you write
 one. There are also about a dozen named ones — `Colour.Red`, `Colour.Grey`,
 `Colour.Orange` — for a debug box, an example, or a prototype nobody has skinned

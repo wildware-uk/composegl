@@ -168,19 +168,23 @@ interface UiBackend {
 
 The real work is `UiCanvas`, and it is deliberately short — about ten calls:
 `rect`, `border`, `shadow`, `text`, `image`, `fan`, a clip stack, an alpha stack,
-and `raw`.
+a blend stack, and `raw`.
 
 A long drawing interface is a long list of things every future backend has to
 reimplement, and most of what an interface draws is a rounded rectangle with some
 text on it. Anything richer goes through `raw { }`, which hands your own drawing
 object back to whoever asked for it.
 
-Three optional extras, each of which degrades rather than fails:
+The optional extras, each of which degrades rather than fails:
 
 - `layer(bounds) { }` and `drawLayer(...)` — offscreen drawing, which is what
   [[Shaders|effects]] are built on. Return null and effects simply do not happen.
 - `drawCalls` — how many times you handed work to the GPU this frame. Return -1 and
   the frame budget shows nothing for it.
+- `image(texture, destination, degrees, …)` — a turned picture. Leave it and the
+  default draws it upright; say so in `rotatesImages`.
+- `pushBlend(mode)` / `popBlend()` — additive blending, for light. Leave them and
+  everything paints the ordinary way; say so in `supports(mode)`.
 - Everything in `raw { }` — your business entirely.
 
 **The rule for `raw` and for `layer`: leave your own state as you found it.**

@@ -14,6 +14,7 @@ import dev.wildware.composegl.ui.effect.Uniform
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.layout.ScalePolicy
@@ -739,5 +740,195 @@ class GdxCanvasTest {
                 batch.dispose()
             }
         }
+    }
+
+    // --- turning a picture, and blending it ---
+
+    /** Draws [content] with a two-row picture to hand — red over blue — and reads the frame back. */
+    private fun drawPicture(content: GdxCanvas.(GdxTexture) -> Unit): Frame = Gl.render {
+        val batch = SpriteBatch()
+        val canvas = GdxCanvas(batch)
+        val pixmap = Pixmap(1, 2, Pixmap.Format.RGBA8888).apply {
+            setColor(Color.RED)
+            drawPixel(0, 0)
+            setColor(Color.BLUE)
+            drawPixel(0, 1)
+        }
+        val texture = Texture(pixmap)
+        try {
+            Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+            canvas.begin(viewport)
+            canvas.content(GdxTexture(texture))
+            canvas.end()
+            Frame(Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size), canvas.drawCalls)
+        } finally {
+            texture.dispose()
+            pixmap.dispose()
+            canvas.dispose()
+            batch.dispose()
+        }
+    }
+
+    @Test
+    fun `half a turn puts the top of the picture at the bottom`() {
+        val frame = drawPicture { image(it, Rect.of(10f, 10f, 40f, 40f), degrees = 180f) }
+
+        assertColour(Color.BLUE, frame.pixels.at(30, 15), "half a turn puts the last row on top")
+        assertColour(Color.RED, frame.pixels.at(30, 45), "and the first row at the bottom")
+    }
+
+    @Test
+    fun `a quarter turn clockwise sends the top of the picture to the right`() {
+        // The convention, asserted rather than described: positive degrees turn the way the axes
+        // do, and y grows downwards here. The other backend is asserted to agree.
+        val frame = drawPicture { image(it, Rect.of(10f, 10f, 40f, 40f), degrees = 90f) }
+
+        assertColour(Color.RED, frame.pixels.at(45, 30), "the picture's first row ends up on the right")
+        assertColour(Color.BLUE, frame.pixels.at(15, 30), "and its last row on the left")
+    }
+
+    @Test
+    fun `a turned picture fades with the opacity in force`() {
+        // The alpha stack reaches the turned call the same way it reaches the upright one. A
+        // widget fading a tilted card out would otherwise stay solid all the way to invisible.
+        val frame = drawPicture {
+            pushAlpha(0.5f)
+            image(it, Rect.of(10f, 10f, 40f, 40f), degrees = 180f)
+            popAlpha()
+        }
+
+        assertColour(Color(0f, 0f, 0.5f, 1f), frame.pixels.at(30, 15), "half a blue row over black:")
+        assertColour(Color(0.5f, 0f, 0f, 1f), frame.pixels.at(30, 45), "and half a red one:")
+    }
+
+    @Test
+    fun `part of a picture can be turned`() {
+        // The sub-rectangle and the angle together, which is a sprite sheet's frame at an angle —
+        // the ordinary case, and the one neither argument alone covers. Only the picture's red row
+        // is asked for, so a canvas that dropped `source` would put blue down one side.
+        val frame = drawPicture {
+            image(it, Rect.of(10f, 10f, 40f, 40f), degrees = 90f, source = Rect.of(0f, 0f, 1f, 1f))
+        }
+
+        assertColour(Color.RED, frame.pixels.at(20, 30), "the red row fills it:")
+        assertColour(Color.RED, frame.pixels.at(40, 30), "all the way across:")
+    }
+
+    @Test
+    fun `fourteen turned pictures cost one draw call`() {
+        val frame = drawPicture { picture ->
+            repeat(14) { ray ->
+                image(picture, Rect.of(100f, 98f, 80f, 4f), degrees = ray * 360f / 14f, pivotX = 0f)
+            }
+        }
+
+        assertEquals(1, frame.drawCalls, "a sunburst should batch with itself")
+    }
+
+    @Test
+    fun `an additive group really adds`() {
+        val half = Colour.rgb(0x404040)
+        val frame = draw {
+            rect(Rect.of(10f, 10f, 60f, 60f), half)
+            pushBlend(BlendMode.Additive)
+            rect(Rect.of(10f, 10f, 60f, 60f), half)
+            popBlend()
+            rect(Rect.of(100f, 10f, 60f, 60f), half)
+            rect(Rect.of(100f, 10f, 60f, 60f), half)
+        }
+
+        assertColour(Color(0.5f, 0.5f, 0.5f, 1f), frame.pixels.at(40, 40), "two halves added:")
+        assertColour(Color(0.25f, 0.25f, 0.25f, 1f), frame.pixels.at(130, 40), "source-over covers:")
+    }
+
+    @Test
+    fun `a group costs two batch boundaries however many quads are in it`() {
+        val counts = listOf(2, 20).map { many ->
+            draw {
+                rect(Rect.of(0f, 0f, 10f, 10f), red)
+                pushBlend(BlendMode.Additive)
+                repeat(many) { rect(Rect.of(it * 12f, 20f, 10f, 10f), red) }
+                popBlend()
+                rect(Rect.of(0f, 200f, 10f, 10f), red)
+            }.drawCalls
+        }
+
+        assertEquals(listOf(3, 3), counts, "the cost is per group, not per quad")
+    }
+
+    @Test
+    fun `things stay see-through after a raw block`() {
+        // SpriteBatch.end() switches blending off on its way out. Before the canvas put it back,
+        // everything an interface drew after a raw block came out flat and opaque — a tooltip over
+        // a panel, a fade, a shadow, all of it — and nothing said so.
+        val ghost = Colour.argb(0x80FFFFFF)
+        val frame = draw {
+            rect(Rect.of(10f, 10f, 60f, 60f), Colour.Black)
+            raw { }
+            rect(Rect.of(10f, 10f, 60f, 60f), ghost)
+        }
+
+        assertColour(Color(0.5f, 0.5f, 0.5f, 1f), frame.pixels.at(40, 40), "half white over black:")
+    }
+
+    @Test
+    fun `raw leaves the blend mode the caller asked for still in force`() {
+        // SpriteBatch sets its own blending and switches it off again, so without the canvas
+        // tidying up after itself the quads after a raw block blend the wrong way.
+        val half = Colour.rgb(0x404040)
+        val frame = draw {
+            pushBlend(BlendMode.Additive)
+            rect(Rect.of(10f, 10f, 60f, 60f), half)
+            raw { }
+            rect(Rect.of(10f, 10f, 60f, 60f), half)
+            popBlend()
+        }
+
+        assertColour(Color(0.5f, 0.5f, 0.5f, 1f), frame.pixels.at(40, 40), "still adding after raw:")
+    }
+
+    @Test
+    fun `a shader effect composites the way the blend stack says`() {
+        // An effect draws its own quad rather than going through the batch, so it has to be told
+        // the mode. Until it was, `pushBlend(Additive) { drawLayer(picture, box, blur) }` came out
+        // as paint — no exception, no log, and `supports` still answering yes. That is the case
+        // the documentation points a caller at.
+        val half = Colour.rgb(0x404040)
+        val bounds = Rect.of(10f, 10f, 60f, 60f)
+        val frame = draw {
+            rect(bounds, half)
+            pushBlend(BlendMode.Additive)
+            val picture = layer(bounds) { rect(bounds, half) }
+            if (picture != null) drawLayer(picture, bounds, passThrough)
+            popBlend()
+        }
+
+        assertColour(
+            Color(0.5f, 0.5f, 0.5f, 1f),
+            frame.pixels.at(40, 40),
+            "a blurred group inside a pushBlend glows like an unblurred one:",
+        )
+    }
+
+    @Test
+    fun `a layer draws plainly inside, however the blend was set outside it`() {
+        val half = Colour.rgb(0x404040)
+        val bounds = Rect.of(10f, 10f, 60f, 60f)
+        val frame = draw {
+            pushBlend(BlendMode.Additive)
+            val picture = layer(bounds) {
+                rect(bounds, half)
+                rect(bounds, half)
+            }
+            if (picture != null) drawLayer(picture, bounds)
+            popBlend()
+        }
+
+        assertColour(
+            Color(0.25f, 0.25f, 0.25f, 1f),
+            frame.pixels.at(40, 40),
+            "inside the layer the two halves covered rather than added:",
+        )
     }
 }

@@ -6,7 +6,13 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextLayout
 
-/** One thing a [RecordingCanvas] was asked to draw, with the clip and opacity in force at the time. */
+/**
+ * One thing a [RecordingCanvas] was asked to draw, with the clip and opacity in force at the time.
+ *
+ * The blend mode in force is not here, for the reason [RotatedImage] gives about its own existence:
+ * these are published data classes and a new constructor parameter breaks every one of them at the
+ * binary level. Ask the canvas instead — [RecordingCanvas.blendOf] takes a call and answers.
+ */
 sealed interface DrawCall {
 
     /** The clip that applied. A call whose clip is empty would have drawn nothing on screen. */
@@ -57,15 +63,55 @@ sealed interface DrawCall {
         override val alpha: Float,
     ) : DrawCall
 
-    data class Image(
-        val texture: TextureHandle,
-        val destination: Rect,
-        val tint: Colour,
+    /**
+     * A picture, upright or turned.
+     *
+     * Here so that a test which only cares *that* a picture was drawn — and where, and in what
+     * colour — can ask for these and get both, rather than asking twice and joining the answers
+     * itself. A test that cares about the angle asks for [RotatedImage].
+     */
+    sealed interface Pictured : DrawCall {
+        val texture: TextureHandle
+        val destination: Rect
+        val tint: Colour
+
         /** The part of the texture drawn, in texture pixels. Null is all of it. */
-        val source: Rect?,
+        val source: Rect?
+    }
+
+    data class Image(
+        override val texture: TextureHandle,
+        override val destination: Rect,
+        override val tint: Colour,
+        override val source: Rect?,
         override val clip: Rect,
         override val alpha: Float,
-    ) : DrawCall
+    ) : Pictured
+
+    /**
+     * A picture that was asked for at an angle.
+     *
+     * Its own kind rather than two more fields on [Image], because [Image] is published and adding
+     * a parameter to a data class replaces its constructor — source-compatible, binary-broken. A
+     * new kind costs nothing to anyone who does not mention it.
+     *
+     * A turn of zero is recorded as a plain [Image], so a widget handing over a variable that
+     * happens to be zero records exactly what it always did.
+     *
+     * [destination] is the box before turning and [pivotX], [pivotY] are fractions of it; see
+     * [UiCanvas.image].
+     */
+    data class RotatedImage(
+        override val texture: TextureHandle,
+        override val destination: Rect,
+        val degrees: Float,
+        val pivotX: Float,
+        val pivotY: Float,
+        override val tint: Colour,
+        override val source: Rect?,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : Pictured
 
     /**
      * A subtree that was drawn into an offscreen picture, and then drawn back — with a shader when
@@ -106,10 +152,46 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     private var state = CanvasState(bounds)
     private val recorded = mutableListOf<DrawCall>()
+    private val recordedBlends = mutableListOf<BlendMode>()
     private var drawing = false
 
     /** Everything drawn since the last [clear], in the order it was drawn. */
     val calls: List<DrawCall> get() = recorded
+
+    /**
+     * The blend mode each of [calls] was drawn under, same length and same order.
+     *
+     * Beside the calls rather than on them because [DrawCall] and its kinds are published data
+     * classes, and a new constructor parameter on one of those is a binary break for everybody who
+     * compiled against 0.1.0. They are filled in together, in one place, so they cannot drift.
+     *
+     * [blendOf] is usually the friendlier way in: [only] and [invisible] hand back filtered lists
+     * with no index left to look a mode up by.
+     */
+    val blends: List<BlendMode> get() = recordedBlends
+
+    /**
+     * What [call] was drawn under.
+     *
+     * Matched by identity, not by value — two rectangles of the same colour in the same place are
+     * two calls, and they may well have been drawn under different modes. So this only answers for
+     * a call that came out of this canvas; anything else is [BlendMode.SourceOver] by default and
+     * would be a question about a call that was never made.
+     */
+    fun blendOf(call: DrawCall): BlendMode {
+        val at = recorded.indexOfFirst { it === call }
+        return if (at < 0) BlendMode.SourceOver else recordedBlends[at]
+    }
+
+    /** Everything drawn under one mode. The quick way to ask "did this group glow?". */
+    fun calls(mode: BlendMode): List<DrawCall> =
+        recorded.filterIndexed { at, _ -> recordedBlends[at] == mode }
+
+    /** The one place a call and the mode it was drawn under are written down, so they stay in step. */
+    private fun record(call: DrawCall) {
+        recorded += call
+        recordedBlends += state.blend
+    }
 
     /**
      * How many frames have been opened and closed *cleanly* since this canvas was made.
@@ -138,6 +220,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
      */
     fun clear(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) {
         recorded.clear()
+        recordedBlends.clear()
         drawing = false
         state.reset(bounds)
     }
@@ -171,49 +254,81 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         // The frame is marked closed before this complains, so the next one can begin — the same
         // order the canvases that draw use. The count comes after it, because a frame that failed
         // its balance check is not a frame that rendered; see [frames].
-        check(state.isBalanced) { "a clip or an alpha was pushed and never popped" }
+        check(state.isBalanced) { Unbalanced }
         frames++
     }
 
     /**
-     * Fails unless every clip and alpha pushed was popped.
+     * Fails unless every clip, alpha and blend mode pushed was popped.
      *
      * Worth calling at the end of any test that draws a tree: an imbalance means a widget leaked
      * state onto whatever is drawn after it, and on a real backend that is a scissor left switched
      * on rather than an exception.
      */
     fun assertBalanced() {
-        check(state.isBalanced) { "a clip or an alpha was pushed and never popped" }
+        check(state.isBalanced) { Unbalanced }
     }
 
     override fun rect(rect: Rect, colour: Colour, corner: Float) {
-        recorded += DrawCall.Rectangle(rect, colour, corner, state.clip, state.alpha)
+        record(DrawCall.Rectangle(rect, colour, corner, state.clip, state.alpha))
     }
 
     override fun border(rect: Rect, colour: Colour, width: Float, corner: Float) {
-        recorded += DrawCall.Border(rect, colour, width, corner, state.clip, state.alpha)
+        record(DrawCall.Border(rect, colour, width, corner, state.clip, state.alpha))
     }
 
     override fun shadow(rect: Rect, colour: Colour, spread: Float, corner: Float) {
-        recorded += DrawCall.Shadow(rect, colour, spread, corner, state.clip, state.alpha)
+        record(DrawCall.Shadow(rect, colour, spread, corner, state.clip, state.alpha))
     }
 
     override fun fan(points: FloatArray, colour: Colour) {
         if (points.size < 6) return
         val offsets = (points.indices step 2).map { Offset(points[it], points[it + 1]) }
-        recorded += DrawCall.Fan(offsets, colour, state.clip, state.alpha)
+        record(DrawCall.Fan(offsets, colour, state.clip, state.alpha))
     }
 
     override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) {
-        recorded += DrawCall.Text(layout.text, Offset(x, y), colour, state.clip, state.alpha)
+        record(DrawCall.Text(layout.text, Offset(x, y), colour, state.clip, state.alpha))
     }
 
     override fun image(texture: TextureHandle, destination: Rect, tint: Colour, source: Rect?) {
         // Every canvas that draws refuses nine separately-cut pieces, so this one does too. A test
         // that recorded them would be passing against art no real backend would put on a screen.
         refuseNineRegions(texture)
-        recorded += DrawCall.Image(texture, destination, tint, source, state.clip, state.alpha)
+        record(DrawCall.Image(texture, destination, tint, source, state.clip, state.alpha))
     }
+
+    /**
+     * A turn of zero records a plain [DrawCall.Image], exactly as the upright call would.
+     *
+     * So a widget that passes an angle which happens to be zero — a card that is only tilted while
+     * it is being dragged — records what it has always recorded, and a test written before this
+     * existed keeps passing.
+     */
+    @Suppress("LongParameterList")
+    override fun image(
+        texture: TextureHandle,
+        destination: Rect,
+        degrees: Float,
+        pivotX: Float,
+        pivotY: Float,
+        tint: Colour,
+        source: Rect?,
+    ) {
+        refuseNineRegions(texture)
+        if (degrees == 0f) {
+            record(DrawCall.Image(texture, destination, tint, source, state.clip, state.alpha))
+            return
+        }
+        record(
+            DrawCall.RotatedImage(
+                texture, destination, degrees, pivotX, pivotY, tint, source, state.clip, state.alpha,
+            ),
+        )
+    }
+
+    /** It writes the angle down, which is the whole of what this canvas can do about anything. */
+    override val rotatesImages: Boolean get() = true
 
     /**
      * Runs [block] and hands back a picture that only exists as a name.
@@ -223,14 +338,14 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
      * it, and a [DrawCall.Layer] follows when the picture is drawn back.
      */
     override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? {
-        // A real backend gives the block a clip of exactly the layer and full opacity, so this one
-        // does too — otherwise a test would pass against a canvas that behaves differently from
-        // every canvas that draws.
+        // A real backend gives the block a clip of exactly the layer, full opacity and plain
+        // source-over blending, so this one does too — otherwise a test would pass against a
+        // canvas that behaves differently from every canvas that draws.
         val outer = state
         state = CanvasState(bounds)
         try {
             block()
-            check(state.isBalanced) { "a clip or an alpha was pushed inside a layer and never popped" }
+            check(state.isBalanced) { UnbalancedInLayer }
         } finally {
             state = outer
         }
@@ -238,7 +353,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     }
 
     override fun drawLayer(layer: TextureHandle, destination: Rect, effect: ShaderEffect?) {
-        recorded += DrawCall.Layer(destination, effect, state.clip, state.alpha)
+        record(DrawCall.Layer(destination, effect, state.clip, state.alpha))
     }
 
     /** A picture with nothing in it: there are no pixels here to be a handle to. */
@@ -255,8 +370,15 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     override fun popAlpha() = state.popAlpha()
 
+    override fun pushBlend(mode: BlendMode) = state.pushBlend(mode)
+
+    override fun popBlend() = state.popBlend()
+
+    /** Every mode, because writing one down costs the same as writing another one down. */
+    override fun supports(mode: BlendMode): Boolean = true
+
     override fun raw(block: (Any) -> Unit) {
-        recorded += DrawCall.Raw(state.clip, state.alpha)
+        record(DrawCall.Raw(state.clip, state.alpha))
     }
 
     /** Only the calls of one kind, which is what an assertion usually wants. */
@@ -271,5 +393,13 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     /** A readable dump, so a failing assertion says what actually happened. */
     override fun toString(): String =
         if (recorded.isEmpty()) "RecordingCanvas(nothing drawn)"
-        else recorded.joinToString(separator = "\n", prefix = "RecordingCanvas:\n") { "  $it" }
+        else recorded.indices.joinToString(separator = "\n", prefix = "RecordingCanvas:\n") { at ->
+            val mode = recordedBlends[at]
+            if (mode == BlendMode.SourceOver) "  ${recorded[at]}" else "  [$mode] ${recorded[at]}"
+        }
+
+    private companion object {
+        const val Unbalanced = "a clip, an alpha or a blend was pushed and never popped"
+        const val UnbalancedInLayer = "a clip, an alpha or a blend was pushed inside a layer and never popped"
+    }
 }
