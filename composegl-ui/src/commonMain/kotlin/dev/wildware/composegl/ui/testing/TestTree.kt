@@ -2,7 +2,12 @@ package dev.wildware.composegl.ui.testing
 
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.MeasurePass
+import dev.wildware.composegl.ui.modifier.FillElement
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.OffsetElement
+import dev.wildware.composegl.ui.modifier.PaddingElement
+import dev.wildware.composegl.ui.modifier.SizeElement
+import dev.wildware.composegl.ui.modifier.elements
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.node.UiNode
@@ -38,9 +43,18 @@ import dev.wildware.composegl.ui.node.UiTree
  *
  * Each box also writes down the `offset` and `size` that would produce the rectangle it was given,
  * so [layOut] — a real measure pass over the tree — leaves every rectangle exactly where this put
- * it. That is why the fixture's own numbers win over a `size` in the modifier you pass: the
- * promise here is the coordinates you asked for, and a node whose size is layout's decision is a
- * node for a layout test rather than for this.
+ * it.
+ *
+ * That promise is why the modifier you pass may say anything at all except where a node is or how
+ * big: `offset`, `size`, `width`, `height`, the `fillMax` family and `padding` are refused, with a
+ * message saying so. They are refused rather than quietly overruled because the fixture cannot
+ * overrule them. Its own `offset` is appended to your chain and two offsets add up, so a box at
+ * 100 carrying `Modifier.offset(5f, 0f)` sits at 100 until the pass and at 105 after it; `fill`
+ * beats `size` on the axis it names whatever the order, so a 40-wide box carrying `fillMaxWidth()`
+ * comes back as wide as the room it was offered; and `padding` on a box shifts every child inside
+ * it. Each of those hands back a rectangle that is not the one you asked for, silently, which is
+ * the one thing this exists to prevent. A node whose rectangle is layout's decision is a node for
+ * a layout test rather than for this.
  */
 class TestTree {
 
@@ -59,6 +73,10 @@ class TestTree {
      * The size defaults to something rather than to nothing on purpose. A node with no area is not
      * a focus candidate and cannot be hit by a pointer, so a box that defaulted to zero would be
      * invisible to the very things most tests using this go on to assert.
+     *
+     * [modifier] is for everything a node is other than its rectangle — `focusable`, `clickable`,
+     * a pointer handler, a background. Anything in it that moves or resizes a node is refused;
+     * see the note on [TestTree] for why it cannot simply be ignored.
      */
     fun box(
         name: String,
@@ -73,6 +91,7 @@ class TestTree {
             "there is already a node called $name in this tree, and $name is how tests find it:\n" +
                 root.debugTree()
         }
+        modifier.checkSaysNothingAboutTheRectangle(name)
         return UiNode(name).also {
             it.modifier = modifier.offset(x, y).size(width, height)
             parent.insertAt(parent.children.size, it)
@@ -149,12 +168,15 @@ class TestTree {
     }
 
     /**
-     * Fails when every rectangle in the tree is still zero.
+     * Fails when nothing in the tree came out of the pass with any area.
+     *
+     * Area means both axes, because that is what "can be drawn, hit or focused" means: a box
+     * squeezed to 0 by 20 is as invisible as one squeezed to 0 by 0, and constraints that flatten
+     * one axis are the ordinary way to get there.
      *
      * Whole-tree, not per node: a box with no size modifier under a stacking parent honestly
-     * measures to nothing, so "this one node has no area" is not news. "Nothing in the whole tree
-     * has any area" is — nothing can be drawn, hit or focused — and it is what a tree squeezed
-     * into constraints of nothing looks like.
+     * measures to nothing, so "this one node has no area" is not news. "Not one node in the whole
+     * tree has any" is, and it is what a tree squeezed into constraints of nothing looks like.
      */
     fun assertPlaced() {
         var anything = false
@@ -162,11 +184,34 @@ class TestTree {
         root.forEach {
             if (it === root) return@forEach
             anything = true
-            if (it.width != 0f || it.height != 0f) placed = true
+            if (it.width != 0f && it.height != 0f) placed = true
         }
         check(!anything || placed) {
-            "every rectangle in this tree is still zero, so nothing can be drawn, hit or " +
+            "no rectangle in this tree has any area left, so nothing can be drawn, hit or " +
                 "focused:\n" + root.debugTree()
         }
+    }
+}
+
+/**
+ * Fails when the modifier for [name] says where a node is or how big.
+ *
+ * Loudly, and at the call that wrote it, because the alternative is a rectangle that is not the
+ * one the test asked for and no sign of it anywhere. See the note on [TestTree] for the three
+ * ways that happens.
+ */
+private fun Modifier.checkSaysNothingAboutTheRectangle(name: String) {
+    check(
+        !any {
+            it is OffsetElement || it is SizeElement || it is FillElement || it is PaddingElement
+        },
+    ) {
+        val said = elements().first {
+            it is OffsetElement || it is SizeElement || it is FillElement || it is PaddingElement
+        }
+        "the modifier for $name says where it is or how big: $said. Where a box is and how big " +
+            "is what x, y, width and height are for, and this fixture writes them into the " +
+            "modifier itself — so yours would be added to its, not used instead of it, and the " +
+            "rectangle you asked for is not the one you would get."
     }
 }
