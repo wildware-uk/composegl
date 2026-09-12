@@ -72,7 +72,8 @@ class FocusRequester {
  *   drifting sideways.
  *
  * When geometry lies — a wrapped grid, a gap, an L-shaped menu — `focusOrder` names the answer
- * directly and the scoring is not consulted.
+ * directly and the scoring is not consulted. When a whole screen's geometry is the exception rather
+ * than one node's, [focusSearch] replaces the scoring instead.
  *
  * @param autoFocus whether to put focus somewhere when it has nowhere to be. True is right for a
  *   menu, which must never open with nothing selected. False suits an interface driven by a mouse,
@@ -450,8 +451,10 @@ interface FocusSearch {
  *
  * The case this was added for: a row of wide cards sitting above two narrow buttons. Getting out
  * of the row downward has to reach buttons that are well off to the side and barely below, and the
- * default [accepts] asks a candidate to clear the source's bottom edge entirely. Widening [accepts]
- * for that one direction is the whole answer:
+ * default [accepts] asks a candidate's bottom edge to fall below the source's bottom edge. A short
+ * button beside a tall card never manages that, however far down it starts. (Overlapping the source
+ * is fine — a card at 0..100 does accept a candidate at 50..150; it is the bottom edge that has to
+ * clear, not the whole rectangle.) Widening [accepts] for that one direction is the whole answer:
  *
  * ```
  * class RoomierDown : BeamFocusSearch() {

@@ -309,10 +309,42 @@ class FocusManagerTest {
     }
 
     @Test
+    fun `a zero-size node below does not steal a downward press`() {
+        // The same rule, pressed the other way. accepts() asks a separate question per direction,
+        // so each one is its own chance to let a node with no area through — and the bug was
+        // reported against Down.
+        box("top", 0f, 0f)
+        box("ghost", 5f, 50f, width = 0f, height = 0f)
+        box("bottom", 0f, 100f)
+
+        val focus = manager()
+        focus.focusOn(tree.root.children.first { it.name == "top" })
+
+        assertTrue(focus.moveFocus(FocusDirection.Down))
+        assertEquals("bottom", focus.name(), "the collapsed node is skipped, not landed on")
+    }
+
+    @Test
+    fun `a zero-size node alone in a direction is not somewhere to go`() {
+        // With nothing real that way, the press does nothing at all and focus stays put. That is
+        // the honest answer — the caller reads the false and decides whether to scroll or wrap —
+        // and it is better than parking the player on a node they cannot see or press.
+        box("left", 0f, 0f)
+        box("ghost", 100f, 0f, width = 0f, height = 0f)
+
+        val focus = manager()
+        focus.focusOn(tree.root.children.first { it.name == "left" })
+
+        assertFalse(focus.moveFocus(FocusDirection.Right), "nothing real to the right")
+        assertEquals("left", focus.name(), "so focus stays where it was")
+    }
+
+    @Test
     fun `focus can still leave a zero-size node`() {
-        // The other half of the rule. A node with no area stays reachable by tab, by a requester
-        // and by focusOrder, so if directions refused to move away from one, focus could get in
-        // and never get out.
+        // Not a fixed bug: this guards a design decision. Refusing to move away from a node with
+        // no area, as well as refusing to move onto one, was considered and rejected. A node with
+        // no area stays reachable by tab, by a requester and by focusOrder, so a rule that looked
+        // at the source too would let focus in and never let it out.
         val ghost = box("ghost", 50f, 50f, width = 0f, height = 0f)
         box("below", 40f, 100f)
 
@@ -326,24 +358,102 @@ class FocusManagerTest {
 
     // --- supplying the scoring ----------------------------------------------------------------
 
+    /**
+     * The example in [BeamFocusSearch]'s own documentation, written out here so the snippet is
+     * compiled rather than merely read.
+     */
+    private class RoomierDown : BeamFocusSearch() {
+        override fun accepts(direction: FocusDirection, source: Rect, dest: Rect): Boolean =
+            super.accepts(direction, source, dest) ||
+                (direction == FocusDirection.Down && dest.centre.y > source.centre.y)
+    }
+
     @Test
     fun `a screen can widen what counts as a candidate`() {
-        // A wide card with a narrow button beside and slightly below it: the default scoring wants
-        // a candidate to clear the source's bottom edge, so pressing down refuses to move.
+        // The reported layout: a wide card over two narrow buttons. The default asks a candidate's
+        // bottom edge to fall below the source's bottom edge, and a short button beside a tall card
+        // never gets there, so pressing down refuses to move.
+        //
+        // The far button is inserted first on purpose. The first candidate a scan accepts is taken
+        // on accepts() alone; every one after it has to win through beats(). Putting the winner
+        // second is what makes this test notice if beats() stops asking the supplied search.
         box("card", 0f, 0f, width = 100f, height = 100f)
-        box("button", 200f, 50f, width = 60f, height = 20f)
+        box("far", 400f, 50f, width = 60f, height = 20f)
+        box("near", 200f, 50f, width = 60f, height = 20f)
 
         val focus = manager()
         focus.focusOn(tree.root.children.first { it.name == "card" })
         assertFalse(focus.moveFocus(FocusDirection.Down), "the default scoring says there is nothing below")
 
+        focus.focusSearch = RoomierDown()
+
+        assertTrue(focus.moveFocus(FocusDirection.Down))
+        assertEquals("near", focus.name(), "both buttons were candidates, and the closer one won")
+    }
+
+    @Test
+    fun `a screen can change which candidate wins`() {
+        // Widening accepts() is half the seam. This is the other half: both buttons are ordinary
+        // candidates the default would pick between, and the screen's own rule picks the other one.
+        box("card", 0f, 0f, width = 100f, height = 40f)
+        box("near", 0f, 100f)
+        box("far", 0f, 200f)
+
+        val focus = manager()
+        focus.focusOn(tree.root.children.first { it.name == "card" })
+
+        assertTrue(focus.moveFocus(FocusDirection.Down))
+        assertEquals("near", focus.name(), "the default takes the first thing below")
+
+        focus.focusOn(tree.root.children.first { it.name == "card" })
         focus.focusSearch = object : BeamFocusSearch() {
-            override fun accepts(direction: FocusDirection, source: Rect, dest: Rect): Boolean =
-                super.accepts(direction, source, dest) ||
-                    (direction == FocusDirection.Down && dest.centre.y > source.centre.y)
+            // Down means the end of the list, the way Page Down does.
+            override fun beats(direction: FocusDirection, source: Rect, rect: Rect, against: Rect) =
+                accepts(direction, source, rect) &&
+                    (!accepts(direction, source, against) ||
+                        score(direction, source, rect) > score(direction, source, against))
         }
 
         assertTrue(focus.moveFocus(FocusDirection.Down))
-        assertEquals("button", focus.name(), "the screen's own rule found it")
+        assertEquals("far", focus.name(), "the screen's own comparison chose the other one")
+    }
+
+    /**
+     * The default search, taken apart and put back together out of the pieces a subclass is given.
+     *
+     * Its answers do not matter much; what matters is that it compiles. Every protected member
+     * [BeamFocusSearch] advertises is named here, so narrowing one would break this build instead
+     * of somebody else's.
+     */
+    private class Rebuilt : BeamFocusSearch() {
+        override fun beats(
+            direction: FocusDirection,
+            source: Rect,
+            rect: Rect,
+            against: Rect,
+        ): Boolean {
+            if (!accepts(direction, source, rect)) return false
+            if (!accepts(direction, source, against)) return true
+            if (beamBeats(direction, source, rect, against)) return true
+            if (inBeam(direction, source, rect) && !inBeam(direction, source, against)) return true
+            val reach = majorDistanceToFarEdge(direction, source, against)
+            if (majorDistance(direction, source, rect) >= reach) return false
+            if (minorDistance(direction, source, rect) > minorDistance(direction, source, against)) return false
+            return score(direction, source, rect) < score(direction, source, against)
+        }
+    }
+
+    @Test
+    fun `a subclass can rebuild the search out of the measurements it is given`() {
+        box("a", 0f, 0f)
+        box("b", 50f, 0f)
+        box("c", 100f, 0f)
+
+        val focus = manager()
+        focus.focusSearch = Rebuilt()
+        focus.focusOn(tree.root.children.first { it.name == "a" })
+
+        assertTrue(focus.moveFocus(FocusDirection.Right))
+        assertEquals("b", focus.name(), "the next one along, same as the default")
     }
 }
