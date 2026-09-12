@@ -142,14 +142,16 @@ assertEquals(Colour.rgb(0xE5484D), bars.first().colour)
 ```
 
 The calls are a sealed hierarchy — `Rectangle`, `Border`, `Shadow`, `Text`, `Image`,
-`Fan`, `Layer`, `Raw` — all data classes, so you can assert on exactly what you care
-about.
+`RotatedImage`, `Fan`, `Layer`, `Raw` — all data classes, so you can assert on exactly
+what you care about. `Image` and `RotatedImage` share a `Pictured` supertype, for a
+test that only cares that a picture was drawn.
 
-Two things worth knowing:
+Three things worth knowing:
 
 ```kotlin
-canvas.assertBalanced()      // every clip and alpha pushed was popped
+canvas.assertBalanced()      // every clip, alpha and blend pushed was popped
 val frame = canvas.calls.toList()   // `calls` is a live view — copy it to compare two frames
+canvas.blendOf(call)         // the blend mode that call was drawn under
 ```
 
 An imbalance means a widget leaked state onto whatever was drawn after it. On a real

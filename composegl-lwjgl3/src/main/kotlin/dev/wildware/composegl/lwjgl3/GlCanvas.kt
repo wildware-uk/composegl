@@ -4,6 +4,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.effect.ShaderEffect
+import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.CanvasState
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
@@ -179,7 +180,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
         // Complained about last, so that an unbalanced frame still leaves things tidy for whatever
         // the game draws next.
-        check(state.isBalanced) { "a clip or an alpha was pushed and never popped" }
+        check(state.isBalanced) { "a clip, an alpha or a blend was pushed and never popped" }
     }
 
     // --- shapes ---
@@ -271,22 +272,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     override fun image(texture: TextureHandle, destination: Rect, tint: Colour, source: Rect?) {
         if (state.isHidden || destination.isEmpty) return
         val picture = texture as? GlTexture ?: notOnePicture(texture)
-
-        // Texture coordinates here count y downwards, like the toolkit, so `v` is the top edge and
-        // it goes straight across to the quad's top with no swap anywhere.
-        var left = picture.u
-        var right = picture.u2
-        var top = picture.v
-        var bottom = picture.v2
-
-        if (source != null) {
-            val across = (picture.u2 - picture.u) / picture.width
-            val down = (picture.v2 - picture.v) / picture.height
-            left = picture.u + source.left * across
-            right = picture.u + source.right * across
-            top = picture.v + source.top * down
-            bottom = picture.v + source.bottom * down
-        }
+        slice.of(picture, source)
 
         batch().textured(
             name = picture.name,
@@ -294,15 +280,111 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             bottom = flip(destination.bottom),
             width = destination.width,
             height = destination.height,
-            u = left,
-            v = top,
-            u2 = right,
-            v2 = bottom,
+            u = slice.left,
+            v = slice.top,
+            u2 = slice.right,
+            v2 = slice.bottom,
             tint = tint.scaleAlpha(state.alpha),
         )
     }
 
-    // --- clipping and opacity ---
+    /**
+     * The corner of the texture a picture is cut from, worked out once and read straight after.
+     *
+     * One of these per canvas rather than one per call. [image] runs once per sprite per frame and
+     * a sunburst runs it a dozen times in a row, so a fresh object each time would be rubbish for
+     * the collector to sweep for nothing. Nothing here outlives the call that fills it.
+     *
+     * Shared by the upright call and the turned one, which want exactly the same four numbers —
+     * two copies of this arithmetic would be two things to keep in step for no gain.
+     */
+    private val slice = Slice()
+
+    private class Slice {
+
+        var left = 0f
+        var top = 0f
+        var right = 0f
+        var bottom = 0f
+
+        /**
+         * [source]'s corner of [picture], or the whole of it when there is no sub-rectangle.
+         *
+         * Texture coordinates here count y downwards, like the toolkit, so `v` is the top edge and
+         * it goes straight across to the quad's top with no swap anywhere.
+         */
+        fun of(picture: GlTexture, source: Rect?) {
+            if (source == null) {
+                left = picture.u
+                top = picture.v
+                right = picture.u2
+                bottom = picture.v2
+                return
+            }
+            val across = (picture.u2 - picture.u) / picture.width
+            val down = (picture.v2 - picture.v) / picture.height
+            left = picture.u + source.left * across
+            top = picture.v + source.top * down
+            right = picture.u + source.right * across
+            bottom = picture.v + source.bottom * down
+        }
+    }
+
+    /**
+     * The same picture, turned — four corners on the processor and the same quad in the same batch.
+     *
+     * No new GL state and no flush, so a sunburst of rays batches with itself and with anything
+     * else drawn from the same texture. It does *not* join a panel behind it unless that panel's
+     * colour comes from the same texture, which it does only when the art is packed into the glyph
+     * atlas — the batch flushes on a texture change, and that rule has not moved.
+     */
+    @Suppress("LongParameterList")
+    override fun image(
+        texture: TextureHandle,
+        destination: Rect,
+        degrees: Float,
+        pivotX: Float,
+        pivotY: Float,
+        tint: Colour,
+        source: Rect?,
+    ) {
+        if (degrees == 0f) {
+            image(texture, destination, tint, source)
+            return
+        }
+        if (state.isHidden || destination.isEmpty) return
+        val picture = texture as? GlTexture ?: notOnePicture(texture)
+        slice.of(picture, source)
+
+        batch().textured(
+            name = picture.name,
+            left = destination.left,
+            bottom = flip(destination.bottom),
+            width = destination.width,
+            height = destination.height,
+            pivotX = destination.left + destination.width * pivotX,
+            // The pivot is a fraction from the top, and this is the one place it meets a y that
+            // counts upwards.
+            pivotY = flip(destination.top + destination.height * pivotY),
+            degrees = degrees,
+            u = slice.left,
+            v = slice.top,
+            u2 = slice.right,
+            v2 = slice.bottom,
+            tint = tint.scaleAlpha(state.alpha),
+        )
+    }
+
+    /** It really turns one, and turning costs no draw call. */
+    override val rotatesImages: Boolean get() = true
+
+    /**
+     * Both of them, on every path a picture can reach the screen by: the batch sets the blend
+     * function, and so does the shader that a [drawLayer] with an effect on it goes through.
+     */
+    override fun supports(mode: BlendMode): Boolean = true
+
+    // --- clipping, opacity and blending ---
 
     override fun pushClip(rect: Rect) {
         state.pushClip(rect)
@@ -317,6 +399,29 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     override fun pushAlpha(alpha: Float) = state.pushAlpha(alpha)
 
     override fun popAlpha() = state.popAlpha()
+
+    override fun pushBlend(mode: BlendMode) {
+        state.pushBlend(mode)
+        applyBlend()
+    }
+
+    override fun popBlend() {
+        state.popBlend()
+        applyBlend()
+    }
+
+    /**
+     * The batch's blending follows the toolkit's blend stack, which has already decided that the
+     * innermost mode wins — so the backend cannot get nesting wrong, because it never works it out.
+     * The batch flushes first: whatever is queued was queued to blend the old way.
+     *
+     * `batch?` rather than `batch()`: outside a frame there is nothing queued and no GL state worth
+     * setting, and building a mesh and a shader because somebody pushed a mode would undo the point
+     * of building them late. Inside a frame [begin] has always made one already.
+     */
+    private fun applyBlend() {
+        batch?.blend(state.blend, premultiplied = false)
+    }
 
     /**
      * The scissor follows the toolkit's clip, which has already intersected the nested clips — so
@@ -410,16 +515,21 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
         orthographic(projection, bounds.width, bounds.height, bounds.left)
         batch().projection(projection)
+        // A layer's picture starts as transparent black, so adding into it and then compositing
+        // that result is not the same as adding onto the screen. The block gets plain blending,
+        // the same reset the clip and the opacity get, and the mode out here comes back below.
+        applyBlend()
 
         try {
             block()
             batch().flush()
-            check(state.isBalanced) { "a clip or an alpha was pushed inside a layer and never popped" }
+            check(state.isBalanced) { "a clip, an alpha or a blend was pushed inside a layer and never popped" }
         } finally {
             layer = previousLayer
             state = previousState
             previousProjection.copyInto(projection)
             batch().projection(projection)
+            applyBlend()
             bindFramebuffer(previousFramebuffer)
             setViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3])
             scissor(previousScissor)
@@ -441,7 +551,9 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             return
         }
 
-        batch().premultiplied(true)
+        // The mode in force applies to the composite, so pushing Additive round a drawLayer makes
+        // a whole group glow. Premultiplied because that is what the layer's own drawing produced.
+        batch().blend(state.blend, premultiplied = true)
         // The opacity goes into all four channels, because a premultiplied colour that faded only
         // its alpha would get brighter as it disappeared.
         val fade = state.alpha.coerceIn(0f, 1f)
@@ -458,7 +570,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             v2 = picture.v2,
             tint = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey),
         )
-        batch().premultiplied(false)
+        batch().blend(state.blend, premultiplied = false)
     }
 
     private fun bindFramebuffer(name: Int) {
@@ -508,12 +620,16 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             designWidth = destination.width,
             designHeight = destination.height,
             alpha = state.alpha.coerceIn(0f, 1f),
+            // The mode in force applies to the composite whether or not there is a shader in the
+            // way, so a blurred group inside a pushBlend glows like an unblurred one.
+            mode = state.blend,
         )
 
-        // The batch set the blending and the program it wants at the start of the frame, and the
-        // shader has just changed both.
+        // The effect set the blending and the program it wanted, behind the batch's back. Put back
+        // whatever the canvas's blend stack says, unconditionally — a batch that remembered what it
+        // had last set would believe this was already true and skip it.
         GL20.glUseProgram(0)
-        batch().premultiplied(false)
+        batch().blend(state.blend, premultiplied = false)
     }
 
     /** A design x, through the frame's projection, as the clip cube sees it. */

@@ -12,6 +12,7 @@ import dev.wildware.composegl.ui.game.ParticleEmitter
 import dev.wildware.composegl.ui.game.ParticleStyle
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.EdgeMode
 import dev.wildware.composegl.ui.graphics.NinePatch
@@ -42,6 +43,9 @@ private val Ink = Colour.rgb(0x12161D)
 private val Panel = Colour.rgb(0x1E2836)
 private val Accent = Colour.rgb(0x4CC2FF)
 private val Paper = Colour.rgb(0xE6EDF5)
+
+/** Dim on purpose: twelve of these add up, and a glow that saturates to white shows nothing. */
+private val Glow = Colour.rgb(0x2A2418)
 
 private val Body = TextStyle(family = "body", size = 16f)
 private val Small = TextStyle(family = "body", size = 12f)
@@ -201,6 +205,39 @@ fun scenes(): List<Scene> = listOf(
         art.panel.drawInto(this, Rect.of(16f, 92f, 60f, 130f))
         art.panel.copy(centreAcross = EdgeMode.Tile, centreDown = EdgeMode.Tile)
             .drawInto(this, Rect.of(96f, 92f, 120f, 130f))
+    },
+
+    /**
+     * A turned picture and an additive glow, over something pale.
+     *
+     * The two things a card in a real game needed and had to reach for `raw()` to get. The pale
+     * panel is the point of the glow half: source-over light over a light background reads as a
+     * coloured smudge, and adding it does not. The marked corner of the art is the point of the
+     * turned half — it says which way round each copy went, so the two backends cannot disagree
+     * about the direction quietly.
+     */
+    Scene("rotation-and-glow") { art ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+        rect(Rect.of(70f, 56f, 100f, 124f), Paper, corner = 10f)
+
+        // Twelve rays about the middle of the card. Additive, so where they cross they brighten
+        // rather than stack up muddily, and the card underneath stays pale.
+        pushBlend(BlendMode.Additive)
+        repeat(12) { ray ->
+            image(
+                art.panel.texture,
+                Rect.of(120f, 114f, 92f, 8f),
+                degrees = ray * 30f,
+                pivotX = 0f,
+                tint = Glow,
+            )
+        }
+        popBlend()
+
+        // The same picture three ways: upright, a little turned, and a quarter turn clockwise.
+        image(art.panel.texture, Rect.of(16f, 192f, 32f, 32f))
+        image(art.panel.texture, Rect.of(72f, 192f, 32f, 32f), degrees = 30f)
+        image(art.panel.texture, Rect.of(128f, 192f, 32f, 32f), degrees = 90f)
     },
 
     Scene("clip") { art ->

@@ -1,5 +1,7 @@
 package dev.wildware.composegl.lwjgl3
 
+import dev.wildware.composegl.ui.graphics.BlendMode
+
 /**
  * Builds, reads and closes a [GlCanvas] in a JVM that has never had an OpenGL context.
  *
@@ -20,6 +22,17 @@ object GlCanvasNoContextProbe {
         if (calls != 0) {
             System.err.println("a canvas that has drawn nothing reported $calls draw calls")
             kotlin.system.exitProcess(2)
+        }
+        // Pushing and popping the state stacks must not build a batch either: a blend mode reaches
+        // the driver only through the batch, and outside a frame there is no batch to reach it by.
+        canvas.pushBlend(BlendMode.Additive)
+        canvas.popBlend()
+        // The two queries a caller is told to ask before it draws. Answering them must not reach
+        // the driver either, and a backend that said yes here and then turned nothing and added
+        // nothing would be the one dishonesty these two additions could commit.
+        if (!canvas.rotatesImages || !canvas.supports(BlendMode.Additive)) {
+            System.err.println("this backend does turn a picture and does add light; it should say so")
+            kotlin.system.exitProcess(3)
         }
         // Closing must never build the thing it is about to destroy.
         canvas.close()

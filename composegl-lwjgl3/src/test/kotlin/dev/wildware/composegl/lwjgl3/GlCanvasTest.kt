@@ -7,6 +7,7 @@ import dev.wildware.composegl.ui.effect.Uniform
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.layout.ScalePolicy
@@ -522,6 +523,236 @@ class GlCanvasTest {
                 try {
                     canvas.begin(viewport)
                     canvas.pushClip(Rect.of(0f, 0f, 10f, 10f))
+                    canvas.end()
+                } finally {
+                    canvas.close()
+                }
+            }
+        }
+    }
+
+    // --- turning a picture, and blending it ---
+
+    /** Two rows, red over blue: a flat colour cannot tell you it came out the wrong way round. */
+    private fun stripes(): GlTexture = GlTexture.rgba(
+        1,
+        2,
+        byteArrayOf(0xFF.toByte(), 0, 0, 0xFF.toByte(), 0, 0, 0xFF.toByte(), 0xFF.toByte()),
+        smooth = false,
+    )
+
+    /** Draws [content] with a picture to hand, and reads the frame back. */
+    private fun drawPicture(content: GlCanvas.(GlTexture) -> Unit): Frame = Gl.render {
+        val canvas = GlCanvas()
+        val texture = stripes()
+        try {
+            GL11.glClearColor(0f, 0f, 0f, 1f)
+            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+            canvas.begin(viewport)
+            canvas.content(texture)
+            canvas.end()
+            Frame(Gl.readPixels(Gl.size, Gl.size), canvas.drawCalls)
+        } finally {
+            texture.close()
+            canvas.close()
+        }
+    }
+
+    @Test
+    fun `half a turn puts the top of the picture at the bottom`() {
+        val frame = drawPicture { image(it, Rect.of(10f, 10f, 40f, 40f), degrees = 180f) }
+
+        assertColour(blue, frame.at(30, 15), "the top row after half a turn is the picture's last")
+        assertColour(red, frame.at(30, 45), "and its first row is now at the bottom")
+    }
+
+    @Test
+    fun `a quarter turn clockwise sends the top of the picture to the right`() {
+        // The convention, asserted rather than described: positive degrees turn the way the axes
+        // do, and y grows downwards here.
+        val frame = drawPicture { image(it, Rect.of(10f, 10f, 40f, 40f), degrees = 90f) }
+
+        assertColour(red, frame.at(45, 30), "the picture's first row ends up on the right")
+        assertColour(blue, frame.at(15, 30), "and its last row on the left")
+    }
+
+    @Test
+    fun `no turn draws exactly what the upright call draws`() {
+        val turned = drawPicture { image(it, Rect.of(10f, 10f, 40f, 40f), degrees = 0f) }
+        val upright = drawPicture { image(it, Rect.of(10f, 10f, 40f, 40f)) }
+
+        assertEquals(upright.at(30, 15), turned.at(30, 15))
+        assertEquals(upright.at(30, 45), turned.at(30, 45))
+    }
+
+    @Test
+    fun `a turned picture fades with the opacity in force`() {
+        // The alpha stack reaches the turned call the same way it reaches the upright one. A
+        // widget fading a tilted card out would otherwise stay solid all the way to invisible.
+        val frame = drawPicture {
+            pushAlpha(0.5f)
+            image(it, Rect.of(10f, 10f, 40f, 40f), degrees = 180f)
+            popAlpha()
+        }
+
+        assertColour(Colour.rgb(0x000080), frame.at(30, 15), "half a blue row over black")
+        assertColour(Colour.rgb(0x800000), frame.at(30, 45), "and half a red one")
+    }
+
+    @Test
+    fun `part of a picture can be turned`() {
+        // The sub-rectangle and the angle together, which is a sprite sheet's frame at an angle —
+        // the ordinary case, and the one neither argument alone covers. Only the picture's red row
+        // is asked for, so a canvas that dropped `source` would put blue down one side.
+        val frame = drawPicture {
+            image(it, Rect.of(10f, 10f, 40f, 40f), degrees = 90f, source = Rect.of(0f, 0f, 1f, 1f))
+        }
+
+        assertColour(red, frame.at(20, 30), "the red row fills it")
+        assertColour(red, frame.at(40, 30), "all the way across")
+    }
+
+    @Test
+    fun `fourteen turned pictures cost one draw call`() {
+        // The whole reason turning lives on the quad rather than in the projection: no GL state
+        // changes, so a sunburst is one draw call and not fourteen.
+        val frame = drawPicture { picture ->
+            repeat(14) { ray ->
+                image(picture, Rect.of(100f, 98f, 80f, 4f), degrees = ray * 360f / 14f, pivotX = 0f)
+            }
+        }
+
+        assertEquals(1, frame.drawCalls, "a sunburst should batch with itself")
+    }
+
+    @Test
+    fun `an additive group really adds`() {
+        val half = Colour.rgb(0x404040)
+        val frame = draw {
+            rect(Rect.of(10f, 10f, 60f, 60f), half)
+            pushBlend(BlendMode.Additive)
+            rect(Rect.of(10f, 10f, 60f, 60f), half)
+            popBlend()
+            rect(Rect.of(100f, 10f, 60f, 60f), half)
+            rect(Rect.of(100f, 10f, 60f, 60f), half)
+        }
+
+        assertColour(Colour.rgb(0x808080), frame.at(40, 40), "two halves added come out twice as bright")
+        assertColour(half, frame.at(130, 40), "and source-over just covers what is underneath")
+    }
+
+    @Test
+    fun `a group costs two batch boundaries however many quads are in it`() {
+        val counts = listOf(2, 20).map { many ->
+            draw {
+                rect(Rect.of(0f, 0f, 10f, 10f), red)
+                pushBlend(BlendMode.Additive)
+                repeat(many) { rect(Rect.of(it * 12f, 20f, 10f, 10f), red) }
+                popBlend()
+                rect(Rect.of(0f, 200f, 10f, 10f), red)
+            }.drawCalls
+        }
+
+        assertEquals(listOf(3, 3), counts, "the cost is per group, not per quad")
+    }
+
+    @Test
+    fun `a group with nothing in it costs the flush the push forced, and no more`() {
+        // Honest about what eager blending costs. The mode is set the moment it is pushed rather
+        // than remembered until something draws, because a shader effect changes the same piece of
+        // GL state behind the batch's back and a remembered value would then be wrong. The price
+        // is this: a push sends whatever was already queued, so an empty group can split one draw
+        // call into two. One, not one per quad, and never a lost pixel.
+        val without = draw {
+            rect(Rect.of(0f, 0f, 10f, 10f), red)
+            rect(Rect.of(20f, 0f, 10f, 10f), red)
+        }
+        val with = draw {
+            rect(Rect.of(0f, 0f, 10f, 10f), red)
+            pushBlend(BlendMode.Additive)
+            popBlend()
+            rect(Rect.of(20f, 0f, 10f, 10f), red)
+        }
+
+        assertEquals(1, without.drawCalls)
+        assertEquals(2, with.drawCalls, "one extra, whatever the group would have held")
+    }
+
+    @Test
+    fun `a shader effect does not leave the wrong blending behind it`() {
+        // The batch does not remember what it last set, and this is why: the effect changes the
+        // blend function itself. A canvas that believed its own cache would skip putting it back,
+        // and everything drawn after an effect would blend wrongly.
+        val half = Colour.rgb(0x404040)
+        val frame = draw {
+            pushBlend(BlendMode.Additive)
+            val picture = layer(Rect.of(100f, 100f, 40f, 40f)) {
+                rect(Rect.of(100f, 100f, 40f, 40f), Colour.rgb(0x101010))
+            }
+            if (picture != null) drawLayer(picture, Rect.of(100f, 100f, 40f, 40f), passThrough)
+            rect(Rect.of(10f, 10f, 60f, 60f), half)
+            rect(Rect.of(10f, 10f, 60f, 60f), half)
+            popBlend()
+        }
+
+        assertColour(
+            Colour.rgb(0x808080),
+            frame.at(40, 40),
+            "the mode in force before the effect is still in force after it",
+        )
+    }
+
+    @Test
+    fun `a layer draws plainly inside, however the blend was set outside it`() {
+        // Adding into a layer and then compositing the result is not adding onto the screen: the
+        // layer starts as transparent black, so the second quad would double inside the picture
+        // and the picture would land twice as bright as the caller asked for.
+        val half = Colour.rgb(0x404040)
+        val frame = draw {
+            pushBlend(BlendMode.Additive)
+            val picture = layer(Rect.of(10f, 10f, 60f, 60f)) {
+                rect(Rect.of(10f, 10f, 60f, 60f), half)
+                rect(Rect.of(10f, 10f, 60f, 60f), half)
+            }
+            if (picture != null) drawLayer(picture, Rect.of(10f, 10f, 60f, 60f))
+            popBlend()
+        }
+
+        assertColour(half, frame.at(40, 40), "inside the layer the two halves covered, not added")
+    }
+
+    @Test
+    fun `a shader effect composites the way the blend stack says`() {
+        // An effect draws its own quad rather than going through the batch, so it has to be told
+        // the mode. Until it was, `pushBlend(Additive) { drawLayer(picture, box, blur) }` came out
+        // as paint — no exception, no log, and `supports` still answering yes. That is the case
+        // the documentation points a caller at.
+        val half = Colour.rgb(0x404040)
+        val bounds = Rect.of(10f, 10f, 60f, 60f)
+        val frame = draw {
+            rect(bounds, half)
+            pushBlend(BlendMode.Additive)
+            val picture = layer(bounds) { rect(bounds, half) }
+            if (picture != null) drawLayer(picture, bounds, passThrough)
+            popBlend()
+        }
+
+        assertColour(
+            Colour.rgb(0x808080),
+            frame.at(40, 40),
+            "a blurred group inside a pushBlend glows like an unblurred one",
+        )
+    }
+
+    @Test
+    fun `a blend left pushed is caught at the end of the frame`() {
+        assumeTrue(Gl.available, "no display; this test needs a real GL context")
+        assertThrows<IllegalStateException> {
+            Gl.render {
+                val canvas = GlCanvas()
+                try {
+                    canvas.begin(viewport)
+                    canvas.pushBlend(BlendMode.Additive)
                     canvas.end()
                 } finally {
                     canvas.close()

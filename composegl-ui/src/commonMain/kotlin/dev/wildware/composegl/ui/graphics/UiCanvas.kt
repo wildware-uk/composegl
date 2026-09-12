@@ -18,8 +18,9 @@ import dev.wildware.composegl.ui.text.TextOutline
  *
  * Coordinates are virtual pixels with y growing downwards. Backends flip once, internally.
  *
- * Clip and alpha are stacks: a nested clip is the intersection of the two, and a nested alpha
- * multiplies. [CanvasState] implements both correctly and backends are expected to hold one.
+ * Clip, alpha and blend mode are stacks: a nested clip is the intersection of the two, a nested
+ * alpha multiplies, and a nested blend mode replaces. [CanvasState] implements all three correctly
+ * and backends are expected to hold one.
  */
 interface UiCanvas {
 
@@ -144,6 +145,53 @@ interface UiCanvas {
     )
 
     /**
+     * The same picture, turned.
+     *
+     * [degrees] turns it **clockwise on screen**, because y grows downwards here and a positive
+     * angle should turn the same way the axes do. Zero is exactly the upright call above, in what
+     * it draws and in what a [RecordingCanvas] writes down, so a widget handing over a variable
+     * that happens to be zero behaves today as it did before this existed.
+     *
+     * [pivotX] and [pivotY] are where the turn happens, as fractions of [destination]: 0.5, 0.5 is
+     * the middle, and 0, 0.5 is the middle of the left edge — which is what a ray of a sunburst
+     * wants, since every ray shares one hub. Floats rather than an [Offset] for the reason [text]
+     * already gives: a sunburst is a dozen of these per card per frame, and an object each would
+     * be litter.
+     *
+     * **[destination] is the box before turning.** The pixels that come out can fall well outside
+     * it — with the pivot on an edge they leave it almost entirely — so it is not a bound on what
+     * gets painted. Anything that needs a bound, a layer being sized round this or a clip meant to
+     * contain it, has to work one out itself.
+     *
+     * No antialiasing: a picture goes through the shader with the shape maths switched off, so a
+     * turned hard-edged sprite has stair-stepped edges. Art with a soft edge, or art drawn larger
+     * than it is shown, is the answer. That is true of the upright call too; it is only visible
+     * here.
+     *
+     * The default body draws it upright, which is the nearest honest thing a backend that cannot
+     * turn a picture can do: right place, right size, not turned. Ask [rotatesImages] first if
+     * that matters.
+     */
+    @Suppress("LongParameterList")
+    fun image(
+        texture: TextureHandle,
+        destination: Rect,
+        degrees: Float,
+        pivotX: Float = 0.5f,
+        pivotY: Float = 0.5f,
+        tint: Colour = Colour.White,
+        source: Rect? = null,
+    ) = image(texture, destination, tint, source)
+
+    /**
+     * Whether the [image] overload that takes an angle really turns the picture.
+     *
+     * False means it draws upright instead — nothing vanishes and nothing throws. A caller that
+     * would rather draw different art than show an unturned sunburst asks this before it commits.
+     */
+    val rotatesImages: Boolean get() = false
+
+    /**
      * A triangle fan: a filled shape a rectangle cannot be.
      *
      * [points] is x, y, x, y… in design coordinates, and the first point is the hub every triangle
@@ -167,6 +215,43 @@ interface UiCanvas {
     fun pushAlpha(alpha: Float)
 
     fun popAlpha()
+
+    /**
+     * Everything drawn until the matching [popBlend] is combined with the screen [mode]'s way.
+     *
+     * A pair rather than an argument on every call, because changing how the GPU blends is a batch
+     * boundary: the quads already queued were queued to blend the old way, so they have to be sent
+     * before the new mode is set. Put six additive embers between one push and one pop and that
+     * costs two boundaries; pass a mode to six separate calls and it costs twelve. The cost is
+     * where a reader can see it, and it is per group rather than per call.
+     *
+     * Nests by replacement, not by combination — see [BlendMode]. [popBlend] goes back to the mode
+     * underneath.
+     *
+     * Inside [layer] the mode starts again at [BlendMode.SourceOver], the same reset the clip and
+     * the opacity already get, and whatever was in force out here is back afterwards. It has to
+     * be: a layer's picture starts as transparent black, so adding into it and then compositing
+     * the result the ordinary way is not the same as adding onto the screen. To make a whole group
+     * glow, push the mode round the [drawLayer] rather than round the [layer] — and that holds
+     * whether or not the [drawLayer] has a [dev.wildware.composegl.ui.effect.ShaderEffect] on it,
+     * so a blurred group glows the same as an unblurred one.
+     *
+     * Both do nothing by default, and then everything draws [BlendMode.SourceOver] — a glow reads
+     * as a coloured smudge, which is what it looked like before this existed. Ask [supports]
+     * first if that matters.
+     */
+    fun pushBlend(mode: BlendMode) = Unit
+
+    fun popBlend() = Unit
+
+    /**
+     * Whether [pushBlend] really does anything with [mode].
+     *
+     * A query rather than an exception, because a backend without a blend mode is not a mistake
+     * the caller made — it is the same bargain [layer] makes. A caller that would rather skip its
+     * halo than paint a smudge asks this before it draws one.
+     */
+    fun supports(mode: BlendMode): Boolean = mode == BlendMode.SourceOver
 
     /**
      * Draws [block] into an offscreen picture the size of [bounds] instead of onto the screen, and

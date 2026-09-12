@@ -9,6 +9,7 @@ import com.badlogic.gdx.utils.Disposable
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.CanvasState
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
@@ -169,7 +170,7 @@ class GdxCanvas(
 
         // Complained about last, so that an unbalanced frame still leaves things tidy for whatever
         // the game draws next.
-        check(state.isBalanced) { "a clip or an alpha was pushed and never popped" }
+        check(state.isBalanced) { "a clip, an alpha or a blend was pushed and never popped" }
     }
 
     // --- shapes ---
@@ -271,29 +272,7 @@ class GdxCanvas(
         val gdx = texture as? GdxTexture ?: notOnePicture(texture)
 
         val region = gdx.region
-
-        // A TextureRegion measures y downwards, like the toolkit, so `v` is its top edge and `v2`
-        // its bottom. The batch takes the coordinate for the quad's top and the quad's bottom in
-        // that order, so they go straight across.
-        //
-        // A BitmapFont glyph is the other way round — `v2` is its top — which is why the text above
-        // swaps them and this does not. It is an unhappy asymmetry in LibGDX, not in this file.
-        var left = region.u
-        var right = region.u2
-        var top = region.v
-        var bottom = region.v2
-
-        if (source != null) {
-            check(!gdx.rotated) {
-                "part of a rotated atlas region cannot be drawn; pack this one without rotation"
-            }
-            val across = (region.u2 - region.u) / region.regionWidth
-            val down = (region.v2 - region.v) / region.regionHeight
-            left = region.u + source.left * across
-            right = region.u + source.right * across
-            top = region.v + source.top * down
-            bottom = region.v + source.bottom * down
-        }
+        slice.of(gdx, source)
 
         batch().textured(
             texture = region.texture,
@@ -301,15 +280,124 @@ class GdxCanvas(
             bottom = flip(destination.bottom),
             width = destination.width,
             height = destination.height,
-            u = left,
-            v = top,
-            u2 = right,
-            v2 = bottom,
+            u = slice.left,
+            v = slice.top,
+            u2 = slice.right,
+            v2 = slice.bottom,
             colour = tint.packed(state.alpha),
         )
     }
 
-    // --- clipping and opacity ---
+    /**
+     * The corner of the atlas page a picture is cut from, worked out once and read straight after.
+     *
+     * One of these per canvas rather than one per call. [image] runs once per sprite per frame and
+     * a sunburst runs it a dozen times in a row, so a fresh object each time would be rubbish for
+     * the collector to sweep for nothing. Nothing here outlives the call that fills it.
+     *
+     * Shared by the upright call and the turned one, which want exactly the same four numbers —
+     * two copies of this arithmetic, guard included, would be two things to keep in step for no
+     * gain.
+     */
+    private val slice = Slice()
+
+    private class Slice {
+
+        var left = 0f
+        var top = 0f
+        var right = 0f
+        var bottom = 0f
+
+        /**
+         * [source]'s corner of [gdx]'s region, or the whole of it when there is no sub-rectangle.
+         *
+         * A TextureRegion measures y downwards, like the toolkit, so `v` is its top edge and `v2`
+         * its bottom. The batch takes the coordinate for the quad's top and the quad's bottom in
+         * that order, so they go straight across.
+         *
+         * A BitmapFont glyph is the other way round — `v2` is its top — which is why the text
+         * above swaps them and this does not. It is an unhappy asymmetry in LibGDX, not in this
+         * file.
+         */
+        fun of(gdx: GdxTexture, source: Rect?) {
+            val region = gdx.region
+            if (source == null) {
+                left = region.u
+                top = region.v
+                right = region.u2
+                bottom = region.v2
+                return
+            }
+            // A packer may lay a region down a quarter turn to make it fit, and then the
+            // sub-rectangle's x and y mean the other two axes. Refused rather than drawn wrongly.
+            check(!gdx.rotated) {
+                "part of a rotated atlas region cannot be drawn; pack this one without rotation"
+            }
+            val across = (region.u2 - region.u) / region.regionWidth
+            val down = (region.v2 - region.v) / region.regionHeight
+            left = region.u + source.left * across
+            top = region.v + source.top * down
+            right = region.u + source.right * across
+            bottom = region.v + source.bottom * down
+        }
+    }
+
+    /**
+     * The same picture, turned — four corners on the processor and the same quad in the same batch.
+     *
+     * No new GL state and no flush, so a sunburst of rays batches with itself and with anything
+     * else drawn from the same texture. It does *not* join a panel behind it unless that panel's
+     * colour comes from the same texture, which it does only when the art is packed into the glyph
+     * atlas — the batch flushes on a texture change, and that rule has not moved.
+     */
+    @Suppress("LongParameterList")
+    override fun image(
+        texture: TextureHandle,
+        destination: Rect,
+        degrees: Float,
+        pivotX: Float,
+        pivotY: Float,
+        tint: Colour,
+        source: Rect?,
+    ) {
+        if (degrees == 0f) {
+            image(texture, destination, tint, source)
+            return
+        }
+        if (state.isHidden || destination.isEmpty) return
+        val gdx = texture as? GdxTexture ?: notOnePicture(texture)
+        val region = gdx.region
+        slice.of(gdx, source)
+
+        batch().textured(
+            texture = region.texture,
+            left = destination.left,
+            bottom = flip(destination.bottom),
+            width = destination.width,
+            height = destination.height,
+            pivotX = destination.left + destination.width * pivotX,
+            // The pivot is a fraction from the top, and this is the one place it meets a y that
+            // counts upwards.
+            pivotY = flip(destination.top + destination.height * pivotY),
+            degrees = degrees,
+            u = slice.left,
+            v = slice.top,
+            u2 = slice.right,
+            v2 = slice.bottom,
+            colour = tint.packed(state.alpha),
+        )
+    }
+
+    /** It really turns one, and turning costs no draw call. */
+    override val rotatesImages: Boolean get() = true
+
+    /**
+     * Both of them, on every path a picture can reach the screen by: the batch sets the blend
+     * function, and so does the shader that a [drawLayer] with an effect on it goes through.
+     */
+    override fun supports(mode: BlendMode): Boolean = true
+
+    // --- clipping, opacity and blending ---
 
     override fun pushClip(rect: Rect) {
         state.pushClip(rect)
@@ -324,6 +412,29 @@ class GdxCanvas(
     override fun pushAlpha(alpha: Float) = state.pushAlpha(alpha)
 
     override fun popAlpha() = state.popAlpha()
+
+    override fun pushBlend(mode: BlendMode) {
+        state.pushBlend(mode)
+        applyBlend()
+    }
+
+    override fun popBlend() {
+        state.popBlend()
+        applyBlend()
+    }
+
+    /**
+     * The batch's blending follows the toolkit's blend stack, which has already decided that the
+     * innermost mode wins — so the backend cannot get nesting wrong, because it never works it out.
+     * The batch flushes first: whatever is queued was queued to blend the old way.
+     *
+     * `batch?` rather than `batch()`: outside a frame there is nothing queued and no GL state worth
+     * setting, and building a mesh and a shader because somebody pushed a mode would undo the point
+     * of building them late. Inside a frame [begin] has always made one already.
+     */
+    private fun applyBlend() {
+        batch?.blend(state.blend, premultiplied = false)
+    }
 
     /**
      * The scissor follows the toolkit's clip, which has already intersected the nested clips — so
@@ -420,16 +531,21 @@ class GdxCanvas(
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
         projection.setToOrtho2D(bounds.left, 0f, bounds.width, bounds.height)
         batch().projection(projection)
+        // A layer's picture starts as transparent black, so adding into it and then compositing
+        // that result is not the same as adding onto the screen. The block gets plain blending,
+        // the same reset the clip and the opacity get, and the mode out here comes back below.
+        applyBlend()
 
         try {
             block()
             batch().flush()
-            check(state.isBalanced) { "a clip or an alpha was pushed inside a layer and never popped" }
+            check(state.isBalanced) { "a clip, an alpha or a blend was pushed inside a layer and never popped" }
         } finally {
             layer = previousLayer
             state = previousState
             projection.set(previousProjection)
             batch().projection(projection)
+            applyBlend()
             bindFramebuffer(previousFramebuffer)
             setViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3])
             scissor(previousScissor)
@@ -450,7 +566,9 @@ class GdxCanvas(
             return
         }
 
-        batch().premultiplied(true)
+        // The mode in force applies to the composite, so pushing Additive round a drawLayer makes
+        // a whole group glow. Premultiplied because that is what the layer's own drawing produced.
+        batch().blend(state.blend, premultiplied = true)
         // The opacity goes into all four channels, because a premultiplied colour that faded only
         // its alpha would get brighter as it disappeared.
         val fade = state.alpha.coerceIn(0f, 1f)
@@ -466,7 +584,7 @@ class GdxCanvas(
             v2 = region.v2,
             colour = Color.toFloatBits(fade, fade, fade, fade),
         )
-        batch().premultiplied(false)
+        batch().blend(state.blend, premultiplied = false)
     }
 
     /**
@@ -498,11 +616,15 @@ class GdxCanvas(
             designWidth = destination.width,
             designHeight = destination.height,
             alpha = state.alpha.coerceIn(0f, 1f),
+            // The mode in force applies to the composite whether or not there is a shader in the
+            // way, so a blurred group inside a pushBlend glows like an unblurred one.
+            mode = state.blend,
         )
 
-        // The batch set the blending and the program it wants at the start of the frame, and the
-        // shader has just changed both.
-        batch().premultiplied(false)
+        // The effect set the blending and the program it wanted, behind the batch's back. Put back
+        // whatever the canvas's blend stack says, unconditionally — a batch that remembered what it
+        // had last set would believe this was already true and skip it.
+        batch().blend(state.blend, premultiplied = false)
     }
 
     /** A design x, through the frame's projection, as the clip cube sees it. */
@@ -543,6 +665,12 @@ class GdxCanvas(
         sprites.end()
         sprites.projectionMatrix = savedProjection
         sprites.color = savedColour
+        // A SpriteBatch sets its own blending on the way in and switches blending off altogether
+        // on the way out, so this is the canvas tidying up after itself rather than after the
+        // block — without it everything drawn after a raw block came out flat and opaque. Two GL
+        // calls on a path that has just paid for a whole batch swap. The other backend needs no
+        // such line: its raw() hands over a projection and touches no GL state at all.
+        applyBlend()
     }
 
     /**

@@ -3,6 +3,7 @@ package dev.wildware.composegl.lwjgl3
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.effect.Uniform
+import dev.wildware.composegl.ui.graphics.BlendMode
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL13
@@ -49,6 +50,10 @@ internal class GlEffects : AutoCloseable {
      *
      * @param alpha the canvas's opacity, handed to the shader as `u_alpha`. It cannot be applied
      *   out here: the shader writes the final colour and nothing downstream can multiply it.
+     * @param mode how the result is combined with what is already on the screen. It has to be
+     *   asked for, because this draws its own quad rather than going through the batch, and a
+     *   blurred glow that came out as paint would be the one case where pushing a mode silently
+     *   did nothing.
      */
     @Suppress("LongParameterList")
     fun draw(
@@ -67,6 +72,7 @@ internal class GlEffects : AutoCloseable {
         designWidth: Float,
         designHeight: Float,
         alpha: Float,
+        mode: BlendMode,
     ) {
         val program = programs.getOrPut(effect.source.fragment) { compile(effect.source) }
         GL20.glUseProgram(program.name)
@@ -91,13 +97,11 @@ internal class GlEffects : AutoCloseable {
         GL13.glActiveTexture(GL13.GL_TEXTURE0)
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture)
 
-        // Premultiplied, like every other way a layer reaches the screen.
-        GL14.glBlendFuncSeparate(
-            GL11.GL_ONE,
-            GL11.GL_ONE_MINUS_SRC_ALPHA,
-            GL11.GL_ONE,
-            GL11.GL_ONE_MINUS_SRC_ALPHA,
-        )
+        // Premultiplied, like every other way a layer reaches the screen, and combined the way the
+        // canvas's blend stack says — the same two factors [GlShapeBatch] picks between, so a group
+        // that glows goes on glowing when somebody puts a blur round it.
+        val destination = if (mode == BlendMode.Additive) GL11.GL_ONE else GL11.GL_ONE_MINUS_SRC_ALPHA
+        GL14.glBlendFuncSeparate(GL11.GL_ONE, destination, GL11.GL_ONE, destination)
 
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vertexBuffer)
         GL15.glBufferData(GL15.GL_ARRAY_BUFFER, upload, GL15.GL_STREAM_DRAW)
