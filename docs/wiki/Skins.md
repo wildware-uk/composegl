@@ -103,6 +103,45 @@ nine-patch here rather than in code:
 sides, or four. `padding` is the gap between the art's frame and its contents, so
 changing the picture changes the gap and no layout code moves.
 
+### Nine pieces instead of one picture
+
+If your atlas is mipmapped you may see a faint line across the middle of a panel at
+small sizes: the stretched band is taken from a rectangle inside one texture, and a
+coarser mip level averages it together with whatever the packer put next to it. Name
+the nine pieces separately and the band can be a single texel, which no mip can
+reach past:
+
+```jsonc
+"frame": {
+  "background": {
+    "patch": {
+      "topLeft": "frame/tl", "top": "frame/t", "topRight": "frame/tr",
+      "left":    "frame/l",  "centre": "frame/c", "right":   "frame/r",
+      "bottomLeft": "frame/bl", "bottom": "frame/b", "bottomRight": "frame/br"
+    },
+    "padding": 9
+  }
+}
+```
+
+There is no `slice` here and writing one is an error: the pieces already say how
+thick each border is. **Every piece is optional**, and one you leave out means that
+row or column has no slice at all — so a scrollbar track is three pieces:
+
+```jsonc
+"track": { "background": { "patch": { "left": "bar/cap", "centre": "bar/fill", "right": "bar/cap" } } }
+```
+
+Two rules, both checked at load. Pieces down the same side must agree on how thick
+they are, because that thickness *is* the slice. And two pieces that both `tile`
+along the same axis must be the same size, or they repeat at two different pitches
+and the pattern down one side drifts out of step with the other — pieces that
+`stretch` are free to differ, which is what lets the middle be one texel.
+
+In Kotlin the same thing is `NinePatch.of(NineRegions(topLeft = …, top = …, …))`.
+These nine handles are not a picture: hand them to `Image` or `canvas.image` and you
+get told so.
+
 ---
 
 ## Loading one

@@ -6,6 +6,7 @@ import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NinePatch
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.graphics.refuseNineRegions
 import dev.wildware.composegl.ui.layout.Padding
 
 /**
@@ -70,6 +71,10 @@ sealed interface SkinDrawable {
         val texture: TextureHandle,
         override val padding: Padding = Padding.None,
     ) : SkinDrawable {
+        // An atlas can hand back nine separately-cut patch pieces, which are a TextureHandle and
+        // so fit here, and are not a picture. Caught where the skin says so, not at the backend.
+        init { refuseNineRegions(texture) }
+
         override val minimumSize: Size get() = Size(0f, 0f)
         override fun drawInto(canvas: UiCanvas, destination: Rect, tint: Colour) {
             canvas.image(texture, destination, tint)

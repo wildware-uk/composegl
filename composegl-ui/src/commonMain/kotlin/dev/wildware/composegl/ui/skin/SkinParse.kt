@@ -5,6 +5,7 @@ import dev.wildware.composegl.ui.graphics.ArtAtlas
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.EdgeMode
 import dev.wildware.composegl.ui.graphics.NinePatch
+import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.skin.json.Json
@@ -119,24 +120,94 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
     }
 
     private fun patch(json: JsonObject): SkinDrawable.Patch {
-        val slice = json["slice"]?.padding()
-            ?: fail("a nine-patch needs a \"slice\": how many pixels of the art are its border", json)
+        val from = json.getValue("patch")
         val edges = json["edges"]?.obj("\"edges\"")
         edges?.allow(setOf("left", "top", "right", "bottom", "centreAcross", "centreDown"))
         fun edge(name: String) = edges?.get(name)?.edgeMode() ?: EdgeMode.Stretch
+
+        // "patch" is a region name, or an object naming the nine pieces one at a time. A patch
+        // built out of pieces already knows where its cuts are, so it has no "slice" to write.
+        if (from is JsonObject) {
+            val pieces = regions(from)
+            json["slice"]?.let {
+                fail(
+                    "a patch cut into nine pieces is its own slice — its pieces say how thick each " +
+                        "border is — so it cannot also say \"slice\"",
+                    it,
+                )
+            }
+            return SkinDrawable.Patch(
+                blaming(from) {
+                    NinePatch.of(
+                        regions = pieces,
+                        padding = json["padding"]?.padding() ?: pieces.slice,
+                        leftEdge = edge("left"),
+                        topEdge = edge("top"),
+                        rightEdge = edge("right"),
+                        bottomEdge = edge("bottom"),
+                        centreAcross = edge("centreAcross"),
+                        centreDown = edge("centreDown"),
+                    )
+                },
+            )
+        }
+
+        val slice = json["slice"]?.padding()
+            ?: fail("a nine-patch needs a \"slice\": how many pixels of the art are its border", json)
         return SkinDrawable.Patch(
-            NinePatch(
-                texture = region(json.getValue("patch")),
-                slice = slice,
-                padding = json["padding"]?.padding() ?: slice,
-                leftEdge = edge("left"),
-                topEdge = edge("top"),
-                rightEdge = edge("right"),
-                bottomEdge = edge("bottom"),
-                centreAcross = edge("centreAcross"),
-                centreDown = edge("centreDown"),
-            ),
+            blaming(json) {
+                NinePatch(
+                    texture = region(from),
+                    slice = slice,
+                    padding = json["padding"]?.padding() ?: slice,
+                    leftEdge = edge("left"),
+                    topEdge = edge("top"),
+                    rightEdge = edge("right"),
+                    bottomEdge = edge("bottom"),
+                    centreAcross = edge("centreAcross"),
+                    centreDown = edge("centreDown"),
+                )
+            },
         )
+    }
+
+    /**
+     * The nine pieces, each one optional.
+     *
+     * A piece nobody names means that row or column has no slice, which is how a three-piece
+     * scrollbar track is written: a left cap, a middle and a right cap, and no top or bottom at all.
+     */
+    private fun regions(json: JsonObject): NineRegions {
+        json.allow(RegionKeys)
+        fun piece(name: String) = json[name]?.let { region(it) }
+        return blaming(json) {
+            NineRegions(
+                topLeft = piece("topLeft"),
+                top = piece("top"),
+                topRight = piece("topRight"),
+                left = piece("left"),
+                centre = piece("centre"),
+                right = piece("right"),
+                bottomLeft = piece("bottomLeft"),
+                bottom = piece("bottom"),
+                bottomRight = piece("bottomRight"),
+            )
+        }
+    }
+
+    /**
+     * Whatever the art itself refuses, said on the line that asked for it.
+     *
+     * A nine-patch checks its own arithmetic, and those complaints are written for somebody reading
+     * Kotlin. Somebody editing a skin file needs the same words with a line number on the front,
+     * and has no stack trace to go and find one in.
+     */
+    private inline fun <T> blaming(at: Json, build: () -> T): T = try {
+        build()
+    } catch (problem: SkinFormatException) {
+        throw problem
+    } catch (problem: IllegalArgumentException) {
+        fail(problem.message ?: "this nine-patch does not add up", at)
     }
 
     /**
@@ -246,5 +317,12 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
         val StateKeys = setOf("background", "textColour", "tint", "padding", "text", "contentOffset")
 
         val StyleStates = setOf("hovered", "focused", "pressed", "disabled")
+
+        /** The nine pieces a patch can be cut from, when the host cut them itself. */
+        val RegionKeys = setOf(
+            "topLeft", "top", "topRight",
+            "left", "centre", "right",
+            "bottomLeft", "bottom", "bottomRight",
+        )
     }
 }

@@ -5,6 +5,7 @@ import dev.wildware.composegl.ui.graphics.ArtAtlas
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.EdgeMode
 import dev.wildware.composegl.ui.graphics.NinePatch
+import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.text.TextStyle
@@ -88,8 +89,17 @@ internal class SkinWrite(private val art: ArtAtlas?) {
     }
 
     private fun patch(patch: NinePatch) = obj {
-        key("patch") { string(nameOf(patch.texture)) }
-        key("slice") { padding(patch.slice) }
+        val pieces = patch.texture as? NineRegions
+        if (pieces == null) {
+            key("patch") { string(nameOf(patch.texture)) }
+            key("slice") { padding(patch.slice) }
+        } else {
+            // Nine pieces say where their own cuts are, so there is no slice to write back — and
+            // writing one would be a file the reader then refuses.
+            key("patch") {
+                obj { pieces.named().forEach { (name, piece) -> key(name) { string(nameOf(piece)) } } }
+            }
+        }
         if (patch.padding != patch.slice) key("padding") { padding(patch.padding) }
         val edges = listOf(
             "left" to patch.leftEdge,

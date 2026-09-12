@@ -33,6 +33,11 @@ enum class EdgeMode {
  * gets two, because it stretches along both, and a header band whose pattern should repeat across
  * but not down is an ordinary thing to want.
  *
+ * [texture] is usually one picture with the nine pieces laid out inside it, and then the [slice]
+ * says where the cuts fall. It can instead be a [NineRegions] — nine pieces the host cut for
+ * itself — and then the cuts are already made and [of] is the way to build one. See [NineRegions]
+ * for the mipmapped-atlas artefact that is the whole reason for the second form.
+ *
  * @param slice how many texture pixels each border is. Corners are [slice]'s two ends multiplied.
  * @param padding how far the contents are kept from the edge. Defaults to [slice], which is right
  *   whenever the art's border *is* its frame.
@@ -61,6 +66,17 @@ data class NinePatch(
             "the top and bottom slices add up to ${slice.vertical}, " +
                 "taller than the ${texture.height}-pixel texture"
         }
+        if (texture is NineRegions) {
+            require(slice == texture.slice) {
+                "a patch cut into nine regions already knows its slice — its pieces make " +
+                    "${texture.slice} — so it cannot also be given $slice. Build it with " +
+                    "NinePatch.of(regions, …), which takes the slice from the art."
+            }
+        }
+
+        // The pitch check lives here rather than on the art, because the edge modes live here: two
+        // pieces of different sizes are perfectly fine until somebody tiles both of them.
+        requireOnePitch()
     }
 
     /** The smallest this draws at without its corners having to give way to each other. */
@@ -93,16 +109,33 @@ data class NinePatch(
             destination.bottom - slice.bottom * vertical,
             destination.bottom,
         )
-        val u = floatArrayOf(0f, slice.left, texture.width - slice.right, texture.width.toFloat())
-        val v = floatArrayOf(0f, slice.top, texture.height - slice.bottom, texture.height.toFloat())
+
+        val regions = texture as? NineRegions
+        // Only the one-texture form has cuts to work out; nine regions arrive already cut.
+        val u = if (regions != null) NoCuts else
+            floatArrayOf(0f, slice.left, texture.width - slice.right, texture.width.toFloat())
+        val v = if (regions != null) NoCuts else
+            floatArrayOf(0f, slice.top, texture.height - slice.bottom, texture.height.toFloat())
 
         for (row in 0..2) {
             for (column in 0..2) {
                 val part = Rect(x[column], y[row], x[column + 1], y[row + 1])
-                val source = Rect(u[column], v[row], u[column + 1], v[row + 1])
-                if (part.isEmpty || source.isEmpty) continue
+                if (part.isEmpty) continue
 
-                fill(canvas, source, part, tilesAcross(row, column), tilesDown(row, column), tint)
+                val piece: TextureHandle
+                val source: Rect
+                if (regions != null) {
+                    // A piece the art does not have is a cell with nothing in it, not a hole in
+                    // the arithmetic: the row or column either has no slice or is simply blank.
+                    piece = regions.at(row, column) ?: continue
+                    source = Rect.of(0f, 0f, piece.width.toFloat(), piece.height.toFloat())
+                } else {
+                    piece = texture
+                    source = Rect(u[column], v[row], u[column + 1], v[row + 1])
+                }
+                if (source.isEmpty) continue
+
+                fill(canvas, piece, source, part, tilesAcross(row, column), tilesDown(row, column), tint)
             }
         }
     }
@@ -126,9 +159,80 @@ data class NinePatch(
         else -> rightEdge
     } == EdgeMode.Tile
 
+    /** How wide the piece in that cell is, or null when the art has nothing there. */
+    private fun pieceWidth(row: Int, column: Int): Float? = when (texture) {
+        is NineRegions -> texture.at(row, column)?.width?.toFloat()
+        else -> when (column) {
+            0 -> slice.left
+            1 -> texture.width - slice.horizontal
+            else -> slice.right
+        }
+    }
+
+    /** And how tall. */
+    private fun pieceHeight(row: Int, column: Int): Float? = when (texture) {
+        is NineRegions -> texture.at(row, column)?.height?.toFloat()
+        else -> when (row) {
+            0 -> slice.top
+            1 -> texture.height - slice.vertical
+            else -> slice.bottom
+        }
+    }
+
+    /**
+     * Stops a patch whose tiled pieces would repeat at two different pitches.
+     *
+     * [fill] steps by the piece's own size, so a left edge 8 pixels tall and a right edge 12 pixels
+     * tall tile down the two sides at 8 and at 12, and the rivets stop lining up a third of the way
+     * down. One texture makes that impossible — its two sides are cut from the same band and so are
+     * the same size by construction — but nine separately cut regions do not.
+     *
+     * Only where the edge tiles. Stretching keeps its freedom, and it has to: cutting the middle
+     * band down to a single texel to dodge the mip artefact depends on the middle being allowed to
+     * be a different size from the ends.
+     */
+    private fun requireOnePitch() {
+        // Tiling downwards is the middle row: three pieces whose heights are the step.
+        onePitch(
+            "downwards", "tall",
+            listOf(
+                Tiling("left", leftEdge, pieceHeight(1, 0)),
+                Tiling("centre", centreDown, pieceHeight(1, 1)),
+                Tiling("right", rightEdge, pieceHeight(1, 2)),
+            ),
+        )
+        // And tiling across is the middle column, stepping by their widths.
+        onePitch(
+            "across", "wide",
+            listOf(
+                Tiling("top", topEdge, pieceWidth(0, 1)),
+                Tiling("centre", centreAcross, pieceWidth(1, 1)),
+                Tiling("bottom", bottomEdge, pieceWidth(2, 1)),
+            ),
+        )
+    }
+
+    /** One of the three pieces that can repeat along an axis, with the mode that decides it. */
+    private class Tiling(val name: String, val edge: EdgeMode, val size: Float?)
+
+    private fun onePitch(direction: String, dimension: String, pieces: List<Tiling>) {
+        val tiling = pieces.filter { it.edge == EdgeMode.Tile }
+            .mapNotNull { piece -> piece.size?.let { piece.name to it } }
+        val (firstName, firstSize) = tiling.firstOrNull() ?: return
+        tiling.forEach { (name, size) ->
+            require(size == firstSize) {
+                "the $firstName piece is ${plain(firstSize)} pixels $dimension and the $name " +
+                    "piece is ${plain(size)}, and both edges are EdgeMode.Tile, so they repeat " +
+                    "$direction at two different pitches and their patterns drift apart. Make " +
+                    "them the same $dimension, or set one edge to EdgeMode.Stretch."
+            }
+        }
+    }
+
     /** One of the nine, laid down once if it stretches and repeatedly if it tiles. */
     private fun fill(
         canvas: UiCanvas,
+        texture: TextureHandle,
         source: Rect,
         part: Rect,
         across: Boolean,
@@ -185,9 +289,37 @@ data class NinePatch(
 
         private const val Epsilon = 0.01f
 
+        /** The cuts a nine-region patch does not need, since its art arrives already cut. */
+        private val NoCuts = FloatArray(0)
+
         /** How much the corners have to give way to fit [available]. One when they all fit. */
         private fun squeeze(needed: Float, available: Float): Float =
             if (needed <= available || needed <= 0f) 1f else available / needed
+
+        /** A pixel count without a pointless `.0` on the end of it. */
+        private fun plain(value: Float): String =
+            if (value == value.toInt().toFloat()) value.toInt().toString() else value.toString()
+
+        /**
+         * A patch built from nine pieces the host cut for itself.
+         *
+         * The slice is the art's own, because with nine regions it already is: the left column's
+         * width *is* the left slice. See [NineRegions] for what this buys, which is a middle band
+         * that can be cut down to a single texel and so cannot fetch a neighbour out of a mip.
+         */
+        fun of(
+            regions: NineRegions,
+            padding: Padding = regions.slice,
+            leftEdge: EdgeMode = EdgeMode.Stretch,
+            topEdge: EdgeMode = EdgeMode.Stretch,
+            rightEdge: EdgeMode = EdgeMode.Stretch,
+            bottomEdge: EdgeMode = EdgeMode.Stretch,
+            centreAcross: EdgeMode = EdgeMode.Stretch,
+            centreDown: EdgeMode = EdgeMode.Stretch,
+        ) = NinePatch(
+            regions, regions.slice, padding,
+            leftEdge, topEdge, rightEdge, bottomEdge, centreAcross, centreDown,
+        )
 
         /** Every edge and the middle repeat the art instead of pulling it. */
         fun tiled(texture: TextureHandle, slice: Padding, padding: Padding = slice) = NinePatch(

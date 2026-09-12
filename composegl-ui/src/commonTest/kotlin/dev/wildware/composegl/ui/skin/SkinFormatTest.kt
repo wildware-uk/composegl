@@ -4,6 +4,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.ArtAtlas
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.EdgeMode
+import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.text.TextStyle
@@ -28,6 +29,22 @@ class SkinFormatTest {
             "ui/button" to Region(),
             "ui/button_hover" to Region(),
             "icons/heart" to Region(16, 16),
+
+            // A frame the host cut for itself, with both bands down to one texel so that no
+            // coarser mip level can reach a neighbour on the atlas. See NineRegions.
+            "frame/topLeft" to Region(6, 6),
+            "frame/top" to Region(1, 6),
+            "frame/topRight" to Region(6, 6),
+            "frame/left" to Region(6, 1),
+            "frame/centre" to Region(1, 1),
+            "frame/right" to Region(6, 1),
+            "frame/bottomLeft" to Region(6, 6),
+            "frame/bottom" to Region(1, 6),
+            "frame/bottomRight" to Region(6, 6),
+
+            // And a three-piece bar: two caps and a middle, with no top or bottom row at all.
+            "bar/cap" to Region(4, 12),
+            "bar/fill" to Region(1, 12),
         )
 
         override fun region(name: String): TextureHandle? = regions[name]
@@ -52,6 +69,17 @@ class SkinFormatTest {
             "button.danger": { "textColour": "#FF5C5C" },
             "panel": { "background": { "fill": "#20242C", "corner": 4 }, "padding": 8 },
             "icon": { "background": { "image": "icons/heart" } },
+            "frame": {
+              "background": {
+                "patch": {
+                  "topLeft": "frame/topLeft", "top": "frame/top", "topRight": "frame/topRight",
+                  "left": "frame/left", "centre": "frame/centre", "right": "frame/right",
+                  "bottomLeft": "frame/bottomLeft", "bottom": "frame/bottom",
+                  "bottomRight": "frame/bottomRight"
+                },
+                "padding": 9
+              }
+            },
             "label": { "background": "none", "text": { "size": 20 } }
           }
         }
@@ -131,6 +159,68 @@ class SkinFormatTest {
         val patch = (skin.styles.getValue("bar").base.background as SkinDrawable.Patch).patch
         assertEquals(EdgeMode.Tile, patch.centreAcross)
         assertEquals(EdgeMode.Stretch, patch.centreDown, "an edge nobody mentioned stretches")
+    }
+
+    @Test
+    fun `a patch can be nine pieces the host cut itself and then it is its own slice`() {
+        val patch = (read(file).styles.getValue("frame").base.background as SkinDrawable.Patch).patch
+        val pieces = patch.texture as NineRegions
+
+        assertEquals(Padding.all(6f), patch.slice, "the corners are 6, so the border is 6")
+        assertEquals(Padding.all(9f), patch.padding, "and the file still says its own padding")
+        assertEquals(atlas.region("frame/centre"), pieces.centre)
+        assertEquals(1, pieces.centre?.width, "the middle band is one texel, which is the point")
+    }
+
+    @Test
+    fun `pieces the file leaves out are rows and columns with no slice`() {
+        val skin = read(
+            """
+            { "styles": { "bar": { "background": { "patch": {
+                "left": "bar/cap", "centre": "bar/fill", "right": "bar/cap"
+            } } } } }
+            """.trimIndent(),
+        )
+
+        val patch = (skin.styles.getValue("bar").base.background as SkinDrawable.Patch).patch
+        assertEquals(Padding(left = 4f, right = 4f), patch.slice, "no top row and no bottom row")
+    }
+
+    @Test
+    fun `a patch cut into pieces cannot also be given a slice`() {
+        val problem = assertFailsWith<SkinFormatException> {
+            read("""{ "styles": { "b": { "background": { "patch": { "centre": "bar/fill" }, "slice": 6 } } } }""")
+        }
+
+        assertTrue("slice" in problem.message.orEmpty(), problem.message.orEmpty())
+    }
+
+    @Test
+    fun `a piece the format has never heard of is a mistake rather than a shrug`() {
+        val problem = assertFailsWith<SkinFormatException> {
+            read("""{ "styles": { "b": { "background": { "patch": { "middle": "bar/fill" } } } } }""")
+        }
+
+        assertTrue("middle" in problem.message.orEmpty(), problem.message.orEmpty())
+    }
+
+    @Test
+    fun `art that does not add up says so on the line that named it`() {
+        val problem = assertFailsWith<SkinFormatException> {
+            read(
+                """
+                {
+                  "styles": {
+                    "b": { "background": { "patch": { "topLeft": "frame/topLeft", "left": "bar/cap" } } }
+                  }
+                }
+                """.trimIndent(),
+            )
+        }
+
+        val message = problem.message.orEmpty()
+        assertTrue("line 3" in message, message)
+        assertTrue("topLeft" in message, "and it names the pieces that disagree: $message")
     }
 
     // --- round trip ---

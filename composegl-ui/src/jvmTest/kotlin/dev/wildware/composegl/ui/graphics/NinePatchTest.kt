@@ -229,6 +229,141 @@ class NinePatchTest {
         assertEquals(49f, drawn().maxOf { it.destination.bottom })
     }
 
+    // --- nine separately-cut regions ---
+
+    /**
+     * The same 48x48 frame as [texture], cut up beforehand instead of sliced arithmetically.
+     *
+     * @param middle how big the two middle bands are. One is the whole point of the exercise: a
+     *   band that is a single texel cannot fetch a neighbour out of a coarser mip, because a texel
+     *   stretched wide is magnified and no mip is fetched at all.
+     */
+    private fun nine(middle: Int = 16) = NineRegions(
+        topLeft = Art(16, 16), top = Art(middle, 16), topRight = Art(16, 16),
+        left = Art(16, middle), centre = Art(middle, middle), right = Art(16, middle),
+        bottomLeft = Art(16, 16), bottom = Art(middle, 16), bottomRight = Art(16, 16),
+    )
+
+    @Test
+    fun `nine regions draw exactly the geometry one texture draws`() {
+        val box = Rect.of(11f, 13f, 317f, 149f)
+
+        patch().drawInto(canvas, box)
+        val sliced = drawn().map { it.destination }
+
+        canvas.clear()
+        NinePatch.of(nine()).drawInto(canvas, box)
+
+        assertEquals(sliced, drawn().map { it.destination }, "the two paths cannot be allowed to drift")
+        assertEquals(
+            Rect.of(0f, 0f, 16f, 16f),
+            at(27f, 29f).source,
+            "and each piece is drawn whole, rather than out of a rectangle inside a bigger picture",
+        )
+    }
+
+    @Test
+    fun `and the same geometry when the edges tile`() {
+        val box = Rect.of(0f, 0f, 200f, 120f)
+
+        patch(topEdge = EdgeMode.Tile, leftEdge = EdgeMode.Tile).drawInto(canvas, box)
+        val sliced = drawn().map { it.destination }
+
+        canvas.clear()
+        NinePatch.of(nine(), leftEdge = EdgeMode.Tile, topEdge = EdgeMode.Tile).drawInto(canvas, box)
+
+        assertEquals(sliced, drawn().map { it.destination })
+    }
+
+    @Test
+    fun `a middle cut down to one texel is legal, because that is what it is for`() {
+        val thin = NinePatch.of(nine(middle = 1))
+
+        assertEquals(Padding.all(16f), thin.slice, "the corners still say how thick the border is")
+        thin.drawInto(canvas, Rect.of(0f, 0f, 200f, 120f))
+
+        val middle = at(16f, 16f)
+        assertEquals(Rect.of(16f, 16f, 168f, 88f), middle.destination, "stretched across the whole middle")
+        assertEquals(Rect.of(0f, 0f, 1f, 1f), middle.source, "out of a single texel")
+    }
+
+    @Test
+    fun `a piece left out means that row or column has no slice`() {
+        // A scrollbar track: two end caps and a middle, and nothing above or below them at all.
+        val bar = NinePatch.of(NineRegions(left = Art(6, 12), centre = Art(1, 12), right = Art(6, 12)))
+        assertEquals(Padding(left = 6f, right = 6f), bar.slice)
+
+        bar.drawInto(canvas, Rect.of(0f, 0f, 100f, 12f))
+        val pieces = drawn().map { it.destination }
+
+        canvas.clear()
+        NinePatch(Art(13, 12), Padding(left = 6f, right = 6f)).drawInto(canvas, Rect.of(0f, 0f, 100f, 12f))
+
+        assertEquals(3, pieces.size, "the row it has, and neither of the rows it has not")
+        assertEquals(drawn().map { it.destination }, pieces, "the same bar either way")
+    }
+
+    @Test
+    fun `the size a nine-region handle reports is a bound rather than any picture's size`() {
+        val thin = nine(middle = 1)
+
+        assertEquals(33, thin.width, "two 16-pixel corners and a one-texel band")
+        assertEquals(33, thin.height)
+    }
+
+    @Test
+    fun `two tiled sides that would repeat at different pitches are refused, by name`() {
+        val thrown = assertThrows(IllegalArgumentException::class.java) {
+            NinePatch.of(
+                NineRegions(left = Art(6, 8), centre = Art(1, 8), right = Art(6, 12)),
+                leftEdge = EdgeMode.Tile,
+                rightEdge = EdgeMode.Tile,
+            )
+        }
+
+        val message = thrown.message!!
+        assertTrue("left" in message && "right" in message, "it names both pieces: $message")
+        assertTrue("8" in message && "12" in message, "and both sizes: $message")
+        assertTrue("Tile" in message, "and the mode that made it matter: $message")
+    }
+
+    @Test
+    fun `sides of different sizes are fine while they stretch`() {
+        // Stretching has to keep the freedom: cutting a band to one texel depends on it.
+        val uneven = NinePatch.of(NineRegions(left = Art(6, 1), centre = Art(1, 1), right = Art(6, 40)))
+
+        uneven.drawInto(canvas, Rect.of(0f, 0f, 80f, 40f))
+        assertEquals(3, drawn().size)
+    }
+
+    @Test
+    fun `pieces down one side that disagree about their width are refused`() {
+        val thrown = assertThrows(IllegalArgumentException::class.java) {
+            NineRegions(topLeft = Art(6, 6), left = Art(8, 20), bottomLeft = Art(6, 6))
+        }
+
+        val message = thrown.message!!
+        assertTrue("topLeft" in message && "left" in message, message)
+    }
+
+    @Test
+    fun `a nine-region patch cannot be handed a slice of its own`() {
+        val thrown = assertThrows(IllegalArgumentException::class.java) {
+            NinePatch(nine(), Padding.all(8f))
+        }
+
+        assertTrue("NinePatch.of" in thrown.message!!, thrown.message)
+    }
+
+    @Test
+    fun `nine regions offered to something that draws one picture say what is really wrong`() {
+        val thrown = assertThrows(IllegalArgumentException::class.java) { refuseNineRegions(nine()) }
+
+        val message = thrown.message!!
+        assertTrue("nine separately-cut" in message, message)
+        assertTrue("NinePatch" in message, "and what to do about it: $message")
+    }
+
     // --- what it refuses ---
 
     @Test
