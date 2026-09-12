@@ -46,9 +46,9 @@ host.setContent { ProvideFonts(fonts) { ProvideSkin(skin.skin) { Hud(state) } } 
 
 `GdxCanvas(sprites, fonts.atlas)` on its own is still there for a game that wants
 only the canvas. Neither builds anything on the GPU until the first thing is drawn,
-so both can be constructed before the interface is ready; `canvas.warmUp()` on a
-loading screen pays for the mesh and the shader somewhere the player will not see a
-stutter.
+so both can be constructed before the interface is ready; `canvas.warmUp()` — on
+`UiCanvas`, and a no-op on a canvas with nothing to build — pays for the mesh and the
+shader on a loading screen, where the player will not see a stutter.
 
 LWJGL3:
 

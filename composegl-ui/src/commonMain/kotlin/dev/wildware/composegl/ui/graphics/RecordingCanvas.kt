@@ -112,11 +112,15 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     val calls: List<DrawCall> get() = recorded
 
     /**
-     * How many frames have been opened and closed since this canvas was made.
+     * How many frames have been opened and closed *cleanly* since this canvas was made.
      *
      * The answer to "did my app object actually render?", with no GPU in the question. A game
      * object that holds a canvas and a [dev.wildware.composegl.ui.host.UiRenderer] can be built in
      * a plain test, given this canvas, and asked whether a frame came out the other end.
+     *
+     * A frame whose [end] threw does not count. It reached [end] but it did not come out the other
+     * end — on a real backend that is a scissor left switched on — and a test that caught the
+     * failure and then read a number saying the frame rendered would be reading a lie.
      *
      * Counted from when the canvas was made, not from the last [clear]: [clear] throws away what
      * was drawn, and a count of frames that reset with it would be a count of one.
@@ -124,9 +128,17 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     var frames: Int = 0
         private set
 
-    /** Ready to record another frame. */
+    /**
+     * Ready to record another frame.
+     *
+     * Closes any frame still open, because a test usually gets here *because* a frame failed
+     * halfway through: assert the failure, clear, render again. Leaving the frame open would meet
+     * that next render with "begin() was called twice without an end()", which names the wrong
+     * bug entirely. The unfinished frame is not counted in [frames].
+     */
     fun clear(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) {
         recorded.clear()
+        drawing = false
         state.reset(bounds)
     }
 
@@ -155,11 +167,12 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     override fun end() {
         check(drawing) { "end() without a begin()" }
         drawing = false
-        frames++
 
-        // Complained about last, so the frame is still closed when the assertion fires and the
-        // next one can begin — the same order the canvases that draw use.
+        // The frame is marked closed before this complains, so the next one can begin — the same
+        // order the canvases that draw use. The count comes after it, because a frame that failed
+        // its balance check is not a frame that rendered; see [frames].
         check(state.isBalanced) { "a clip or an alpha was pushed and never popped" }
+        frames++
     }
 
     /**

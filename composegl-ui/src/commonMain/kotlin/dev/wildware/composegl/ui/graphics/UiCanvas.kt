@@ -39,6 +39,21 @@ interface UiCanvas {
     /** Closes the frame, hands whatever is left to the GPU, and puts back any state it borrowed. */
     fun end() = Unit
 
+    /**
+     * Builds whatever this canvas would otherwise build in the first frame it draws.
+     *
+     * A mesh and a compiled shader cost a few milliseconds, and a backend that makes them on
+     * demand spends those in the first frame the player sees — which is exactly the frame a
+     * stutter is noticed in. Call this on a loading screen, on the thread that holds the context,
+     * and the first real frame has nothing left to pay for.
+     *
+     * Here rather than only on the backends, so that a game holding a [UiCanvas] — which is what
+     * this toolkit asks a game to hold — can call it at all. Nothing to build is the default, so a
+     * canvas with no GPU behind it says nothing about this and a game that never calls it loses
+     * nothing. Calling it twice does nothing the second time.
+     */
+    fun warmUp() = Unit
+
     /** A filled rectangle. [corner] is the corner radius; zero is a plain rectangle. */
     fun rect(rect: Rect, colour: Colour, corner: Float = 0f)
 

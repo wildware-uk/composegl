@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.layout.ScalePolicy
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextStyle
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
@@ -495,9 +496,15 @@ class GlCanvasTest {
         Gl.render {
             val canvas = GlCanvas()
             try {
+                assertFalse(canvas.warmedUp, "a fresh canvas has built nothing")
+
                 canvas.warmUp()
+
+                assertTrue(canvas.warmedUp, "warming up built the buffer and the shader")
                 assertEquals(0, canvas.drawCalls, "warming up draws nothing")
+                // Twice is a no-op rather than a second buffer.
                 canvas.warmUp()
+                assertTrue(canvas.warmedUp)
             } finally {
                 canvas.close()
             }
