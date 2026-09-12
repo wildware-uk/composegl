@@ -246,7 +246,13 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         val atlas = checkNotNull(fonts) { "this canvas was made without fonts, so it cannot draw text" }.texture()
 
         val tint = colour.scaleAlpha(state.alpha)
-        measured.placed.forEach { placed ->
+
+        // Indexed rather than `forEach`: that asks the list for an iterator, and an outlined run
+        // comes through here nine times, so a HUD of labels would make an object per copy per run
+        // per frame for nothing.
+        val placedGlyphs = measured.placed
+        for (index in placedGlyphs.indices) {
+            val placed = placedGlyphs[index]
             batch().textured(
                 name = atlas.name,
                 left = x + placed.left,

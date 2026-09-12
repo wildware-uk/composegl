@@ -17,6 +17,7 @@ import dev.wildware.composegl.ui.graphics.EdgeMode
 import dev.wildware.composegl.ui.graphics.NinePatch
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.text.TextOutline
 import dev.wildware.composegl.ui.text.TextStyle
 
 /**
@@ -171,6 +172,24 @@ fun scenes(): List<Scene> = listOf(
             art.fonts.measure("The relay went quiet six hours ago.", Small, maxWidth = 120f),
             Offset(16f, 80f),
             Paper,
+        )
+    },
+
+    // What a stamped ring actually looks like, in a picture, on both backends. The third line is
+    // deliberately too thick: four units on sixteen-unit text is past the width TextOutline says
+    // this recipe is honest at, and the eight copies start showing as eight copies. A limit
+    // described only in a comment is a limit somebody files a bug about, so it is in a golden.
+    Scene("text-outline") { art ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Accent)
+        text(art.fonts.measure("Handgloves", Body), Offset(16f, 16f), Paper)
+        text(art.fonts.measure("Handgloves", Body), Offset(16f, 56f), Paper, TextOutline(Ink, 2f))
+        text(art.fonts.measure("Handgloves", Body), Offset(16f, 104f), Paper, TextOutline(Ink, 4f))
+        // The ring goes round the letters of a whole wrapped block, not round each line's box.
+        text(
+            art.fonts.measure("The relay went quiet six hours ago.", Small, maxWidth = 120f),
+            Offset(16f, 160f),
+            Paper,
+            TextOutline(Ink, 1f),
         )
     },
 

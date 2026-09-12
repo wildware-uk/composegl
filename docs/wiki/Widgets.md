@@ -29,6 +29,49 @@ Text("GAME OVER", style = "display")
 
 ![four text styles: a title, the default, a dim one and a wrapped paragraph](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-text.png)
 
+### Outlined text
+
+A ring round the letters, so a readout stays legible over a moving, colourful
+background:
+
+```kotlin
+Text("148", outline = TextOutline(Colour.Black, width = 2f))
+
+// Or once, for a whole HUD.
+ProvideTextOutline(Colour.Black, width = 2f) {
+    Text("HULL")
+    Text("$ammo")
+}
+```
+
+`ProvideTextOutline` reaches `Text`, `Typewriter`, `Tooltip`,
+`DamageNumberLayer` and `Minimap`'s compass letters. Not `TextField` or
+`PromptGlyph`, which have backgrounds of their own; give those an explicit
+outline if you ever want one.
+
+Three things worth knowing before you use it:
+
+- **It is stamped, not stroked.** The canvas draws the run eight times offset
+  and once on top, out of the same bitmap glyphs. Honest up to about a sixth of
+  the text size — two units on sixteen-unit text. Past that the eight copies
+  start showing as eight copies.
+- **Use an opaque outline colour.** The copies overlap, so a see-through ring
+  reads darker where they stack. A fading label does fade whole — the ring is
+  drawn at the face's alpha, so it goes out with the letters rather than leaving
+  a silhouette — but not evenly: those stacked copies keep the ring reading a
+  shade stronger than the letters all the way down.
+- **It does not change layout.** The ring is painted outside the text's box and
+  the box does not grow for it, so switching it on moves nothing and rewraps
+  nothing. The price is that a tight clip trims it and a background sized to the
+  text does not cover it — add `Modifier.padding` of the outline width where
+  that matters.
+
+It costs nine times the glyph quads and no extra nodes, draw calls or
+measuring. For one hero label where the alpha has to be exactly right,
+`Modifier.outline` from `composegl-effects` composites once instead of stacking;
+it costs an offscreen picture and a draw call per node, which is why it is the
+wrong tool for two hundred damage numbers.
+
 ---
 
 ## Buttons

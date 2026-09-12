@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.graphics.textRun
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
 import dev.wildware.composegl.ui.layout.LeafLayout
@@ -16,6 +17,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.TextLayout
+import dev.wildware.composegl.ui.text.TextOutline
 import dev.wildware.composegl.ui.text.TextStyle
 
 /**
@@ -55,6 +57,38 @@ fun Text(
     softWrap: Boolean = true,
     maxLines: Int = 0,
     ellipsis: String? = null,
+) = Text(text, modifier, style, textStyle, colour, align, softWrap, maxLines, ellipsis, LocalTextOutline.current)
+
+/**
+ * The same, with a ring of [outline] round the letters. Null is no ring, whatever the surroundings
+ * say — the overload without this parameter is the one that takes [LocalTextOutline].
+ *
+ * The ring is painted outside the box and **the box does not grow for it**, exactly as
+ * `Modifier.outline`'s bleed already reaches past the node it wraps. So an outlined label lays out
+ * byte for byte like the same label unoutlined: turning the ring on cannot move its neighbours,
+ * cannot rewrap a paragraph, and cannot push the words off the baseline a [PromptGlyph] beside them
+ * is sitting on. Where the ring needs room of its own — a background that must cover it, an
+ * ancestor clip that would trim it — `Modifier.padding` of the outline width says so out loud.
+ *
+ * @see dev.wildware.composegl.ui.text.TextOutline for what a stamped ring can and cannot do.
+ */
+// A separate function rather than a tenth parameter with a default on the one above, and it has to
+// stay that way: adding a defaulted parameter to a published function changes its signature, so
+// every game compiled against 0.1.0 would fail to link against the "tidier" version. `outline` has
+// no default here for the same reason the two can coexist at all — give it one and `Text("hi")`
+// matches both.
+@Composable
+fun Text(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: String? = null,
+    textStyle: TextStyle? = null,
+    colour: Colour? = null,
+    align: HorizontalAlignment = HorizontalAlignment.Start,
+    softWrap: Boolean = true,
+    maxLines: Int = 0,
+    ellipsis: String? = null,
+    outline: TextOutline?,
 ) {
     val named = rememberStyle(style ?: "label")
     val inherited = LocalContentStyle.current
@@ -72,8 +106,8 @@ fun Text(
     // One object measures and draws, and it is remembered on everything it was built from. Same
     // text under the same style: the same object, so the node sees nothing change and the frame is
     // not redrawn. Different text: a different object, so it is.
-    val painter = remember(text, face, ink, align, softWrap, fonts) {
-        TextPainter(text, face, ink, align, softWrap, fonts)
+    val painter = remember(text, face, ink, align, softWrap, fonts, outline) {
+        TextPainter(text, face, ink, align, softWrap, fonts, outline)
     }
 
     LeafLayout(modifier = modifier, name = "text", measurePolicy = painter, draw = painter.draw)
@@ -93,6 +127,7 @@ private class TextPainter(
     private val align: HorizontalAlignment,
     private val softWrap: Boolean,
     private val fonts: FontProvider,
+    private val outline: TextOutline?,
 ) : MeasurePolicy {
 
     private var measured: TextLayout? = null
@@ -133,6 +168,9 @@ private class TextPainter(
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
         // Null only if a frame is drawn before anything measured, which the passes do not do.
         // The two-float call, not the Offset one: this runs for every run of text every frame.
-        measured?.let { text(it, bounds.left + shift, bounds.top, colour) }
+        // The outline goes to the canvas rather than being stacked here, so an outlined label is
+        // still one node, and it is painted outside these bounds rather than inside a bigger box —
+        // which is what lets measuring ignore it entirely.
+        measured?.let { textRun(it, bounds.left + shift, bounds.top, colour, outline) }
     }
 }

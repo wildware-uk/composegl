@@ -20,6 +20,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.graphics.textRun
 import dev.wildware.composegl.ui.focus.FocusWithinHandler
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.PointerEvent
@@ -36,6 +37,7 @@ import dev.wildware.composegl.ui.skin.ResolvedStyle
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.TextLayout
+import dev.wildware.composegl.ui.text.TextOutline
 
 /**
  * The one tooltip a screen has, and everything it knows about what to show.
@@ -211,11 +213,12 @@ private fun TooltipLayer(tooltips: Tooltips, style: String) {
         showing?.let { fonts.measure(it.text, resolved.textStyle) }
     }
 
-    val painter = remember(showing, layout, resolved, fade.value) {
+    val outline = LocalTextOutline.current
+    val painter = remember(showing, layout, resolved, fade.value, outline) {
         if (showing == null || layout == null || fade.value <= 0f) {
             null
         } else {
-            TooltipPainter(showing, layout, resolved, fade.value)
+            TooltipPainter(showing, layout, resolved, fade.value, outline)
         }
     }
 
@@ -231,6 +234,7 @@ private class TooltipPainter(
     private val layout: TextLayout,
     private val style: ResolvedStyle,
     private val fade: Float,
+    private val outline: TextOutline?,
 ) {
 
     val draw: UiCanvas.(Rect) -> Unit = { screen ->
@@ -261,7 +265,7 @@ private class TooltipPainter(
         // comparison rather than a colour worked out twice.
         pushAlpha(fade)
         style.background.drawInto(this, box, Colour.White)
-        text(layout, box.left + padding.left, box.top + padding.top, style.textColour)
+        textRun(layout, box.left + padding.left, box.top + padding.top, style.textColour, outline)
         popAlpha()
     }
 }

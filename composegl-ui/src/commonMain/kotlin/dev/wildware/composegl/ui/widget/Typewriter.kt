@@ -12,6 +12,7 @@ import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.graphics.textRun
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.layout.Measurable
@@ -22,6 +23,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.TextLayout
+import dev.wildware.composegl.ui.text.TextOutline
 import dev.wildware.composegl.ui.text.TextStyle
 import kotlin.math.sin
 
@@ -277,8 +279,9 @@ fun Typewriter(
         }
     }
 
-    val painter = remember(state.text, face, ink, fonts, effect) {
-        TypewriterPainter(state, face, ink, fonts, effect, clocks)
+    val outline = LocalTextOutline.current
+    val painter = remember(state.text, face, ink, fonts, effect, outline) {
+        TypewriterPainter(state, face, ink, fonts, effect, clocks, outline)
     }
 
     // A new lambda whenever anything has changed, because a node is only redrawn when what it was
@@ -303,6 +306,7 @@ private class TypewriterPainter(
     private val fonts: FontProvider,
     private val effect: TypewriterEffect?,
     private val clocks: dev.wildware.composegl.ui.animation.Clocks,
+    private val outline: TextOutline?,
 ) : MeasurePolicy {
 
     private var lines: List<Line> = emptyList()
@@ -365,7 +369,7 @@ private class TypewriterPainter(
             if (shown > 0) {
                 val y = bounds.top + index * style.lineHeight
                 if (effect == null) {
-                    text(line.prefix(shown), bounds.left, y, colour)
+                    textRun(line.prefix(shown), bounds.left, y, colour, outline)
                 } else {
                     drawWithEffect(this, line, shown, bounds.left, y, now)
                 }
@@ -373,14 +377,53 @@ private class TypewriterPainter(
         }
     }
 
-    /** One character at a time, because an effect moves and colours them one at a time. */
+    /**
+     * One character at a time, because an effect moves and colours them one at a time.
+     *
+     * Outlined, that has to be two passes over the line: every letter's ring first, then every
+     * letter's face. The canvas can only promise "no ring lands on a face" for the run it is given,
+     * and here each letter is its own run, so a one-pass version would stamp the *next* letter's
+     * ring over the last letter's face wherever two letters nearly touch. The price is that the
+     * effect is asked where each character is twice a frame, and only while an outline is on.
+     *
+     * Each ring takes its letter's alpha, which is the same rule the canvas follows for a whole
+     * run — and here it is the rule that matters most, because [TypewriterEffect.fadeIn] fades
+     * every letter in by its alpha. Without it a fading-in word arrives as a row of solid rings
+     * that fill themselves in afterwards.
+     */
     private fun drawWithEffect(canvas: UiCanvas, line: Line, shown: Int, left: Float, top: Float, now: Long) {
+        val ring = outline
+        if (ring != null && ring.isVisible) {
+            eachCharacter(line, shown, left, top, now) { glyph, x, y, tint ->
+                val faded = ring.colour.scaleAlpha(tint.alphaFraction)
+                ring.forEachStamp { dx, dy -> canvas.text(glyph, x + dx, y + dy, faded) }
+            }
+        }
+        eachCharacter(line, shown, left, top, now) { glyph, x, y, tint ->
+            canvas.text(glyph, x, y, tint)
+        }
+    }
+
+    /**
+     * Where the effect has put each revealed character of [line], and what colour it wants it.
+     *
+     * Inline, so drawing a line of moving letters still allocates nothing per frame — which is the
+     * claim [TypewriterPainter] is built on and the reason this is a lambda rather than a list.
+     */
+    private inline fun eachCharacter(
+        line: Line,
+        shown: Int,
+        left: Float,
+        top: Float,
+        now: Long,
+        body: (glyph: TextLayout, x: Float, y: Float, colour: Colour) -> Unit,
+    ) {
         for (offset in 0 until shown) {
             val character = line.text[offset]
             if (character == ' ') continue
             scratch.begin(line.start + offset, character, state.ageOf(line.start + offset, now), colour)
             effect?.style(scratch)
-            canvas.text(
+            body(
                 line.glyph(character),
                 left + line.xOf(offset) + scratch.offsetX,
                 top + scratch.offsetY,

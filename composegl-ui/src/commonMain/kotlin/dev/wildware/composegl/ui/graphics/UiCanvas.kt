@@ -6,6 +6,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextLayout
+import dev.wildware.composegl.ui.text.TextOutline
 
 /**
  * Everything the toolkit can draw, and the whole of what a backend must implement.
@@ -79,6 +80,50 @@ interface UiCanvas {
 
     /** The same, for the ordinary case where the caller already has the point. */
     fun text(layout: TextLayout, at: Offset, colour: Colour) = text(layout, at.x, at.y, colour)
+
+    /**
+     * The same, with a ring of [outline] round the letters. Null draws it plainly.
+     *
+     * Here rather than in a widget because a ring is nine copies of the run and a widget could only
+     * make them by stacking nine *nodes* — nine things to lay out, place and draw, for one label.
+     * Done here it is nine batches of quads out of the atlas that was already bound: no re-measure,
+     * no extra node, no render target, and the same draw call while the batch has room.
+     *
+     * The default body is built out of the plain [text] above and nothing else, so every backend
+     * already draws this correctly, including ones outside this repository that were compiled
+     * against an earlier release and have never heard of it. This module compiles with
+     * `-jvm-default=no-compatibility`, so on the JVM it really is a Java default method on the
+     * interface: there is no `DefaultImpls` class and no compatibility bridge, and an implementor
+     * that does not mention it inherits this body directly. Keep that flag — building without it
+     * would move where this body lives and break implementors compiled against the flagged build.
+     *
+     * All eight outline copies are drawn before the fill, so no letter's ring can land on the face
+     * of the letter beside it. That is why this takes the whole run: a caller that draws its own
+     * glyphs one at a time — [dev.wildware.composegl.ui.widget.Typewriter] with an effect on it is
+     * the one in this repository — has to make the same two passes itself to keep the guarantee.
+     *
+     * **The ring is drawn at [outline]'s colour scaled by [colour]'s alpha**, not at its own colour
+     * flat. Fading a run means handing this a faded [colour] — that is what a damage number does as
+     * it rises — and a ring stamped at full strength round letters that have faded to nothing is a
+     * black silhouette of a number that is supposed to have gone. A backend that overrides this
+     * owes callers the same rule.
+     *
+     * A backend may override this. That is the point of putting it on the interface rather than
+     * shipping it as a free function: the day a distance-field backend exists it replaces this one
+     * method with a real stroke and every caller above is unchanged. See [TextOutline] for what the
+     * stamped version can and cannot do — it is not a stroke, and the doc there says so plainly.
+     */
+    fun text(layout: TextLayout, x: Float, y: Float, colour: Colour, outline: TextOutline?) {
+        if (outline != null && outline.isVisible) {
+            val ring = outline.colour.scaleAlpha(colour.alphaFraction)
+            outline.forEachStamp { dx, dy -> text(layout, x + dx, y + dy, ring) }
+        }
+        text(layout, x, y, colour)
+    }
+
+    /** The same, for the ordinary case where the caller already has the point. */
+    fun text(layout: TextLayout, at: Offset, colour: Colour, outline: TextOutline?) =
+        text(layout, at.x, at.y, colour, outline)
 
     /**
      * A picture, stretched to fill [destination]. [tint] multiplies; white leaves it alone.
@@ -182,4 +227,30 @@ interface UiCanvas {
      * toolkit genuinely cannot work out for itself.
      */
     val drawCalls: Int get() = -1
+}
+
+/**
+ * One run of text, with a ring round it only if there is a ring worth drawing.
+ *
+ * Every widget in this module that draws text goes through here rather than calling the
+ * five-argument [UiCanvas.text] straight, for two reasons that both come down to the plain call
+ * being the one everything already knows about.
+ *
+ * A canvas is very often a wrapper — `UiCanvas by inner` in a test, something that counts clips or
+ * tints a subtree — and a wrapper written before outlines existed overrides the four-argument call
+ * and nothing else. Sending an unoutlined run through the five-argument call would hand it to the
+ * wrapped canvas instead, and the wrapper would silently stop seeing text it used to see.
+ *
+ * And it keeps the ordinary path exactly as cheap as it was: a label with no outline reaches the
+ * backend through the same one call it always did.
+ */
+internal fun UiCanvas.textRun(
+    layout: TextLayout,
+    x: Float,
+    y: Float,
+    colour: Colour,
+    outline: TextOutline?,
+) {
+    if (outline == null || !outline.isVisible) text(layout, x, y, colour)
+    else text(layout, x, y, colour, outline)
 }
