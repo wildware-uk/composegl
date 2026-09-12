@@ -102,7 +102,11 @@ Modifier.onReveal { child -> scrollTo(child) }
 ```
 
 `focus.refresh()` once a frame is what stops a menu ending up open with nothing
-selected: when the node that had focus disappears, something real takes it.
+selected: when the node that had focus disappears, something real takes it. It
+has to run after the layout, so `UiRenderer` will do it for you — `ui.focus =
+focus` — and outside a renderer, `host.settle(viewport, focus, nanos)` is the
+same three calls in the same order. Keep calling `refresh` yourself if your game
+has two trees and two managers: the renderer only knows about one.
 
 When a whole screen's layout is the exception — not one node, which `focusOrder`
 already covers — `focus.focusSearch` swaps out the scoring itself. Subclass

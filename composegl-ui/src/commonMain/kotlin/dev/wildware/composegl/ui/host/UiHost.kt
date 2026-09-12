@@ -8,7 +8,13 @@ import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.snapshots.Snapshot
 import dev.wildware.composegl.ui.animation.Clocks
 import dev.wildware.composegl.ui.animation.LocalClocks
+import dev.wildware.composegl.ui.debug.FrameBudget
+import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.internal.Guard
+import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.MeasurePass
+import dev.wildware.composegl.ui.layout.Viewport
+import dev.wildware.composegl.ui.layout.run
 import dev.wildware.composegl.ui.node.UiApplier
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.node.UiTree
@@ -136,4 +142,90 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
         recomposer.cancel()
         job.cancel()
     }
+}
+
+/**
+ * A tree that is safe to read: recomposed, laid out, and with focus pointing at something real.
+ *
+ * Three calls have to happen in one order before anything can be asked a question about the tree,
+ * and until now the only place that order was written down was inside
+ * [dev.wildware.composegl.ui.host.UiRenderer.render], which is no use to a test that never draws.
+ * Leaving the layout out gives right contents and last frame's rectangles — so a click lands where
+ * the button used to be. Leaving the focus refresh out leaves focus on a node that the recompose
+ * has just removed, so the next direction press has nowhere to move from.
+ *
+ * ```kotlin
+ * host.settle(viewport, focus, nanos = clock)
+ * assertEquals("Continue", focus.focused?.name)
+ * ```
+ *
+ * @param focus the manager to refresh, or null for a screen that has none. It is an argument
+ *   rather than something the host holds because a game usually has more than one — a heads-up
+ *   display and a panel in the world are two trees with two managers — and a host cannot know
+ *   which of them this frame belongs to.
+ * @param nanos the frame's time, from whatever clock the caller already reads. Required, because
+ *   the host has no clock of its own and guessing one is how animation tests quietly stop testing
+ *   anything.
+ * @param budget where the timings go, for a caller that wants the split: the recompose and the
+ *   layout, which are two of the three numbers the overlay shows. The focus refresh is not timed.
+ *   Null costs nothing.
+ * @return whether anything actually changed. **One settle is not always enough.** It publishes
+ *   state that was written during the *previous* frame; state written by a coroutine that resumes
+ *   *during* this one is not published until the `Snapshot.sendApplyNotifications` at the top of
+ *   the next frame. So a harness that wants a finished tree loops until nothing more changes:
+ *
+ * ```kotlin
+ * while (host.settle(viewport, focus, nanos = clock)) { clock += 16_666_667L }
+ * ```
+ *
+ * Advance the clock in that loop, as above. A loop on a fixed time settles state, but an animation
+ * asks for a frame at a time that never arrives and the loop never ends. In a test, put a count on
+ * it as well and fail when it runs out: a bug that made this always report a change would otherwise
+ * hang the build rather than fail it, and a hung job prints nothing.
+ */
+fun UiHost.settle(
+    viewport: Viewport,
+    focus: FocusManager? = null,
+    nanos: Long,
+    budget: FrameBudget? = null,
+): Boolean = settleWith(focus, nanos, budget) { pass -> pass.run(root, viewport) }
+
+/**
+ * The same thing against plain [Constraints], for a test that has no screen to describe.
+ *
+ * A [Viewport] exists to fit a design resolution onto a real framebuffer and lays the root out at
+ * exactly one size; a test usually just wants "at most 1280 by 720" and to see what the tree makes
+ * of it. Read [settle] above for what this does and for the loop that finishes the job.
+ */
+fun UiHost.settle(
+    constraints: Constraints,
+    focus: FocusManager? = null,
+    nanos: Long,
+    budget: FrameBudget? = null,
+): Boolean = settleWith(focus, nanos, budget) { pass -> pass.run(root, constraints) }
+
+/**
+ * The order itself, written once: recompose, lay out, refresh focus.
+ *
+ * The two overloads above differ only in what they hand the layout pass — a viewport places the
+ * root at the safe area's corner, plain constraints leave it at the origin — so that one line is
+ * the argument and the other three are here. Inline, because the alternative is a fresh lambda
+ * every frame for a frame that otherwise allocates almost nothing.
+ *
+ * The refresh is last on purpose: taking focus tells every ancestor to reveal the newly focused
+ * node, and the rectangle a scrolling list is handed there is whatever the layout wrote — run it
+ * first and the list scrolls to where that node was a frame ago. It is outside the budget's
+ * wrappers because the budget splits a frame into the three passes and this is none of them; the
+ * testing wiki says the same about the allocation it costs.
+ */
+private inline fun UiHost.settleWith(
+    focus: FocusManager?,
+    nanos: Long,
+    budget: FrameBudget?,
+    measure: (MeasurePass) -> Unit,
+): Boolean {
+    val changed = if (budget == null) frame(nanos) else budget.recompose { frame(nanos) }
+    if (budget == null) measure(MeasurePass()) else budget.layout { measure(MeasurePass()) }
+    focus?.refresh()
+    return changed
 }

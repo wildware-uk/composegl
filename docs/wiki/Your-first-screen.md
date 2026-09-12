@@ -102,6 +102,18 @@ canvas.end()                           // 4. hand it to the GPU
 An analogy: **frame** is asking "has anybody changed their mind?", **measure** is
 laying the furniture out in the room, and **draw** is taking the photograph.
 
+Five, once a pad or the arrow keys can drive your screen: focus has to be kept
+pointing at something that is still there. Hand the manager over and the renderer
+does it, in the right place — after the layout, before `onLaidOut`:
+
+```kotlin
+ui.focus = focus
+```
+
+The first two of those steps, plus the focus refresh, are also one call —
+`host.settle(viewport, focus, nanos)` — which is what a test that never draws
+uses. See [Testing](Testing).
+
 If your game draws into the *same* canvas as the interface — a 2D game putting
 its board under its HUD, say — you do not need to write it out. Hand the drawing
 over instead, and it happens inside the canvas's frame, under everything:

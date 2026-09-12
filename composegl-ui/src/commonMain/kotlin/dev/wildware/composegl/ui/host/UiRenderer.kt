@@ -2,10 +2,9 @@ package dev.wildware.composegl.ui.host
 
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.draw.DrawPass
+import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.graphics.UiCanvas
-import dev.wildware.composegl.ui.layout.MeasurePass
 import dev.wildware.composegl.ui.layout.Viewport
-import dev.wildware.composegl.ui.layout.run
 
 /**
  * A whole frame of interface, in one call.
@@ -21,9 +20,11 @@ import dev.wildware.composegl.ui.layout.run
  * call. The five lines this replaces are all still public, for the rarer case that wants them
  * genuinely apart — two trees, an effect between them, a pass of its own.
  *
- * What it does, in order: ask the runtime whether anything changed, lay the tree out for the
- * viewport, tell [onLaidOut] that positions exist, open the canvas's frame, draw, close it, and
- * file the timings. Nothing is allocated per node and almost nothing per frame; see
+ * What it does, in order: [settle] the tree — ask the runtime whether anything changed, lay it out
+ * for the viewport, refresh [focus] — then tell [onLaidOut] that positions exist, open the canvas's
+ * frame, draw, close it, and file the timings. The first three of those are not written out here:
+ * they are [settle], which is where that order is kept so a test that never draws can have the
+ * same one. Nothing is allocated per node and almost nothing per frame; see
  * [dev.wildware.composegl.ui.layout.MeasurePass] for why the one object it does make has to be made again.
  *
  * @param budget where the three-way timing split goes. Switched off it costs a boolean, so it is
@@ -51,6 +52,25 @@ class UiRenderer(
     var onLaidOut: ((Long) -> Unit)? = null
 
     /**
+     * The focus manager to keep pointing at something real, refreshed once a frame after layout.
+     *
+     * It lives here rather than on [UiHost] because this is the class whose job is one whole
+     * frame; a host owns no loop and no clock, and a property there would silently do nothing for
+     * the trees — a [dev.wildware.composegl.ui.world.WorldPanel] on a wall — that have a host but
+     * never come through here.
+     *
+     * Two reasons to leave it null. A game whose [onLaidOut] already calls `refresh` is done, and
+     * setting this as well would refresh twice; note that the refresh here happens *before*
+     * [onLaidOut], since routing input needs focus already settled, so a game that moves a pointer
+     * inside [onLaidOut] and refreshes after it is not the same order and should keep its own.
+     * And `refresh` builds a fresh list of focusable nodes every call, so setting this costs an
+     * allocation a frame — small, but this project counts them. The [budget] does not show it: its
+     * three numbers are the recompose, the layout and the draw, and the refresh is outside all
+     * three, so a game that wants to know what it costs has to measure it itself.
+     */
+    var focus: FocusManager? = null
+
+    /**
      * Run inside the canvas's frame, before the interface is drawn: the game's own world, under
      * its heads-up display, in the same batch.
      *
@@ -72,8 +92,7 @@ class UiRenderer(
      * `System.nanoTime()` on a desktop.
      */
     fun render(viewport: Viewport, nanos: Long): Boolean {
-        val changed = budget.recompose { host.frame(nanos) }
-        budget.layout { MeasurePass().run(host.root, viewport) }
+        val changed = host.settle(viewport, focus, nanos, budget)
         onLaidOut?.invoke(nanos / 1_000_000)
 
         canvas.begin(viewport)
