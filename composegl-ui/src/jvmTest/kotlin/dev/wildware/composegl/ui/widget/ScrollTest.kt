@@ -15,6 +15,7 @@ import dev.wildware.composegl.ui.graphics.RecordingCanvas
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.host.UiHost
+import dev.wildware.composegl.ui.host.settle
 import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.input.KeyEvent
 import dev.wildware.composegl.ui.input.KeyEventType
@@ -25,7 +26,6 @@ import dev.wildware.composegl.ui.input.PointerId
 import dev.wildware.composegl.ui.input.PointerRouter
 import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.layout.Constraints
-import dev.wildware.composegl.ui.layout.MeasurePass
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
@@ -73,10 +73,8 @@ class ScrollTest {
     private fun frame() {
         canvas.clear()
         clips.clear()
-        host.frame(clock)
+        host.settle(Constraints.atMost(400f, 400f), focus, nanos = clock)
         clock += 16_666_667L
-        MeasurePass().run(host.root, Constraints.atMost(400f, 400f))
-        focus.refresh()
         DrawPass(clips).draw(host.root)
         canvas.assertBalanced()
     }

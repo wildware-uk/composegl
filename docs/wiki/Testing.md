@@ -24,6 +24,58 @@ not the shape of a letter in a typeface.
 
 ---
 
+## One call instead of three
+
+A test that only wants to *read* the tree — what is on the screen, where it is,
+what has focus — needs three things to have happened, in one order. `settle` is
+that order, and it is the same one `UiRenderer.render` uses:
+
+```kotlin
+host.settle(Constraints.atMost(1280f, 720f), focus, nanos = clock)
+```
+
+There is a `Viewport` overload too, for a test that cares about a safe area or a
+scale. `focus` is optional; pass it and focus is kept pointing at something real.
+
+Doing it by hand is where two bugs come from, and neither of them looks like a bug:
+
+| Left out | What you get |
+|---|---|
+| the layout pass | right contents, **last frame's rectangles** — a click lands where the button used to be |
+| `focus.refresh()` | focus still on a node the recompose removed, so the next direction press has nowhere to move from |
+
+### One settle is not always enough
+
+`settle` publishes state that was written during the **previous** frame. State
+written by a coroutine that resumes **during** this frame is not published until
+the `Snapshot.sendApplyNotifications` at the top of the next one — so a single
+call can leave you looking at a tree that is one step behind.
+
+`settle` returns whether anything changed, which makes the recipe a loop:
+
+```kotlin
+while (host.settle(constraints, focus, nanos = clock)) { clock += 16_666_667L }
+```
+
+That is the line to copy. Advance the clock inside it, as above: a loop on a fixed
+time settles state fine, but an animation asks for a frame at a time that never
+arrives and the loop never ends.
+
+In a test, count the turns too and fail when they run out:
+
+```kotlin
+fun settled(): Int {
+    repeat(8) { turn -> if (!host.settle(constraints, focus, nanos = tick())) return turn }
+    throw AssertionError("settle still reported a change after 8 turns")
+}
+```
+
+A bare `while` turns a broken `settle` into a build that hangs until something
+reaps it, with no report and no failing test name. Eight turns is far more than a
+screen needs.
+
+---
+
 ## What was drawn
 
 `RecordingCanvas` writes down the calls instead of making them:
@@ -107,6 +159,12 @@ on every pass, and the placement block every layout was making per node per fram
 
 Neither pass allocates per node any more, so what is left is mostly the runtime
 being asked for a frame it has nothing to do in.
+
+One thing deliberately stays outside that measurement: `FocusManager.refresh`
+builds a fresh list of focusable nodes every call, so passing a focus manager to
+`settle` — or setting `UiRenderer.focus` — costs an allocation a frame. It is off
+by default for that reason, and `FrameCostTest` does not pass one, so the ratchet
+still measures a frame of pure interface.
 
 ---
 
