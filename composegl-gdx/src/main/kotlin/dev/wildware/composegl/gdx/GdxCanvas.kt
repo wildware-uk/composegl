@@ -11,6 +11,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.CanvasState
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.layout.Viewport
@@ -227,8 +228,7 @@ class GdxCanvas(
 
     override fun image(texture: TextureHandle, destination: Rect, tint: Colour, source: Rect?) {
         if (state.isHidden || destination.isEmpty) return
-        val gdx = texture as? GdxTexture
-            ?: error("this canvas can only draw textures it made, not ${texture::class}")
+        val gdx = texture as? GdxTexture ?: notOnePicture(texture)
 
         val region = gdx.region
 
@@ -525,6 +525,18 @@ class GdxCanvas(
         (argb shr 8) and 0xFF,
         argb and 0xFF,
         (((argb ushr 24) and 0xFF) * alpha).toInt().coerceIn(0, 255),
+    )
+
+    /**
+     * What to say about a texture this canvas cannot draw.
+     *
+     * Nine separately-cut nine-patch pieces are the interesting case: they *are* a TextureHandle,
+     * so they arrive here looking like a picture, and "this canvas can only draw textures it made"
+     * would send the reader off hunting for a backend mismatch that is not the problem at all.
+     */
+    private fun notOnePicture(texture: TextureHandle): Nothing = error(
+        if (texture is NineRegions) NineRegions.NotOnePicture
+        else "this canvas can only draw textures it made, not ${texture::class}",
     )
 
     private companion object {

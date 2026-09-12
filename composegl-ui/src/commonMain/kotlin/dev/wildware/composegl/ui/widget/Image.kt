@@ -6,6 +6,7 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.graphics.refuseNineRegions
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.LeafLayout
@@ -57,6 +58,10 @@ fun Image(
     tint: Colour = Colour.White,
     alignment: Alignment = Alignment.Centre,
 ) {
+    // Nine separately-cut patch pieces are a TextureHandle, so they fit here; they are not a
+    // picture, and the size they report is a bound rather than one. Said here rather than three
+    // calls later by a backend that can only tell you it did not make this texture.
+    refuseNineRegions(texture)
     val painter = remember(texture, fit, tint, alignment) { ImagePainter(texture, fit, tint, alignment) }
     LeafLayout(modifier = modifier, name = "image", measurePolicy = painter, draw = painter.draw)
 }
