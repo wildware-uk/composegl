@@ -4,7 +4,12 @@ import dev.wildware.composegl.ui.focus.FocusDirection
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.clickable
+import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.focusable
+import dev.wildware.composegl.ui.modifier.offset
+import dev.wildware.composegl.ui.modifier.padding
+import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.node.UiNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -68,6 +73,49 @@ class TestTreeTest {
     }
 
     @Test
+    fun `a modifier of the caller's own does not move the rectangle either`() {
+        // The guarantee above, with the thing tests actually pass. Everything a caller is allowed
+        // to say here is about behaviour rather than geometry, so a real pass under real
+        // constraints has to hand back the same numbers it does for a bare Modifier.
+        val screen = TestTree()
+        screen.box(
+            "a",
+            x = 10f,
+            y = 5f,
+            modifier = Modifier.focusable().clickable { }.then(Modifier.focusable()),
+        )
+
+        screen.layOut(Constraints.atMost(500f, 500f))
+
+        assertEquals(10f, screen["a"].x)
+        assertEquals(5f, screen["a"].y)
+        assertEquals(40f, screen["a"].width)
+        assertEquals(20f, screen["a"].height)
+    }
+
+    @Test
+    fun `a modifier that says where or how big is refused rather than silently added`() {
+        // Each of these used to go through and come out wrong at layOut: the fixture's own offset
+        // is appended to the caller's chain and offsets add up (10 + 5 = 15), fill beats size on
+        // the axis it names (40 becomes 500), and padding on a box shifts every child in it.
+        val screen = TestTree()
+
+        val refused = listOf(
+            Modifier.offset(5f, 0f),
+            Modifier.size(60f),
+            Modifier.fillMaxWidth(),
+            Modifier.padding(8f),
+        ).map { modifier ->
+            assertFailsWith<IllegalStateException> {
+                screen.box("a", x = 10f, modifier = modifier)
+            }.message.orEmpty()
+        }
+
+        refused.forEach { assertTrue(it.contains("says where it is or how big"), it) }
+        assertEquals(emptyList(), screen.root.childNames(), "and no half-made node was left behind")
+    }
+
+    @Test
     fun `the constraints a fresh root would have flatten the tree and that is caught`() {
         // Why layOut does not default to the root's own size: a root nobody has measured is 0 by
         // 0, and a size modifier is clamped into the constraints it is offered, so every box in
@@ -81,7 +129,7 @@ class TestTreeTest {
             screen.layOut(Constraints.atMost(screen.root.width, screen.root.height))
         }
 
-        assertTrue(failure.message.orEmpty().contains("still zero"), failure.message.orEmpty())
+        assertTrue(failure.message.orEmpty().contains("any area left"), failure.message.orEmpty())
     }
 
     @Test
@@ -94,7 +142,22 @@ class TestTreeTest {
 
         screen.layOut()
 
+        // The ghost has no area and the pass was happy anyway, which is only news because the
+        // other two do: that is the difference between a whole-tree check and a per-node one.
         assertEquals(0f, screen["ghost"].width)
+        assertEquals(listOf(40f, 40f), listOf("a", "b").map { screen[it].width })
+    }
+
+    @Test
+    fun `a tree flattened on one axis is caught too because a sliver cannot be hit`() {
+        val screen = TestTree()
+        screen.row("a", "b")
+
+        val failure = assertFailsWith<IllegalStateException> {
+            screen.layOut(Constraints.atMost(0f, 200f))
+        }
+
+        assertTrue(failure.message.orEmpty().contains("any area left"), failure.message.orEmpty())
     }
 
     @Test
@@ -102,7 +165,12 @@ class TestTreeTest {
         val screen = TestTree()
         screen.box("a")
 
-        assertFailsWith<IllegalStateException> { screen.box("a") }
+        val failure = assertFailsWith<IllegalStateException> { screen.box("a") }
+
+        assertTrue(
+            failure.message.orEmpty().contains("already a node called"),
+            failure.message.orEmpty(),
+        )
     }
 
     @Test

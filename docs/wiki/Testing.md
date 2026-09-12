@@ -52,6 +52,12 @@ with `parent =`; `screen["cut"]` finds it again; `remove` takes it away the way 
 recomposition would. Nothing here draws, measures or behaves: it is rectangles with
 names.
 
+The modifier you pass is for what a node *is* — `focusable`, `clickable`, a pointer
+handler, a background. It may not say where a node is or how big: `offset`, `size`,
+`fillMaxWidth` and `padding` are refused with a message, because the fixture writes
+its own into the same chain and two offsets add up rather than one winning. Where and
+how big is what the arguments are for.
+
 The toolkit's own focus, pointer, key and pad tests are written on it, which is what
 keeps its shape honest.
 
@@ -65,7 +71,9 @@ screen.layOut()          // Constraints.Unbounded by default, and that matters
 The default is deliberately not the root's own size. A root nobody has measured is 0
 by 0, a `size` modifier is clamped into the constraints it is offered, and every
 rectangle in the tree would come back as nothing at all — the exact zero tree this
-exists to prevent. `layOut` checks afterwards and fails rather than hand you one.
+exists to prevent. `layOut` checks afterwards and fails rather than hand you one: a
+tree where nothing is left with area on both axes is a tree nothing can be drawn in,
+hit in or focused in.
 
 ---
 
