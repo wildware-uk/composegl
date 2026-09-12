@@ -50,6 +50,34 @@ object Gl {
         check(ready.await(30, java.util.concurrent.TimeUnit.SECONDS)) { "the GL context never came up" }
     }
 
+    /**
+     * Runs [block] on this thread with the GL thread held still.
+     *
+     * For the one test that has to touch the static `Gdx.gl`. The LibGDX application resets it
+     * every time round its loop, so a test that installs a stub there would watch its stub be
+     * swapped back out from under it — and then pass for the wrong reason. Holding the loop inside
+     * a runnable of ours means nothing resets anything until [block] is done.
+     *
+     * Starts nothing: with no display there is no loop to hold, and [block] simply runs.
+     */
+    fun <T> paused(block: () -> T): T {
+        if (!started) return block()
+
+        val held = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        work += {
+            held.countDown()
+            release.await()
+        }
+        Gdx.graphics.requestRendering()
+        check(held.await(30, java.util.concurrent.TimeUnit.SECONDS)) { "the GL thread never stopped" }
+        try {
+            return block()
+        } finally {
+            release.countDown()
+        }
+    }
+
     /** Runs [block] on the GL thread and waits for it. Skips the test when there is no display. */
     fun <T> render(block: () -> T): T {
         assumeTrue(available, "no display; this test needs a real GL context")

@@ -41,10 +41,20 @@ import kotlin.math.roundToInt
  */
 class GdxCanvas(
     private val spriteBatch: Batch? = null,
-    atlas: GdxAtlas? = null,
+    private val atlas: GdxAtlas? = null,
 ) : UiCanvas, Disposable {
 
-    private val batch = UiShapeBatch(white = atlas?.white)
+    /**
+     * The quads, and the shader they go through. Made the first time something is drawn.
+     *
+     * Late rather than in the field, so that merely *having* a canvas needs no OpenGL. A game
+     * object that owns a canvas alongside its host, its renderer and its focus — which is most of
+     * them — can then be built in a plain JVM test, and its input, focus and lifecycle asserted
+     * without a window anywhere. See [warmUp] for paying the cost on purpose.
+     */
+    private var batch: UiShapeBatch? = null
+
+    private fun batch() = batch ?: UiShapeBatch(white = atlas?.white).also { batch = it }
 
     private var state = CanvasState(Rect.Zero)
     private var viewport: Viewport = Viewport.oneToOne(dev.wildware.composegl.ui.geometry.Size(1f, 1f))
@@ -62,7 +72,9 @@ class GdxCanvas(
 
     private val layers = GdxLayers()
 
-    private val effects = GdxEffects()
+    private var effects: GdxEffects? = null
+
+    private fun effects() = effects ?: GdxEffects().also { effects = it }
 
     /**
      * The offscreen picture being drawn into, or null when that is the window.
@@ -89,8 +101,21 @@ class GdxCanvas(
     private var framebuffer = 0
     private var scissorOn = false
 
-    /** How many times the frame so far has talked to the driver. */
-    override val drawCalls: Int get() = batch.renderCalls
+    /** How many times the frame so far has talked to the driver. Nothing drawn yet is none. */
+    override val drawCalls: Int get() = batch?.renderCalls ?: 0
+
+    /**
+     * Builds the GPU resources now, instead of when something is first drawn.
+     *
+     * A mesh and a compiled shader cost a few milliseconds, and without this they are paid for in
+     * the first frame the player sees — which is exactly the frame a stutter is noticed in. Call
+     * it on a loading screen, on the thread that holds the context. Calling it twice does nothing
+     * the second time, and never calling it is fine.
+     */
+    fun warmUp() {
+        batch()
+        effects()
+    }
 
     /**
      * Sets up for a frame in [viewport]'s design coordinates.
@@ -119,14 +144,14 @@ class GdxCanvas(
         viewportBox[3] = (viewport.design.height * viewport.scaleY).roundToInt()
         Gdx.gl.glViewport(viewportBox[0], viewportBox[1], viewportBox[2], viewportBox[3])
         projection.setToOrtho2D(0f, 0f, viewport.design.width, viewport.design.height)
-        batch.begin(projection)
+        batch().begin(projection)
     }
 
     /** Ends the frame and puts the GL state back the way a game expects to find it. */
     override fun end() {
         check(drawing) { "end() without a begin()" }
 
-        batch.end()
+        batch().end()
         scissor(false)
         Gdx.gl.glViewport(0, 0, viewport.physical.width.roundToInt(), viewport.physical.height.roundToInt())
         drawing = false
@@ -164,7 +189,7 @@ class GdxCanvas(
             flipped[at + 1] = flip(points[at + 1])
             at += 2
         }
-        batch.fan(flipped, colour.packed(state.alpha))
+        batch().fan(flipped, colour.packed(state.alpha))
     }
 
     private fun shape(
@@ -176,7 +201,7 @@ class GdxCanvas(
         shadow: Colour = Colour.Transparent,
         shadowSpread: Float = 0f,
     ) {
-        batch.shape(
+        batch().shape(
             left = rect.left,
             bottom = flip(rect.bottom),
             width = rect.width,
@@ -210,7 +235,7 @@ class GdxCanvas(
                 val glyph = run.glyphs[index]
                 at += run.xAdvances[index]
                 val region = regions[glyph.page]
-                batch.textured(
+                batch().textured(
                     texture = region.texture,
                     left = at + glyph.xoffset * data.scaleX,
                     bottom = baseline + glyph.yoffset * data.scaleY,
@@ -255,7 +280,7 @@ class GdxCanvas(
             bottom = region.v + source.bottom * down
         }
 
-        batch.textured(
+        batch().textured(
             texture = region.texture,
             left = destination.left,
             bottom = flip(destination.bottom),
@@ -291,7 +316,7 @@ class GdxCanvas(
      * first: whatever is queued was queued under the old clip.
      */
     private fun applyScissor() {
-        batch.flush()
+        batch().flush()
         val clip = state.clip
         val into = layer
         if (into != null) {
@@ -367,7 +392,7 @@ class GdxCanvas(
         val previousLayer = layer
         val previousProjection = Matrix4(projection)
 
-        batch.flush()
+        batch().flush()
         layer = LayerFrame(bounds, pixelWidth, pixelHeight)
         // Full opacity and a clip of exactly the layer. The opacity out here is applied when the
         // picture is drawn back, which is what makes a group fade as one object.
@@ -379,17 +404,17 @@ class GdxCanvas(
         Gdx.gl.glClearColor(0f, 0f, 0f, 0f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
         projection.setToOrtho2D(bounds.left, 0f, bounds.width, bounds.height)
-        batch.projection(projection)
+        batch().projection(projection)
 
         try {
             block()
-            batch.flush()
+            batch().flush()
             check(state.isBalanced) { "a clip or an alpha was pushed inside a layer and never popped" }
         } finally {
             layer = previousLayer
             state = previousState
             projection.set(previousProjection)
-            batch.projection(projection)
+            batch().projection(projection)
             bindFramebuffer(previousFramebuffer)
             setViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3])
             scissor(previousScissor)
@@ -410,11 +435,11 @@ class GdxCanvas(
             return
         }
 
-        batch.premultiplied(true)
+        batch().premultiplied(true)
         // The opacity goes into all four channels, because a premultiplied colour that faded only
         // its alpha would get brighter as it disappeared.
         val fade = state.alpha.coerceIn(0f, 1f)
-        batch.textured(
+        batch().textured(
             texture = region.texture,
             left = destination.left,
             bottom = flip(destination.bottom),
@@ -426,7 +451,7 @@ class GdxCanvas(
             v2 = region.v2,
             colour = Color.toFloatBits(fade, fade, fade, fade),
         )
-        batch.premultiplied(false)
+        batch().premultiplied(false)
     }
 
     /**
@@ -438,11 +463,11 @@ class GdxCanvas(
      */
     private fun drawThrough(effect: ShaderEffect, picture: GdxTexture, destination: Rect) {
         // Whatever is queued was queued to land under this, so it goes first.
-        batch.flush()
+        batch().flush()
 
         val region = picture.region
         val values = projection.values
-        effects.draw(
+        effects().draw(
             effect = effect,
             texture = region.texture,
             left = clipX(destination.left, values),
@@ -462,7 +487,7 @@ class GdxCanvas(
 
         // The batch set the blending and the program it wants at the start of the frame, and the
         // shader has just changed both.
-        batch.premultiplied(false)
+        batch().premultiplied(false)
     }
 
     /** A design x, through the frame's projection, as the clip cube sees it. */
@@ -494,7 +519,7 @@ class GdxCanvas(
             ?: error("this canvas was made without a SpriteBatch, so raw() has nothing to hand over")
 
         // Our own quads first, so the game's drawing lands on top of what came before it.
-        batch.flush()
+        batch().flush()
         val savedProjection = Matrix4(sprites.projectionMatrix)
         val savedColour = Color(sprites.color)
         sprites.projectionMatrix = projection
@@ -505,10 +530,18 @@ class GdxCanvas(
         sprites.color = savedColour
     }
 
+    /**
+     * Lets go of everything that was built. What was never built is not built here in order to be
+     * destroyed: a canvas that drew nothing disposes without touching the driver at all.
+     *
+     * The fields are deliberately left pointing at the dead resources. Nulling them would let the
+     * next draw quietly build a fresh batch on a context that is going away, which turns use after
+     * dispose into a leak nobody notices rather than the mistake it is.
+     */
     override fun dispose() {
-        batch.dispose()
+        batch?.dispose()
         layers.dispose()
-        effects.dispose()
+        effects?.dispose()
     }
 
     /**
