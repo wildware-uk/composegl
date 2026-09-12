@@ -112,10 +112,20 @@ class GdxCanvas(
      * it on a loading screen, on the thread that holds the context. Calling it twice does nothing
      * the second time, and never calling it is fine.
      */
-    fun warmUp() {
+    override fun warmUp() {
         batch()
         effects()
     }
+
+    /**
+     * Whether the GPU resources exist yet.
+     *
+     * For the tests, which otherwise have no way to tell a canvas that built its mesh from one
+     * that did not: [drawCalls] is zero either way, so a test asserting on it alone would pass
+     * with [warmUp] gutted to an empty body — and both halves of this class's contract are about
+     * *when* the building happens.
+     */
+    internal val warmedUp: Boolean get() = batch != null && effects != null
 
     /**
      * Sets up for a frame in [viewport]'s design coordinates.

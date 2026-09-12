@@ -63,6 +63,37 @@ class RecordingCanvasFrameTest {
     }
 
     @Test
+    fun `a frame that failed its balance check is not counted as rendered`() {
+        val canvas = RecordingCanvas()
+        canvas.begin(viewport)
+        canvas.pushClip(Rect.of(0f, 0f, 10f, 10f))
+
+        assertFailsWith<IllegalStateException> { canvas.end() }
+
+        assertEquals(0, canvas.frames, "a frame that threw on the way out did not render")
+    }
+
+    /**
+     * The shape a test takes after asserting a draw-time refusal: catch it, clear, render again.
+     * A [RecordingCanvas.clear] that left the failed frame open would meet the next render with
+     * "begin() was called twice", which points at the wrong bug entirely.
+     */
+    @Test
+    fun `clear closes a frame that failed halfway through`() {
+        val canvas = RecordingCanvas()
+        canvas.begin(viewport)
+        canvas.rect(Rect.of(0f, 0f, 10f, 10f), Colour.White)
+
+        // A draw that threw, somewhere inside the frame: begin() ran, end() never did.
+        canvas.clear()
+
+        canvas.begin(viewport)
+        canvas.end()
+        assertEquals(1, canvas.frames, "only the frame that closed counts")
+        assertEquals(0, canvas.calls.size, "and clear threw away what the failed frame drew")
+    }
+
+    @Test
     fun `a frame clips to the design area rather than to the bounds the canvas was made with`() {
         val canvas = RecordingCanvas(Rect.of(0f, 0f, 4000f, 4000f))
         canvas.begin(viewport)

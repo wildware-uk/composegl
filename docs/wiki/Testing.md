@@ -218,7 +218,9 @@ context to exist. That is a safety net, not the design: a class that *names*
 your lifecycle. Name the interface.
 
 (A game that would rather not pay for a mesh and a shader in its first frame calls
-`canvas.warmUp()` on a loading screen, on the thread that holds the context.)
+`canvas.warmUp()` on a loading screen, on the thread that holds the context. It is on
+`UiCanvas`, so the call compiles against the interface you were told to hold; a canvas
+with nothing to build — the recording one — does nothing and says so.)
 
 ---
 

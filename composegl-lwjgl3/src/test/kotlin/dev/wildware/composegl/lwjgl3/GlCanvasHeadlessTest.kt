@@ -1,8 +1,10 @@
 package dev.wildware.composegl.lwjgl3
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.util.concurrent.atomic.AtomicReference
+import java.io.File
+import java.util.concurrent.TimeUnit
 
 /**
  * Having a canvas costs no OpenGL.
@@ -12,39 +14,44 @@ import java.util.concurrent.atomic.AtomicReference
  * manager has to be buildable in a plain JVM test, or focus, input routing and lifecycle all get
  * dragged onto a GPU that has nothing to do with them.
  *
- * The work happens on a thread of its own, and that is what makes the test honest rather than one
- * that passes because it happened to run first. A GL context is current **per thread**: the window
- * [Gl] opens is made current on the JUnit thread, and under Xvfb some other test has usually opened
- * it by the time this runs — so a canvas built on that thread would quietly succeed and prove
- * nothing. This thread has never had a context and never will. Please do not "fix" this by dropping
- * the thread and calling it simpler; the thread *is* the assertion.
+ * It runs in a JVM of its own, and that is not ceremony — it is what keeps a regression readable.
+ * A GL call with no context does not throw here, it *aborts*: LWJGL prints "No context is current"
+ * and the process dies with signal 6. A dying process writes no JUnit report, so doing this in the
+ * test JVM would leave this module's XML saying one test, skipped, nothing failed, while the ten
+ * other test classes in the module silently never ran — only Gradle's exit code would know. In a
+ * child process the abort is a non-zero exit code that this test reads and reports as one ordinary
+ * red test, with everything the child printed attached to it.
  *
- * How it fails, so that nobody is surprised by it: a GL call with no context does not throw here,
- * it aborts the process — LWJGL prints "No context is current…" and the JVM exits 134, taking this
- * module's test task with it. Loud and unmissable, with `GlCanvas.<init>` at the top of the fatal
- * stack, which is the whole diagnosis. It is deliberately not guarded by an assumption about a
- * display: needing no display is the claim being tested.
+ * A thread would not do instead. A context is current *per thread*, so a canvas built on a fresh
+ * thread does reach a driver with no context — but a thread that aborts takes this JVM down just
+ * the same, and a thread that hangs is indistinguishable from one that passed. The process
+ * boundary is the assertion; please do not swap it back for something that looks simpler.
+ *
+ * It needs no display, so it runs on the headless build as well as under Xvfb: needing no display
+ * is the claim being tested.
  */
 class GlCanvasHeadlessTest {
 
     @Test
     fun `building, reading and closing a canvas touches no GL`() {
-        val failure = AtomicReference<Throwable?>()
+        val java = File(File(System.getProperty("java.home"), "bin"), "java").absolutePath
+        // Straight to a file rather than to a pipe: a child that hangs with a full pipe would hang
+        // this test too, and the timeout below is here precisely so that it cannot.
+        val log = File.createTempFile("no-gl-context", ".log").apply { deleteOnExit() }
 
-        val thread = Thread({
-            try {
-                val canvas = GlCanvas()
-                assertEquals(0, canvas.drawCalls, "a canvas that has drawn nothing has made no draw calls")
-                // Closing must never build the thing it is about to destroy.
-                canvas.close()
-            } catch (error: Throwable) {
-                failure.set(error)
-            }
-        }, "no-gl-context")
+        val process = ProcessBuilder(
+            java,
+            "-cp",
+            System.getProperty("java.class.path"),
+            GlCanvasNoContextProbe::class.java.name,
+        ).redirectErrorStream(true).redirectOutput(log).start()
 
-        thread.start()
-        thread.join(30_000)
+        val finished = process.waitFor(60, TimeUnit.SECONDS)
+        if (!finished) process.destroyForcibly()
+        val said = log.readText().ifBlank { "(nothing)" }
 
-        failure.get()?.let { throw AssertionError("building a canvas reached OpenGL: ${it.message}", it) }
+        assertTrue(finished, "building a canvas with no GL context never finished. It said:\n$said")
+        assertEquals(0, process.exitValue(), "building a canvas reached OpenGL. It said:\n$said")
+        assertTrue(GlCanvasNoContextProbe.Done in said, "the probe stopped without saying so:\n$said")
     }
 }
