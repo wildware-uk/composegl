@@ -104,6 +104,19 @@ Modifier.onReveal { child -> scrollTo(child) }
 `focus.refresh()` once a frame is what stops a menu ending up open with nothing
 selected: when the node that had focus disappears, something real takes it.
 
+When a whole screen's layout is the exception — not one node, which `focusOrder`
+already covers — `focus.focusSearch` swaps out the scoring itself. Subclass
+`BeamFocusSearch` and override `accepts` (what counts as being in the direction
+pressed) or `beats` (which of two candidates wins).
+
+```kotlin
+focus.focusSearch = object : BeamFocusSearch() {
+    override fun accepts(direction: FocusDirection, source: Rect, dest: Rect) =
+        super.accepts(direction, source, dest) ||
+            (direction == FocusDirection.Down && dest.centre.y > source.centre.y)
+}
+```
+
 ---
 
 ## Which device is the player using?
