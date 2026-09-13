@@ -71,6 +71,27 @@ data class Rect(val left: Float, val top: Float, val right: Float, val bottom: F
     }
 
     /**
+     * This rectangle grown or shrunk about a point that stays where it is.
+     *
+     * The one piece of arithmetic behind `Modifier.scale`, in one place on purpose: the draw pass
+     * works out where a scaled subtree is composited, and [dev.wildware.composegl.ui.node.UiNode]
+     * and the pointer router work out the same rectangle by walking the tree. Three callers, one
+     * formula, so they cannot drift apart and leave clicks landing where a widget is not.
+     *
+     * A factor of one is this rectangle, handed straight back — the fast path that matters, since
+     * a fit correction of `min(1f, budget / height)` is exactly one whenever it does not bind.
+     */
+    fun scaledAbout(anchorX: Float, anchorY: Float, factor: Float): Rect {
+        if (factor == 1f) return this
+        return Rect(
+            anchorX + (left - anchorX) * factor,
+            anchorY + (top - anchorY) * factor,
+            anchorX + (right - anchorX) * factor,
+            anchorY + (bottom - anchorY) * factor,
+        )
+    }
+
+    /**
      * The overlap of two rectangles.
      *
      * The result can be empty — that is the answer, not an error, and callers are expected to ask

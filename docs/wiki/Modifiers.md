@@ -51,8 +51,37 @@ Modifier.shadow(Colour.argb(0x80000000), spread = 12f, corner = 6f)
 Modifier.ninePatch(frame)          // skin art, stretched properly
 Modifier.clip(corner = 6f)         // children cannot draw outside
 Modifier.alpha(0.4f)               // the subtree fades as one thing
+Modifier.scale(1.2f)               // …drawn bigger, without re-laying it out
 Modifier.effect(blur(radius = 8f)) // …through a shader
 ```
+
+**Scale is for arriving and for fitting.** The widget and everything under it are
+drawn into an offscreen picture at the size layout gave them, and that picture is
+put down bigger or smaller:
+
+```kotlin
+Panel(Modifier.scale(spring.value)) { … }                  // a panel springing in
+Panel(Modifier.scale(min(1f, budget / measured))) { … }     // one squeezed to fit
+Panel(Modifier.scale(1.4f, Alignment.TopStart)) { … }       // grown from a corner
+```
+
+Layout does not move, so a panel arriving does not shove its neighbours and a fit
+correction does not re-flow what is inside it. Clicks and pad focus *do* move:
+`boundsInRoot` reports where the widget is drawn, so a button drawn at twice the
+size is clickable at twice the size. `layoutBoundsInRoot` is the rectangle before
+any scaling, for the code that wants the slot rather than the pixels.
+
+Three things to know. It magnifies a picture, so past about 1.15 it is visibly
+soft and text is soft sooner — a world that wants to be crisp at three times the
+size wants to be *laid out* three times the size. The capture is the widget's own
+rectangle, so anything a child draws outside it is cut off while the scale is on.
+And a picture over 4096 screen pixels a side is refused, as it is on a canvas with
+no offscreen drawing at all: then the subtree is drawn plainly, at its ordinary
+size, and hit testing goes back with it. Ask `canvas.drawsLayers` first if a screen
+would rather pick a different animation.
+
+Two scales on one widget multiply, so an arrival animation and a fit correction
+compose. A scale of one takes no picture at all.
 
 **Your own drawing**
 

@@ -86,6 +86,35 @@ fun scenes(): List<Scene> = listOf(
         popAlpha()
     },
 
+    Scene("scale") { art ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+
+        // What `Modifier.scale` is, with the tree taken away: a picture captured at the size the
+        // thing was laid out, then put down filling a different rectangle. Three tiles, the same
+        // size in the capture and three sizes on screen.
+        //
+        // A backend that ignores the destination's size draws three identical tiles, and a backend
+        // that composites from the wrong corner draws them in the wrong places — neither of which
+        // any test in composegl-ui can see, because there the destination is only a number in a
+        // recording.
+        val natural = Rect.of(16f, 16f, 96f, 60f)
+        layer(natural) { tile(art, natural, "One") }
+            ?.let { drawLayer(it, natural) }
+            ?: tile(art, natural, "One")
+
+        // Half size, about the middle of where it was: what a panel that outgrew its budget does.
+        val shrunk = Rect.of(128f, 16f, 96f, 60f)
+        layer(shrunk) { tile(art, shrunk, "Half") }
+            ?.let { drawLayer(it, shrunk.scaledAbout(shrunk.centre.x, shrunk.centre.y, 0.5f)) }
+            ?: tile(art, shrunk, "Half")
+
+        // Half as big again, about its top-left corner: what a panel arriving does.
+        val grown = Rect.of(16f, 108f, 96f, 60f)
+        layer(grown) { tile(art, grown, "Big") }
+            ?.let { drawLayer(it, grown.scaledAbout(grown.left, grown.top, 1.5f)) }
+            ?: tile(art, grown, "Big")
+    },
+
     Scene("effect") { art ->
         rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
 

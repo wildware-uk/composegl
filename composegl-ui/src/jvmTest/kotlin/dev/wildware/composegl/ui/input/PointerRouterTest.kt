@@ -1,12 +1,18 @@
 package dev.wildware.composegl.ui.input
 
+import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.graphics.RecordingCanvas
+import dev.wildware.composegl.ui.graphics.TextureHandle
+import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.onPointer
+import dev.wildware.composegl.ui.modifier.scale
 import dev.wildware.composegl.ui.testing.TestTree
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -303,5 +309,118 @@ class PointerRouterTest {
         router.onPointer(PointerEvent.Release(PointerId(2), Offset(20f, 20f), type = PointerType.Touch))
         assertFalse(state.isPressed)
         assertEquals(2, clicks)
+    }
+
+    // --- scale ---------------------------------------------------------------------------------
+    //
+    // The half of Modifier.scale that no screenshot can check. A scale that reached only the
+    // drawing would look perfect and take its clicks where the widget used to be.
+
+    /** A canvas that cannot make offscreen pictures, so a scale has nothing to happen in. */
+    private class Plain(canvas: RecordingCanvas = RecordingCanvas()) : UiCanvas by canvas {
+        override val drawsLayers: Boolean get() = false
+        override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? = null
+    }
+
+    @Test
+    fun `a click lands on a grown button where it is drawn`() {
+        // 40 by 20 at the origin, drawn at twice the size about its centre: -20,-10 to 60,30.
+        screen.box("button", 0f, 0f, 40f, 20f, Modifier.scale(2f).clickable { clicks += 1 })
+
+        press(50f, 25f)
+        release(50f, 25f)
+
+        assertEquals(1, clicks, "well outside the rectangle it was laid out in, well inside the one drawn")
+    }
+
+    @Test
+    fun `a click on a shrunken button misses the space it no longer fills`() {
+        // The other direction, and the one an origin bug hides in: laid out 0..40, drawn 10..30.
+        screen.box("button", 0f, 0f, 40f, 20f, Modifier.scale(0.5f).clickable { clicks += 1 })
+
+        press(35f, 10f)
+        release(35f, 10f)
+        assertEquals(0, clicks, "inside where it was laid out, outside where it is drawn")
+
+        press(20f, 10f)
+        release(20f, 10f)
+        assertEquals(1, clicks, "and the middle still works")
+    }
+
+    @Test
+    fun `a handler inside a scaled node is told where the pointer is in its own units`() {
+        var seen: Offset? = null
+        screen.box(
+            "panel", 0f, 0f, 100f, 100f,
+            Modifier.scale(0.5f).onPointer { event ->
+                seen = event.position
+                true
+            },
+        )
+
+        // Drawn 25..75, so its middle is still 50,50 on screen — and 50,50 to itself, because a
+        // node drawn at half size is still a hundred units wide to everything inside it.
+        press(50f, 50f)
+
+        assertEquals(Offset(50f, 50f), seen)
+
+        // A quarter of the way across what is drawn is a quarter of the way across the node.
+        press(37.5f, 37.5f)
+        assertEquals(Offset(25f, 25f), seen)
+    }
+
+    @Test
+    fun `dragging off what is drawn un-presses, even while inside what was laid out`() {
+        val state = InteractionState()
+        screen.box("button", 0f, 0f, 40f, 20f, Modifier.scale(0.5f).interaction(state).clickable { clicks += 1 })
+
+        press(20f, 10f)
+        assertTrue(state.isPressed)
+
+        move(35f, 10f, setOf(PointerButton.Primary))
+        assertFalse(state.isPressed, "the pointer has left the button as drawn")
+
+        release(35f, 10f)
+        assertEquals(0, clicks, "and letting go out there is a change of mind, not a click")
+    }
+
+    @Test
+    fun `a scale inside a scale is hit where the two together put it`() {
+        val outer = screen.box("outer", 0f, 0f, 100f, 100f, Modifier.scale(0.5f))
+        // 20 wide at 40,40 inside its parent, doubled about its own centre to 30..70 there, then
+        // the whole parent halved about its centre: 40..60 on screen.
+        screen.box("inner", 40f, 40f, 20f, 20f, Modifier.scale(2f).clickable { clicks += 1 }, parent = outer)
+
+        press(48f, 48f)
+        release(48f, 48f)
+        assertEquals(1, clicks)
+
+        press(65f, 48f)
+        release(65f, 48f)
+        assertEquals(1, clicks, "outside the two of them together")
+    }
+
+    @Test
+    fun `a canvas that refused the picture is clicked where the widget actually is`() {
+        screen.box("button", 0f, 0f, 40f, 20f, Modifier.scale(2f).clickable { clicks += 1 })
+        DrawPass(Plain()).draw(screen.root)
+
+        press(50f, 25f)
+        release(50f, 25f)
+        assertEquals(0, clicks, "nothing was drawn out there, so nothing is clickable out there")
+
+        press(20f, 10f)
+        release(20f, 10f)
+        assertEquals(1, clicks, "it is drawn at its ordinary size, and that is where it is clicked")
+    }
+
+    @Test
+    fun `a node scaled to nothing cannot be clicked`() {
+        screen.box("button", 0f, 0f, 40f, 20f, Modifier.scale(0f).clickable { clicks += 1 })
+
+        press(20f, 10f)
+        release(20f, 10f)
+
+        assertEquals(0, clicks)
     }
 }

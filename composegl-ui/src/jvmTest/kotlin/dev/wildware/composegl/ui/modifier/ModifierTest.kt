@@ -128,6 +128,32 @@ class ResolvedModifierTest {
     }
 
     @Test
+    fun `two scales on one node multiply, and the last origin wins`() {
+        // The case this matters for: a panel arriving at 0.9 that is also being squeezed to fit by
+        // 0.8. Last-wins would quietly throw one of the two away.
+        val resolved = Modifier.scale(0.9f).scale(0.8f, Alignment.TopStart).resolve()
+
+        assertEquals(0.72f, resolved.scale, 0.0001f)
+        assertEquals(Alignment.TopStart, resolved.scaleOrigin)
+    }
+
+    @Test
+    fun `a node nobody scaled is at one, about its centre`() {
+        val resolved = Modifier.padding(4f).resolve()
+
+        assertEquals(1f, resolved.scale)
+        assertEquals(Alignment.Centre, resolved.scaleOrigin)
+    }
+
+    @Test
+    fun `a scale that is not a number, or is a mirror, is refused`() {
+        // Zero is allowed on purpose: a panel springing in from nothing starts there.
+        assertEquals(0f, Modifier.scale(0f).resolve().scale)
+        assertThrows(IllegalArgumentException::class.java) { Modifier.scale(-1f) }
+        assertThrows(IllegalArgumentException::class.java) { Modifier.scale(Float.NaN) }
+    }
+
+    @Test
     fun `choices are won by the last one written`() {
         val resolved = Modifier
             .size(10f)
