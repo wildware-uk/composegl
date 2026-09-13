@@ -208,6 +208,37 @@ Modifier.onPointer { event ->
 system gesture, a finger lifted outside the screen — whatever had the pointer must
 let go **without** firing a click. Handle it and a dragged slider does not stick.
 
+## Widgets that are not rectangles
+
+A click finds a widget by its rectangle. For a round button, a diamond or a honeycomb
+cell that is too generous: the empty corner of one rectangle sits over the middle of
+its neighbour, so the click goes to whichever happened to be drawn last, and the widget
+the player can plainly see they aimed at loses.
+
+```kotlin
+val round = remember(radius) {
+    { p: Offset ->
+        val dx = p.x - radius
+        val dy = p.y - radius
+        dx * dx + dy * dy <= radius * radius
+    }
+}
+Modifier.hitShape(round)
+```
+
+`remember` because a shape written inline is a new lambda every recomposition, and a
+modifier chain that never compares equal makes the widget re-resolve and redraw every
+frame. The same caveat applies to `clickable` and `drawBehind`.
+
+The rectangle is still asked first and the shape only ever narrows it. Say no and the
+click carries on to whatever is underneath, which is the point — in a honeycomb the
+pointer falls through the corner it was handed to the cell that really owns it. Hover
+asks the same question, so a panel is hovered only where it would have been clicked.
+
+`p` arrives in the widget's own coordinates — the same ones `onPointer` gives you, with
+any `scale` divided back out, so the shape survives the widget growing. It speaks for
+its own widget only; a child that wants the same shape asks for it itself.
+
 ---
 
 ## Text

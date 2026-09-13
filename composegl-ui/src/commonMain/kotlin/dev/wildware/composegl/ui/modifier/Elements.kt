@@ -273,6 +273,10 @@ fun Modifier.clip(corner: Float = 0f) = then(ClipElement(corner))
  * for it itself.
  *
  * Two of these on one node is a choice rather than a quantity, so the later one wins.
+ *
+ * [contains] written inline is a new object every recomposition and so never compares equal.
+ * `remember` it when a node would otherwise be unchanged — a shape that closes over anything, a
+ * radius or a grid pitch, is exactly that kind of lambda.
  */
 fun Modifier.hitShape(contains: (Offset) -> Boolean) = then(HitShapeElement(contains))
 

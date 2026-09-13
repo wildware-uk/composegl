@@ -99,7 +99,7 @@ class PointerRouter(
     private fun move(event: PointerEvent.Move): Boolean {
         val capture = captures[event.pointerId]
         if (capture != null) {
-            val inside = event.position in capture.node.boundsInRoot
+            val inside = capture.node.claims(event.position)
             if (inside != capture.inside) {
                 capture.inside = inside
                 // Dragging off a button un-presses it, and coming back presses it again. Nothing
@@ -133,8 +133,10 @@ class PointerRouter(
         deliver(capture.node, event)
         val click = capture.node.resolved.click
         // A release inside the node that took the press is a click. Anywhere else is a change of
-        // mind, which is a thing players do on purpose and must not be a click.
-        if (click != null && click.enabled && event.position in capture.node.boundsInRoot) click.onClick()
+        // mind, which is a thing players do on purpose and must not be a click. "Inside" is the
+        // node's own answer, so sliding off a round button onto the corner of its rectangle is a
+        // change of mind like any other — the press could not have started there either.
+        if (click != null && click.enabled && capture.node.claims(event.position)) click.onClick()
 
         // The gesture is over, so whatever the pointer is now over is hovered again.
         hover(event.pointerId, hoverPathFrom(candidatesUnder(event.position).firstOrNull(), event.position))
@@ -284,15 +286,27 @@ class PointerRouter(
         while (walk != null) {
             // The same two questions the search asked on the way down, because an ancestor is
             // only hovered where it would have been clicked.
-            if (walk.resolved.isInteractive && point in walk.boundsInRoot &&
-                walk.resolved.hitShape?.invoke(walk.toLocal(point)) != false
-            ) {
-                path += walk
-            }
+            if (walk.resolved.isInteractive && walk.claims(point)) path += walk
             walk = walk.parent
         }
         return path
     }
+
+    /**
+     * Whether a node claims a point of the root's: inside its rectangle, and inside its own hit
+     * shape if it has one.
+     *
+     * The one place the question is answered for a node the search has already found — hover, the
+     * pressed state under a capture, and whether a release is a click all ask this, so a shape
+     * cannot narrow one of them and leave the others on the rectangle. The search on the way down
+     * answers it itself, out of the numbers it is already carrying, because it runs over every
+     * node in the tree on every mouse move and this walks the parent chain twice.
+     *
+     * The safe call is doing real work: [toLocal] allocates, and a node without a shape — which is
+     * nearly every node — never reaches it.
+     */
+    private fun UiNode.claims(point: Offset): Boolean =
+        point in boundsInRoot && resolved.hitShape?.invoke(toLocal(point)) != false
 
     /** Asks one node's handlers, in chain order, in its own coordinates. */
     private fun deliver(node: UiNode, event: PointerEvent): Boolean {
