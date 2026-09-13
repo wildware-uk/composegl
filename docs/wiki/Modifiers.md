@@ -140,7 +140,22 @@ Modifier.interaction(state)               // hover and press, for drawing
 Modifier.onPointer(handler)               // raw pointer events
 Modifier.onKeyEvent(handler)
 Modifier.onTextEvent(handler)
+Modifier.hitShape { it.x >= 20f }         // which points inside the box are really yours
 ```
+
+**A note on `hitShape`.** Hit testing is rectangles, because nearly everything is a
+rectangle and rectangles are cheap. A round button, a diamond or a honeycomb cell is
+not, and its rectangle overlaps its neighbours' — so the empty corner of one sits over
+the middle of another and the click goes to whichever was drawn later. `hitShape` is
+how a widget says those corners are not its own; saying no lets the click carry on to
+whatever is underneath.
+
+The question is asked in the widget's own coordinates, the ones `onPointer` delivers,
+with any `scale` already divided back out — so the shape is written once against the
+widget's own width and height and keeps working while it grows. Unlike `clip` it gates
+that one widget and says nothing about its children: it does not change what is drawn,
+so it must not change what is reachable. A child that wants the same shape asks for it
+itself. Two on one widget is a choice rather than a quantity, so the later one wins.
 
 **Focus**
 
