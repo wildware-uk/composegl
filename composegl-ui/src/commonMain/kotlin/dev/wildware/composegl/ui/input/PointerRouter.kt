@@ -2,6 +2,7 @@ package dev.wildware.composegl.ui.input
 
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.node.UiNode
 
 /**
@@ -241,7 +242,33 @@ class PointerRouter(
         for (index in children.indices.reversed()) {
             collect(children[index], left, top, scale * own, pointX, pointY, into)
         }
-        if (inside && resolved.isInteractive) into += node
+        // The rectangle said yes; a node with a shape of its own now gets to say no. Turning it
+        // down here rather than at the top leaves the children alone and lets the event carry on
+        // to whatever is underneath this node.
+        if (inside && resolved.isInteractive && ownsPoint(resolved, left, top, scale * own, pointX, pointY)) {
+            into += node
+        }
+    }
+
+    /**
+     * Whether a node's own hit shape claims a point its rectangle already contains. True when it
+     * has no shape, which is nearly always.
+     *
+     * [total] is everything scaling the node, its own scale included, so dividing by it gives the
+     * node's own unscaled coordinates — the ones [dev.wildware.composegl.ui.node.UiNode.toLocal]
+     * and [deliver] use, so a shape is written once and never in screen pixels. It cannot be zero
+     * here: a scale of zero makes an empty rectangle, and an empty rectangle contains no point.
+     */
+    private fun ownsPoint(
+        resolved: ResolvedModifier,
+        left: Float,
+        top: Float,
+        total: Float,
+        pointX: Float,
+        pointY: Float,
+    ): Boolean {
+        val shape = resolved.hitShape ?: return true
+        return shape(Offset((pointX - left) / total, (pointY - top) / total))
     }
 
     /**
@@ -255,7 +282,13 @@ class PointerRouter(
         val path = mutableListOf<UiNode>()
         var walk: UiNode? = node
         while (walk != null) {
-            if (walk.resolved.isInteractive && point in walk.boundsInRoot) path += walk
+            // The same two questions the search asked on the way down, because an ancestor is
+            // only hovered where it would have been clicked.
+            if (walk.resolved.isInteractive && point in walk.boundsInRoot &&
+                walk.resolved.hitShape?.invoke(walk.toLocal(point)) != false
+            ) {
+                path += walk
+            }
             walk = walk.parent
         }
         return path

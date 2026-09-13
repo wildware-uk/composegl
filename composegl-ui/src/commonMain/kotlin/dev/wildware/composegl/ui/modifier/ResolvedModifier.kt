@@ -63,6 +63,11 @@ class ResolvedModifier private constructor(
     /** The point a [scale] leaves where it is, as a place inside the node. */
     val scaleOrigin: Alignment,
     val clip: ClipElement?,
+    /**
+     * Which points inside the node's rectangle are its own, or null for all of them, which is
+     * almost every node. See [dev.wildware.composegl.ui.modifier.hitShape].
+     */
+    val hitShape: ((Offset) -> Boolean)?,
     /** The shaders this node is drawn through, in the order the chain wrote them. */
     val effects: List<ShaderEffect>,
     /** Backgrounds, borders, shadows and `drawBehind`, in chain order, under the node's content. */
@@ -123,6 +128,7 @@ class ResolvedModifier private constructor(
             var scale = 1f
             var scaleOrigin = Alignment.Centre
             var clip: ClipElement? = null
+            var hitShape: ((Offset) -> Boolean)? = null
             val effects = mutableListOf<ShaderEffect>()
             val behind = mutableListOf<PaintOp>()
             val inFront = mutableListOf<PaintOp>()
@@ -164,6 +170,9 @@ class ResolvedModifier private constructor(
                         scaleOrigin = element.origin
                     }
                     is ClipElement -> clip = element
+                    // A choice rather than a quantity, like an alignment: two shapes on one node
+                    // are two answers to the same question, so the later one is the answer.
+                    is HitShapeElement -> hitShape = element.contains
                     is EffectElement -> effects += element.effect
                     is BackgroundElement, is BorderElement, is ShadowElement,
                     is NinePatchElement, is SkinBackgroundElement, is DrawBehindElement ->
@@ -187,7 +196,7 @@ class ResolvedModifier private constructor(
 
             return ResolvedModifier(
                 size, fill, padding, offset, weight, alignment, alpha, scale, scaleOrigin,
-                clip, effects.toList(),
+                clip, hitShape, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click,
