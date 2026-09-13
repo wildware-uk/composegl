@@ -61,6 +61,9 @@ data class NinePatchElement(val patch: NinePatch, val tint: Colour = Colour.Whit
 /** Nothing outside this node is drawn by it or by its children. */
 data class ClipElement(val corner: Float = 0f) : Modifier.Element
 
+/** @see dev.wildware.composegl.ui.modifier.hitShape */
+data class HitShapeElement(val contains: (Offset) -> Boolean) : Modifier.Element
+
 data class AlphaElement(val alpha: Float) : Modifier.Element
 
 /** @see dev.wildware.composegl.ui.modifier.scale */
@@ -246,6 +249,32 @@ fun Modifier.ninePatch(
 }
 
 fun Modifier.clip(corner: Float = 0f) = then(ClipElement(corner))
+
+/**
+ * Which points inside this node's rectangle actually belong to it.
+ *
+ * Hit testing is rectangles, because nearly everything is a rectangle and rectangles are cheap. A
+ * few things are not: a round button, a diamond, a cell in a honeycomb. Their rectangles overlap
+ * their neighbours', so the empty corner of one sits over the middle of another and the pointer
+ * hands the click to whichever happens to be drawn later. This is how a node says those corners
+ * are not its own.
+ *
+ * [contains] is asked in the node's own coordinates — the ones [onPointer] delivers, and the ones
+ * the node was laid out in. A [scale] here or anywhere above is already divided back out, so the
+ * shape is written once against the node's own width and height and keeps working while the node
+ * grows. The rectangle is still tested first and the shape only ever narrows it, so this costs
+ * nothing on the nodes without one and a single call on the nodes with one.
+ *
+ * Saying no lets the event carry on to whatever is underneath, which is the whole point: in a
+ * honeycomb the pointer falls through the corner it was handed to the cell that really owns it.
+ *
+ * It gates this node alone and says nothing about its children — unlike [clip] it does not change
+ * what is drawn, so it must not change what is reachable. A child that wants the same shape asks
+ * for it itself.
+ *
+ * Two of these on one node is a choice rather than a quantity, so the later one wins.
+ */
+fun Modifier.hitShape(contains: (Offset) -> Boolean) = then(HitShapeElement(contains))
 
 fun Modifier.alpha(alpha: Float) = then(AlphaElement(alpha))
 
