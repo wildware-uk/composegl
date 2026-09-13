@@ -184,7 +184,9 @@ class UiNode(var name: String = "node") {
      * Note that this and [bounds] are no longer the same rectangle written in two coordinate
      * systems. [bounds] is where layout put the node, before any scaling; this is where it ends up
      * on screen after it. For a tree with no `scale` in it — which is nearly every tree — they
-     * still agree, and this is the same upward sum it always was.
+     * still agree: the multiplies are skipped entirely and what is left is the upward sum this
+     * always was. The edges are accumulated rather than added at the end, so a very deep tree can
+     * come out a last-bit different from the old `Rect.of(left, top, width, height)`.
      *
      * A scale is folded in here, and not only into the drawing, on purpose: everything that asks
      * where a node is asks this. Hit testing, the click test, focus scoring and a game doing its
@@ -199,6 +201,11 @@ class UiNode(var name: String = "node") {
             // this level's anchor, then moved into the parent's box, then scaled about the parent's
             // anchor, and so on. Four floats, one Rect at the end — the same allocation count as
             // the plain sum was, and the multiplies only happen where something actually scales.
+            //
+            // This is Rect.scaledAbout written out rather than called: calling it would make a
+            // Rect per level of the tree, and hit testing and focus ask this of a lot of nodes.
+            // DrawPassTest's `where a scaled node is drawn is where it says it is` is what keeps
+            // the copies honest.
             var left = 0f
             var top = 0f
             var right = width

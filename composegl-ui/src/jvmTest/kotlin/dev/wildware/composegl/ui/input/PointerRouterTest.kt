@@ -415,6 +415,24 @@ class PointerRouterTest {
     }
 
     @Test
+    fun `a child hanging out of a scaled panel is not clicked where the capture cut it off`() {
+        // A scale captures exactly the panel's own rectangle, so the child is chopped at the
+        // panel's edge — the same rule as `Modifier.clip`, arriving without anyone asking for it.
+        // Laid out, the child runs 90..130 inside the panel; drawn, it stops at 100 with the
+        // panel, and the panel is half size about its centre, so 75 is the last drawn pixel.
+        val panel = screen.box("panel", 0f, 0f, 100f, 100f, Modifier.scale(0.5f))
+        screen.box("child", 90f, 90f, 40f, 40f, Modifier.clickable { clicks += 1 }, parent = panel)
+
+        press(80f, 80f)
+        release(80f, 80f)
+        assertEquals(0, clicks, "five pixels past anything the panel let out, so nothing to click")
+
+        press(72f, 72f)
+        release(72f, 72f)
+        assertEquals(1, clicks, "inside the panel, where the child really is drawn")
+    }
+
+    @Test
     fun `a node scaled to nothing cannot be clicked`() {
         screen.box("button", 0f, 0f, 40f, 20f, Modifier.scale(0f).clickable { clicks += 1 })
 

@@ -73,10 +73,16 @@ data class Rect(val left: Float, val top: Float, val right: Float, val bottom: F
     /**
      * This rectangle grown or shrunk about a point that stays where it is.
      *
-     * The one piece of arithmetic behind `Modifier.scale`, in one place on purpose: the draw pass
-     * works out where a scaled subtree is composited, and [dev.wildware.composegl.ui.node.UiNode]
-     * and the pointer router work out the same rectangle by walking the tree. Three callers, one
-     * formula, so they cannot drift apart and leave clicks landing where a widget is not.
+     * The arithmetic behind `Modifier.scale`, and the readable statement of it: the draw pass calls
+     * this to work out where a scaled subtree is composited.
+     *
+     * Two other places work out the same rectangle and do not call this — `UiNode.boundsInRoot`
+     * walking up the tree and the pointer router's `collect` walking down it. Both write the four
+     * lines out in bare floats on purpose, because calling this would build a `Rect` per level of
+     * the tree, per node, per frame or per mouse move, and both say so at the line. So this is not
+     * a safeguard against them drifting: `where a scaled node is drawn is where it says it is`, in
+     * DrawPassTest, is, and it asserts the rectangle a node reports against the one the canvas was
+     * actually asked to composite.
      *
      * A factor of one is this rectangle, handed straight back — the fast path that matters, since
      * a fit correction of `min(1f, budget / height)` is exactly one whenever it does not bind.

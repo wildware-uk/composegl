@@ -71,17 +71,25 @@ correction does not re-flow what is inside it. Clicks and pad focus *do* move:
 size is clickable at twice the size. `layoutBoundsInRoot` is the rectangle before
 any scaling, for the code that wants the slot rather than the pixels.
 
-Three things to know. It magnifies a picture, so past about 1.15 it is visibly
+A few things to know. It magnifies a picture, so past about 1.15 it is visibly
 soft and text is soft sooner — a world that wants to be crisp at three times the
 size wants to be *laid out* three times the size. The capture is the widget's own
-rectangle, so anything a child draws outside it is cut off while the scale is on.
-And a picture over 4096 screen pixels a side is refused, as it is on a canvas with
-no offscreen drawing at all: then the subtree is drawn plainly, at its ordinary
-size, and hit testing goes back with it. Ask `canvas.drawsLayers` first if a screen
-would rather pick a different animation.
+rectangle, so anything a child draws outside it is cut off while the scale is on —
+and clicks agree, so what you cannot see you cannot press. The other direction is
+not true: the picture is put down filling the *scaled* rectangle, so `clip()` on the
+same widget does not hold it in. A viewport that must not spill wants the `clip` on
+the parent and the `scale` on the child inside it.
+
+A canvas can refuse to make the picture at all, and the two backends here refuse one
+bigger than 4096 screen pixels a side. Then the subtree is drawn plainly, at its
+ordinary size, and hit testing goes back with it. Ask `canvas.drawsLayers` first if a
+screen would rather pick a different animation.
 
 Two scales on one widget multiply, so an arrival animation and a fit correction
-compose. A scale of one takes no picture at all.
+compose. A scale of one takes no picture at all. Zero draws nothing and cannot be
+clicked or focused, which is what lets a panel arrive from nothing. A negative factor
+throws rather than mirroring, so hand an anticipate easing over as
+`scale(t.coerceAtLeast(0f))`.
 
 **Your own drawing**
 

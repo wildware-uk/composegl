@@ -347,6 +347,19 @@ class DrawPassTest {
     }
 
     @Test
+    fun `a clip on a scaled node does not hold the picture inside the node`() {
+        // Documented in `Modifier.scale`, and pinned here because it is the one thing about scale
+        // that reads backwards: the clip is a clip on the capture, and the capture is then put
+        // down filling the scaled rectangle. So a clipped 40-pixel box draws 80 pixels, and a
+        // viewport that must not spill puts the clip on the parent instead.
+        val node = node("panel", Modifier.size(40f).clip().scale(2f).background(red))
+
+        draw(node)
+
+        assertEquals(Rect(-20f, -20f, 60f, 60f), canvas.only<DrawCall.Layer>().single().bounds)
+    }
+
+    @Test
     fun `a scale of nothing draws nothing`() {
         val child = node("child", Modifier.size(10f).background(blue))
         val node = node("panel", Modifier.size(40f).scale(0f).background(red), children = listOf(child))
