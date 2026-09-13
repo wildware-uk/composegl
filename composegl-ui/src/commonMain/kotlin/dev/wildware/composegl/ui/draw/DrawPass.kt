@@ -103,6 +103,17 @@ class DrawPass(val canvas: UiCanvas) {
      * no text asked for a font size nobody registered, and every rectangle underneath stays where
      * it was, so the caches keep hitting while the factor animates.
      *
+     * The picture is the node's own rectangle and the composite is [destination], which is why a
+     * capture is a clip in one direction and no clip at all in the other: a child overflowing the
+     * node is chopped, and the node itself draws right across [destination] however big that is,
+     * whatever `Modifier.clip` says. The clip this node's chain asks for is pushed inside the
+     * capture, by [contents], because that is the picture it is a clip on.
+     *
+     * Costs two objects a frame for as long as the factor is not one: [destination], which is a
+     * fresh [Rect] rather than one of this file's cached ones, and the closure below. That is the
+     * same pair the effect path has always made, and a node whose factor is not one is a node
+     * being animated, so it is not the standing-still case the caches exist for.
+     *
      * Returns whether the scale actually happened. A canvas with no offscreen drawing — or a
      * subtree too big for one picture — hands back nothing and has drawn nothing, so the subtree
      * is drawn straight, at its ordinary size. That is the bargain a layer already makes, and

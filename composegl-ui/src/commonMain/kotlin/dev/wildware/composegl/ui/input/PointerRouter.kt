@@ -214,8 +214,11 @@ class PointerRouter(
         var right = left + node.width * scale
         var bottom = top + node.height * scale
 
-        // This node's own scale, about its own anchor — the same formula the draw pass composites
-        // with and the same one the upward walk uses. See Rect.scaledAbout.
+        // This node's own scale, about its own anchor. Deliberately the same arithmetic as
+        // Rect.scaledAbout rather than a call to it: the helper builds a Rect, and this runs over
+        // every node in the tree on every mouse move. DrawPassTest's `where a scaled node is drawn
+        // is where it says it is` pins the arithmetic against what the canvas is asked to
+        // composite, because nothing else would notice the three parting.
         val own = node.drawnScale
         if (own != 1f) {
             val anchorX = left + resolved.scaleOrigin.xIn(node.width, 0f) * scale
@@ -227,9 +230,12 @@ class PointerRouter(
         }
 
         val inside = pointX >= left && pointX < right && pointY >= top && pointY < bottom
-        // A clip is the one thing that stops the search early: nothing outside a clipping node is
-        // drawn, so nothing outside it can be hit, children included.
-        if (resolved.clip != null && !inside) return
+        // Two things stop the search early, and both are the same rule: nothing outside them is
+        // drawn, so nothing outside them can be hit, children included. A clip says so. A scale
+        // says so too, because the subtree is captured at exactly this node's own rectangle and
+        // a child that overflows it is cut off on screen — so without this line a child hanging
+        // out of a shrunk panel keeps taking clicks in the empty space where it used to be.
+        if ((resolved.clip != null || own != 1f) && !inside) return
 
         val children = node.children
         for (index in children.indices.reversed()) {

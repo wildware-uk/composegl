@@ -282,9 +282,12 @@ interface UiCanvas {
      * rather than find out by having nothing happen. Same shape as [rotatesImages] and
      * [supports]: a question with an honest default.
      *
-     * It answers "can this canvas make pictures", not "can it make one that big". A picture over
-     * 4096 screen pixels a side is refused by both backends here however this answers, so a
-     * subtree that must scale should be viewport-sized rather than laid out bigger than the screen.
+     * It answers "can this canvas make pictures", not "can it make one that big". A canvas may
+     * still refuse an individual picture, and both backends in this repository refuse one over 4096
+     * screen pixels a side — their own limit, not a rule of this interface, and another canvas is
+     * free to pick a different one. Either way [layer] hands back null and the caller draws
+     * plainly, so a subtree that must scale should be viewport-sized rather than laid out bigger
+     * than the screen.
      */
     val drawsLayers: Boolean get() = false
 

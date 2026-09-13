@@ -481,6 +481,39 @@ class FocusManagerTest {
     }
 
     @Test
+    fun `tab does not walk into a panel that has not arrived yet`() {
+        // The beam search filters on empty rectangles, so Right was already safe. Tab never looks
+        // at a rectangle at all — it walks the list in tree order — so the list itself has to not
+        // contain the panel while the panel is nothing.
+        screen.box("here", 0f, 0f, 40f, 20f, Modifier.focusable())
+        val arriving = screen.box("panel", 0f, 40f, 100f, 60f, Modifier.scale(0f))
+        screen.box("inside", 0f, 0f, 40f, 20f, Modifier.focusable(), parent = arriving)
+        val focus = manager()
+        focus.focusOn(screen["here"])
+
+        assertTrue(focus.moveFocus(FocusDirection.Next))
+        assertEquals("here", focus.name(), "the only thing on screen, so Tab comes back to it")
+    }
+
+    @Test
+    fun `a panel springing in from nothing does not take focus before it is visible`() {
+        // The case the feature exists for: a pause panel whose arrival animation starts at zero.
+        // Auto-focus runs every frame, and without the skip the player's cursor is sitting on a
+        // button nobody can see yet — and the ring appears somewhere no ring should be.
+        val arriving = screen.box("panel", 0f, 0f, 100f, 60f, Modifier.scale(0f))
+        screen.box("first", 0f, 0f, 40f, 20f, Modifier.focusable(), parent = arriving)
+
+        val focus = manager()
+        focus.refresh()
+        assertNull(focus.focused, "nothing is drawn yet, so there is nothing to put a ring round")
+
+        // A wait, not a ban: the first frame the panel has any size, it is a choice again.
+        arriving.modifier = Modifier.scale(0.2f)
+        focus.refresh()
+        assertEquals("first", focus.name(), "it has arrived, so auto-focus lands on it now")
+    }
+
+    @Test
     fun `a scroller is asked to reveal a rectangle in its own units`() {
         var asked: Rect? = null
         val panel = screen.box("panel", 0f, 0f, 100f, 100f, Modifier.scale(0.5f))

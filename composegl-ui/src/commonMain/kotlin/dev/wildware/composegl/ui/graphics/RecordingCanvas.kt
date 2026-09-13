@@ -330,6 +330,9 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     /** It writes the angle down, which is the whole of what this canvas can do about anything. */
     override val rotatesImages: Boolean get() = true
 
+    /** It writes them down, which is the whole of what this canvas can do about anything. */
+    override val drawsLayers: Boolean get() = true
+
     /**
      * Runs [block] and hands back a picture that only exists as a name.
      *
@@ -337,9 +340,6 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
      * recorded as they happen, with the clip narrowed to the layer the way a real backend narrows
      * it, and a [DrawCall.Layer] follows when the picture is drawn back.
      */
-    /** It writes them down, which is the whole of what this canvas can do about anything. */
-    override val drawsLayers: Boolean get() = true
-
     override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? {
         // A real backend gives the block a clip of exactly the layer, full opacity and plain
         // source-over blending, so this one does too — otherwise a test would pass against a

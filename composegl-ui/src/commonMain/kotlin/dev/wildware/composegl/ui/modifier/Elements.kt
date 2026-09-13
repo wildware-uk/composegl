@@ -273,9 +273,16 @@ fun Modifier.alpha(alpha: Float) = then(AlphaElement(alpha))
  *
  * - **A capture is a clip.** Anything a child draws outside this node's own rectangle — a glow, an
  *   overflowing label — is cut off at the edge the moment the factor is not one, whether or not
- *   there is a [clip] anywhere in the chain.
- * - **There is a ceiling.** A picture bigger than 4096 screen pixels on a side is refused, and so
- *   is one on a canvas with no offscreen drawing. Then the subtree is drawn plainly, at its
+ *   there is a [clip] anywhere in the chain. Hit testing and focus agree with it: what the capture
+ *   cut off is not clickable either. It also arrives and leaves *with* the factor, so a figure that
+ *   pulses from one loses its glow on the first frame of each punch and has it back at rest.
+ * - **A [clip] on the same node does not hold the picture in.** The capture is composited filling
+ *   the scaled rectangle, so a scaled node's rectangle *is* the scaled one — `clip().scale(2f)` on
+ *   a 200-pixel box draws 400 pixels, and `boundsInRoot` and hit testing say the same. A viewport
+ *   that must not spill wants the [clip] on the parent and the `scale` on the child inside it.
+ * - **There is a ceiling.** A canvas can refuse to make the picture — the two backends here refuse
+ *   one bigger than 4096 screen pixels a side, which is their limit rather than a rule, and any
+ *   canvas with no offscreen drawing refuses every one. Then the subtree is drawn plainly, at its
  *   ordinary size, and hit testing goes back to that size with it — present and honest rather than
  *   missing. Ask [dev.wildware.composegl.ui.graphics.UiCanvas.drawsLayers] first if a screen would
  *   rather pick a different animation. A subtree that must scale should be viewport-sized with its
@@ -284,10 +291,18 @@ fun Modifier.alpha(alpha: Float) = then(AlphaElement(alpha))
  *   an arrival animation and a fit correction composable on the same node.
  *
  * A factor of one costs a comparison and takes no picture at all. Zero draws nothing, the same
- * early-out a fully transparent node gets.
+ * early-out a fully transparent node gets, and nothing inside it can be clicked or focused either.
+ *
+ * Unlike [alpha], which quietly clamps, this throws on a factor it cannot draw. A negative one is a
+ * mirror, and nothing here mirrors, so clamping it to zero would answer a question nobody asked
+ * with an invisible widget. That matters for one animation in particular: an anticipate or back
+ * easing dips below zero on the way in, so hand it over as `scale(t.coerceAtLeast(0f))` rather than
+ * discovering it on the frame the curve undershoots.
  *
  * @param origin the point that stays where it is, as a place inside this node: [Alignment.Centre]
  *   grows it about its middle, [Alignment.TopStart] about its top-left corner.
+ * @throws IllegalArgumentException if [factor] is negative or not a number. Checked here, where the
+ *   bad value is nearest whatever produced it, rather than turning every rectangle under it to NaN.
  */
 fun Modifier.scale(factor: Float, origin: Alignment = Alignment.Centre) =
     then(ScaleElement(factor, origin))

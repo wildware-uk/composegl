@@ -267,15 +267,21 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     }
 
     /**
-     * Walks the tree, skipping anything transparent along with everything inside it.
+     * Walks the tree, skipping anything drawn as nothing along with everything inside it.
      *
      * Skipping the whole subtree is the point. A hidden tab page is one transparent box over a page
      * full of perfectly ordinary widgets, and a widget only knows its own opacity — so a rule that
      * looked at each node alone would let a pad walk into the page nobody can see, press a button
      * nobody can see, and leave the player wondering where their cursor went.
+     *
+     * A scale of zero is the same story told by the other quantity, and it is the one this list is
+     * likeliest to meet: a pause panel springing in starts at zero, and without this line the first
+     * thing on it takes focus — Tab, or the auto-focus a screen gets on its first frame — before a
+     * pixel of it is on screen. The draw pass and the pointer walk both already stop there; this is
+     * the third reader agreeing with them.
      */
     private fun collectFocusable(node: UiNode, into: MutableList<UiNode>) {
-        if (node.resolved.alpha <= 0f) return
+        if (node.resolved.alpha <= 0f || node.resolved.scale <= 0f) return
         if (node.resolved.focusable?.enabled == true) into += node
         node.children.forEach { collectFocusable(it, into) }
     }
