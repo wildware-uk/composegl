@@ -481,6 +481,9 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
     // --- layers ---
 
+    /** Framebuffers, so yes. */
+    override val drawsLayers: Boolean get() = true
+
     override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? {
         check(drawing) { "layer() outside a frame" }
         if (bounds.isEmpty) return null

@@ -48,6 +48,14 @@ class DrawPass(val canvas: UiCanvas) {
         // fading panel costs a comparison instead of a subtree.
         if (resolved.alpha <= 0f) return
 
+        // Nor can anything scaled to nothing, and a picture of it would be a picture of no pixels.
+        // Said true rather than refused, so that a node shrinking to zero stops being clickable on
+        // the way down rather than going back to full size.
+        if (resolved.scale <= 0f) {
+            node.scaleApplied = true
+            return
+        }
+
         // Kept on the node and handed back when it has not moved; see RectCache.
         val bounds = node.drawnBounds.of(
             originX + node.x,
@@ -58,15 +66,57 @@ class DrawPass(val canvas: UiCanvas) {
         val faded = resolved.alpha < 1f
         if (faded) canvas.pushAlpha(resolved.alpha)
 
+        // Where a scale grows or shrinks from, in the coordinates the node is drawn in. Alignment
+        // with a child of no width is the anchor itself: the left edge, the middle, or the right.
+        val scale = resolved.scale
+        val anchorX = if (scale == 1f) 0f else bounds.left + resolved.scaleOrigin.xIn(node.width, 0f)
+        val anchorY = if (scale == 1f) 0f else bounds.top + resolved.scaleOrigin.yIn(node.height, 0f)
+
         if (resolved.effects.isEmpty()) {
-            contents(node, resolved, bounds)
+            if (scale == 1f) {
+                contents(node, resolved, bounds)
+            } else {
+                node.scaleApplied = scaled(node, bounds, bounds.scaledAbout(anchorX, anchorY, scale))
+            }
         } else {
             // Reversed, so the first effect in the chain is the innermost picture: written twice,
             // the second one works on the first one's answer, which is how a chain reads.
-            through(resolved.effects.asReversed(), 0, bounds) { contents(node, resolved, bounds) }
+            //
+            // A scale on the same node rides the outermost of those pictures rather than taking
+            // one of its own: it is a different destination for a composite that was happening
+            // anyway, so an effect and a scale together cost one capture, not two.
+            val applied =
+                through(resolved.effects.asReversed(), 0, bounds, scale, anchorX, anchorY) {
+                    contents(node, resolved, bounds)
+                }
+            if (scale != 1f) node.scaleApplied = applied
         }
 
         if (faded) canvas.popAlpha()
+    }
+
+    /**
+     * Draws [node]'s contents into a picture and puts that picture down somewhere else.
+     *
+     * The whole of how a scale works. The subtree is captured at the size it was laid out, so
+     * nothing inside it knows the scale is happening — no arithmetic to thread through the walk,
+     * no text asked for a font size nobody registered, and every rectangle underneath stays where
+     * it was, so the caches keep hitting while the factor animates.
+     *
+     * Returns whether the scale actually happened. A canvas with no offscreen drawing — or a
+     * subtree too big for one picture — hands back nothing and has drawn nothing, so the subtree
+     * is drawn straight, at its ordinary size. That is the bargain a layer already makes, and
+     * saying so out loud is what lets hit testing degrade along with it.
+     */
+    private fun scaled(node: UiNode, bounds: Rect, destination: Rect): Boolean {
+        val resolved = node.resolved
+        val picture = canvas.layer(bounds) { contents(node, resolved, bounds) }
+        if (picture == null) {
+            contents(node, resolved, bounds)
+            return false
+        }
+        canvas.drawLayer(picture, destination)
+        return true
     }
 
     /** Everything a node draws: what its chain put behind it, itself, its children, what is in front. */
@@ -116,22 +166,33 @@ class DrawPass(val canvas: UiCanvas) {
      * is drawn again, straight, and the effect is simply not there. That is the bargain: an effect
      * degrades to no effect, never to a missing widget.
      */
-    private fun through(effects: List<ShaderEffect>, index: Int, bounds: Rect, body: () -> Unit) {
+    private fun through(
+        effects: List<ShaderEffect>,
+        index: Int,
+        bounds: Rect,
+        scale: Float,
+        anchorX: Float,
+        anchorY: Float,
+        body: () -> Unit,
+    ): Boolean {
         if (index == effects.size) {
             body()
-            return
+            return true
         }
 
         val effect = effects[index]
         // The area the shader gets to write to. A blur or a glow reaches past the widget, and
         // without the bleed the spread would be cut off square at its edge.
         val area = if (effect.bleed > 0f) bounds.inset(-effect.bleed) else bounds
-        val picture = canvas.layer(area) { through(effects, index + 1, bounds, body) }
+        // Only this outermost picture is scaled, and the whole bled area with it, so a glow grows
+        // with the thing that is glowing instead of staying its own size around it.
+        val picture = canvas.layer(area) { through(effects, index + 1, bounds, 1f, 0f, 0f, body) }
         if (picture == null) {
-            through(effects, index + 1, bounds, body)
-            return
+            through(effects, index + 1, bounds, 1f, 0f, 0f, body)
+            return false
         }
-        canvas.drawLayer(picture, area, effect)
+        canvas.drawLayer(picture, area.scaledAbout(anchorX, anchorY, scale), effect)
+        return true
     }
 
     /**

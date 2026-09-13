@@ -41,6 +41,7 @@ import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onKeyEvent
 import dev.wildware.composegl.ui.modifier.padding
+import dev.wildware.composegl.ui.modifier.scale
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.styled as styledWith
 import dev.wildware.composegl.ui.modifier.weight
@@ -244,7 +245,10 @@ private fun AbortDialog(state: DemoState) {
 
     Dialog(
         onDismiss = { state.declining = false },
-        modifier = Modifier.width(380f).alpha(shown),
+        // It arrives by growing as well as by fading. Written so that a settled dialogue is at
+        // exactly one — there the scale takes no offscreen picture at all, and the dialogue costs
+        // what it always did for as long as it is sitting there being read.
+        modifier = Modifier.width(380f).alpha(shown).scale(1f - 0.06f * (1f - shown)),
         dismissOnScrim = true,
     ) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14f)) {

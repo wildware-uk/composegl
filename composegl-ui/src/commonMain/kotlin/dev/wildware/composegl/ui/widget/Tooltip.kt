@@ -147,6 +147,12 @@ fun Tooltip(
     anchor.follow = follow
 
     // Written while drawing, because that is where a node's place on screen is actually known.
+    //
+    // Known limitation: this is the rectangle the draw pass hands over, which inside a
+    // `Modifier.scale` is the subtree's own unscaled one — everything in a capture draws at the
+    // size it was laid out. So a tooltip on something inside a scaled panel points at where that
+    // thing was laid out rather than at where it ended up. Nothing in composition can reach its
+    // own node to ask `boundsInRoot` instead; when something can, this is the first caller for it.
     val capture: UiCanvas.(Rect) -> Unit = remember(anchor) { { bounds -> anchor.bounds = bounds } }
 
     val handler = remember(anchor) {

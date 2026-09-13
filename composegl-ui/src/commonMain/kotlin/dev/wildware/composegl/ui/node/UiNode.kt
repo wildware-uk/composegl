@@ -1,6 +1,7 @@
 package dev.wildware.composegl.ui.node
 
 import dev.wildware.composegl.ui.draw.RectCache
+import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.layout.ConstraintsCache
@@ -133,14 +134,105 @@ class UiNode(var name: String = "node") {
     val bounds: Rect get() = Rect.of(x, y, width, height)
 
     /**
-     * Where this node sits in the root's coordinates — the ones a pointer event arrives in.
+     * Whether the last draw pass managed the offscreen picture a [dev.wildware.composegl.ui.modifier.scale]
+     * needs.
+     *
+     * Optimistic: a tree that has never been drawn believes its own modifiers, which is what keeps
+     * a measure-then-hit-test test — and the first frame of a real screen — behaving as written.
+     * The draw pass clears it when a canvas refuses the picture, and that is what makes the
+     * degraded path honest: a widget drawn at its ordinary size is clicked at its ordinary size
+     * too, one frame later, rather than being clicked where it was supposed to be.
+     *
+     * The last canvas to draw this node wins. Drawing one tree with two canvases that disagree
+     * about offscreen pictures is not a thing a game does, and a shot test that records a tree
+     * before routing a pointer at it is asking for the answer it gets.
+     */
+    internal var scaleApplied: Boolean = true
+
+    /**
+     * This node's own scale as it is actually drawn: what its chain asked for, unless the canvas
+     * refused the picture. Internal, because the pointer router works the same rectangles out on
+     * its way down the tree and must use the same number.
+     */
+    internal val drawnScale: Float get() = if (scaleApplied) resolved.scale else 1f
+
+    /**
+     * How much bigger or smaller this node is drawn than it was laid out, this node's own scale
+     * and every ancestor's together.
+     *
+     * One for any tree that never calls `scale`, and the number to divide by to turn a distance on
+     * screen into a distance in this node's own units — see [toLocal].
+     */
+    val scaleInRoot: Float
+        get() {
+            var scale = 1f
+            var node: UiNode? = this
+            while (node != null) {
+                scale *= node.drawnScale
+                node = node.parent
+            }
+            return scale
+        }
+
+    /**
+     * Where this node is **drawn** in the root's coordinates — the ones a pointer event arrives in.
      *
      * Walked up the parent chain rather than stored, because storing it would mean every node
      * under a moved node had to be revisited, and the only things that ask are hit testing and
-     * focus. A child's position already includes its parent's padding, so this is a sum and
-     * nothing more.
+     * focus.
+     *
+     * Note that this and [bounds] are no longer the same rectangle written in two coordinate
+     * systems. [bounds] is where layout put the node, before any scaling; this is where it ends up
+     * on screen after it. For a tree with no `scale` in it — which is nearly every tree — they
+     * still agree, and this is the same upward sum it always was.
+     *
+     * A scale is folded in here, and not only into the drawing, on purpose: everything that asks
+     * where a node is asks this. Hit testing, the click test, focus scoring and a game doing its
+     * own arithmetic all get drawn pixels without knowing scale exists. Fold it into drawing alone
+     * and a scaled screen looks perfect and takes its clicks in the wrong place.
+     *
+     * See [layoutBoundsInRoot] for the rectangle before any scaling.
      */
     val boundsInRoot: Rect
+        get() {
+            // The node's own box in its own coordinates, carried up a level at a time: scaled about
+            // this level's anchor, then moved into the parent's box, then scaled about the parent's
+            // anchor, and so on. Four floats, one Rect at the end — the same allocation count as
+            // the plain sum was, and the multiplies only happen where something actually scales.
+            var left = 0f
+            var top = 0f
+            var right = width
+            var bottom = height
+            var node: UiNode? = this
+            while (node != null) {
+                val factor = node.drawnScale
+                if (factor != 1f) {
+                    // Alignment with a child of no width is the anchor itself: 0, half, or all of
+                    // the node's width.
+                    val anchorX = node.resolved.scaleOrigin.xIn(node.width, 0f)
+                    val anchorY = node.resolved.scaleOrigin.yIn(node.height, 0f)
+                    left = anchorX + (left - anchorX) * factor
+                    right = anchorX + (right - anchorX) * factor
+                    top = anchorY + (top - anchorY) * factor
+                    bottom = anchorY + (bottom - anchorY) * factor
+                }
+                left += node.x
+                right += node.x
+                top += node.y
+                bottom += node.y
+                node = node.parent
+            }
+            return Rect(left, top, right, bottom)
+        }
+
+    /**
+     * Where layout put this node in the root's coordinates, before any scaling.
+     *
+     * What [boundsInRoot] meant before scaling existed, kept under its own name for the callers
+     * that want the slot rather than the pixels — a layout assertion, a measurement, anything
+     * comparing against [width] and [height].
+     */
+    val layoutBoundsInRoot: Rect
         get() {
             var left = 0f
             var top = 0f
@@ -152,6 +244,24 @@ class UiNode(var name: String = "node") {
             }
             return Rect.of(left, top, width, height)
         }
+
+    /**
+     * A point in the root's coordinates, in this node's own.
+     *
+     * What a pointer handler is handed, and what a widget doing its own arithmetic wants: a node
+     * drawn at half size is still 100 wide to itself, so a click at its drawn centre is (50, 50)
+     * and a drag of 100 pixels across it is 200 of its own units. Getting this wrong is a slider
+     * that moves at the wrong speed rather than anything you can see in a screenshot.
+     *
+     * A node scaled to nothing is drawn nowhere, so every point in it is the same point.
+     */
+    fun toLocal(point: Offset): Offset {
+        val corner = boundsInRoot.topLeft
+        val scale = scaleInRoot
+        if (scale == 1f) return Offset(point.x - corner.x, point.y - corner.y)
+        if (scale <= 0f) return Offset.Zero
+        return Offset((point.x - corner.x) / scale, (point.y - corner.y) / scale)
+    }
 
     /** Tells the tree that this frame is not the same as the last one. */
     fun invalidate() {

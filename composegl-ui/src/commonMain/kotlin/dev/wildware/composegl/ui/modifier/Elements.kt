@@ -63,6 +63,19 @@ data class ClipElement(val corner: Float = 0f) : Modifier.Element
 
 data class AlphaElement(val alpha: Float) : Modifier.Element
 
+/** @see dev.wildware.composegl.ui.modifier.scale */
+data class ScaleElement(
+    val factor: Float,
+    val origin: Alignment = Alignment.Centre,
+) : Modifier.Element {
+    init {
+        // Zero is allowed and draws nothing, because a panel springing in from nothing is the
+        // commonest way this gets used. Negative would be a mirror, which nothing here can do.
+        require(!factor.isNaN()) { "a scale cannot be NaN" }
+        require(factor >= 0f) { "a scale cannot be negative, was $factor" }
+    }
+}
+
 /** @see dev.wildware.composegl.ui.modifier.effect */
 data class EffectElement(val effect: ShaderEffect) : Modifier.Element
 
@@ -235,6 +248,49 @@ fun Modifier.ninePatch(
 fun Modifier.clip(corner: Float = 0f) = then(ClipElement(corner))
 
 fun Modifier.alpha(alpha: Float) = then(AlphaElement(alpha))
+
+/**
+ * Draws this node, and everything under it, bigger or smaller.
+ *
+ * **An arrival-and-fit tool, not a camera.** The subtree is drawn into an offscreen picture at its
+ * ordinary size and that picture is magnified, so scaling up past about 1.15 is visibly soft and
+ * text is soft sooner. It is meant for a panel that springs in, and for the fit correction that
+ * shrinks a panel which outgrew its height budget so it lands as one object rather than being
+ * re-laid-out. A world that wants to be crisp at three times the size wants to be laid out three
+ * times the size.
+ *
+ * ```kotlin
+ * Panel(Modifier.scale(spring.value)) { … }               // arriving
+ * Panel(Modifier.scale(min(1f, budget / measured))) { … } // fitting
+ * ```
+ *
+ * Layout does not move. The node keeps the slot it measured into, so a panel scaling in does not
+ * shove its siblings about and a fit correction does not re-flow the panel's contents. What does
+ * move is [dev.wildware.composegl.ui.node.UiNode.boundsInRoot], so clicks and pad focus land on
+ * what you can see rather than on where the node would have been.
+ *
+ * Three things worth knowing before you reach for it:
+ *
+ * - **A capture is a clip.** Anything a child draws outside this node's own rectangle — a glow, an
+ *   overflowing label — is cut off at the edge the moment the factor is not one, whether or not
+ *   there is a [clip] anywhere in the chain.
+ * - **There is a ceiling.** A picture bigger than 4096 screen pixels on a side is refused, and so
+ *   is one on a canvas with no offscreen drawing. Then the subtree is drawn plainly, at its
+ *   ordinary size, and hit testing goes back to that size with it — present and honest rather than
+ *   missing. Ask [dev.wildware.composegl.ui.graphics.UiCanvas.drawsLayers] first if a screen would
+ *   rather pick a different animation. A subtree that must scale should be viewport-sized with its
+ *   contents offset inside it, not laid out bigger than the screen.
+ * - **Factors multiply, the last origin wins.** `scale(0.5f).scale(2f)` is one, which is what makes
+ *   an arrival animation and a fit correction composable on the same node.
+ *
+ * A factor of one costs a comparison and takes no picture at all. Zero draws nothing, the same
+ * early-out a fully transparent node gets.
+ *
+ * @param origin the point that stays where it is, as a place inside this node: [Alignment.Centre]
+ *   grows it about its middle, [Alignment.TopStart] about its top-left corner.
+ */
+fun Modifier.scale(factor: Float, origin: Alignment = Alignment.Centre) =
+    then(ScaleElement(factor, origin))
 
 fun Modifier.drawBehind(draw: UiCanvas.(Rect) -> Unit) = then(DrawBehindElement(draw))
 

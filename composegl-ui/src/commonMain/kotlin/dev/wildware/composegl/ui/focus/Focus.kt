@@ -364,7 +364,12 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
             val handlers = walk.resolved.reveals
             if (handlers.isNotEmpty()) {
                 val corner = walk.boundsInRoot.topLeft
-                val local = area.translate(Offset(-corner.x, -corner.y))
+                var local = area.translate(Offset(-corner.x, -corner.y))
+                // In the scroller's own units, not in screen pixels. Inside a scaled panel the two
+                // differ, and a list handed screen pixels scrolls by the wrong distance — which
+                // looks like the list being slightly wrong rather than like a scale being wrong.
+                val scale = walk.scaleInRoot
+                if (scale != 1f && scale > 0f) local = local.scaledAbout(0f, 0f, 1f / scale)
                 handlers.forEach { it.onReveal(local) }
             }
             walk = walk.parent

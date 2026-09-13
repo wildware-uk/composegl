@@ -6,6 +6,8 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.focusOrder
 import dev.wildware.composegl.ui.modifier.focusRequester
 import dev.wildware.composegl.ui.modifier.focusable
+import dev.wildware.composegl.ui.modifier.onReveal
+import dev.wildware.composegl.ui.modifier.scale
 import dev.wildware.composegl.ui.testing.TestTree
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -434,5 +436,65 @@ class FocusManagerTest {
 
         assertTrue(focus.moveFocus(FocusDirection.Right))
         assertEquals("b", focus.name(), "the next one along, same as the default")
+    }
+
+    // --- scale --------------------------------------------------------------------------------
+
+    /**
+     * Two candidates to the right, and a scale that changes which one the press means.
+     *
+     * `ahead` is straight ahead but a long way off; `corner` is nearer but below the beam, so as
+     * laid out it loses — that is the rule that stops a diagonal neighbour stealing a press. Drawn
+     * three times the size, `corner` reaches into the beam and is the obvious answer on screen.
+     */
+    private fun beamAndCorner(cornerScale: Float): FocusManager {
+        screen.box("here", 0f, 0f, 40f, 20f, Modifier.focusable())
+        screen.box("ahead", 200f, 0f, 40f, 20f, Modifier.focusable())
+        screen.box("corner", 100f, 30f, 40f, 20f, Modifier.focusable().scale(cornerScale))
+        return manager().also { it.focusOn(screen["here"]) }
+    }
+
+    @Test
+    fun `focus goes to what is drawn, not to what was laid out`() {
+        assertEquals("ahead", beamAndCorner(cornerScale = 1f).let {
+            it.moveFocus(FocusDirection.Right)
+            it.name()
+        })
+
+        screen.clear()
+
+        assertEquals("corner", beamAndCorner(cornerScale = 3f).let {
+            it.moveFocus(FocusDirection.Right)
+            it.name()
+        })
+    }
+
+    @Test
+    fun `a node scaled to nothing is never landed on`() {
+        screen.box("here", 0f, 0f, 40f, 20f, Modifier.focusable())
+        screen.box("gone", 100f, 0f, 40f, 20f, Modifier.focusable().scale(0f))
+        val focus = manager()
+        focus.focusOn(screen["here"])
+
+        assertFalse(focus.moveFocus(FocusDirection.Right), "nothing is drawn over there")
+        assertEquals("here", focus.name())
+    }
+
+    @Test
+    fun `a scroller is asked to reveal a rectangle in its own units`() {
+        var asked: Rect? = null
+        val panel = screen.box("panel", 0f, 0f, 100f, 100f, Modifier.scale(0.5f))
+        val scroller = screen.box(
+            "scroller", 0f, 0f, 100f, 100f,
+            Modifier.onReveal { asked = it; true },
+            parent = panel,
+        )
+        screen.box("item", 10f, 20f, 40f, 20f, Modifier.focusable(), parent = scroller)
+
+        manager(autoFocus = false).focusOn(screen["item"])
+
+        // Not the twenty-by-ten patch of screen it takes up inside a half-size panel: the rectangle
+        // the item occupies in the list, which is what a list can do anything with.
+        assertEquals(Rect.of(10f, 20f, 40f, 20f), asked)
     }
 }

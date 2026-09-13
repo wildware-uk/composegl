@@ -55,6 +55,13 @@ class ResolvedModifier private constructor(
     val weight: Float?,
     val alignment: Alignment?,
     val alpha: Float,
+    /**
+     * How much bigger or smaller this node is drawn than it was laid out. One for almost every
+     * node there has ever been; see [dev.wildware.composegl.ui.modifier.scale].
+     */
+    val scale: Float,
+    /** The point a [scale] leaves where it is, as a place inside the node. */
+    val scaleOrigin: Alignment,
     val clip: ClipElement?,
     /** The shaders this node is drawn through, in the order the chain wrote them. */
     val effects: List<ShaderEffect>,
@@ -113,6 +120,8 @@ class ResolvedModifier private constructor(
             var weight: Float? = null
             var alignment: Alignment? = null
             var alpha = 1f
+            var scale = 1f
+            var scaleOrigin = Alignment.Centre
             var clip: ClipElement? = null
             val effects = mutableListOf<ShaderEffect>()
             val behind = mutableListOf<PaintOp>()
@@ -147,6 +156,13 @@ class ResolvedModifier private constructor(
                     is WeightElement -> weight = element.weight
                     is AlignElement -> alignment = element.alignment
                     is AlphaElement -> alpha *= element.alpha.coerceIn(0f, 1f)
+                    // A quantity, like opacity: two scales on one node multiply, so a panel
+                    // arriving at 0.9 inside a fit correction of 0.8 is drawn at 0.72 rather than
+                    // silently losing one of them. Where it grows from is a choice, so later wins.
+                    is ScaleElement -> {
+                        scale *= element.factor
+                        scaleOrigin = element.origin
+                    }
                     is ClipElement -> clip = element
                     is EffectElement -> effects += element.effect
                     is BackgroundElement, is BorderElement, is ShadowElement,
@@ -170,7 +186,8 @@ class ResolvedModifier private constructor(
             }
 
             return ResolvedModifier(
-                size, fill, padding, offset, weight, alignment, alpha, clip, effects.toList(),
+                size, fill, padding, offset, weight, alignment, alpha, scale, scaleOrigin,
+                clip, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click,

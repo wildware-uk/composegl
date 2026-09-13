@@ -2,7 +2,6 @@ package dev.wildware.composegl.ui.input
 
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Offset
-import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.node.UiNode
 
 /**
@@ -176,25 +175,67 @@ class PointerRouter(
      */
     private fun candidatesUnder(point: Offset): List<UiNode> {
         val found = mutableListOf<UiNode>()
-        collect(root, Offset.Zero, point, found)
+        collect(root, 0f, 0f, 1f, point.x, point.y, found)
         return found
     }
 
-    private fun collect(node: UiNode, origin: Offset, point: Offset, into: MutableList<UiNode>) {
+    /**
+     * The walk itself, in bare floats.
+     *
+     * The one reader of root coordinates that does not go through
+     * [dev.wildware.composegl.ui.node.UiNode.boundsInRoot]: it is already coming down the tree, so
+     * it works the rectangles out as it goes rather than walking back up for each one. That means
+     * the scale has to be applied here too, the same way and with the same arithmetic, or a scaled
+     * button would be drawn in one place and found in another.
+     *
+     * [scale] is what every ancestor together does to this node — so a child's position and size
+     * are multiplied by it, measured from the corner its parent is actually drawn at.
+     *
+     * Floats rather than an [Offset] and a [Rect]: this runs over every node in the tree on every
+     * mouse move, and the pair of objects it used to make per node was two allocations a node for
+     * a pointer that had moved one pixel.
+     */
+    private fun collect(
+        node: UiNode,
+        originX: Float,
+        originY: Float,
+        scale: Float,
+        pointX: Float,
+        pointY: Float,
+        into: MutableList<UiNode>,
+    ) {
         val resolved = node.resolved
         // Invisible is untouchable, and it is the same test the draw pass makes, so what you
         // cannot see you cannot click.
         if (resolved.alpha <= 0f) return
 
-        val bounds = Rect.of(origin.x + node.x, origin.y + node.y, node.width, node.height)
+        var left = originX + node.x * scale
+        var top = originY + node.y * scale
+        var right = left + node.width * scale
+        var bottom = top + node.height * scale
+
+        // This node's own scale, about its own anchor — the same formula the draw pass composites
+        // with and the same one the upward walk uses. See Rect.scaledAbout.
+        val own = node.drawnScale
+        if (own != 1f) {
+            val anchorX = left + resolved.scaleOrigin.xIn(node.width, 0f) * scale
+            val anchorY = top + resolved.scaleOrigin.yIn(node.height, 0f) * scale
+            left = anchorX + (left - anchorX) * own
+            right = anchorX + (right - anchorX) * own
+            top = anchorY + (top - anchorY) * own
+            bottom = anchorY + (bottom - anchorY) * own
+        }
+
+        val inside = pointX >= left && pointX < right && pointY >= top && pointY < bottom
         // A clip is the one thing that stops the search early: nothing outside a clipping node is
         // drawn, so nothing outside it can be hit, children included.
-        if (resolved.clip != null && point !in bounds) return
+        if (resolved.clip != null && !inside) return
 
-        for (index in node.children.indices.reversed()) {
-            collect(node.children[index], bounds.topLeft, point, into)
+        val children = node.children
+        for (index in children.indices.reversed()) {
+            collect(children[index], left, top, scale * own, pointX, pointY, into)
         }
-        if (point in bounds && resolved.isInteractive) into += node
+        if (inside && resolved.isInteractive) into += node
     }
 
     /**
@@ -218,7 +259,9 @@ class PointerRouter(
     private fun deliver(node: UiNode, event: PointerEvent): Boolean {
         val handlers = node.resolved.handlers
         if (handlers.isEmpty()) return false
-        val local = event.movedTo(event.position - node.boundsInRoot.topLeft)
+        // In the node's own units, not in screen pixels: a handler on a node drawn at half size
+        // still thinks it is its full size, so a drag across it is the distance it looks like.
+        val local = event.movedTo(node.toLocal(event.position))
         return handlers.any { it.onPointer(local) }
     }
 

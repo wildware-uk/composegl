@@ -275,6 +275,20 @@ interface UiCanvas {
     fun layer(bounds: Rect, block: () -> Unit): TextureHandle? = null
 
     /**
+     * Whether [layer] draws anything at all on this canvas.
+     *
+     * Worth asking before a screen commits to something built on offscreen pictures — a panel that
+     * arrives by scaling, a group that fades as one object — so it can choose a different animation
+     * rather than find out by having nothing happen. Same shape as [rotatesImages] and
+     * [supports]: a question with an honest default.
+     *
+     * It answers "can this canvas make pictures", not "can it make one that big". A picture over
+     * 4096 screen pixels a side is refused by both backends here however this answers, so a
+     * subtree that must scale should be viewport-sized rather than laid out bigger than the screen.
+     */
+    val drawsLayers: Boolean get() = false
+
+    /**
      * Draws a picture that [layer] made, filling [destination], optionally through a shader.
      *
      * Its own call rather than [image] because the colours in a layer are already multiplied by
