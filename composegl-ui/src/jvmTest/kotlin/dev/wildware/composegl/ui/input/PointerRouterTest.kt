@@ -6,10 +6,12 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.RecordingCanvas
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.clip
+import dev.wildware.composegl.ui.modifier.hitShape
 import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.scale
@@ -440,5 +442,106 @@ class PointerRouterTest {
         release(20f, 10f)
 
         assertEquals(0, clicks)
+    }
+
+    // --- shapes that are not rectangles -------------------------------------------------------
+
+    @Test
+    fun `a shape narrows the rectangle to the part the node really covers`() {
+        screen.box(
+            "button", 0f, 0f, 40f, 20f,
+            Modifier.hitShape { it.x >= 20f }.clickable { clicks += 1 },
+        )
+
+        press(10f, 10f)
+        release(10f, 10f)
+        assertEquals(0, clicks, "the rectangle contains that point but the shape gives it up")
+
+        press(30f, 10f)
+        release(30f, 10f)
+        assertEquals(1, clicks, "and keeps the half it does claim")
+    }
+
+    @Test
+    fun `a corner a shape gives up belongs to whatever is underneath`() {
+        screen.box("under", 0f, 0f, 50f, 50f, Modifier.clickable { clicks += 1 })
+        screen.box(
+            "over", 0f, 0f, 50f, 50f,
+            Modifier.hitShape { !(it.x < 25f && it.y < 25f) }.clickable { clicks += 10 },
+        )
+
+        press(5f, 5f)
+        release(5f, 5f)
+        assertEquals(1, clicks, "the node on top does not claim its top-left quarter")
+
+        press(40f, 40f)
+        release(40f, 40f)
+        assertEquals(11, clicks, "and is still on top everywhere else")
+    }
+
+    @Test
+    fun `a shape is asked in the node's own units, whatever is scaling it`() {
+        // 40 wide, drawn at twice that from its top-left corner, so the screen is two node units
+        // to the pixel and the shape's own halfway line lands at 40 rather than at 20.
+        screen.box(
+            "button", 0f, 0f, 40f, 20f,
+            Modifier.scale(2f, Alignment.TopStart).hitShape { it.x >= 20f }
+                .clickable { clicks += 1 },
+        )
+
+        press(30f, 10f)
+        release(30f, 10f)
+        assertEquals(0, clicks, "15 across in the node's own units, which the shape gives up")
+
+        press(50f, 10f)
+        release(50f, 10f)
+        assertEquals(1, clicks, "25 across, which it claims")
+    }
+
+    @Test
+    fun `a shape on a panel does not take its children with it`() {
+        val panel = screen.box(
+            "panel", 0f, 0f, 100f, 100f,
+            Modifier.hitShape { false }.clickable { clicks += 1 },
+        )
+        screen.box("button", 10f, 10f, 20f, 20f, Modifier.clickable { clicks += 10 }, parent = panel)
+
+        press(15f, 15f)
+        release(15f, 15f)
+        assertEquals(10, clicks, "a shape is not a clip: it speaks for its own node and no other")
+
+        press(60f, 60f)
+        release(60f, 60f)
+        assertEquals(10, clicks, "and the panel itself claims nothing anywhere")
+    }
+
+    @Test
+    fun `two shapes on one node are two answers, so the later one wins`() {
+        screen.box(
+            "button", 0f, 0f, 40f, 20f,
+            Modifier.hitShape { false }.hitShape { true }.clickable { clicks += 1 },
+        )
+
+        press(20f, 10f)
+        release(20f, 10f)
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun `an ancestor is hovered only where it would have been clicked`() {
+        val panel = InteractionState()
+        val button = InteractionState()
+        val outer = screen.box(
+            "panel", 0f, 0f, 100f, 100f,
+            Modifier.interaction(panel).hitShape { it.x >= 50f },
+        )
+        screen.box("button", 10f, 10f, 20f, 20f, Modifier.interaction(button), parent = outer)
+
+        move(15f, 15f)
+        assertTrue(button.isHovered, "the button is a node of its own and has no shape")
+        assertFalse(panel.isHovered, "but the pointer is on a part of the panel it gives up")
+
+        move(60f, 60f)
+        assertTrue(panel.isHovered, "and on a part it claims, it is hovered like anything else")
     }
 }
