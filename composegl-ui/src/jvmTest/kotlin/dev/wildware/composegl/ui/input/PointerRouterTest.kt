@@ -544,4 +544,39 @@ class PointerRouterTest {
         move(60f, 60f)
         assertTrue(panel.isHovered, "and on a part it claims, it is hovered like anything else")
     }
+
+    @Test
+    fun `letting go on a corner the node gave up is a change of mind, not a click`() {
+        val state = InteractionState()
+        screen.box(
+            "button", 0f, 0f, 40f, 20f,
+            Modifier.interaction(state).hitShape { it.x >= 20f }.clickable { clicks += 1 },
+        )
+
+        press(30f, 10f)
+        assertTrue(state.isPressed)
+
+        move(10f, 10f, setOf(PointerButton.Primary))
+        assertFalse(state.isPressed, "still in the rectangle, but on a point the node gave up")
+
+        release(10f, 10f)
+        assertEquals(0, clicks, "so letting go there is wandering off, like any other drag away")
+    }
+
+    @Test
+    fun `coming back onto a part the node claims presses it again and clicks`() {
+        val state = InteractionState()
+        screen.box(
+            "button", 0f, 0f, 40f, 20f,
+            Modifier.interaction(state).hitShape { it.x >= 20f }.clickable { clicks += 1 },
+        )
+
+        press(30f, 10f)
+        move(10f, 10f, setOf(PointerButton.Primary))
+        move(35f, 10f, setOf(PointerButton.Primary))
+        assertTrue(state.isPressed, "back on a part it claims")
+
+        release(35f, 10f)
+        assertEquals(1, clicks)
+    }
 }
