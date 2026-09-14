@@ -7,6 +7,10 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.text.TextOutline
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * Everything the toolkit can draw, and the whole of what a backend must implement.
@@ -206,6 +210,95 @@ interface UiCanvas {
      */
     fun fan(points: FloatArray, colour: Colour)
 
+    /**
+     * A filled circle, or a regular polygon when [segments] says so.
+     *
+     * Walked onto [fan] here rather than asked of the backend, because the only thing that knows
+     * how smooth a circle has to be is the place that knows how big it is being drawn - and that
+     * is this call, not the renderer. A backend that has a real circle primitive is free to
+     * override this; every other backend gets one for nothing.
+     *
+     * [segments] of zero picks a count from the radius: roughly one segment per two units of
+     * circumference, held between 8 and 180, which is smooth at a badge's size and not wasteful at
+     * a dot's.
+     */
+    fun circle(centre: Offset, radius: Float, colour: Colour, segments: Int = 0) {
+        if (radius <= 0f) return
+        arc(centre, radius, startDegrees = 0f, sweepDegrees = 360f, colour = colour, segments = segments)
+    }
+
+    /**
+     * A filled wedge: the slice of a circle between two angles, with its point at [centre].
+     *
+     * Angles are degrees clockwise from three o'clock, which is clockwise *on screen* because
+     * these are design coordinates and y grows downwards. A countdown that empties clockwise is
+     * therefore a negative [sweepDegrees], and a full turn in either direction is a circle.
+     *
+     * This is the shape a radial timer, a cooldown shade and a pie slice are all made of.
+     */
+    fun arc(
+        centre: Offset,
+        radius: Float,
+        startDegrees: Float,
+        sweepDegrees: Float,
+        colour: Colour,
+        segments: Int = 0,
+    ) {
+        if (radius <= 0f || sweepDegrees == 0f) return
+        val span = sweepDegrees.coerceIn(-360f, 360f)
+        val steps = arcSteps(radius, span, segments)
+        // Hub first: fan() shares the first point across every triangle, which is exactly a wedge.
+        val points = FloatArray((steps + 2) * 2)
+        points[0] = centre.x
+        points[1] = centre.y
+        val startRadians = startDegrees * PI_OVER_180
+        val stepRadians = span * PI_OVER_180 / steps
+        for (i in 0..steps) {
+            val angle = startRadians + stepRadians * i
+            points[(i + 1) * 2] = centre.x + cos(angle) * radius
+            points[(i + 1) * 2 + 1] = centre.y + sin(angle) * radius
+        }
+        fan(points, colour)
+    }
+
+    /**
+     * A straight line of a given thickness, as a filled quad.
+     *
+     * A line rather than a rectangle because the interesting ones are not axis-aligned: a
+     * connector between two cells, a needle, the stroke under a word that follows the word.
+     * Nothing is drawn for a line of no length or no width.
+     */
+    fun line(from: Offset, to: Offset, width: Float, colour: Colour) {
+        if (width <= 0f) return
+        val dx = to.x - from.x
+        val dy = to.y - from.y
+        val length = sqrt(dx * dx + dy * dy)
+        if (length <= 0f) return
+        // The perpendicular, half a width long, is the offset from the centreline to each edge.
+        val halfX = -dy / length * (width / 2f)
+        val halfY = dx / length * (width / 2f)
+        fan(
+            floatArrayOf(
+                from.x + halfX, from.y + halfY,
+                to.x + halfX, to.y + halfY,
+                to.x - halfX, to.y - halfY,
+                from.x - halfX, from.y - halfY,
+            ),
+            colour,
+        )
+    }
+
+    /**
+     * A filled convex polygon through [points], given as x, y, x, y… in design coordinates.
+     *
+     * Convex is the contract, and it is [fan]'s contract rather than an extra restriction: a fan
+     * shares its first point across every triangle, so a shape that turns back on itself comes out
+     * with its dents filled in. Split a concave outline into convex pieces and draw each.
+     *
+     * Fewer than three points draws nothing, as [fan] already says.
+     */
+    fun polygon(points: FloatArray, colour: Colour) = fan(points, colour)
+
     /** Nothing outside [rect] is drawn until the matching [popClip]. Nests by intersection. */
     fun pushClip(rect: Rect)
 
@@ -377,6 +470,24 @@ interface UiCanvas {
      * does not otherwise publish, and the case it differs in is the one nobody thinks to test.
      */
     fun rawY(y: Float): Float = y
+
+    private companion object {
+
+        const val PI_OVER_180 = 0.017453292f
+
+        /**
+         * How many straight pieces a curve of this size is worth.
+         *
+         * Proportional to the arc's own length rather than to the angle, so a small dial and a
+         * large one are both drawn to about the same smoothness per unit on screen, and a sliver
+         * of a big circle does not cost what the whole circle would.
+         */
+        fun arcSteps(radius: Float, sweepDegrees: Float, asked: Int): Int {
+            if (asked > 0) return asked
+            val length = abs(sweepDegrees) * PI_OVER_180 * radius
+            return (length / 2f).toInt().coerceIn(8, 180)
+        }
+    }
 
     /**
      * How many times this canvas has handed work to the GPU since the frame began, or -1 when the

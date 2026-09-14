@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Padding
+import dev.wildware.composegl.ui.graphics.BlendMode
 
 /**
  * One thing to paint, and how far in from the node's edge it is painted.
@@ -69,6 +70,11 @@ class ResolvedModifier private constructor(
     val rotation: Float,
     /** The point a [rotation] turns about, as a place inside the node. */
     val rotationOrigin: Alignment,
+    /**
+     * The blend function this node and its subtree are drawn with. [BlendMode.SourceOver] for
+     * almost every node there has ever been; see [dev.wildware.composegl.ui.modifier.blend].
+     */
+    val blend: BlendMode,
     val clip: ClipElement?,
     /**
      * Which points inside the node's rectangle are its own, or null for all of them, which is
@@ -132,6 +138,7 @@ class ResolvedModifier private constructor(
             var weight: Float? = null
             var alignment: Alignment? = null
             var alpha = 1f
+            var blend = BlendMode.SourceOver
             var scale = 1f
             var scaleOrigin = Alignment.Centre
             var rotation = 0f
@@ -171,6 +178,10 @@ class ResolvedModifier private constructor(
                     is WeightElement -> weight = element.weight
                     is AlignElement -> alignment = element.alignment
                     is AlphaElement -> alpha *= element.alpha.coerceIn(0f, 1f)
+                    // A choice rather than a quantity: two blend functions on one node are two
+                    // answers to the same question, so the later one is the answer. Nesting still
+                    // works, because an inner node resolves its own and the canvas stacks them.
+                    is BlendElement -> blend = element.mode
                     // A quantity, like opacity: two scales on one node multiply, so a panel
                     // arriving at 0.9 inside a fit correction of 0.8 is drawn at 0.72 rather than
                     // silently losing one of them. Where it grows from is a choice, so later wins.
@@ -213,7 +224,7 @@ class ResolvedModifier private constructor(
             return ResolvedModifier(
                 size, fill, padding, offset, weight, alignment, alpha, scale, scaleOrigin,
                 rotation, rotationOrigin,
-                clip, hitShape, effects.toList(),
+                blend, clip, hitShape, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click,

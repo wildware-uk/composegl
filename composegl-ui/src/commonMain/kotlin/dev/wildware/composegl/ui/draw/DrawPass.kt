@@ -15,6 +15,7 @@ import dev.wildware.composegl.ui.modifier.PaintOp
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.modifier.ShadowElement
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.graphics.BlendMode
 
 /**
  * The other half of a frame: a laid-out tree turned into drawing.
@@ -66,6 +67,13 @@ class DrawPass(val canvas: UiCanvas) {
         val faded = resolved.alpha < 1f
         if (faded) canvas.pushAlpha(resolved.alpha)
 
+        // Inside the fade rather than outside it: the opacity says how much of this node reaches
+        // the picture, and the blend function says how what reaches it is combined with what is
+        // already there. Asked of the canvas first, because a backend is allowed not to have one
+        // and drawing the ordinary way is the right answer when it does not.
+        val blended = resolved.blend != BlendMode.SourceOver && canvas.supports(resolved.blend)
+        if (blended) canvas.pushBlend(resolved.blend)
+
         // Where a scale grows or shrinks from, in the coordinates the node is drawn in. Alignment
         // with a child of no width is the anchor itself: the left edge, the middle, or the right.
         val scale = resolved.scale
@@ -80,6 +88,7 @@ class DrawPass(val canvas: UiCanvas) {
             turned(node, resolved, bounds, scale, anchorX, anchorY)
         }
 
+        if (blended) canvas.popBlend()
         if (faded) canvas.popAlpha()
     }
 
