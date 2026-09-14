@@ -62,6 +62,33 @@ fun LeafLayout(
     name: String = "leaf",
     measurePolicy: MeasurePolicy = MeasurePolicy.Empty,
     draw: (UiCanvas.(Rect) -> Unit)? = null,
+) = LeafLayout(modifier, name, measurePolicy, draw, ink = null)
+
+/**
+ * The same, for a leaf whose ink does not fill the box it was given.
+ *
+ * [ink] is handed the content box and answers with the part of it this leaf really paints, or null
+ * for "nothing this frame". Text is the case it exists for: a text node's box is a line box and the
+ * glyphs sit in a smaller rectangle inside it, and only the widget knows by how much. Everything
+ * else can leave it alone — a leaf with no [ink] is taken to have filled its box, which is true of
+ * a picture, a nine-patch and a bar.
+ *
+ * It changes nothing about drawing. It is what [dev.wildware.composegl.ui.node.UiNode.paintedInRoot]
+ * reads, so that a caller asking what a subtree painted gets the glyphs rather than the line boxes.
+ *
+ * @see dev.wildware.composegl.ui.node.UiNode.ink
+ */
+// A second function rather than a fifth defaulted parameter on the one above, for the reason the
+// Text overloads record: a defaulted parameter added to a published function changes its signature,
+// so a game compiled against the version before it would fail to link. `ink` has no default here,
+// which is what keeps the two apart.
+@Composable
+fun LeafLayout(
+    modifier: Modifier = Modifier,
+    name: String = "leaf",
+    measurePolicy: MeasurePolicy = MeasurePolicy.Empty,
+    draw: (UiCanvas.(Rect) -> Unit)? = null,
+    ink: ((Rect) -> Rect?)?,
 ) {
     ComposeNode<UiNode, UiApplier>(
         factory = { UiNode() },
@@ -70,6 +97,7 @@ fun LeafLayout(
             set(modifier) { this.modifier = it }
             set(measurePolicy) { this.measurePolicy = it }
             set(draw) { this.content = it }
+            set(ink) { this.ink = it }
         },
     )
 }

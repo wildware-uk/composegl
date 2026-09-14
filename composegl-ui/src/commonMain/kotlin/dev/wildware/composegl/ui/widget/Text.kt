@@ -157,7 +157,7 @@ fun Text(
     // The caller's modifier last, so their own offset adds to this rather than being replaced by it.
     val placed = if (lift == 0f) modifier else Modifier.offset(y = -lift).then(modifier)
 
-    LeafLayout(modifier = placed, name = "text", measurePolicy = painter, draw = painter.draw)
+    LeafLayout(modifier = placed, name = "text", measurePolicy = painter, draw = painter.draw, ink = painter.ink)
 }
 
 /**
@@ -210,6 +210,31 @@ private class TextPainter(
         }.coerceAtLeast(0f)
 
         return layout(width, constraints.constrainHeight(block.size.height)) {}
+    }
+
+    /**
+     * The glyphs, rather than the line boxes they sit in.
+     *
+     * A line box is the ascent, the descent and whatever leading the style asks for; the letters
+     * occupy `ascent + descent` of that, starting at the first baseline less the ascent. Over
+     * several lines the last line's descent is the bottom, so the leading under it is not counted.
+     *
+     * Horizontally it is the measured width, shifted the same way the drawing is — which for a
+     * centred or end-aligned block is not the left edge of the box.
+     *
+     * Asked for only by [dev.wildware.composegl.ui.node.UiNode.paintedInRoot], never per frame.
+     */
+    val ink: (Rect) -> Rect? = { box ->
+        measured?.let { block ->
+            val metrics = fonts.metrics(style)
+            val lastBaseline = block.firstBaseline + (block.lineCount - 1) * style.lineHeight
+            Rect(
+                left = box.left + shift,
+                top = box.top + block.firstBaseline - metrics.ascent,
+                right = box.left + shift + block.size.width,
+                bottom = box.top + lastBaseline + metrics.descent,
+            )
+        }
     }
 
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
