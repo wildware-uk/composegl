@@ -11,6 +11,7 @@ import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.NodeMeasureScope
 import dev.wildware.composegl.ui.layout.NodePlaceable
 import dev.wildware.composegl.ui.layout.OnceMeasurable
+import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
@@ -89,6 +90,43 @@ class UiNode(var name: String = "node") {
             field = value
             invalidate()
         }
+
+    /**
+     * Where inside its content box this node's [content] really puts ink, or null when the answer
+     * is "all of it".
+     *
+     * The rectangle handed in is the same content box [content] is given, and the answer is in
+     * those same coordinates. Null back means this node drew nothing at all — a widget whose
+     * content is empty this frame.
+     *
+     * Here because for text the two rectangles are not the same and only the widget knows the
+     * difference. A text node's box is a *line* box: line height, plus whatever insets turn a line
+     * box into a label box. The glyphs inside it occupy a smaller rectangle, and where that
+     * rectangle sits depends on the face's ascent and descent. Anything drawing a frame round
+     * composed content — a debug overlay, a focus ring that should hug the letters, a containment
+     * assertion in a test, a screenshot cropper — needs the second rectangle, and working it out
+     * from outside means measuring everything a second time with the same style and keeping the
+     * duplicate in step for ever.
+     *
+     * A node that leaves this null and has [content] is taken to have painted its whole content
+     * box, which is true of every widget that is not text. See [paintedInRoot].
+     */
+    var ink: ((Rect) -> Rect?)? = null
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    /**
+     * Whether layout has ever given this node a rectangle.
+     *
+     * Only [paintedInRoot] reads it, to tell "drew nothing" from "has not been laid out yet" — two
+     * answers a caller has to be able to separate and that a zero-sized rectangle at the origin
+     * cannot. Ever rather than this frame: a node measured last frame and skipped this one is laid
+     * out, and its rectangle is the one it still has.
+     */
+    internal var everMeasured = false
 
     // --- what the layout pass uses again every frame ---
     //
@@ -195,42 +233,115 @@ class UiNode(var name: String = "node") {
      *
      * See [layoutBoundsInRoot] for the rectangle before any scaling.
      */
-    val boundsInRoot: Rect
-        get() {
-            // The node's own box in its own coordinates, carried up a level at a time: scaled about
-            // this level's anchor, then moved into the parent's box, then scaled about the parent's
-            // anchor, and so on. Four floats, one Rect at the end — the same allocation count as
-            // the plain sum was, and the multiplies only happen where something actually scales.
-            //
-            // This is Rect.scaledAbout written out rather than called: calling it would make a
-            // Rect per level of the tree, and hit testing and focus ask this of a lot of nodes.
-            // DrawPassTest's `where a scaled node is drawn is where it says it is` is what keeps
-            // the copies honest.
-            var left = 0f
-            var top = 0f
-            var right = width
-            var bottom = height
-            var node: UiNode? = this
-            while (node != null) {
-                val factor = node.drawnScale
-                if (factor != 1f) {
-                    // Alignment with a child of no width is the anchor itself: 0, half, or all of
-                    // the node's width.
-                    val anchorX = node.resolved.scaleOrigin.xIn(node.width, 0f)
-                    val anchorY = node.resolved.scaleOrigin.yIn(node.height, 0f)
-                    left = anchorX + (left - anchorX) * factor
-                    right = anchorX + (right - anchorX) * factor
-                    top = anchorY + (top - anchorY) * factor
-                    bottom = anchorY + (bottom - anchorY) * factor
-                }
-                left += node.x
-                right += node.x
-                top += node.y
-                bottom += node.y
-                node = node.parent
+    val boundsInRoot: Rect get() = inRoot(0f, 0f, width, height)
+
+    /**
+     * A rectangle written in this node's own coordinates, in the root's.
+     *
+     * The walk [boundsInRoot] is: carried up a level at a time, scaled about this level's anchor,
+     * then moved into the parent's box, then scaled about the parent's anchor, and so on. Four
+     * floats, one Rect at the end — the same allocation count as the plain sum was, and the
+     * multiplies only happen where something actually scales.
+     *
+     * This is `Rect.scaledAbout` written out rather than called: calling it would make a Rect per
+     * level of the tree, and hit testing and focus ask this of a lot of nodes. `DrawPassTest`'s
+     * `where a scaled node is drawn is where it says it is` is what keeps the copies honest.
+     */
+    private fun inRoot(startLeft: Float, startTop: Float, startRight: Float, startBottom: Float): Rect {
+        var left = startLeft
+        var top = startTop
+        var right = startRight
+        var bottom = startBottom
+        var node: UiNode? = this
+        while (node != null) {
+            val factor = node.drawnScale
+            if (factor != 1f) {
+                // Alignment with a child of no width is the anchor itself: 0, half, or all of
+                // the node's width.
+                val anchorX = node.resolved.scaleOrigin.xIn(node.width, 0f)
+                val anchorY = node.resolved.scaleOrigin.yIn(node.height, 0f)
+                left = anchorX + (left - anchorX) * factor
+                right = anchorX + (right - anchorX) * factor
+                top = anchorY + (top - anchorY) * factor
+                bottom = anchorY + (bottom - anchorY) * factor
             }
-            return Rect(left, top, right, bottom)
+            left += node.x
+            right += node.x
+            top += node.y
+            bottom += node.y
+            node = node.parent
         }
+        return Rect(left, top, right, bottom)
+    }
+
+    /**
+     * What this node and everything under it actually **painted**, in the root's coordinates, or
+     * null if it painted nothing.
+     *
+     * Not the same question as [boundsInRoot], and the difference is the point. That one is where
+     * the nodes *are*; this one is where the ink is. For most nodes they are the same rectangle.
+     * For text they are not — a text node's box is a line box and the glyphs sit in a smaller
+     * rectangle inside it — and for a bare `Box` used only to arrange other things the honest
+     * answer is nothing at all rather than its own rectangle.
+     *
+     * That last part is what separates this from unioning [boundsInRoot] over a subtree, which
+     * over-reports by roughly the leading plus the descent. Small enough to look like a rounding
+     * bug, big enough to fail a strict containment check.
+     *
+     * What counts as painting:
+     *
+     * - anything the chain put behind or in front — a background, a border, a shadow, a nine-patch,
+     *   a `drawBehind` — contributes the rectangle it was painted into, insets and all;
+     * - a node with [content] contributes what [ink] says, or its whole content box when [ink] says
+     *   nothing, which is right for every widget that is not text;
+     * - a node with neither contributes nothing, and is not a reason for its parent to report one.
+     *
+     * A scale folds in here exactly as it does for [boundsInRoot], so this is drawn pixels rather
+     * than laid-out ones.
+     *
+     * Null for a node no layout pass has reached yet, which is a different answer from "drew
+     * nothing" and has to be told apart from it.
+     */
+    val paintedInRoot: Rect?
+        get() {
+            if (!everMeasured) return null
+            var painted = ownPaint()
+            val children = this.children
+            for (index in children.indices) {
+                val under = children[index].paintedInRoot ?: continue
+                painted = painted?.union(under) ?: under
+            }
+            return painted
+        }
+
+    /** What this node itself put on the canvas, ignoring its children, in the root's coordinates. */
+    private fun ownPaint(): Rect? {
+        val resolved = this.resolved
+        // A paint op is painted into the node's rectangle less its own inset, which is what makes
+        // `padding(8f).background(blue)` and `background(blue).padding(8f)` different pictures.
+        var painted: Rect? = null
+        val behind = resolved.behind
+        for (index in behind.indices) painted = painted.grownBy(opRect(behind[index].inset))
+        val inFront = resolved.inFront
+        for (index in inFront.indices) painted = painted.grownBy(opRect(inFront[index].inset))
+
+        if (content != null) {
+            val padding = resolved.padding
+            val box = Rect(padding.left, padding.top, width - padding.right, height - padding.bottom)
+            // Null from `ink` is a widget saying it drew nothing this frame, which is not the same
+            // as having no ink function at all — that means "wherever you put me, I filled it".
+            val declared = ink
+            val drawn = if (declared == null) box else declared(box)
+            if (drawn != null) painted = painted.grownBy(inRoot(drawn.left, drawn.top, drawn.right, drawn.bottom))
+        }
+        return painted
+    }
+
+    /** Where one paint op landed, in the root's coordinates: this node's box less the op's inset. */
+    private fun opRect(inset: Padding) =
+        inRoot(inset.left, inset.top, width - inset.right, height - inset.bottom)
+
+    private fun Rect?.grownBy(other: Rect) = this?.union(other) ?: other
 
     /**
      * Where layout put this node in the root's coordinates, before any scaling.

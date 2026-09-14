@@ -112,6 +112,20 @@ data class Rect(val left: Float, val top: Float, val right: Float, val bottom: F
 
     fun overlaps(other: Rect): Boolean = !intersect(other).isEmpty
 
+    /**
+     * The smallest rectangle holding both.
+     *
+     * Unlike [intersect] this does not ask whether either side is empty, so a zero-width rectangle
+     * still pulls the answer out to reach it. That is what a caller gathering the extent of several
+     * things wants: a line of no thickness was still drawn somewhere.
+     */
+    fun union(other: Rect) = Rect(
+        minOf(left, other.left),
+        minOf(top, other.top),
+        maxOf(right, other.right),
+        maxOf(bottom, other.bottom),
+    )
+
     companion object {
         val Zero = Rect(0f, 0f, 0f, 0f)
 

@@ -69,7 +69,20 @@ Layout does not move, so a panel arriving does not shove its neighbours and a fi
 correction does not re-flow what is inside it. Clicks and pad focus *do* move:
 `boundsInRoot` reports where the widget is drawn, so a button drawn at twice the
 size is clickable at twice the size. `layoutBoundsInRoot` is the rectangle before
-any scaling, for the code that wants the slot rather than the pixels.
+any scaling, for the code that wants the slot rather than the pixels. And
+`paintedInRoot` is a third question again — what the subtree actually *painted*,
+scaling folded in, which for text is the glyphs rather than the line box and for a
+bare `Box` used only for layout is nothing at all:
+
+```kotlin
+val ink = node.paintedInRoot          // null: it drew nothing, or has not been laid out
+```
+
+Reach for it when something has to frame composed content — a debug overlay, a
+focus ring that should hug the letters, a screenshot cropper, a containment
+assertion in a test. Using the node box for any of those over-reports by roughly
+the leading plus the descent: small enough to look like a rounding bug, big enough
+to fail a strict check.
 
 A few things to know. It magnifies a picture, so past about 1.15 it is visibly
 soft and text is soft sooner — a world that wants to be crisp at three times the

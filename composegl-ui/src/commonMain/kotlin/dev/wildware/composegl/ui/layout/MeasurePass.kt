@@ -40,6 +40,7 @@ class MeasurePass {
         // once each, per node, every frame.
         node.width = outer.constrainWidth(result.width + padding.horizontal)
         node.height = outer.constrainHeight(result.height + padding.vertical)
+        node.everMeasured = true
 
         // Children are placed now, in this node's coordinates. Where *this* node ends up is its
         // parent's business and does not change any of them.

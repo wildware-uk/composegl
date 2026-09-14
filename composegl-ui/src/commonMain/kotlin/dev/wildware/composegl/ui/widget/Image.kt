@@ -63,7 +63,7 @@ fun Image(
     // calls later by a backend that can only tell you it did not make this texture.
     refuseNineRegions(texture)
     val painter = remember(texture, fit, tint, alignment) { ImagePainter(texture, fit, tint, alignment) }
-    LeafLayout(modifier = modifier, name = "image", measurePolicy = painter, draw = painter.draw)
+    LeafLayout(modifier = modifier, name = "image", measurePolicy = painter, draw = painter.draw, ink = painter.ink)
 }
 
 /**
@@ -104,6 +104,19 @@ private class ImagePainter(
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
         val (destination, source) = fitInto(bounds, texture.width.toFloat(), texture.height.toFloat(), fit, alignment)
         if (!destination.isEmpty) image(texture, destination, tint, source)
+    }
+
+    /**
+     * Where the picture really landed, which for every fit but [ImageFit.Stretch] and
+     * [ImageFit.Cover] is smaller than the box: a portrait picture in a square box leaves a bar
+     * down each side, and nothing is painted there.
+     *
+     * The same call the drawing makes, so the two cannot drift.
+     */
+    val ink: (Rect) -> Rect? = { bounds ->
+        val destination =
+            fitInto(bounds, texture.width.toFloat(), texture.height.toFloat(), fit, alignment).first
+        destination.takeIf { !it.isEmpty }
     }
 }
 
