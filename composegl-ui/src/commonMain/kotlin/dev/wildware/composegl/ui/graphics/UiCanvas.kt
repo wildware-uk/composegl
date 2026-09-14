@@ -309,6 +309,46 @@ interface UiCanvas {
         image(layer, destination)
 
     /**
+     * The same picture, turned clockwise by [degrees] about a pivot given as a fraction of
+     * [destination] — (0.5, 0.5) is its middle, (0, 0) its top-left corner.
+     *
+     * What `Modifier.rotate` is composited with. Its own overload rather than a parameter on the
+     * call above so that a backend written before rotation existed keeps working: the default body
+     * draws the picture upright, in the right place and at the right size, which is the nearest
+     * honest thing a canvas that cannot turn one can do.
+     *
+     * **[destination] is the box before turning.** The pixels can fall well outside it, so it is
+     * not a bound on what gets painted — the same warning [image] carries, and for the same
+     * reason. Ask [turnsLayers] first if drawing it unturned would be worse than not drawing it.
+     *
+     * Blending and opacity are [drawLayer]'s, not [image]'s: the colours in a layer are already
+     * multiplied by their own opacity and a backend has to composite them differently.
+     *
+     * No shader here, unlike the call above. A turned effect is the shader's answer turned, which
+     * is a second picture, so whoever wants both takes the second picture deliberately rather than
+     * having this call take one quietly.
+     */
+    fun drawLayer(
+        layer: TextureHandle,
+        destination: Rect,
+        degrees: Float,
+        pivotX: Float = 0.5f,
+        pivotY: Float = 0.5f,
+    ) = drawLayer(layer, destination)
+
+    /**
+     * Whether the [drawLayer] overload that takes an angle really turns the picture.
+     *
+     * False means it composites it upright instead — nothing vanishes and nothing throws, so a
+     * turned subtree is drawn straight rather than not at all. Same shape as [rotatesImages],
+     * [drawsLayers] and [supports]: a question with an honest default.
+     *
+     * Separate from [rotatesImages] because they are different calls with different blending, and
+     * a backend can perfectly well manage one and not the other.
+     */
+    val turnsLayers: Boolean get() = false
+
+    /**
      * The backend's own drawing object, for whatever this interface does not cover — a shader, a
      * particle system, a mesh, a game's existing render code.
      *

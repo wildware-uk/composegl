@@ -62,6 +62,13 @@ class ResolvedModifier private constructor(
     val scale: Float,
     /** The point a [scale] leaves where it is, as a place inside the node. */
     val scaleOrigin: Alignment,
+    /**
+     * How far clockwise this node is turned as it is drawn, in degrees. Zero for almost every node
+     * there has ever been; see [dev.wildware.composegl.ui.modifier.rotate].
+     */
+    val rotation: Float,
+    /** The point a [rotation] turns about, as a place inside the node. */
+    val rotationOrigin: Alignment,
     val clip: ClipElement?,
     /**
      * Which points inside the node's rectangle are its own, or null for all of them, which is
@@ -127,6 +134,8 @@ class ResolvedModifier private constructor(
             var alpha = 1f
             var scale = 1f
             var scaleOrigin = Alignment.Centre
+            var rotation = 0f
+            var rotationOrigin = Alignment.Centre
             var clip: ClipElement? = null
             var hitShape: ((Offset) -> Boolean)? = null
             val effects = mutableListOf<ShaderEffect>()
@@ -169,6 +178,13 @@ class ResolvedModifier private constructor(
                         scale *= element.factor
                         scaleOrigin = element.origin
                     }
+                    // An angle, like padding: two rotations on one node add, so a resting tilt
+                    // and an animated one on the same node are both there. Where it turns about is
+                    // a choice, so later wins.
+                    is RotateElement -> {
+                        rotation += element.degrees
+                        rotationOrigin = element.origin
+                    }
                     is ClipElement -> clip = element
                     // A choice rather than a quantity, like an alignment: two shapes on one node
                     // are two answers to the same question, so the later one is the answer.
@@ -196,6 +212,7 @@ class ResolvedModifier private constructor(
 
             return ResolvedModifier(
                 size, fill, padding, offset, weight, alignment, alpha, scale, scaleOrigin,
+                rotation, rotationOrigin,
                 clip, hitShape, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),

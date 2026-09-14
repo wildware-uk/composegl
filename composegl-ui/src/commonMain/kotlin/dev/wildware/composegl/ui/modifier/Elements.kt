@@ -79,6 +79,19 @@ data class ScaleElement(
     }
 }
 
+/** @see dev.wildware.composegl.ui.modifier.rotate */
+data class RotateElement(
+    val degrees: Float,
+    val origin: Alignment = Alignment.Centre,
+) : Modifier.Element {
+    init {
+        // Any angle at all is meaningful, including a negative one and one past a full turn, so
+        // the only things refused here are the two that are not angles.
+        require(!degrees.isNaN()) { "a rotation cannot be NaN" }
+        require(!degrees.isInfinite()) { "a rotation cannot be infinite, was $degrees" }
+    }
+}
+
 /** @see dev.wildware.composegl.ui.modifier.effect */
 data class EffectElement(val effect: ShaderEffect) : Modifier.Element
 
@@ -339,6 +352,55 @@ fun Modifier.alpha(alpha: Float) = then(AlphaElement(alpha))
  */
 fun Modifier.scale(factor: Float, origin: Alignment = Alignment.Centre) =
     then(ScaleElement(factor, origin))
+
+/**
+ * Turns this node and everything under it, clockwise, by [degrees].
+ *
+ * Built the same way [scale] is: the subtree is drawn into an offscreen picture at the size and
+ * angle it was laid out, and that picture is put down turned. So nothing inside knows it is
+ * happening — no angle threaded through the walk, no text asked for a rotated font — and a card
+ * leaning as it is dealt costs the same as one lying flat.
+ *
+ * ```kotlin
+ * Card(Modifier.rotate(lean * 8f)) { … }   // a dealt card leaning as it flies
+ * Needle(Modifier.rotate(heading, origin = Alignment.BottomCentre))
+ * ```
+ *
+ * **Clicks do not follow it.** This is the one way it differs from [scale], and it is deliberate
+ * rather than pending: hit testing, focus and
+ * [dev.wildware.composegl.ui.node.UiNode.boundsInRoot] all work in rectangles, and a turned
+ * rectangle is not one. A turned node is still hit inside its upright box — which is right for the
+ * cases this exists for, where a thing is turning precisely because it is in flight and not
+ * asking to be clicked yet. If a player must click something at an angle, give it a
+ * [hitShape], or turn the art inside a node that stays upright.
+ *
+ * Everything else is [scale]'s bargain, unchanged:
+ *
+ * - **A capture is a clip.** Anything a child draws outside this node's own rectangle is cut off
+ *   the moment the angle is not zero, whether or not there is a [clip] in the chain. Corners are
+ *   the thing to watch: the picture is the node's upright box, so a square turned by 45 degrees is
+ *   composited as a turned square, but a glow that reached past the box was already gone.
+ * - **There is a ceiling, and it degrades honestly.** A canvas with no offscreen drawing, or one
+ *   refusing a picture this big, draws the subtree plainly and *upright* — present and the right
+ *   size rather than missing. Ask [dev.wildware.composegl.ui.graphics.UiCanvas.drawsLayers] and
+ *   [dev.wildware.composegl.ui.graphics.UiCanvas.turnsLayers] first if a screen would rather pick
+ *   a different animation than show an unturned one.
+ * - **Angles add, the last origin wins.** `rotate(10f).rotate(5f)` is fifteen, which is what makes
+ *   a resting tilt and an animated one composable on the same node.
+ *
+ * An angle of zero costs a comparison and takes no picture at all, so a node that is only
+ * sometimes turned pays nothing while it is straight.
+ *
+ * Layout does not move, exactly as it does not for a scale: the node keeps the slot it measured
+ * into, so a card leaning does not shove its neighbours about.
+ *
+ * @param origin the point that stays where it is, as a place inside this node: [Alignment.Centre]
+ *   turns it about its middle, [Alignment.BottomCentre] swings it like a pendulum.
+ * @throws IllegalArgumentException if [degrees] is not a number, or is infinite. Checked here,
+ *   where the bad value is nearest whatever produced it, rather than turning a quad to NaN.
+ */
+fun Modifier.rotate(degrees: Float, origin: Alignment = Alignment.Centre) =
+    then(RotateElement(degrees, origin))
 
 fun Modifier.drawBehind(draw: UiCanvas.(Rect) -> Unit) = then(DrawBehindElement(draw))
 
