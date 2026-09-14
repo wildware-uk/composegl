@@ -20,6 +20,7 @@ import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.drawInFront
 import dev.wildware.composegl.ui.modifier.effect
 import dev.wildware.composegl.ui.modifier.padding
+import dev.wildware.composegl.ui.modifier.rotate
 import dev.wildware.composegl.ui.modifier.scale
 import dev.wildware.composegl.ui.modifier.shadow
 import dev.wildware.composegl.ui.modifier.size
@@ -456,5 +457,106 @@ class DrawPassTest {
         DrawPass(canvas).draw(tree.root)
 
         assertEquals(Rect(-20f, -20f, 60f, 60f), node.boundsInRoot, "and a canvas that can, does")
+    }
+
+    // --- rotation ------------------------------------------------------------------------------
+
+    @Test
+    fun `a turned node is captured at its own size and put down at an angle`() {
+        val node = node("card", Modifier.size(40f).rotate(15f).background(red))
+
+        draw(node)
+
+        val layer = canvas.only<DrawCall.Layer>().single()
+        assertEquals(Rect(0f, 0f, 40f, 40f), layer.bounds, "captured at the size it was laid out")
+        assertEquals(15f, layer.degrees, 0.001f, "and composited turned")
+        assertEquals(0.5f, layer.pivotX, 0.001f, "about its middle by default")
+        assertEquals(0.5f, layer.pivotY, 0.001f, "about its middle by default")
+    }
+
+    @Test
+    fun `an angle of zero takes no picture at all`() {
+        val node = node("card", Modifier.size(40f).rotate(0f).background(red))
+
+        draw(node)
+
+        assertEquals(emptyList<String>(), canvas.only<DrawCall.Layer>().map { "layer" })
+    }
+
+    @Test
+    fun `angles add and the last origin wins`() {
+        val node = node(
+            "card",
+            Modifier.size(40f).rotate(10f, Alignment.Centre).rotate(5f, Alignment.TopStart)
+                .background(red),
+        )
+
+        draw(node)
+
+        val layer = canvas.only<DrawCall.Layer>().single()
+        assertEquals(15f, layer.degrees, 0.001f, "two rotations on one node are one turn")
+        assertEquals(0f, layer.pivotX, 0.001f, "and the origin the later one named")
+        assertEquals(0f, layer.pivotY, 0.001f, "and the origin the later one named")
+    }
+
+    @Test
+    fun `a turn is about where the origin says, not the middle of a bled capture`() {
+        // The glow grows the captured area past the node, so the node's own middle is no longer the
+        // middle of the picture — which is the whole reason the pivot is worked out rather than
+        // taken straight off the alignment.
+        val node = node("card", Modifier.size(40f).effect(glow).rotate(30f).background(red))
+
+        draw(node)
+
+        val layer = canvas.only<DrawCall.Layer>().last()
+        assertEquals(Rect(-6f, -6f, 46f, 46f), layer.bounds, "the bled area turns with the node")
+        assertEquals(0.5f, layer.pivotX, 0.001f, "the node's middle, which the bleed left centred")
+        assertEquals(20f, layer.bounds.left + layer.bounds.width * layer.pivotX, 0.001f,
+            "and that really is the node's middle in the picture's own coordinates")
+    }
+
+    @Test
+    fun `a scale and a turn are two pictures, the turn outermost`() {
+        val node = node("card", Modifier.size(40f).scale(2f).rotate(15f).background(red))
+
+        draw(node)
+
+        val layers = canvas.only<DrawCall.Layer>()
+        assertEquals(2, layers.size, "a turn cannot be folded into a rectangle, so it takes its own")
+        assertEquals(0f, layers.first().degrees, 0.001f, "the scale's composite is upright")
+        assertEquals(Rect(-20f, -20f, 60f, 60f), layers.first().bounds, "and is the scaled one")
+        assertEquals(15f, layers.last().degrees, 0.001f, "and the turn is put down over it")
+        assertEquals(Rect(-20f, -20f, 60f, 60f), layers.last().bounds, "turning what the scale drew")
+    }
+
+    @Test
+    fun `a canvas that cannot make pictures draws a turned node upright rather than not at all`() {
+        val node = node("card", Modifier.size(40f).rotate(30f).background(red))
+        tree.root.insertAt(0, node)
+        MeasurePass().run(tree.root, Constraints.atMost(500f, 500f))
+
+        DrawPass(Plain(canvas)).draw(tree.root)
+
+        assertEquals(emptyList<String>(), canvas.only<DrawCall.Layer>().map { "layer" })
+        assertEquals(
+            Rect(0f, 0f, 40f, 40f),
+            canvas.only<DrawCall.Rectangle>().single { it.colour == red }.rect,
+            "present, the right size and the right way up",
+        )
+    }
+
+    @Test
+    fun `a turned node is still hit where its upright box is`() {
+        // Stated as a test rather than left to the docs: clicks deliberately do not follow a turn,
+        // so a change that quietly made them follow it should fail here and be thought about.
+        val node = node("card", Modifier.size(40f).rotate(45f).background(red))
+
+        draw(node)
+
+        assertRect(
+            Rect(0f, 0f, 40f, 40f),
+            tree.root.firstOrNull { it.name == "card" }!!.boundsInRoot,
+            "the box it was laid out in",
+        )
     }
 }
