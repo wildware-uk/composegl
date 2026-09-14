@@ -63,7 +63,7 @@ class UiCanvasShapesTest {
     }
 
     @Test
-    fun `a line is a quad of the width asked for, square to its own direction`() {
+    fun `a line is a quad of the width asked for - square to its own direction`() {
         val canvas = Recorder()
 
         canvas.line(Offset(0f, 0f), Offset(10f, 0f), width = 4f, colour = Colour.White)
