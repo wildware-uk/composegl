@@ -14,8 +14,10 @@ import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.text.TextAnchor
 import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.text.TextOutline
 import dev.wildware.composegl.ui.text.TextStyle
@@ -89,6 +91,41 @@ fun Text(
     maxLines: Int = 0,
     ellipsis: String? = null,
     outline: TextOutline?,
+) = Text(text, modifier, style, textStyle, colour, align, softWrap, maxLines, ellipsis, outline, TextAnchor.LineBox)
+
+/**
+ * The same, placed by [anchor] rather than by the top of its line box.
+ *
+ * A text node's box is a *line* box: its top sits at the tallest glyph's ascent, so text placed by
+ * a coordinate that means "the top of the capitals" — which is what almost every ported coordinate
+ * means — draws [dev.wildware.composegl.ui.text.FontMetrics.capInset] low. That error is silent,
+ * nothing clips or overflows, and it scales with the font, so a screen with three text sizes is
+ * wrong by three different amounts.
+ *
+ * This moves the node, not the glyphs inside it: the box is the same size, wraps the same way, and
+ * its background, border and clicks all move with it. It is exactly
+ * `Modifier.offset(y = -anchor.lift(metrics))`, worked out from the style this label actually
+ * resolved rather than from one the caller had to look up and keep in step.
+ *
+ * @param anchor which part of the text lands on the y this node was placed at.
+ */
+// The fourth overload rather than a parameter with a default on the third, for the reason the note
+// above gives: a defaulted parameter added to a published function changes its signature, and every
+// game compiled against the version before it would fail to link. `outline` has a default here
+// because `anchor` does not, which is what keeps this one distinguishable from the two above.
+@Composable
+fun Text(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: String? = null,
+    textStyle: TextStyle? = null,
+    colour: Colour? = null,
+    align: HorizontalAlignment = HorizontalAlignment.Start,
+    softWrap: Boolean = true,
+    maxLines: Int = 0,
+    ellipsis: String? = null,
+    outline: TextOutline? = LocalTextOutline.current,
+    anchor: TextAnchor,
 ) {
     val named = rememberStyle(style ?: "label")
     val inherited = LocalContentStyle.current
@@ -110,7 +147,17 @@ fun Text(
         TextPainter(text, face, ink, align, softWrap, fonts, outline)
     }
 
-    LeafLayout(modifier = modifier, name = "text", measurePolicy = painter, draw = painter.draw)
+    // Off the face rather than off the measured string: where the cap top and the baseline sit
+    // inside a line box is a property of the font at that size, the same for every label in a
+    // style, and known before a word has been measured. Nothing at all for the default anchor,
+    // which is the one nearly every label uses.
+    val lift = if (anchor == TextAnchor.LineBox) 0f else remember(anchor, face, fonts) {
+        anchor.lift(fonts.metrics(face))
+    }
+    // The caller's modifier last, so their own offset adds to this rather than being replaced by it.
+    val placed = if (lift == 0f) modifier else Modifier.offset(y = -lift).then(modifier)
+
+    LeafLayout(modifier = placed, name = "text", measurePolicy = painter, draw = painter.draw)
 }
 
 /**

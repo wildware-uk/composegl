@@ -29,6 +29,33 @@ Text("GAME OVER", style = "display")
 
 ![four text styles: a title, the default, a dim one and a wrapped paragraph](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-text.png)
 
+### Where the text sits
+
+A text node is placed by its **line box**, whose top is the tallest glyph's
+ascent. That is right for laying out — a box stopping at the capitals would clip
+the accent off `Á` — but it is not what most coordinates mean. If you are
+porting a layout from an immediate-mode or batch renderer, every y you carry
+across is a **cap top**, and handed straight to `Text` every figure draws
+`ascent - capHeight` low:
+
+```kotlin
+Text("148", Modifier.offset(y = capTop), anchor = TextAnchor.CapTop)
+Text("HP", Modifier.offset(y = baseline), anchor = TextAnchor.Baseline)
+```
+
+Worth doing rather than subtracting yourself, because the mistake is **silent** —
+nothing clips and nothing overflows, the text is just low and looks deliberate —
+and it is **proportional to the font size**, so a screen with three text sizes is
+wrong by three different amounts and reads as three separate layout problems.
+
+The anchor moves the node, not the glyphs inside it: same size, same wrapping,
+and the background, border and clicks move with it. Your own `offset` still adds
+on top. If you only want the number, `FontMetrics.capInset` is the line box top
+to cap top, and `ascent` is the baseline.
+
+`TextAnchor.Baseline` is also how you line a label up with an icon, or two
+strings at different sizes against each other.
+
 ### Outlined text
 
 A ring round the letters, so a readout stays legible over a moving, colourful
