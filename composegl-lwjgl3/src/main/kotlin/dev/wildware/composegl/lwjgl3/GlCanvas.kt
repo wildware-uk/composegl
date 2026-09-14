@@ -684,10 +684,55 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     /** The same for a y that has already been flipped the right way up. */
     private fun clipY(y: Float) = y * projection[5] + projection[13]
 
+    /**
+     * Through [flip], the same conversion every other call in this class already makes.
+     *
+     * The projection handed over in a [GlFrame] measures y upwards from the bottom — of the layer
+     * when there is one, of the design space when there is not — because that is what OpenGL wants
+     * and the whole class reconciles the two conventions here. Leaving this as the interface's
+     * identity default said the opposite, and a block that believed it drew its art flipped about
+     * the middle of the frame.
+     */
+    override fun rawY(y: Float): Float = flip(y)
+
+    /**
+     * Unchanged, which is the interface's default and is said here anyway.
+     *
+     * A layer's own left edge goes into the projection — `orthographic(…, left)` — not into the
+     * coordinates, so a design x is already the x a [GlFrame]'s projection wants.
+     */
+    override fun rawX(x: Float): Float = x
+
+    /** OpenGL is always there to hand over, so there is nothing that can be missing. */
+    override val handsOverRaw: Boolean get() = true
+
+    /** It really moves it: the projection in the [GlFrame] is translated before it is handed over. */
+    override val movesRawOrigin: Boolean get() = true
+
+    /**
+     * The bottom-left corner, because this backend's projection measures y upwards: a block drawing
+     * `0, 0, w, h` fills the node rather than sitting above it.
+     */
+    override fun raw(destination: Rect, block: (Any) -> Unit) {
+        batch().flush()
+        block(GlFrame(projection.translated(rawX(destination.left), rawY(destination.bottom)), viewport))
+    }
+
     override fun raw(block: (Any) -> Unit) {
         // Our own quads first, so the game's drawing lands on top of what came before it.
         batch().flush()
         block(GlFrame(projection.copyOf(), viewport))
+    }
+
+    /**
+     * A copy of an orthographic projection with its origin moved to ([x], [y]).
+     *
+     * Only the translation column moves, which is all a scale-and-translate matrix has to change:
+     * a point the block gives as (0, 0) has to come out where ([x], [y]) came out before.
+     */
+    private fun FloatArray.translated(x: Float, y: Float) = copyOf().also {
+        it[12] += x * it[0]
+        it[13] += y * it[5]
     }
 
     /**

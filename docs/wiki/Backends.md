@@ -189,6 +189,25 @@ The optional extras, each of which degrades rather than fails:
 
 **The rule for `raw` and for `layer`: leave your own state as you found it.**
 
+### The escape hatch, in detail
+
+`raw` is the one optional thing with no sensible degrade: the toolkit cannot
+approximate a block it knows nothing about. So it is a question instead.
+
+- `handsOverRaw` — whether there is a backend object to hand over at all. Answer
+  honestly and a widget can pick a composed fallback at construction, instead of
+  finding out at the first frame. This is the one capability that can vary *within* a
+  backend: `GdxCanvas` answers yes or no depending on whether a `SpriteBatch` was
+  passed to its constructor.
+- `rawX(x)` / `rawY(y)` — a coordinate this interface would take, as the one your
+  drawing object wants. Once the object is handed over the block is writing your
+  coordinates, so only you can convert them. Both default to the identity; override
+  `rawY` if you measure y upwards, as both backends here do.
+- `raw(destination) { }` — the same hatch with the origin moved to the node, so a
+  block that draws at `0, 0, width, height` fills it. Say so in `movesRawOrigin`.
+  Override both or neither: an unmoved origin is not a lesser picture, it is the same
+  drawing in the wrong place.
+
 Then translate your platform's input into the four [[Input|`InputSink`]] calls, and
 you are done. `composegl-lwjgl3` is about 2,700 lines all in, and it is a fair
 guide to the size of the job.

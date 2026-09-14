@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.GL30
 import com.badlogic.gdx.graphics.GL31
 import com.badlogic.gdx.graphics.GL32
+import com.badlogic.gdx.graphics.g2d.Batch
 import java.lang.reflect.Proxy
 
 /**
@@ -76,4 +77,25 @@ object NoGl {
 
         return touched
     }
+
+    /**
+     * A [Batch] that exists and does nothing, for a test that only needs the canvas to have been
+     * given one.
+     *
+     * A real `SpriteBatch` builds a mesh and compiles a shader in its constructor, so it cannot be
+     * made inside [refusingGl] at all — and the question being asked, "was this canvas handed a
+     * batch", is answered by the reference and never by the object. Every call on it refuses, so a
+     * canvas that quietly *used* it fails by name rather than by drawing nothing.
+     */
+    fun batch(): Batch = Proxy.newProxyInstance(
+        Batch::class.java.classLoader,
+        arrayOf(Batch::class.java),
+    ) { proxy, method, _ ->
+        when (method.name) {
+            "equals" -> return@newProxyInstance false
+            "hashCode" -> return@newProxyInstance System.identityHashCode(proxy)
+            "toString" -> return@newProxyInstance "a Batch that refuses everything"
+        }
+        error("Batch.${method.name}() was called by something that is only supposed to hold one")
+    } as Batch
 }

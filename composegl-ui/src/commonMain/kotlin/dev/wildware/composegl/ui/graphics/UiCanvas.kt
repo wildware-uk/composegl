@@ -454,6 +454,71 @@ interface UiCanvas {
     fun raw(block: (Any) -> Unit)
 
     /**
+     * Whether [raw] has a backend object to hand over.
+     *
+     * The same bargain as [drawsLayers], [rotatesImages], [turnsLayers] and [supports]: ask before
+     * you rely on it. False means [raw] is no use — it throws, or it writes the call down and never
+     * runs the block — so a widget that draws through the hatch can pick a composed fallback, skip
+     * that layer, or refuse at construction with a message about itself rather than at the first
+     * frame with a message about a canvas.
+     *
+     * The one capability that varies within a backend rather than between backends: the same
+     * `GdxCanvas` class answers yes or no depending on whether a `SpriteBatch` was passed to its
+     * constructor, so "which backend am I on" does not answer this and no other flag does either.
+     *
+     * There is no honest degrade for an escape hatch, which is why this is a question and not a
+     * fallback. Unlike a layer or a turn, the toolkit cannot draw an approximation of a block it
+     * knows nothing about — only the caller knows what it was going to draw.
+     */
+    val handsOverRaw: Boolean get() = false
+
+    /**
+     * [raw], with the backend's origin moved to a corner of [destination].
+     *
+     * The overwhelmingly common thing to want from the hatch is "draw this, *here*", and without
+     * this every caller writes the same subtraction to get there — off [rawX] and [rawY], against a
+     * rectangle, with the axis directions to keep straight. That arithmetic is easy to get subtly
+     * wrong in a way that only shows up as art in the wrong place.
+     *
+     * The corner is the one the *backend's* own axes start from, not the toolkit's, because from
+     * here on the block is writing the backend's coordinates: the block's (0, 0) is [destination]'s
+     * top-left where the backend measures y downwards, and its bottom-left where the backend
+     * measures y upwards, so in both cases a block filling `0, 0, width, height` fills the node.
+     *
+     * Nothing else changes: no scale, no clip, no state the block did not ask for. A block that
+     * wants the whole design space still has plain [raw].
+     *
+     * Ask [movesRawOrigin] first. A canvas that answers false runs the block against the ordinary
+     * origin, which is the wrong place — that is why it is a question rather than a quiet default.
+     */
+    fun raw(destination: Rect, block: (Any) -> Unit) = raw(block)
+
+    /**
+     * Whether the [raw] overload that takes a destination really moves the origin there.
+     *
+     * False means it behaves as plain [raw] and the block draws against the layer's own origin. A
+     * backend that overrides [raw] should override both, because unlike an unturned image or an
+     * uncomposited layer, an unmoved origin is not a lesser picture — it is the same drawing in the
+     * wrong place.
+     */
+    val movesRawOrigin: Boolean get() = false
+
+    /**
+     * An x this interface would take, as the x the object [raw] hands over wants.
+     *
+     * The companion to [rawY], and the same reasoning: from the moment the drawing object is handed
+     * over the block is writing coordinates the backend takes literally, so the conversion has to
+     * come from the canvas.
+     *
+     * Both backends here answer with the x unchanged, and that is the default. x is the easy axis —
+     * it points the same way everywhere, and both backends put a layer's own left edge into the
+     * projection rather than into the coordinates. It is still worth asking rather than assuming: a
+     * backend whose layers start at zero would have to shift it, and a caller cannot see which kind
+     * it is holding.
+     */
+    fun rawX(x: Float): Float = x
+
+    /**
      * A y this interface would take, as the y the object [raw] hands over wants.
      *
      * The toolkit measures y downwards from the top of the design space. A backend's own drawing
