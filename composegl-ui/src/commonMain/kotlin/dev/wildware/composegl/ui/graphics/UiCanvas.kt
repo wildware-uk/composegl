@@ -321,6 +321,24 @@ interface UiCanvas {
     fun raw(block: (Any) -> Unit)
 
     /**
+     * A y this interface would take, as the y the object [raw] hands over wants.
+     *
+     * The toolkit measures y downwards from the top of the design space. A backend's own drawing
+     * object may not - LibGDX measures it upwards from the bottom - and every call above reconciles
+     * the two on the caller's behalf. [raw] cannot: it hands over the drawing object itself, and
+     * from that moment the block is writing coordinates the backend will take literally.
+     *
+     * So the conversion has to come from here. A block drawing a rectangle at [Rect.top] passes it
+     * through this to find the edge its own draw call should be given, and a backend that shares
+     * the toolkit's convention returns it untouched - which is the default, because most will.
+     *
+     * It is not something a caller can work out for itself even knowing the design size. Inside
+     * [layer] the origin moves to the layer's own bounds, so the answer depends on state the canvas
+     * does not otherwise publish, and the case it differs in is the one nobody thinks to test.
+     */
+    fun rawY(y: Float): Float = y
+
+    /**
      * How many times this canvas has handed work to the GPU since the frame began, or -1 when the
      * backend does not count.
      *

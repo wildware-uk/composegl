@@ -654,6 +654,14 @@ class GdxCanvas(
         if (on) Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST) else Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST)
     }
 
+    /**
+     * Through [flip], which is the same conversion every other call here already makes.
+     *
+     * Worth having rather than leaving a game to subtract from the design height itself: inside a
+     * layer the origin is the layer's own bottom, and a game cannot see that.
+     */
+    override fun rawY(y: Float): Float = flip(y)
+
     override fun raw(block: (Any) -> Unit) {
         val sprites = spriteBatch
             ?: error("this canvas was made without a SpriteBatch, so raw() has nothing to hand over")
