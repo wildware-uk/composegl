@@ -18,6 +18,7 @@ import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.skin.ResolvedStyle
 import dev.wildware.composegl.ui.skin.SkinDrawable
+import dev.wildware.composegl.ui.graphics.BlendMode
 
 // --- what a node is ------------------------------------------------------------------------
 
@@ -65,6 +66,9 @@ data class ClipElement(val corner: Float = 0f) : Modifier.Element
 data class HitShapeElement(val contains: (Offset) -> Boolean) : Modifier.Element
 
 data class AlphaElement(val alpha: Float) : Modifier.Element
+
+/** @see dev.wildware.composegl.ui.modifier.blend */
+data class BlendElement(val mode: BlendMode) : Modifier.Element
 
 /** @see dev.wildware.composegl.ui.modifier.scale */
 data class ScaleElement(
@@ -294,6 +298,25 @@ fun Modifier.clip(corner: Float = 0f) = then(ClipElement(corner))
 fun Modifier.hitShape(contains: (Offset) -> Boolean) = then(HitShapeElement(contains))
 
 fun Modifier.alpha(alpha: Float) = then(AlphaElement(alpha))
+
+/**
+ * Draws this node, and everything under it, with a different blend function.
+ *
+ * The default - [BlendMode.SourceOver] - paints: what is drawn covers what is behind it in
+ * proportion to its opacity. [BlendMode.Additive] adds instead, so a thing looks like it is giving
+ * off light rather than reflecting it, and overlapping glows get brighter instead of flatter.
+ *
+ * A colour cannot do this. Above one it clamps back to white when it is packed to eight bits a
+ * channel, so the art comes out exactly as it started; the blend function is the only lever.
+ *
+ * Applies to the whole subtree, the way [alpha] does, because the thing that glows is usually a
+ * picture with a caption or a badge on it rather than a lone sprite.
+ *
+ * A backend is allowed not to have one. [UiCanvas.supports] answers for a mode before it is used,
+ * and a canvas that cannot blend draws the ordinary way rather than refusing - a flash that does
+ * not brighten is a worse picture, not a broken one.
+ */
+fun Modifier.blend(mode: BlendMode) = then(BlendElement(mode))
 
 /**
  * Draws this node, and everything under it, bigger or smaller.
