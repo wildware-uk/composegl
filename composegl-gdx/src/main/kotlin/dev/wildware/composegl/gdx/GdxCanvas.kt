@@ -705,7 +705,31 @@ class GdxCanvas(
      */
     override fun rawY(y: Float): Float = flip(y)
 
-    override fun raw(block: (Any) -> Unit) {
+    /**
+     * Unchanged, which is the interface's default and is said here anyway.
+     *
+     * A layer's own left edge goes into the projection — `setToOrtho2D(bounds.left, …)` — not into
+     * the coordinates, so a design x is already the x this backend's drawing object wants, inside a
+     * layer and out of one. The y is the only axis that needs converting here.
+     */
+    override fun rawX(x: Float): Float = x
+
+    /** Whether one was passed to the constructor, which is the whole of the question. */
+    override val handsOverRaw: Boolean get() = spriteBatch != null
+
+    /** It really moves it: the projection is translated before the batch is opened. */
+    override val movesRawOrigin: Boolean get() = true
+
+    /**
+     * The bottom-left corner, because LibGDX measures y upwards: a block drawing `0, 0, w, h`
+     * fills the node rather than sitting above it.
+     */
+    override fun raw(destination: Rect, block: (Any) -> Unit) =
+        raw(Matrix4(projection).translate(rawX(destination.left), rawY(destination.bottom), 0f), block)
+
+    override fun raw(block: (Any) -> Unit) = raw(projection, block)
+
+    private fun raw(matrix: Matrix4, block: (Any) -> Unit) {
         val sprites = spriteBatch
             ?: error("this canvas was made without a SpriteBatch, so raw() has nothing to hand over")
 
@@ -713,7 +737,7 @@ class GdxCanvas(
         batch().flush()
         val savedProjection = Matrix4(sprites.projectionMatrix)
         val savedColour = Color(sprites.color)
-        sprites.projectionMatrix = projection
+        sprites.projectionMatrix = matrix
         sprites.begin()
         block(sprites)
         sprites.end()
