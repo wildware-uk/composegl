@@ -576,6 +576,49 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         batch().blend(state.blend, premultiplied = false)
     }
 
+    override fun drawLayer(
+        layer: TextureHandle,
+        destination: Rect,
+        degrees: Float,
+        pivotX: Float,
+        pivotY: Float,
+    ) {
+        if (degrees == 0f) {
+            drawLayer(layer, destination)
+            return
+        }
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layer as? GlTexture
+            ?: error("this canvas can only draw layers it made, not ${layer::class}")
+
+        // Premultiplied and faded in all four channels for the same reasons the upright composite
+        // is; the turn changes where the quad's corners go and nothing else.
+        batch().blend(state.blend, premultiplied = true)
+        val fade = state.alpha.coerceIn(0f, 1f)
+        val grey = (fade * 255f).roundToInt().coerceIn(0, 255)
+        batch().textured(
+            name = picture.name,
+            left = destination.left,
+            bottom = flip(destination.bottom),
+            width = destination.width,
+            height = destination.height,
+            pivotX = destination.left + destination.width * pivotX,
+            // The pivot is a fraction from the top, and this is the one place it meets a y that
+            // counts upwards.
+            pivotY = flip(destination.top + destination.height * pivotY),
+            degrees = degrees,
+            u = picture.u,
+            v = picture.v,
+            u2 = picture.u2,
+            v2 = picture.v2,
+            tint = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey),
+        )
+        batch().blend(state.blend, premultiplied = false)
+    }
+
+    /** It really turns one, on the same quad the upright composite uses. */
+    override val turnsLayers: Boolean get() = true
+
     private fun bindFramebuffer(name: Int) {
         framebuffer = name
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, name)

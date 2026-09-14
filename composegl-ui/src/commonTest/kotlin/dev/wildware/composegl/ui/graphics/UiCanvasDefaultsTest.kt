@@ -43,6 +43,19 @@ class UiCanvasDefaultsTest {
         assertEquals(Colour.Black, drawn.second, "and the tint went through")
     }
 
+    @Test
+    fun `a turned layer is composited upright in the right place`() {
+        val canvas = OldBackend()
+        val picture = Pretend()
+        val box = Rect.of(10f, 20f, 40f, 8f)
+
+        canvas.drawLayer(picture, box, degrees = 30f, pivotX = 0f, pivotY = 0.5f)
+
+        assertFalse(canvas.turnsLayers, "it says it cannot turn one")
+        val drawn = canvas.images.single()
+        assertEquals(box, drawn.first, "right place, right size, and drawn rather than skipped")
+    }
+
     private class Pretend : TextureHandle {
         override val width = 8
         override val height = 8

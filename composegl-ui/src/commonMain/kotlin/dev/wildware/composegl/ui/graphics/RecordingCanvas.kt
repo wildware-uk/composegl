@@ -123,6 +123,11 @@ sealed interface DrawCall {
     data class Layer(
         val bounds: Rect,
         val effect: ShaderEffect?,
+        /** How far clockwise the picture was turned as it was put down. Zero unless asked. */
+        val degrees: Float = 0f,
+        /** Where it turned about, as a fraction of [bounds]. Meaningless when [degrees] is zero. */
+        val pivotX: Float = 0.5f,
+        val pivotY: Float = 0.5f,
         override val clip: Rect,
         override val alpha: Float,
     ) : DrawCall
@@ -356,8 +361,23 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     }
 
     override fun drawLayer(layer: TextureHandle, destination: Rect, effect: ShaderEffect?) {
-        record(DrawCall.Layer(destination, effect, state.clip, state.alpha))
+        record(DrawCall.Layer(destination, effect, clip = state.clip, alpha = state.alpha))
     }
+
+    override fun drawLayer(
+        layer: TextureHandle,
+        destination: Rect,
+        degrees: Float,
+        pivotX: Float,
+        pivotY: Float,
+    ) {
+        record(
+            DrawCall.Layer(destination, null, degrees, pivotX, pivotY, state.clip, state.alpha),
+        )
+    }
+
+    /** It records the angle, so it really turns one. */
+    override val turnsLayers: Boolean get() = true
 
     /** A picture with nothing in it: there are no pixels here to be a handle to. */
     private class LayerHandle(bounds: Rect) : TextureHandle {

@@ -72,6 +72,26 @@ class DrawPass(val canvas: UiCanvas) {
         val anchorX = if (scale == 1f) 0f else bounds.left + resolved.scaleOrigin.xIn(node.width, 0f)
         val anchorY = if (scale == 1f) 0f else bounds.top + resolved.scaleOrigin.yIn(node.height, 0f)
 
+        // A turn is the outermost thing a node does, and the only one that is not a rectangle, so
+        // it is the one operation that takes a picture of its own rather than sharing one.
+        if (resolved.rotation == 0f) {
+            upright(node, resolved, bounds, scale, anchorX, anchorY)
+        } else {
+            turned(node, resolved, bounds, scale, anchorX, anchorY)
+        }
+
+        if (faded) canvas.popAlpha()
+    }
+
+    /** Everything this node draws, the right way up: its scale and its effects, sharing one picture. */
+    private fun upright(
+        node: UiNode,
+        resolved: ResolvedModifier,
+        bounds: Rect,
+        scale: Float,
+        anchorX: Float,
+        anchorY: Float,
+    ) {
         if (resolved.effects.isEmpty()) {
             if (scale == 1f) {
                 contents(node, resolved, bounds)
@@ -91,9 +111,66 @@ class DrawPass(val canvas: UiCanvas) {
                 }
             if (scale != 1f) node.scaleApplied = applied
         }
-
-        if (faded) canvas.popAlpha()
     }
+
+    /**
+     * The same, put down turned.
+     *
+     * Whatever the node would have drawn the right way up is drawn into one picture and that
+     * picture is composited at an angle, which is why a rotation composes with a scale and with a
+     * chain of effects without knowing anything about either: it turns their answer.
+     *
+     * It is the one operation here that does not share a picture. A scale is a different
+     * destination rectangle for a composite that was happening anyway; a turn is not a rectangle at
+     * all, so there is nothing to fold it into. A node that scales *and* turns therefore costs two
+     * pictures, and one that only turns costs one.
+     *
+     * The area captured is the node's drawn rectangle grown by the widest bleed in its chain, so a
+     * glow reaching past the node turns with it instead of being cut off square at the edge.
+     *
+     * Hit testing does not follow this, deliberately and permanently: see
+     * [dev.wildware.composegl.ui.modifier.rotate]. Nothing here writes `scaleApplied`, so a turned
+     * node reports the rectangle it would have had, which is what the pointer router will hit.
+     */
+    private fun turned(
+        node: UiNode,
+        resolved: ResolvedModifier,
+        bounds: Rect,
+        scale: Float,
+        anchorX: Float,
+        anchorY: Float,
+    ) {
+        val drawn = bounds.scaledAbout(anchorX, anchorY, scale)
+        var bleed = 0f
+        val effects = resolved.effects
+        for (index in effects.indices) bleed = maxOf(bleed, effects[index].bleed)
+        val area =
+            if (bleed > 0f) bounds.inset(-bleed).scaledAbout(anchorX, anchorY, scale) else drawn
+
+        val picture = canvas.layer(area) { upright(node, resolved, bounds, scale, anchorX, anchorY) }
+        if (picture == null) {
+            // The same bargain a scale and an effect make: drawn plainly, the right size and the
+            // right way up, rather than not drawn at all.
+            upright(node, resolved, bounds, scale, anchorX, anchorY)
+            return
+        }
+
+        // The pivot is where the node says it turns, expressed against the captured area - which is
+        // a different rectangle whenever the chain has a bleed in it, so the fraction cannot simply
+        // be the alignment's own.
+        val origin = resolved.rotationOrigin
+        canvas.drawLayer(
+            picture,
+            area,
+            resolved.rotation,
+            pivotIn(area.left, area.width, drawn.left + drawn.width * origin.xIn(1f, 0f)),
+            pivotIn(area.top, area.height, drawn.top + drawn.height * origin.yIn(1f, 0f)),
+        )
+    }
+
+    /** Where [point] falls across a span, as the fraction a canvas takes a pivot as. */
+    private fun pivotIn(start: Float, span: Float, point: Float): Float =
+        if (span <= 0f) 0.5f else (point - start) / span
 
     /**
      * Draws [node]'s contents into a picture and puts that picture down somewhere else.

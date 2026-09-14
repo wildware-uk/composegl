@@ -590,6 +590,49 @@ class GdxCanvas(
         batch().blend(state.blend, premultiplied = false)
     }
 
+    override fun drawLayer(
+        layer: TextureHandle,
+        destination: Rect,
+        degrees: Float,
+        pivotX: Float,
+        pivotY: Float,
+    ) {
+        if (degrees == 0f) {
+            drawLayer(layer, destination)
+            return
+        }
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layer as? GdxTexture
+            ?: error("this canvas can only draw layers it made, not ${layer::class}")
+        val region = picture.region
+
+        // Premultiplied and faded in all four channels for the same reasons the upright composite
+        // is; the turn changes where the quad's corners go and nothing else.
+        batch().blend(state.blend, premultiplied = true)
+        val fade = state.alpha.coerceIn(0f, 1f)
+        batch().textured(
+            texture = region.texture,
+            left = destination.left,
+            bottom = flip(destination.bottom),
+            width = destination.width,
+            height = destination.height,
+            pivotX = destination.left + destination.width * pivotX,
+            // The pivot is a fraction from the top, and this is the one place it meets a y that
+            // counts upwards.
+            pivotY = flip(destination.top + destination.height * pivotY),
+            degrees = degrees,
+            u = region.u,
+            v = region.v,
+            u2 = region.u2,
+            v2 = region.v2,
+            colour = Color.toFloatBits(fade, fade, fade, fade),
+        )
+        batch().blend(state.blend, premultiplied = false)
+    }
+
+    /** It really turns one, on the same quad the upright composite uses. */
+    override val turnsLayers: Boolean get() = true
+
     /**
      * The same picture, through somebody's shader.
      *
