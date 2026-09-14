@@ -136,6 +136,15 @@ sealed interface DrawCall {
     data class Raw(
         override val clip: Rect,
         override val alpha: Float,
+        /**
+         * The rectangle the block's origin was moved to, or null for plain
+         * [UiCanvas.raw] against the layer's own origin.
+         *
+         * Written down rather than acted on, because the block never runs here. It is still the
+         * useful half to assert: a widget drawing through the hatch is asserting that it pointed it
+         * at itself, and getting that wrong is exactly the bug this records.
+         */
+        val destination: Rect? = null,
     ) : DrawCall
 }
 
@@ -400,8 +409,22 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     /** Every mode, because writing one down costs the same as writing another one down. */
     override fun supports(mode: BlendMode): Boolean = true
 
+    /**
+     * No, and saying so is the point.
+     *
+     * A recording canvas writes the call down and never runs the block, so a widget that asks
+     * before it draws takes its composed fallback here — which is what a test of that fallback
+     * needs. A widget that does not ask records a [DrawCall.Raw] and draws nothing, which is the
+     * same thing a real canvas with no backend object would do, minus the throw.
+     */
+    override val handsOverRaw: Boolean get() = false
+
     override fun raw(block: (Any) -> Unit) {
         record(DrawCall.Raw(state.clip, state.alpha))
+    }
+
+    override fun raw(destination: Rect, block: (Any) -> Unit) {
+        record(DrawCall.Raw(state.clip, state.alpha, destination))
     }
 
     /** Only the calls of one kind, which is what an assertion usually wants. */

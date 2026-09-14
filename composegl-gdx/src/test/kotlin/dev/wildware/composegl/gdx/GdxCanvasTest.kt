@@ -431,6 +431,61 @@ class GdxCanvasTest {
         }
     }
 
+    /**
+     * A raw block draws at the node when it is handed the node, and where it is told to otherwise.
+     *
+     * Both halves in one frame, because the point is that they agree. The left square goes through
+     * the destination overload and draws itself at its own origin; the right one goes through plain
+     * `raw` and converts by hand with [dev.wildware.composegl.ui.graphics.UiCanvas.rawX] and
+     * `rawY`. They are the same arithmetic, written twice, and the picture is what says so.
+     */
+    @Test
+    fun `a raw block draws at the node it was handed`() {
+        val aimed = Rect.of(20f, 30f, 40f, 10f)
+        val byHand = Rect.of(80f, 30f, 40f, 10f)
+
+        val frame = Gl.render {
+            val batch = SpriteBatch()
+            val canvas = GdxCanvas(batch)
+            val pixmap = Pixmap(1, 1, Pixmap.Format.RGBA8888).apply { setColor(Color.WHITE); fill() }
+            val white = Texture(pixmap)
+            try {
+                Gdx.gl.glClearColor(0f, 0f, 0f, 1f)
+                Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+                canvas.begin(viewport)
+                assertTrue(canvas.movesRawOrigin, "it said it would move the origin")
+                // Its own coordinates: a block that thinks it is at the origin, because that is
+                // what a painter laid out somewhere else does.
+                canvas.raw(aimed) { lent ->
+                    (lent as SpriteBatch).draw(white, 0f, 0f, aimed.width, aimed.height)
+                }
+                // The same square, positioned the way a caller had to before the overload existed.
+                canvas.raw { lent ->
+                    (lent as SpriteBatch).draw(
+                        white,
+                        canvas.rawX(byHand.left),
+                        canvas.rawY(byHand.bottom),
+                        byHand.width,
+                        byHand.height,
+                    )
+                }
+                canvas.end()
+                Pixmap.createFromFrameBuffer(0, 0, Gl.size, Gl.size)
+            } finally {
+                white.dispose()
+                pixmap.dispose()
+                canvas.dispose()
+                batch.dispose()
+            }
+        }
+
+        assertColour(Color.WHITE, frame.at(40, 35), "the block's own origin is the node's corner")
+        assertColour(Color.BLACK, frame.at(40, 20), "and nothing above it")
+        assertColour(Color.BLACK, frame.at(10, 35), "and nothing to the left of it")
+        assertColour(Color.WHITE, frame.at(100, 35), "the by-hand conversion lands in the same row")
+        assertColour(Color.BLACK, frame.at(100, 20), "and is no taller than it asked to be")
+    }
+
     @Test
     fun `raw is refused rather than handing over something unusable`() {
         Gl.render {

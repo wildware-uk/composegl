@@ -94,6 +94,53 @@ class GlCanvasTest {
         assertColour(Colour.Black, frame.at(50, 80), "below it, where nothing was drawn")
     }
 
+    /**
+     * What the escape hatch says about itself, and whether the projection it hands over agrees.
+     *
+     * There is no drawing object on this backend — the drawing object is OpenGL — so what `raw`
+     * really hands over is a projection, and the whole of "where do I draw" lives in that matrix.
+     * Asserting it directly is asserting the thing itself; a pixel test here would be a test of
+     * whatever GL the test itself wrote.
+     */
+    @Test
+    fun `the projection a raw block is handed puts its own origin at the node`() {
+        val node = Rect.of(20f, 30f, 40f, 10f)
+        val design = Gl.size.toFloat()
+
+        Gl.render {
+            val canvas = GlCanvas()
+            try {
+                canvas.begin(viewport)
+                assertTrue(canvas.handsOverRaw, "OpenGL is always there to hand over")
+                assertTrue(canvas.movesRawOrigin, "and the projection really is translated")
+
+                // The y this backend wants is measured up from the bottom, which is why `rawY` is
+                // not the identity here. It was, until this test; a block that believed the default
+                // drew its art flipped about the middle of the frame.
+                assertEquals(design, canvas.rawY(0f), "the top of the design space is the far edge")
+                assertEquals(0f, canvas.rawY(design), "and the bottom of it is the origin")
+                assertEquals(node.left, canvas.rawX(node.left), "x points the same way either way")
+
+                var plain: FloatArray? = null
+                var aimed: FloatArray? = null
+                canvas.raw { lent -> plain = (lent as GlFrame).projection }
+                canvas.raw(node) { lent -> aimed = (lent as GlFrame).projection }
+                canvas.end()
+
+                val byHand = clip(checkNotNull(plain), canvas.rawX(node.left), canvas.rawY(node.bottom))
+                val itsOwn = clip(checkNotNull(aimed), 0f, 0f)
+                assertEquals(byHand.first, itsOwn.first, 1e-5f, "the block's own x origin is the node's left")
+                assertEquals(byHand.second, itsOwn.second, 1e-5f, "and its y origin is the node's bottom edge")
+            } finally {
+                canvas.close()
+            }
+        }
+    }
+
+    /** A point through an orthographic projection, which is a scale and a shift on each axis. */
+    private fun clip(projection: FloatArray, x: Float, y: Float) =
+        (x * projection[0] + projection[12]) to (y * projection[5] + projection[13])
+
     @Test
     fun `a hundred nodes cost a handful of draw calls`() {
         val frame = draw {

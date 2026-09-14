@@ -2,6 +2,7 @@ package dev.wildware.composegl.gdx
 
 import dev.wildware.composegl.ui.graphics.BlendMode
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -48,6 +49,27 @@ class GdxCanvasHeadlessTest {
             assertTrue(canvas.supports(BlendMode.Additive), "and it really adds light")
             assertTrue(canvas.supports(BlendMode.SourceOver), "everything can do the ordinary one")
             canvas.dispose()
+        }
+
+        assertEquals(emptyList<String>(), touched)
+    }
+
+    @Test
+    fun `whether the hatch is open is decided by the constructor, and asking costs no GL`() {
+        // The one capability that varies within a backend rather than between backends, which is
+        // why it has to be askable: the same class answers both ways. Asking has to be free,
+        // because the point of asking is to find out at construction rather than at the first
+        // frame, and construction is where there is no context.
+        val touched = NoGl.refusingGl {
+            val without = GdxCanvas()
+            assertFalse(without.handsOverRaw, "no SpriteBatch, so raw() has nothing to hand over")
+
+            val holding = GdxCanvas(spriteBatch = NoGl.batch())
+            assertTrue(holding.handsOverRaw, "one was passed in, which is the whole of the question")
+            assertTrue(holding.movesRawOrigin, "and it really translates the projection")
+
+            without.dispose()
+            holding.dispose()
         }
 
         assertEquals(emptyList<String>(), touched)

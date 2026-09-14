@@ -56,6 +56,27 @@ class UiCanvasDefaultsTest {
         assertEquals(box, drawn.first, "right place, right size, and drawn rather than skipped")
     }
 
+    @Test
+    fun `a backend that never heard of the raw questions answers no to all of them`() {
+        val canvas = OldBackend()
+
+        assertFalse(canvas.handsOverRaw, "nobody who has not said otherwise has anything to hand over")
+        assertFalse(canvas.movesRawOrigin, "and nobody who has not said otherwise moves an origin")
+        assertEquals(17f, canvas.rawX(17f), "x is the easy axis - it points the same way everywhere")
+        assertEquals(17f, canvas.rawY(17f), "and a backend that shares the toolkit's y leaves that alone too")
+    }
+
+    @Test
+    fun `a destination an old backend cannot honour still runs the block`() {
+        val canvas = OldBackend()
+
+        canvas.raw(Rect.of(10f, 20f, 4f, 4f)) { }
+
+        // Not a lesser picture - the same drawing in the wrong place - which is exactly why the
+        // question above exists and why a caller is told to ask it rather than to hope.
+        assertEquals(1, canvas.raws, "it fell through to the one call it does have")
+    }
+
     private class Pretend : TextureHandle {
         override val width = 8
         override val height = 8
@@ -66,6 +87,7 @@ class UiCanvasDefaultsTest {
 
         val rects = mutableListOf<Rect>()
         val images = mutableListOf<Pair<Rect, Colour>>()
+        var raws = 0
 
         override fun rect(rect: Rect, colour: Colour, corner: Float) {
             rects += rect
@@ -83,6 +105,8 @@ class UiCanvasDefaultsTest {
         override fun popClip() = Unit
         override fun pushAlpha(alpha: Float) = Unit
         override fun popAlpha() = Unit
-        override fun raw(block: (Any) -> Unit) = Unit
+        override fun raw(block: (Any) -> Unit) {
+            raws++
+        }
     }
 }
