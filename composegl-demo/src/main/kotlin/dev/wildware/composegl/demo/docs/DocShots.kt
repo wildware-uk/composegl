@@ -6,6 +6,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import dev.wildware.composegl.ui.animation.AnimatedVisibility
+import dev.wildware.composegl.ui.animation.Easings
+import dev.wildware.composegl.ui.animation.Tween
+import dev.wildware.composegl.ui.animation.fadeOut
+import dev.wildware.composegl.ui.animation.scaleOut
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.layout.PlacedHandler
@@ -469,6 +474,30 @@ private fun MutableList<DocShot>.widgets() {
                 Box(Modifier.fillMaxSize()) {
                     Tooltip("Costs 40 energy. Cools down in 12 seconds.", Modifier.align(Alignment.Centre)) {
                         Button("OVERCHARGE", onClick = {})
+                    }
+                }
+            }
+        }
+    })
+
+    // The same menu twice: at rest, and a fifth of a second into closing — still on screen, fading
+    // and shrinking, which is the thing `if (open)` cannot do.
+    add(DocShot("widget-animated-visibility", 460, 200, seconds = 0.2f) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(20f)) {
+                listOf("OPEN" to false, "CLOSING" to true).forEach { (title, closes) ->
+                    var open by remember { mutableStateOf(true) }
+                    LaunchedEffect(closes) { if (closes) open = false }
+                    Box(Modifier.size(200f, 160f), contentAlignment = Alignment.Centre) {
+                        val out = Tween(400, easing = Easings.Linear)
+                        AnimatedVisibility(open, exit = fadeOut(spec = out) + scaleOut(to = 0.6f, spec = out)) {
+                            Panel(Modifier.width(200f)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                                    Text(title)
+                                    Button("RESUME", onClick = {})
+                                }
+                            }
+                        }
                     }
                 }
             }
