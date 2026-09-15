@@ -33,11 +33,11 @@ backends move onto the same renderer one at a time (see
 renderers of their own.
 
 Each backend has its own golden images, and CI checks each backend against its own.
-The LibGDX and LWJGL3 sets are never compared with each other by a test — FreeType
-and stb_truetype never agree on a glyph pixel for pixel — so that comparison is one a
-person makes by looking at the two sets. The WebGL and KorGE backends go one step
-further: besides their own goldens, their scenes with no text in them must also match
-the LWJGL3 goldens.
+The LibGDX, WebGL and KorGE backends go one step further: besides their own goldens,
+their scenes with no text in them must also match the LWJGL3 goldens. Scenes with text
+are never compared across backends by a test — FreeType, stb_truetype and the others
+never agree on a glyph pixel for pixel — so that comparison is one a person makes by
+looking at the sets.
 
 ---
 

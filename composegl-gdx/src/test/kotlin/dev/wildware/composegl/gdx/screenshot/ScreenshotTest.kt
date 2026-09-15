@@ -22,6 +22,7 @@ import dev.wildware.composegl.ui.layout.Viewport
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 import java.awt.image.BufferedImage
+import java.io.File
 
 /**
  * The renderer, compared against pictures.
@@ -29,6 +30,12 @@ import java.awt.image.BufferedImage
  * One test per scene, so a failure names the scene rather than "screenshots". They skip themselves
  * when there is no display; CI gives them one with Xvfb and keeps whatever `build/screenshots`
  * ends up holding.
+ *
+ * Two checks, as the KorGE and WebGL backends have. Every scene against this backend's own goldens.
+ * And the scenes with no text in them against the raw OpenGL backend's goldens: both backends draw
+ * with composegl-render, so shapes, clips and pictures have no reason to differ, and a scene that
+ * does has found renderer code living in one backend. Text is left out only because FreeType and
+ * stb_truetype never agree on a glyph.
  */
 class ScreenshotTest {
 
@@ -38,6 +45,14 @@ class ScreenshotTest {
             Goldens.assertMatches(scene.name, render(scene))
         }
     }
+
+    @TestFactory
+    fun `the scenes without text match the raw OpenGL backend's goldens`(): List<DynamicTest> =
+        scenes().filter { it.name in WithoutText }.map { scene ->
+            DynamicTest.dynamicTest(scene.name) {
+                Goldens.assertMatches(scene.name, render(scene), directory = Desktop, updatable = false)
+            }
+        }
 
     private fun render(scene: Scene): BufferedImage = Gl.render {
         val fonts = GdxFonts()
@@ -94,4 +109,14 @@ class ScreenshotTest {
         physical = Size(SceneSize.toFloat(), SceneSize.toFloat()),
         policy = ScalePolicy.Fit,
     )
+
+    private companion object {
+        /** The raw OpenGL backend's goldens, which the text-free scenes are held to as well. */
+        val Desktop = File("../composegl-lwjgl3/src/test/resources/goldens")
+
+        /** The same list the KorGE and WebGL backends compare: the scenes that never call `text`. */
+        val WithoutText = setOf(
+            "borders", "corners", "gradients", "nine-patch", "particles", "per-corner", "rotation-and-glow", "shadow",
+        )
+    }
 }
