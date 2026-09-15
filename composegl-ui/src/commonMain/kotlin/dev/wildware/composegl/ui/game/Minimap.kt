@@ -16,7 +16,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.skin.ResolvedStyle
 import dev.wildware.composegl.ui.skin.Skin
 import dev.wildware.composegl.ui.skin.LocalSkin
-import dev.wildware.composegl.ui.skin.SkinDrawable
+import dev.wildware.composegl.ui.skin.flatColour
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.TextLayout
@@ -203,7 +203,7 @@ private class MinimapPainter(
         val y = middleY + towardsY * scale
 
         val style = markerStyles.getOrPut(entry.style ?: markerStyle) { skin.resolve(entry.style ?: markerStyle) }
-        val colour = (style.background as? SkinDrawable.Fill)?.colour ?: style.textColour
+        val colour = style.background.flatColour ?: style.textColour
 
         if (inner.contains(x, y)) {
             square(canvas, x, y, Size / 2f, colour)

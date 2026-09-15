@@ -11,6 +11,7 @@ import dev.wildware.composegl.ui.graphics.boxBorder
 import dev.wildware.composegl.ui.graphics.boxShadow
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.modifier.BackgroundElement
+import dev.wildware.composegl.ui.modifier.BrushBackgroundElement
 import dev.wildware.composegl.ui.modifier.BorderElement
 import dev.wildware.composegl.ui.modifier.DrawBehindElement
 import dev.wildware.composegl.ui.modifier.DrawInFrontElement
@@ -481,6 +482,7 @@ class DrawPass(val canvas: UiCanvas) {
             is BackgroundElement -> canvas.box(rect, element.colour, element.corners)
             is BorderElement -> canvas.boxBorder(rect, element.colour, element.width, element.corners)
             is ShadowElement -> canvas.boxShadow(rect, element.colour, element.spread, element.corners)
+            is BrushBackgroundElement -> canvas.rect(rect, element.brush, element.corner)
             is NinePatchElement -> element.patch.drawInto(canvas, rect, element.tint)
             is SkinBackgroundElement -> element.drawable.drawInto(canvas, rect, element.tint)
             is DrawBehindElement -> element.draw(canvas, rect)

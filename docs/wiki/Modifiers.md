@@ -113,6 +113,7 @@ node add, like `offset`.
 
 ```kotlin
 Modifier.background(Colour.rgb(0x1A1F28), corner = 6f)
+Modifier.background(Brush.vertical(top, bottom), corner = 6f)   // a gradient
 Modifier.border(Colour.rgb(0x2C3545), width = 1f, corner = 6f)
 Modifier.shadow(Colour.argb(0x80000000), spread = 12f, corner = 6f)
 Modifier.ninePatch(frame)          // skin art, stretched properly
@@ -467,6 +468,22 @@ one draws every corner at the smallest of the four and says so through
 a clip the same way, through `clipShape` (see *Clipping to a shape* above).
 
 ![a tab rounded along its top, a speech bubble with one square corner, and a panel square on its right](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-corners.png)
+
+Gradients: a `Brush` in place of a colour.
+
+```kotlin
+Brush.vertical(top, bottom)
+Brush.horizontal(left, right)
+Brush.linear(start, end, degrees = 45f)      // clockwise from pointing right
+Brush.radial(centre, edge)                   // an ellipse that fits the box
+```
+
+Two colours each. The gradient runs edge to edge across the node, whatever its size, and
+a corner cuts it like any other fill. Fading to `Colour.Transparent` keeps the colour
+rather than darkening on the way. A backend without gradients draws the first colour
+flat; `canvas.drawsGradients` says which you have.
+
+![a sky panel, a green-to-red health bar, a vignette and a fade](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-gradients.png)
 
 And what `padding` does to what is inside it:
 

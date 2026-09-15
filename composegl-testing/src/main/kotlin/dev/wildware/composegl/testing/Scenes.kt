@@ -16,6 +16,7 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Shape
 import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.graphics.BlendMode
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.EdgeMode
 import dev.wildware.composegl.ui.graphics.NinePatch
@@ -351,6 +352,34 @@ fun scenes(): List<Scene> = listOf(
         val picture = layer(group) { rect(group, Paper, corner = 10f) }
         if (picture != null) drawLayer(picture, group) else rect(group, Paper, corner = 10f)
         popTint()
+    },
+
+    /**
+     * Every kind of gradient, through the rounded-box shader.
+     *
+     * The fade on the bottom right is over a red strip on purpose: a gradient to transparent that
+     * mixed its colours the naive way darkens as it fades, and a dark smear over red is obvious in
+     * a picture where the same smear over black would be invisible.
+     */
+    Scene("gradients") { _ ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+
+        // A sky panel, rounded: the corners must cut the gradient exactly as they cut a fill.
+        rect(Rect.of(16f, 16f, 100f, 100f), Brush.vertical(Accent, Panel), corner = 14f)
+
+        // A health bar from green to red, and an angled sheen on a card below it.
+        rect(Rect.of(128f, 24f, 96f, 20f), Brush.horizontal(Colour.rgb(0x4CD964), Colour.rgb(0xFF3B30)), corner = 10f)
+        rect(Rect.of(128f, 60f, 96f, 56f), Brush.linear(Paper, Accent, degrees = 45f), corner = 8f)
+
+        // A vignette over a pale panel: clear in the middle, dark round the rim.
+        rect(Rect.of(16f, 128f, 100f, 96f), Paper)
+        rect(Rect.of(16f, 128f, 100f, 96f), Brush.radial(Colour.Transparent, Colour.argb(0xE0000000)))
+
+        // A fade to nothing over red, at half the canvas's opacity.
+        rect(Rect.of(128f, 128f, 96f, 96f), Colour.rgb(0xC03030))
+        pushAlpha(0.8f)
+        rect(Rect.of(128f, 128f, 96f, 96f), Brush.vertical(Paper, Paper.withAlpha(0)))
+        popAlpha()
     },
 
     Scene("clip") { art ->

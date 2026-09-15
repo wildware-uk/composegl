@@ -95,7 +95,7 @@ You need `composegl-ui` and exactly one backend.
 |---|---|
 | [Your first screen](docs/wiki/Your-first-screen.md) | a window with a button in it, start to finish |
 | [Widgets](docs/wiki/Widgets.md) · [Layout](docs/wiki/Layout.md) · [Modifiers](docs/wiki/Modifiers.md) | what there is, and how it fits together — down to a panel that shakes on a wrong password, parallax layers that follow the mouse, stick or scroll, and panels that animate out before they go |
-| [Skins](docs/wiki/Skins.md) | every colour and corner — one radius, or one per corner — comes out of a JSON file |
+| [Skins](docs/wiki/Skins.md) | every colour, gradient and corner — one radius, or one per corner — comes out of a JSON file |
 | [Input](docs/wiki/Input.md) · [Backends](docs/wiki/Backends.md) · [Shaders](docs/wiki/Shaders.md) | mouse, keyboard, gamepad, the cursor's shape; long press, double click, hold to repeat; and writing your own |
 | [Testing](docs/wiki/Testing.md) | screens tested with no window: tag a widget, then click, type and press pad buttons on it with `uiTest` |
 | [How it works](docs/how-it-works.md) | the long version: what is built, and why |

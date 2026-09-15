@@ -10,6 +10,7 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Shape
 import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.effect.ShaderEffect
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NinePatch
 import dev.wildware.composegl.ui.graphics.UiCanvas
@@ -135,6 +136,9 @@ data class BackgroundElement(val colour: Colour, val corners: Corners = Corners.
     @Deprecated("A background has a radius per corner now.", ReplaceWith("corners"))
     val corner: Float get() = corners.smallest
 }
+
+/** @see dev.wildware.composegl.ui.modifier.background */
+data class BrushBackgroundElement(val brush: Brush, val corner: Float = 0f) : Modifier.Element
 
 data class BorderElement(
     val colour: Colour,
@@ -586,6 +590,24 @@ fun Modifier.background(colour: Colour, corner: Float = 0f) = then(BackgroundEle
  * four; see [UiCanvas.roundsCornersSeparately].
  */
 fun Modifier.background(colour: Colour, corners: Corners) = then(BackgroundElement(colour, corners))
+
+/**
+ * A gradient behind this node, running edge to edge across it.
+ *
+ * ```kotlin
+ * Modifier.background(Brush.vertical(sky, horizon), corner = 6f)
+ * Modifier.background(Brush.radial(Colour.Transparent, Colour.argb(0xC0000000)))  // a vignette
+ * ```
+ *
+ * Measured against the node, so it stretches with it: a bar that shrinks as health drops squeezes
+ * its whole gradient into what is left. Paint it on a full-width node and [clip] a child to the
+ * health instead when the colour should say where on the bar it is.
+ *
+ * A backend without gradients draws the brush's first colour flat; see
+ * [UiCanvas.drawsGradients]. A brush is a data class, so the same one written again next
+ * recomposition compares equal and costs nothing.
+ */
+fun Modifier.background(brush: Brush, corner: Float = 0f) = then(BrushBackgroundElement(brush, corner))
 
 fun Modifier.border(colour: Colour, width: Float = 1f, corner: Float = 0f) =
     then(BorderElement(colour, width, corner))

@@ -12,6 +12,7 @@ import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.BlendMode
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.CanvasState
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
@@ -182,6 +183,29 @@ class GdxCanvas(
         if (state.isHidden || rect.isEmpty) return
         shape(rect, fill = colour, corner = corner)
     }
+
+    override fun rect(rect: Rect, brush: Brush, corner: Float) {
+        if (state.isHidden || rect.isEmpty) return
+        // Worked out here, once, in the toolkit's coordinates — then y flipped for the batch, which
+        // counts upwards. A radial gradient is symmetric and has no axis to flip.
+        val axis = (brush as? Brush.Linear)?.axis(rect.width, rect.height)
+        batch().gradient(
+            left = rect.left,
+            bottom = flip(rect.bottom),
+            width = rect.width,
+            height = rect.height,
+            start = brush.first.packed(state.alpha),
+            end = brush.last.packed(state.alpha),
+            radial = brush is Brush.Radial,
+            axisX = axis?.x ?: 0f,
+            axisY = -(axis?.y ?: 0f),
+            corner = corner,
+            aa = antialias,
+        )
+    }
+
+    /** Both kinds, straight and radial, through the same shader as every other box. */
+    override val drawsGradients: Boolean get() = true
 
     override fun border(rect: Rect, colour: Colour, width: Float, corner: Float) {
         if (state.isHidden || rect.isEmpty || width <= 0f) return

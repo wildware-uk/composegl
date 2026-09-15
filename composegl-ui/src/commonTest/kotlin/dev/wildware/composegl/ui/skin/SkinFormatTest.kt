@@ -2,6 +2,7 @@ package dev.wildware.composegl.ui.skin
 
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.ArtAtlas
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.EdgeMode
 import dev.wildware.composegl.ui.graphics.NineRegions
@@ -80,7 +81,11 @@ class SkinFormatTest {
                 "padding": 9
               }
             },
-            "label": { "background": "none", "text": { "size": 20 } }
+            "label": { "background": "none", "text": { "size": 20 } },
+            "sky": { "background": { "gradient": { "vertical": ["#3A6EA5", "#1B2A41"] }, "corner": 6 } },
+            "health": { "background": { "gradient": { "horizontal": ["#4CD964", "#FF3B30"] }, "border": "#000000" } },
+            "sheen": { "background": { "gradient": { "linear": ["#FFFFFF", "#00FFFFFF"], "angle": 45 }, "padding": 4 } },
+            "vignette": { "background": { "gradient": { "radial": ["#00000000", "#C0000000"] } } }
           }
         }
     """.trimIndent()
@@ -130,6 +135,105 @@ class SkinFormatTest {
             skin.styles.getValue("icon").base.background,
         )
         assertEquals(SkinDrawable.Blank, skin.styles.getValue("label").base.background)
+    }
+
+    @Test
+    fun `a gradient is read with the way it runs and its two colours`() {
+        val skin = read(file)
+
+        assertEquals(
+            SkinDrawable.Gradient(Brush.vertical(Colour.rgb(0x3A6EA5), Colour.rgb(0x1B2A41)), corner = 6f),
+            skin.styles.getValue("sky").base.background,
+        )
+        assertEquals(
+            SkinDrawable.Gradient(
+                Brush.horizontal(Colour.rgb(0x4CD964), Colour.rgb(0xFF3B30)),
+                border = Colour.Black,
+                borderWidth = 1f,
+            ),
+            skin.styles.getValue("health").base.background,
+            "a border with no width is one wide, as it is on a fill",
+        )
+        assertEquals(
+            SkinDrawable.Gradient(
+                Brush.linear(Colour.White, Colour.argb(0x00FFFFFF), degrees = 45f),
+                padding = Padding.all(4f),
+            ),
+            skin.styles.getValue("sheen").base.background,
+        )
+        assertEquals(
+            SkinDrawable.Gradient(Brush.radial(Colour.Transparent, Colour.argb(0xC0000000))),
+            skin.styles.getValue("vignette").base.background,
+        )
+    }
+
+    @Test
+    fun `a gradient is written back the way it would have been typed`() {
+        val written = SkinFormat.write(read(file))
+
+        assertTrue("\"vertical\": [\"#3A6EA5\", \"#1B2A41\"]" in written, written)
+        assertTrue("\"horizontal\": [\"#4CD964\", \"#FF3B30\"]" in written, written)
+        assertTrue("\"linear\": [\"#FFFFFF\", \"#00FFFFFF\"]" in written, written)
+        assertTrue("\"angle\": 45" in written, written)
+        assertTrue("\"radial\": [\"#00000000\", \"#C0000000\"]" in written, written)
+    }
+
+    @Test
+    fun `a gradient needs exactly two colours`() {
+        val problem = assertFailsWith<SkinFormatException> {
+            read("""{ "styles": { "b": { "background": { "gradient": { "vertical": ["#FF0000", "#00FF00", "#0000FF"] } } } } }""")
+        }
+
+        assertTrue("two colours" in problem.message.orEmpty(), problem.message.orEmpty())
+        assertTrue("3" in problem.message.orEmpty(), problem.message.orEmpty())
+    }
+
+    @Test
+    fun `a gradient that says two directions is refused`() {
+        val problem = assertFailsWith<SkinFormatException> {
+            read(
+                """{ "styles": { "b": { "background": { "gradient": """ +
+                    """{ "vertical": ["#FF0000", "#00FF00"], "radial": ["#FF0000", "#00FF00"] } } } } }""",
+            )
+        }
+
+        assertTrue("one way" in problem.message.orEmpty(), problem.message.orEmpty())
+    }
+
+    @Test
+    fun `an angle on anything but a linear gradient is a mistake rather than a shrug`() {
+        val problem = assertFailsWith<SkinFormatException> {
+            read("""{ "styles": { "b": { "background": { "gradient": { "vertical": ["#FF0000", "#00FF00"], "angle": 30 } } } } }""")
+        }
+
+        assertTrue("only a \"linear\"" in problem.message.orEmpty(), problem.message.orEmpty())
+    }
+
+    @Test
+    fun `a linear gradient without an angle says it needs one`() {
+        val problem = assertFailsWith<SkinFormatException> {
+            read("""{ "styles": { "b": { "background": { "gradient": { "linear": ["#FF0000", "#00FF00"] } } } } }""")
+        }
+
+        assertTrue("needs an \"angle\"" in problem.message.orEmpty(), problem.message.orEmpty())
+    }
+
+    @Test
+    fun `a gradient direction spelled wrong suggests the right one`() {
+        val problem = assertFailsWith<SkinFormatException> {
+            read("""{ "styles": { "b": { "background": { "gradient": { "vertica": ["#FF0000", "#00FF00"] } } } } }""")
+        }
+
+        assertTrue("\"vertical\"" in problem.message.orEmpty(), problem.message.orEmpty())
+    }
+
+    @Test
+    fun `a gradient and a fill on one background cannot both be the background`() {
+        val problem = assertFailsWith<SkinFormatException> {
+            read("""{ "styles": { "b": { "background": { "fill": "#FFFFFF", "gradient": { "radial": ["#FF0000", "#00FF00"] } } } } }""")
+        }
+
+        assertTrue("only be one" in problem.message.orEmpty(), problem.message.orEmpty())
     }
 
     @Test

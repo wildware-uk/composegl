@@ -30,6 +30,7 @@ import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Shape
 import dev.wildware.composegl.ui.geometry.Shapes
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerId
@@ -731,6 +732,26 @@ private fun MutableList<DocShot>.modifiers() {
                 }
                 Tile("team") {
                     Modifier.tint(Colour.Orange).background(Paper, corner = 6f).border(Paper, width = 2f, corner = 6f)
+                }
+            }
+        }
+    })
+
+    add(DocShot("modifier-gradients", 460, 120) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(14f)) {
+                Tile("vertical") { Modifier.background(Brush.vertical(Accent, Deep), corner = 6f) }
+                Tile("horizontal") {
+                    Modifier.background(Brush.horizontal(Colour.rgb(0x4CD964), Colour.rgb(0xFF3B30)), corner = 6f)
+                }
+                // Over a pale box, because a vignette over a dark page photographs as nothing.
+                Tile("radial") {
+                    Modifier.background(Colour.rgb(0xE6EDF5), corner = 6f)
+                        .background(Brush.radial(Colour.Transparent, Colour.argb(0xE0000000)), corner = 6f)
+                }
+                Tile("fade") {
+                    Modifier.background(Steel, corner = 6f)
+                        .background(Brush.linear(Accent, Accent.withAlpha(0), degrees = 45f), corner = 6f)
                 }
             }
         }
