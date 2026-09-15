@@ -105,7 +105,8 @@ fun <T> Dropdown(
         },
         content = {
             ProvideContentStyle(resolved) {
-                Box { label(selected) }
+                // Unselectable inside a SelectionContainer, so a press on the chosen option still opens the list.
+                Box { DisableSelection { label(selected) } }
                 DropdownArrow(resolved.textColour)
             }
         },

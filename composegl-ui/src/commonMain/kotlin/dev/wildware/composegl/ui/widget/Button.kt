@@ -59,7 +59,8 @@ fun Button(
             .styled(resolved),
         contentAlignment = contentAlignment,
     ) {
-        ProvideContentStyle(resolved, content)
+        // Unselectable inside a SelectionContainer: a press on the label is a press on the button.
+        ProvideContentStyle(resolved) { DisableSelection(content) }
     }
 }
 

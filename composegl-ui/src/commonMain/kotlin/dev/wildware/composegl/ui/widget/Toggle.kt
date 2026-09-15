@@ -199,6 +199,7 @@ private fun Control(
         verticalAlignment = VerticalAlignment.Centre,
     ) {
         control(states)
-        ProvideContentStyle(rememberStyle(labelStyle, states)) { Text(label) }
+        // Unselectable inside a SelectionContainer, so a press on the label still toggles.
+        ProvideContentStyle(rememberStyle(labelStyle, states)) { DisableSelection { Text(label) } }
     }
 }

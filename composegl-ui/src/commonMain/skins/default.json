@@ -279,6 +279,9 @@
     "field.selection": { "background": { "fill": "#3F6BD6" } },
     "field.composition": { "background": { "fill": "#9BA6B6" } },
 
+    // Selected text in a label, inside a SelectionContainer. The same blue as a field's.
+    "selection": { "background": { "fill": "#3F6BD6" } },
+
     // --- lists and menus ---
 
     "item": {

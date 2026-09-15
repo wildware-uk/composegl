@@ -28,7 +28,7 @@ class DefaultSkinTest {
             "screen", "panel", "separator", "divider", "tooltip",
             "label", "button", "button.primary", "button.danger", "button.quiet",
             "checkbox", "radio", "slider.track", "slider.knob", "progress.track", "progress.fill",
-            "field", "item", "scrollbar.thumb", "focusRing",
+            "field", "selection", "item", "scrollbar.thumb", "focusRing",
         )
 
         val missing = expected.filterNot { skin.has(it) }

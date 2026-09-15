@@ -198,6 +198,42 @@ measuring. For one hero label where the alpha has to be exactly right,
 it costs an offscreen picture and a draw call per node, which is why it is the
 wrong tool for two hundred damage numbers.
 
+### Selectable text
+
+A label is scenery: the pointer passes straight through it. For the things a
+player wants to copy out of a game — a seed, a server address, a lobby code, an
+error message for a bug report — wrap them:
+
+```kotlin
+SelectionContainer { Text("Seed: 8F3A-22C1") }
+```
+
+![A seed code with its code dragged over and highlighted](images/widget-selection.png)
+
+Inside, every `Text` takes the same gestures a `TextField` does, from the same
+code: press and drag to select, double-click a word, triple-click a line,
+shift-click to extend. **Ctrl+C** copies (Command+C on a Mac), **Ctrl+A** selects
+the whole label, and shift with the arrows, Home and End moves the far end.
+
+- **One selection per container.** Pressing a second label moves it there, as on
+  a web page. Pass a `SelectionState` to read `selectedText` or `clear()` it.
+- **Pad navigation is unchanged.** A click brings the keyboard to the label, so
+  Ctrl+C talks to it rather than to the last button, but a label is never a Tab
+  stop or somewhere the d-pad lands. `Modifier.focusableByPointer()` is that rule
+  on its own, for widgets of your own.
+- **Controls stay controls.** The labels on `Button`, `Checkbox`, `Toggle`,
+  `RadioButton`, `Stepper`, a `Hotbar` slot and a click-to-dismiss notification
+  are not selectable, so pressing them still presses. Anything else
+  you press — a `clickable` save slot or list row — needs its text wrapped in
+  `DisableSelection { }`, or the label takes the press first.
+- **Focus leaving clears it**, and so does the label's text changing.
+- The highlight is the skin's `selection` style (its background), falling back to
+  `field.selection`.
+
+One thing changes underneath: a label inside breaks its own lines, as a
+run-styled `Text` does, because a selection has to know where each character is.
+Very occasionally that moves a line break by one word.
+
 ---
 
 ## Buttons
