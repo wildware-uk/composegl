@@ -9,11 +9,12 @@ already set up.
 
 ## What is published
 
-Nine modules, under `dev.wildware.composegl`:
+Ten modules, under `dev.wildware.composegl`:
 
 | | |
 |---|---|
 | `composegl-ui` | the toolkit. JVM, Linux x64, iOS (arm64 and simulator arm64) and WebAssembly (`wasmJs`) |
+| `composegl-render` | the renderer every backend draws with. The same four as the toolkit |
 | `composegl-effects` | the shipped shader effects. The same four as the toolkit |
 | `composegl-gdx` | the LibGDX backend. JVM |
 | `composegl-korge` | the KorGE backend. JVM |

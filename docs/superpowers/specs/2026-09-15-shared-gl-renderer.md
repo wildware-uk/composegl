@@ -1,10 +1,18 @@
 # One shared renderer; backends become thin wrappers
 
-Status: **step 1 built** — `composegl-render` exists and `composegl-lwjgl3` draws with it (steps 1, 2a
-and 2b of §8 landed together). **gdx built** (step 3): `composegl-gdx` draws with it too.
-**korge built** (step 5): `composegl-korge` draws with it through `KorgeKmlGl` and `HostState.Restore`,
-3,934 lines down to 1,966. **webgl built** (step 4): `composegl-webgl` draws with it through `WebGl`,
-3,525 lines down to 2,009. Every backend is now a thin wrapper. Supersedes the "engine-agnostic toolkit, engine-specific renderer" row of
+Status: **built** (#193). Every step of §8 has landed and every backend is a thin wrapper round
+`composegl-render`: lwjgl3 (steps 1, 2a, 2b), gdx (step 3), webgl (step 4), korge (step 5), and the
+docs (step 6). Every context in §8's test matrix has a real run in CI, OpenGL ES 3 and ES 2 and
+WebGL 1 included. Main-source lines, before and after:
+
+| backend | before | after | its `Gl` binding |
+|---|---|---|---|
+| lwjgl3 | 4,574 | 1,956 | `LwjglGl.kt` 160, `LwjglGles.kt` 116 |
+| gdx | 4,119 | 1,631 | `GdxGl.kt` 171 |
+| webgl | 3,525 | 2,012 | `WebGl.kt` 267 |
+| korge | 3,934 | 1,966 | `KorgeKmlGl.kt` 203 |
+
+Supersedes the "engine-agnostic toolkit, engine-specific renderer" row of
 `2026-09-09-runtime-ui-design.md` §4, and the "shares no code with the LibGDX backend" promise in
 `docs/wiki/Backends.md` and `GlShapeBatch`.
 
@@ -34,8 +42,11 @@ What the code does where this design said otherwise. The code is the reference.
 - **A premultiplied picture drawn with `image()` is straightened in the shader.** That includes a
   layer's picture handed to `image()`, which old lwjgl3 drew as if it were straight.
 - **`RenderTarget.read()` runs a device frame** and so leaves the `Leave` end state behind it.
-- **Not in step 1:** the `testGles3` run in §8's matrix. lwjgl3's window and binding are desktop GL
-  only; an ES run needs a GLES binding, and belongs with the first ES backend.
+- **Not in step 1:** the `testGles3` run in §8's matrix. It came later (4cb68aa1): `GlfwWindow` can
+  open an ES 3 or ES 2 context through EGL, `LwjglGles.kt` binds it, and `testGles3` and `testGles2`
+  run the whole lwjgl3 suite on them in CI's `gl` job. That is where lwjgl3's 1,782 lines became
+  1,956. The first real ES 3 run found that effects need `highp` too (the dissolve noise ran out of
+  16-bit floats), so effects now ask for it as the shape shader does.
 - **gdx (step 3).** `src/main` went from 4,119 lines to 1,629. `GdxGl` reports version 2 whenever
   `Gdx.gl30` is null, so the GL 2 / ES 2 path never asks for a vertex array object it has no call
   for; on `testGl30` it compiles `#version 150`. `GdxFonts` keeps LibGDX's fixed page size (1,024,
@@ -43,7 +54,10 @@ What the code does where this design said otherwise. The code is the reference.
   change. Its `FreeTypeRasteriser` loads glyphs with LibGDX's hinting flags, gamma and whole-pixel
   metrics. Ten goldens whose scenes have text were re-made once for the lost kerning. Context loss
   is noticed in `begin` on Android, where LibGDX makes a new `GLVersion` with each new context,
-  rather than by a helper in `composegl-android`, which has no renderer dependency. As §8 asked,
+  rather than by a helper in `composegl-android`, which has no renderer dependency.
+  `GdxContextLossTest` checks both halves on desktop: a canvas told its context was lost draws the
+  same pixels, and a frame on an app that says it is Android, handed a new `GLVersion`, builds its
+  programs again. Nobody has run it on a real phone. As §8 asked,
   its text-free scenes are also held to lwjgl3's goldens (added in a follow-up check). Render gained
   `BoundPicture.rotated`, an open `lend` round `raw` blocks, and text drawn by a canvas made
   without fonts.
@@ -66,8 +80,9 @@ What the code does where this design said otherwise. The code is the reference.
     bound first where there are any: WebGL refuses a buffer that was ever bound to `ARRAY_BUFFER`
     as an index buffer.
   - The shape shader's fragment header asks for `highp` where `GL_FRAGMENT_PRECISION_HIGH` exists
-    (`GlslDialect.fragment(source, highPrecision = true)`), as the old WebGL batch did. Effects stay
-    `mediump`. So §10's `highp` follow-up is done for the shape shader, with no golden changed.
+    (`GlslDialect.fragment(source, highPrecision = true)`), as the old WebGL batch did. Effects stayed
+    `mediump` here, and moved to `highp` with the ES runs (see step 1's note). So §10's `highp`
+    follow-up is done, with no golden changed.
   - The binding does not write a float at a time into a `Float32Array`. `GlFloats`, `GlShorts` and
     `GlBytes` are Kotlin arrays, and an upload copies them into Wasm memory once and hands WebGL a
     view of it: no JS call per number. A showcase frame is no slower than before (see the commit).

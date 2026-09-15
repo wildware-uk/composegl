@@ -659,7 +659,7 @@ Give the border and the shadow the same `Corners` as the background, or they sho
 at the corner that differs. `Corners.top`, `bottom`, `left` and `right` round two;
 `Corners.all(r)` is exactly `corner = r`. A backend that cannot round corners one by
 one draws every corner at the smallest of the four and says so through
-`canvas.roundsCornersSeparately`; both backends here can. `clip(corners)` rounds
+`canvas.roundsCornersSeparately`; every backend here can. `clip(corners)` rounds
 a clip the same way, through `clipShape` (see *Clipping to a shape* above).
 
 ![a tab rounded along its top, a speech bubble with one square corner, and a panel square on its right](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-corners.png)
