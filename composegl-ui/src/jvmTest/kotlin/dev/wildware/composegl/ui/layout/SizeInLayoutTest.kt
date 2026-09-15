@@ -1,6 +1,7 @@
 package dev.wildware.composegl.ui.layout
 
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.aspectRatio
 import dev.wildware.composegl.ui.modifier.defaultMinSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
@@ -167,6 +168,17 @@ class SizeInLayoutTest {
         val box = run(holding(Modifier.widthIn(max = 300f).fillMaxWidth(), 10f), Constraints.Unbounded)
 
         assertEquals(300f, box.width, "there is a share of 300 even when there is no share of infinity")
+    }
+
+    @Test
+    fun `a shape is worked out inside the range whichever side of it the range is written`() {
+        val after = run(holding(Modifier.aspectRatio(2f).widthIn(max = 200f), 10f))
+        assertEquals(200f, after.width)
+        assertEquals(100f, after.height, "the height follows the width the range allowed, not the parent's 1000")
+
+        val before = run(holding(Modifier.widthIn(max = 200f).aspectRatio(2f), 10f))
+        assertEquals(200f, before.width)
+        assertEquals(100f, before.height)
     }
 
     // --- a default minimum ---

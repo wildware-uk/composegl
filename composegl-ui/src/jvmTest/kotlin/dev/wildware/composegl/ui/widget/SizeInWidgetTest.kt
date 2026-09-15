@@ -12,6 +12,7 @@ import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.aspectRatio
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.defaultMinSize
@@ -228,6 +229,25 @@ class SizeInWidgetTest {
             assertEquals(200f, ui.node("inner").width, "a minimum cannot push past what its parent allows")
             assertEquals(200f, ui.node("outer").width)
             assertEquals(200f, ui.painted().rect.width)
+        }
+    }
+
+    @Test
+    fun `a picture keeping its shape inside a range keeps it when the player widens the range`() {
+        var roomy by mutableStateOf(false)
+        screen {
+            Column {
+                Button("ROOMY", onClick = { roomy = true }, modifier = Modifier.testTag("roomy"))
+                Box(Modifier.widthIn(max = if (roomy) 300f else 120f).aspectRatio(2f).background(Marker).testTag("picture"))
+            }
+        }.use { ui ->
+            assertEquals(120f, ui.node("picture").width)
+            assertEquals(60f, ui.node("picture").height, "the shape is taken from the width the range allowed")
+
+            ui.click("roomy")
+            assertEquals(300f, ui.node("picture").width)
+            assertEquals(150f, ui.node("picture").height)
+            assertEquals(150f, ui.painted().rect.height, "and it is drawn that tall")
         }
     }
 
