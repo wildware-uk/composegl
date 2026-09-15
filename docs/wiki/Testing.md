@@ -327,7 +327,7 @@ Put it last, like `LayoutOverlay`. Each frame it draws the whole tree a second t
 a counter instead of the screen, then shades the counts. So it counts the calls the
 frame really made — a background, a border, a shadow's whole spread, each run of text,
 each picture — it follows every change, and a still screen with it on stays still. Its
-own shading is not counted, nor `LayoutOverlay`'s, `Inspector`'s, `FocusOverlay`'s or `RedrawOverlay`'s marks. Take it off
+own shading is not counted, nor `LayoutOverlay`'s, `Inspector`'s, `FocusOverlay`'s, `RedrawOverlay`'s or `TextMetricsOverlay`'s marks. Take it off
 before shipping.
 
 ![a panel with a card, a button and a translucent scrim over half of it, shaded blue, green and pink where they stack](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/overdraw-overlay.png)
@@ -486,6 +486,47 @@ while on.
 
 A fade only moves while the game keeps drawing. A game that skips drawing unchanged frames
 holds the last flash until something changes.
+
+---
+
+## The lines inside text, on the screen
+
+`TextAnchor` places text by its line box, its capitals or its baseline, and none of
+those can be seen. `TextMetricsOverlay` draws them through every piece of text:
+
+```kotlin
+Box(Modifier.fillMaxSize()) {
+    Game()
+    TextMetricsOverlay(enabled = debug)                                        // all five
+    TextMetricsOverlay(enabled = debug, show = setOf(TextGuide.Baseline))      // or just one
+}
+```
+
+| `TextGuide` | Drawn as | What it is |
+|---|---|---|
+| `LineBox` | cyan edge | each line's box, as layout counted it — what `TextAnchor.LineBox` places by |
+| `Ascent` | red line | the top of the tallest glyph |
+| `CapHeight` | orange line | the top of a capital — what `TextAnchor.CapTop` places by |
+| `Baseline` | green line | the line the letters stand on — what `TextAnchor.Baseline` places by |
+| `Descent` | blue line | the bottom of the lowest glyph |
+
+Lining a label up with an icon is then a matter of looking: put the icon's edge on
+the green line, not three pixels above it. Two sizes on one baseline share one green
+line.
+
+Every line of a wrapped paragraph gets its own set, each as wide as that line's
+glyphs, so a centred label shows its lines under its letters rather than across its
+box. A scaled label shows them where it is drawn. It is the same kind of node as
+`LayoutOverlay` — no size, no clicks, a still screen stays still — and both can be on
+at once.
+
+![two sizes on one baseline and a line of body text, under the text metrics overlay](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/text-metrics-overlay.png)
+
+It marks `Text` labels, text fields — a field's lines where its words have scrolled
+to, or its hint's when it is empty — typewriters, tooltips and the letter on a
+`PromptGlyph`. A typewriter shows every line as it will stand once typed, so the
+guides do not crawl along with the letters. Damage numbers and a minimap's compass
+letters are not marked yet.
 
 ---
 

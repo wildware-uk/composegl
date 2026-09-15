@@ -21,6 +21,9 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.skin.ResolvedStyle
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.text.GuideLine
+import dev.wildware.composegl.ui.text.TextGuideSource
+import dev.wildware.composegl.ui.text.TextGuides
 import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.text.TextStyle
 
@@ -120,7 +123,7 @@ private class PromptPainter(
     private val style: ResolvedStyle,
     private val line: TextStyle,
     private val fonts: FontProvider,
-) : MeasurePolicy {
+) : MeasurePolicy, TextGuideSource {
 
     private var measured: TextLayout? = null
 
@@ -145,6 +148,18 @@ private class PromptPainter(
         baseline = fonts.metrics(line).ascent - text.firstBaseline
 
         return layout(constraints.constrainWidth(boxWidth), constraints.constrainHeight(boxHeight)) {}
+    }
+
+    /**
+     * The letter on the key, in the key's own face: its glyphs, standing on the sentence's baseline,
+     * in a line box one sentence line tall.
+     */
+    override fun textGuides(box: Rect): TextGuides? = measured?.let { text ->
+        val left = box.left + (box.right - box.left - text.size.width) / 2f
+        TextGuides(
+            fonts.metrics(style.textStyle),
+            listOf(GuideLine(left, left + text.size.width, box.top, box.top + boxHeight, box.top + baseline + text.firstBaseline)),
+        )
     }
 
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->

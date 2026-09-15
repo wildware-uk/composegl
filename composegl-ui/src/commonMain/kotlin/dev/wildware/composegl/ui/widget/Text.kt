@@ -33,7 +33,10 @@ import dev.wildware.composegl.ui.skin.ResolvedStyle
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.Paragraph
+import dev.wildware.composegl.ui.text.GuideLine
 import dev.wildware.composegl.ui.text.TextAnchor
+import dev.wildware.composegl.ui.text.TextGuideSource
+import dev.wildware.composegl.ui.text.TextGuides
 import dev.wildware.composegl.ui.text.TextDecoration
 import dev.wildware.composegl.ui.text.TextGestures
 import dev.wildware.composegl.ui.text.TextLayout
@@ -205,7 +208,7 @@ private class TextPainter(
     private val softWrap: Boolean,
     private val fonts: FontProvider,
     private val outline: TextOutline?,
-) : MeasurePolicy, MarqueeWords {
+) : MeasurePolicy, MarqueeWords, TextGuideSource {
 
     override val marqueeWords: Any get() = text
 
@@ -284,6 +287,23 @@ private class TextPainter(
                 bottom = box.top + lastBaseline + metrics.descent,
             )
         }
+    }
+
+    /**
+     * The backend hands back no widths line by line, so every line is given the measured block's
+     * width, and stands a line height below the one before it — the arithmetic `ink` uses.
+     */
+    override fun textGuides(box: Rect): TextGuides? = measured?.let { block ->
+        val lineHeight = style.lineHeight
+        val left = box.left + shift
+        val right = left + block.size.width
+        TextGuides(
+            fonts.metrics(style),
+            List(block.lineCount.coerceAtLeast(1)) { line ->
+                val top = box.top + line * lineHeight
+                GuideLine(left, right, top, top + lineHeight, box.top + block.firstBaseline + line * lineHeight)
+            },
+        )
     }
 
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
@@ -572,7 +592,7 @@ private class RunPainter(
     private val outline: TextOutline?,
     private val runs: List<TextRun>,
     private val view: RunView,
-) : MeasurePolicy, MarqueeWords {
+) : MeasurePolicy, MarqueeWords, TextGuideSource {
 
     override val marqueeWords: Any get() = text
 
@@ -702,6 +722,25 @@ private class RunPainter(
                 bottom = box.top + bottom,
             ).takeIf { !it.isEmpty }
         }
+    }
+
+    /** Each line where the paragraph broke and aligned it, as wide as its own glyphs. */
+    override fun textGuides(box: Rect): TextGuides? = measured?.let { block ->
+        val left = box.left + shift
+        TextGuides(
+            block.metrics,
+            block.lines.map { line ->
+                val ellipsis = if (line.ellipsised) pieceOf(-1, -1).size.width else 0f
+                val top = box.top + line.top
+                GuideLine(
+                    left = left + line.left,
+                    right = left + line.left + line.width + ellipsis,
+                    top = top,
+                    bottom = top + block.lineHeight,
+                    baseline = box.top + line.baseline,
+                )
+            },
+        )
     }
 
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
