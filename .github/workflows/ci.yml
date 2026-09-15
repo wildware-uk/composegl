@@ -92,7 +92,7 @@ jobs:
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
           GALLIUM_DRIVER: llvmpipe
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-korge:test --rerun-tasks --stacktrace
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-korge:jvmTest --rerun-tasks --stacktrace
 
       # And again with no display at all: KorGE renders offscreen with llvmpipe. Both ways must agree.
       - name: KorGE with no display
@@ -100,7 +100,7 @@ jobs:
           KORGE_HEADLESS: 'true'
           LIBGL_ALWAYS_SOFTWARE: '1'
           GALLIUM_DRIVER: llvmpipe
-        run: env -u DISPLAY ./gradlew :composegl-korge:test --rerun-tasks --stacktrace
+        run: env -u DISPLAY ./gradlew :composegl-korge:jvmTest --rerun-tasks --stacktrace
 
       - name: Prove the runtime redraws only when something changed
         env:

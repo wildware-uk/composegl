@@ -104,7 +104,7 @@ FreeType rounds it to a whole pixel for gdx.
 - **Demo**: a new `composegl-demo-korge` module (not published). Set `duplicatesStrategy` on its
   distribution tasks: the Compose runtime brings two jars named `runtime-desktop-1.12.0.jar`.
 - **Docs**: a KorGE page in `docs/wiki/`, and a KorGE line in `Your-first-screen.md`'s backends note.
-- **CI** — *done*. The `gl` job runs `:composegl-korge:test` under Xvfb, and again with
+- **CI** — *done*. The `gl` job runs `:composegl-korge:jvmTest` under Xvfb, and again with
   `KORGE_HEADLESS=true` and no display. The `build` job has neither, so the pixel tests skip there.
 - **More targets**: turn on `wasmJs` (and later iOS/Android) in `composegl-korge/build.gradle.kts`.
   Needed first: `KorgeClipboard` uses AWT and `runBlocking`, and `KorgeFonts` uses
