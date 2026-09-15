@@ -35,7 +35,7 @@ class PreviewsTest {
     @Test
     fun `every marked function is found and nothing else`() {
         assertEquals(
-            listOf("ClearPreview", "CounterPreview", "InsideAnObject", "square-on-blue"),
+            listOf("ClearPreview", "CounterPreview", "InACompanion", "InsideAnObject", "StaticInACompanion", "square-on-blue"),
             samples().map { it.name },
         )
     }
@@ -101,6 +101,20 @@ class PreviewsTest {
         val preview = Previews.of(ObjectPreviews::class.java).single()
 
         uiTest(preview).use { ui -> ui.assertText("label", "FROM AN OBJECT") }
+    }
+
+    @Test
+    fun `a preview in a companion object is called on the companion and clicks`() {
+        uiTest(samples().single { it.name == "InACompanion" }).use { ui ->
+            ui.assertText("companion", "COMPANION 0")
+            ui.click("companion")
+            ui.assertText("companion", "COMPANION 1")
+        }
+    }
+
+    @Test
+    fun `a JvmStatic preview in a companion is one preview not two`() {
+        uiTest(samples().single { it.name == "StaticInACompanion" }).use { ui -> ui.assertText("static", "STATIC") }
     }
 
     @Test

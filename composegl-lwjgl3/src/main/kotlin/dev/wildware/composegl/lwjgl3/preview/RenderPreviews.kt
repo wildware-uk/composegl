@@ -155,6 +155,8 @@ private fun draw(
         previews.forEach { preview ->
             try {
                 val file = File(options.out, "${preview.name}.png")
+                // A name like "menus/pause" keeps its pictures in a folder of their own.
+                file.parentFile.mkdirs()
                 ImageIO.write(renderer.render(preview), "png", file)
                 written += file
                 log("wrote ${file.path}")

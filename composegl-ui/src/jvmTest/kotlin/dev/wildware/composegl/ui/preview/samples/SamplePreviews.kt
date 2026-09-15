@@ -52,3 +52,23 @@ object ObjectPreviews {
         Text("FROM AN OBJECT", modifier = Modifier.testTag("label"))
     }
 }
+
+class CompanionPreviews {
+    companion object {
+
+        @Preview(width = 200, height = 60)
+        @Composable
+        fun InACompanion() {
+            var presses by remember { mutableStateOf(0) }
+            Button("COMPANION $presses", onClick = { presses++ }, modifier = Modifier.testTag("companion"))
+        }
+
+        /** Kotlin writes this one twice, a static copy on the class and the companion's own. */
+        @JvmStatic
+        @Preview(width = 120, height = 40)
+        @Composable
+        fun StaticInACompanion() {
+            Text("STATIC", modifier = Modifier.testTag("static"))
+        }
+    }
+}

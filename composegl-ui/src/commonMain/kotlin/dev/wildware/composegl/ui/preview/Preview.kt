@@ -17,7 +17,7 @@ package dev.wildware.composegl.ui.preview
  * the widget changes.
  *
  * The function takes no arguments, because nothing would be there to pass them. It may be a
- * top-level function or a member of an `object`, and private is fine.
+ * top-level function or a member of an `object` or a `companion object`, and private is fine.
  *
  * The same function is a test's starting point too: `uiTest(preview)` composes it at its size, so
  * a screen someone looked at in a picture is the screen a test clicks through.
