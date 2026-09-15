@@ -173,7 +173,7 @@ class GdxCanvas(
 
         // Complained about last, so that an unbalanced frame still leaves things tidy for whatever
         // the game draws next.
-        check(state.isBalanced) { "a clip, an alpha or a blend was pushed and never popped" }
+        check(state.isBalanced) { "a clip, an alpha, a blend or a tint was pushed and never popped" }
     }
 
     // --- shapes ---
@@ -478,6 +478,17 @@ class GdxCanvas(
         applyBlend()
     }
 
+    /**
+     * No flush and no GL: the tint goes into each vertex's colour as it is queued, so a tinted
+     * hotbar batches with the untinted panel behind it.
+     */
+    override fun pushTint(tint: Colour) = state.pushTint(tint)
+
+    override fun popTint() = state.popTint()
+
+    /** Every call that takes a colour, and every picture drawn inside a layer. Not raw(). */
+    override val tints: Boolean get() = true
+
     override fun popBlend() {
         state.popBlend()
         applyBlend()
@@ -590,7 +601,8 @@ class GdxCanvas(
         layer = LayerFrame(bounds, pixelWidth, pixelHeight)
         // Full opacity and a clip of exactly the layer. The opacity out here is applied when the
         // picture is drawn back, which is what makes a group fade as one object.
-        state = CanvasState(bounds)
+        // The tint is the exception, and comes in with it: see UiCanvas.pushTint.
+        state = previousState.forLayer(bounds)
 
         bindFramebuffer(target.buffer.framebufferHandle)
         setViewport(0, 0, pixelWidth, pixelHeight)
@@ -607,7 +619,7 @@ class GdxCanvas(
         try {
             block()
             batch().flush()
-            check(state.isBalanced) { "a clip, an alpha or a blend was pushed inside a layer and never popped" }
+            check(state.isBalanced) { "a clip, an alpha, a blend or a tint was pushed inside a layer and never popped" }
         } finally {
             layer = previousLayer
             state = previousState
@@ -938,13 +950,19 @@ class GdxCanvas(
      */
     private fun flip(y: Float) = (layer?.bounds?.bottom ?: viewport.design.height) - y
 
-    /** The colour LibGDX wants: four bytes squeezed into a float, alpha already multiplied. */
-    private fun Colour.packed(alpha: Float): Float = Color.toFloatBits(
-        (argb shr 16) and 0xFF,
-        (argb shr 8) and 0xFF,
-        argb and 0xFF,
-        (((argb ushr 24) and 0xFF) * alpha).toInt().coerceIn(0, 255),
-    )
+    /**
+     * The colour LibGDX wants: four bytes squeezed into a float, alpha already multiplied, and the
+     * tint in force multiplied into the other three.
+     */
+    private fun Colour.packed(alpha: Float): Float {
+        val tint = state.tint
+        return Color.toFloatBits(
+            ((argb shr 16) and 0xFF) * tint.red / 255,
+            ((argb shr 8) and 0xFF) * tint.green / 255,
+            (argb and 0xFF) * tint.blue / 255,
+            (((argb ushr 24) and 0xFF) * alpha).toInt().coerceIn(0, 255),
+        )
+    }
 
     /**
      * What to say about a texture this canvas cannot draw.

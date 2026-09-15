@@ -381,6 +381,37 @@ interface UiCanvas {
     fun supports(mode: BlendMode): Boolean = mode == BlendMode.SourceOver
 
     /**
+     * Every colour drawn until the matching [popTint] is multiplied by [tint], channel by channel —
+     * a rectangle's fill, a border, text, and a picture's own tint. White changes nothing.
+     *
+     * [tint]'s alpha is how much of it applies, not an opacity: `Colour.Red.scaleAlpha(0.5f)` is
+     * halfway to red, and at zero nothing changes. Nests by multiplication. See [Colour.asTint].
+     *
+     * No shader and no picture: it is the same multiply a tinted image already gets on the GPU, so
+     * it costs nothing but the arithmetic, and a hotbar flashing red is not a hotbar in a layer.
+     *
+     * **Unlike opacity it carries into [layer].** A multiply comes out the same done to each part
+     * or to the finished picture, so it is done to the parts, and [drawLayer] does not tint again.
+     * That is what lets a tinted subtree with a blur in it hand the blur a tinted picture — and it
+     * means a caller tinting a picture it made earlier pushes the tint round the [layer], not round
+     * the [drawLayer]. What a shader adds of its own, an outline's ring, is not tinted.
+     *
+     * [raw] is not tinted either: whatever the game draws with its own object is its own business.
+     *
+     * Both do nothing by default, and then everything draws its own colour. Ask [tints] first if a
+     * screen would rather show something else.
+     */
+    fun pushTint(tint: Colour) = Unit
+
+    fun popTint() = Unit
+
+    /**
+     * Whether [pushTint] really does anything. Same shape as [supports] and [drawsLayers]: a
+     * question with an honest default.
+     */
+    val tints: Boolean get() = false
+
+    /**
      * Draws [block] into an offscreen picture the size of [bounds] instead of onto the screen, and
      * hands the picture back.
      *

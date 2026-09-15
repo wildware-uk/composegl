@@ -230,6 +230,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     private var state = CanvasState(bounds)
     private val recorded = mutableListOf<DrawCall>()
     private val recordedBlends = mutableListOf<BlendMode>()
+    private val recordedTints = mutableListOf<Colour>()
     private var drawing = false
 
     /** Everything drawn since the last [clear], in the order it was drawn. */
@@ -260,14 +261,30 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         return if (at < 0) BlendMode.SourceOver else recordedBlends[at]
     }
 
+    /**
+     * The tint [call] was drawn under: the opaque colour a real backend multiplies its colours by,
+     * or white for none. Matched by identity, like [blendOf], and beside the calls for the same
+     * reason.
+     *
+     * A [DrawCall.Layer] always answers white. The tint went into the picture while it was being
+     * drawn — see [UiCanvas.pushTint] — and a backend does not multiply the picture by it a second
+     * time, so a test asking about the composite would be asking about a multiply that never
+     * happens.
+     */
+    fun tintOf(call: DrawCall): Colour {
+        val at = recorded.indexOfFirst { it === call }
+        return if (at < 0) Colour.White else recordedTints[at]
+    }
+
     /** Everything drawn under one mode. The quick way to ask "did this group glow?". */
     fun calls(mode: BlendMode): List<DrawCall> =
         recorded.filterIndexed { at, _ -> recordedBlends[at] == mode }
 
-    /** The one place a call and the mode it was drawn under are written down, so they stay in step. */
+    /** The one place a call and what it was drawn under are written down, so they stay in step. */
     private fun record(call: DrawCall) {
         recorded += call
         recordedBlends += state.blend
+        recordedTints += if (call is DrawCall.Layer) Colour.White else state.tint
     }
 
     /**
@@ -298,6 +315,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     fun clear(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) {
         recorded.clear()
         recordedBlends.clear()
+        recordedTints.clear()
         drawing = false
         state.reset(bounds)
     }
@@ -442,9 +460,10 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? {
         // A real backend gives the block a clip of exactly the layer, full opacity and plain
         // source-over blending, so this one does too — otherwise a test would pass against a
-        // canvas that behaves differently from every canvas that draws.
+        // canvas that behaves differently from every canvas that draws. The tint comes in with it,
+        // as it does on those.
         val outer = state
-        state = CanvasState(bounds)
+        state = outer.forLayer(bounds)
         try {
             block()
             check(state.isBalanced) { UnbalancedInLayer }
@@ -524,6 +543,13 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     override fun popBlend() = state.popBlend()
 
+    override fun pushTint(tint: Colour) = state.pushTint(tint)
+
+    override fun popTint() = state.popTint()
+
+    /** It writes the tint down, which is the whole of what this canvas can do about anything. */
+    override val tints: Boolean get() = true
+
     /** Every mode, because writing one down costs the same as writing another one down. */
     override fun supports(mode: BlendMode): Boolean = true
 
@@ -559,11 +585,14 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         if (recorded.isEmpty()) "RecordingCanvas(nothing drawn)"
         else recorded.indices.joinToString(separator = "\n", prefix = "RecordingCanvas:\n") { at ->
             val mode = recordedBlends[at]
-            if (mode == BlendMode.SourceOver) "  ${recorded[at]}" else "  [$mode] ${recorded[at]}"
+            val tint = recordedTints[at]
+            val marks = (if (mode == BlendMode.SourceOver) "" else "[$mode] ") +
+                (if (tint == Colour.White) "" else "[tint $tint] ")
+            "  $marks${recorded[at]}"
         }
 
     private companion object {
-        const val Unbalanced = "a clip, an alpha or a blend was pushed and never popped"
-        const val UnbalancedInLayer = "a clip, an alpha or a blend was pushed inside a layer and never popped"
+        const val Unbalanced = "a clip, an alpha, a blend or a tint was pushed and never popped"
+        const val UnbalancedInLayer = "a clip, an alpha, a blend or a tint was pushed inside a layer and never popped"
     }
 }

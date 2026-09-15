@@ -937,4 +937,86 @@ class GlCanvasTest {
             }
         }
     }
+
+    // --- tinting ---
+
+    @Test
+    fun `a tint multiplies what is drawn under it and nothing after it`() {
+        val frame = draw {
+            pushTint(Colour.rgb(0xFF8000))
+            rect(Rect.of(10f, 10f, 60f, 60f), Colour.rgb(0x808080))
+            popTint()
+            rect(Rect.of(100f, 10f, 60f, 60f), Colour.rgb(0x808080))
+        }
+
+        assertColour(Colour.rgb(0x804000), frame.at(40, 40), "grey through orange")
+        assertColour(Colour.rgb(0x808080), frame.at(130, 40), "after the pop it is grey")
+    }
+
+    @Test
+    fun `half a tint is halfway to the colour rather than half as opaque`() {
+        val frame = draw {
+            pushTint(Colour.Red.scaleAlpha(0.5f))
+            rect(Rect.of(10f, 10f, 60f, 60f), Colour.White)
+            popTint()
+        }
+
+        assertColour(Colour.rgb(0xFF8080), frame.at(40, 40), "white halfway to red")
+    }
+
+    @Test
+    fun `a tinted layer is tinted once and not again on the way back`() {
+        val bounds = Rect.of(10f, 10f, 60f, 60f)
+        val frame = draw {
+            pushTint(Colour.rgb(0x808080))
+            val picture = layer(bounds) { rect(bounds, Colour.White) }
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds)
+            popTint()
+        }
+
+        assertColour(Colour.rgb(0x808080), frame.at(40, 40), "half, not a quarter")
+    }
+
+    @Test
+    fun `a shader effect is handed a picture that is already tinted`() {
+        val bounds = Rect.of(10f, 10f, 60f, 60f)
+        val frame = draw {
+            pushTint(Colour.Green)
+            val picture = layer(bounds) { rect(bounds, Colour.White) }
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds, passThrough)
+            popTint()
+        }
+
+        assertColour(Colour.Green, frame.at(40, 40), "through the shader and still green")
+    }
+
+    @Test
+    fun `a tint costs no draw call`() {
+        val frame = draw {
+            rect(Rect.of(0f, 0f, 10f, 10f), red)
+            pushTint(Colour.Grey)
+            rect(Rect.of(20f, 0f, 10f, 10f), red)
+            popTint()
+            rect(Rect.of(40f, 0f, 10f, 10f), red)
+        }
+
+        assertEquals(1, frame.drawCalls, "the tint rides on each vertex, so the batch never breaks")
+    }
+
+    @Test
+    fun `a picture's own tint and the one in force both apply`() {
+        val frame = drawPicture {
+            pushTint(Colour.rgb(0x808080))
+            image(it, Rect.of(10f, 10f, 40f, 40f), tint = Colour.rgb(0xFF00FF))
+            popTint()
+        }
+
+        assertColour(Colour.rgb(0x800000), frame.at(30, 15), "the red row, halved")
+        assertColour(Colour.rgb(0x000080), frame.at(30, 45), "the blue row, halved")
+    }
+
+    @Test
+    fun `it says it tints`() {
+        assertTrue(GlCanvas().tints)
+    }
 }
