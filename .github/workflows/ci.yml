@@ -5,9 +5,12 @@ on:
     branches: [master]
   pull_request:
 
+# A run on master is never cancelled once it has started: work lands straight on master, often
+# minutes apart, and cancelling meant no run ever finished. A newer push still replaces a run that
+# is only queued. Pull requests keep cancelling their older runs.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   build:
