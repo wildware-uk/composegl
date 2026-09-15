@@ -33,6 +33,13 @@ class KorgeCanvasTest {
     private val blue = Colour.rgb(0x0000FF)
     private val white = Colour.rgb(0xFFFFFF)
 
+    /**
+     * Skips before an `assertThrows`, which would otherwise catch the skip [KorgeGl.render] throws
+     * with no GL and report it as the wrong exception.
+     */
+    private fun assumeGl() =
+        org.junit.jupiter.api.Assumptions.assumeTrue(KorgeGl.available, "no display and KORGE_HEADLESS is not set")
+
     /** What one drawn frame came out as. */
     private class Frame(val pixels: Bitmap32, val drawCalls: Int)
 
@@ -442,6 +449,7 @@ class KorgeCanvasTest {
 
     @Test
     fun `a texture from another backend is refused by name`() {
+        assumeGl()
         val failure = assertThrows<IllegalStateException> {
             draw { image(FakeTexture(4, 4), Rect.of(0f, 0f, 4f, 4f)) }
         }
@@ -534,6 +542,7 @@ class KorgeCanvasTest {
 
     @Test
     fun `text measured by another backend is refused by name`() {
+        assumeGl()
         val headless = dev.wildware.composegl.ui.backend.MonospaceFontProvider().measure("hi", TextStyle.Default)
         val failure = assertThrows<IllegalStateException> { draw { text(headless, 0f, 0f, red) } }
         assertTrue("KorgeFonts" in failure.message.orEmpty(), failure.message)
@@ -567,12 +576,14 @@ class KorgeCanvasTest {
 
     @Test
     fun `an unbalanced clip is caught at the end of the frame`() {
+        assumeGl()
         val failure = assertThrows<IllegalStateException> { draw { pushClip(Rect.of(0f, 0f, 10f, 10f)) } }
         assertTrue("never popped" in failure.message.orEmpty(), failure.message)
     }
 
     @Test
     fun `beginning twice is refused`() {
+        assumeGl()
         assertThrows<IllegalStateException> { draw { ctx -> begin(viewport, ctx) } }
     }
 
