@@ -32,6 +32,7 @@ import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onTextEvent
+import dev.wildware.composegl.ui.modifier.scale
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.testTag
 import dev.wildware.composegl.ui.widget.Button
@@ -526,6 +527,22 @@ class UiTestTest {
         ui.click("hide")
 
         ui.assertText("secret", "")
+    }
+
+    @Test
+    fun `text on a panel shrunk to nothing is not there to read`() {
+        val ui = open {
+            var closed by remember { mutableStateOf(false) }
+            Column {
+                Box(Modifier.size(100f, 40f).scale(if (closed) 0f else 1f)) { Text("MENU", Modifier.testTag("menu")) }
+                Button("CLOSE", onClick = { closed = true }, modifier = Modifier.testTag("close"))
+            }
+        }
+        ui.assertText("menu", "MENU")
+
+        ui.click("close")
+
+        ui.assertText("menu", "")
     }
 
     @Test

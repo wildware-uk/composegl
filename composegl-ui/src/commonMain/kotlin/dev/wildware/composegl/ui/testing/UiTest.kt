@@ -84,7 +84,8 @@ fun uiTest(
         test.setContent(content)
     } catch (failure: Throwable) {
         // Nobody holds the test to close it when the first settle is what failed.
-        test.close()
+        // Kept behind the settle's own failure, which is the one that says what went wrong.
+        runCatching { test.close() }.exceptionOrNull()?.let { failure.addSuppressed(it) }
         throw failure
     }
     return test
@@ -322,7 +323,8 @@ class UiTest(
      *
      * Read off a drawing rather than off a widget's state, so it is what a player reads: the label
      * on a button, the lines in a field, a field's placeholder while it is empty. Nothing is drawn
-     * under a node that something above it has faded to nothing, and that comes back empty too.
+     * under a node that something above it has faded or shrunk to nothing, and that comes back
+     * empty too.
      */
     fun texts(tag: String): List<String> {
         val node = node(tag)
@@ -408,7 +410,8 @@ class UiTest(
     private fun UiNode.hiddenByAncestor(): Boolean {
         var walk: UiNode? = this
         while (walk != null) {
-            if (walk.resolved.alpha <= 0f) return true
+            // The same two tests DrawPass stops a subtree on: faded out, or shrunk to nothing.
+            if (walk.resolved.alpha <= 0f || walk.resolved.scale <= 0f) return true
             walk = walk.parent
         }
         return false
