@@ -1,12 +1,14 @@
 package dev.wildware.composegl.ui.widget
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.graphics.textRun
+import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Constraints
@@ -18,6 +20,7 @@ import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.drawBehind
+import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.skin.rememberStyle
@@ -344,9 +347,18 @@ fun Text(
         RunPointer(view, painter, onRunHover, onRunClick)
     }
 
+    val interactions = remember { InteractionState() }
+
     var placed = if (lift == 0f) Modifier else Modifier.offset(y = -lift)
-    if (watched) placed = placed.drawBehind(locate).onPointer(pointer)
+    if (watched) placed = placed.interaction(interactions).drawBehind(locate).onPointer(pointer)
     val chain = placed.then(modifier)
+
+    // A pointer that has left this label altogether sends it nothing — the router delivers a move
+    // to what is under it and to nothing else — so without this a term stays lit after the pointer
+    // has gone somewhere else. Whether the pointer is on the node at all is the one thing the node
+    // knows and a handler on it cannot.
+    val over = watched && interactions.isHovered
+    SideEffect { if (watched && !over) pointer.left() }
 
     LeafLayout(modifier = chain, name = "text", measurePolicy = painter, draw = painter.draw, ink = painter.ink)
 }
@@ -417,6 +429,17 @@ private class RunPointer(
             else -> Unit
         }
         return false
+    }
+
+    /**
+     * The pointer is no longer on the label at all, which only the node itself finds out.
+     *
+     * Not while a press is being held: the router stops hovering the moment a gesture starts, and
+     * a term that unlit itself on press and lit itself again on release would flicker under every
+     * click of it.
+     */
+    fun left() {
+        if (pressed == null) hover(null)
     }
 
     /** Told only when it changes, so a mouse crossing a term reports it once rather than per frame. */

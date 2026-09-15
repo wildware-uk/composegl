@@ -272,6 +272,29 @@ class TextRunsTest {
     }
 
     @Test
+    fun `a pointer that leaves the label altogether stops reporting the term`() {
+        // The router delivers a move to what is under the pointer and to nothing else, so a label
+        // the pointer has left hears nothing. Without the node saying it is no longer hovered, a
+        // term would stay lit for as long as the screen was up.
+        val seen = mutableListOf<Any?>()
+        show {
+            Text(
+                "one two three",
+                textStyle = style,
+                colour = Colour.White,
+                runs = listOf(TextRun(TextRange(4, 7), tag = "two")),
+                onRunHover = { seen += it?.tag },
+            )
+        }
+
+        move(30f, 5f)
+        move(300f, 300f)
+        frame()
+
+        assertEquals(listOf("two", null), seen)
+    }
+
+    @Test
     fun `pressing and releasing on a term follows it`() {
         val clicked = mutableListOf<Any?>()
         show {
