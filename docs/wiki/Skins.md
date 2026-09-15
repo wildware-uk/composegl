@@ -99,11 +99,12 @@ value is its two colours:
 "sky":      { "background": { "gradient": { "vertical": ["#3A6EA5", "#1B2A41"] }, "corner": 6 } },
 "health":   { "background": { "gradient": { "horizontal": ["#4CD964", "#FF3B30"] } } },
 "sheen":    { "background": { "gradient": { "linear": ["#FFFFFF", "#00FFFFFF"], "angle": 45 } } },
-"vignette": { "background": { "gradient": { "radial": ["#00000000", "#C0000000"] } } }
+"vignette": { "background": { "gradient": { "radial": ["#00000000", "#C0000000"] } } },
+"tab":      { "background": { "gradient": { "vertical": ["#5B8DEF", "#232A35"] }, "corner": { "topLeft": 8, "topRight": 8 } } }
 ```
 
 `angle` is degrees clockwise from pointing right, and only `linear` takes one.
-`corner`, `border`, `borderWidth` and `padding` work as they do on a fill. A state's
+`corner` (one radius or one per corner), `border`, `borderWidth` and `padding` work as they do on a fill. A state's
 `tint` reaches both colours, so a disabled button fades its whole gradient.
 
 ---

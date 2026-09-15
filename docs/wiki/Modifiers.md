@@ -489,7 +489,8 @@ Brush.radial(centre, edge)                   // an ellipse that fits the box
 ```
 
 Two colours each. The gradient runs edge to edge across the node, whatever its size, and
-a corner cuts it like any other fill. Fading to `Colour.Transparent` keeps the colour
+a corner cuts it like any other fill — `Modifier.background(brush, Corners.top(8f))` gives
+each corner its own radius. Fading to `Colour.Transparent` keeps the colour
 rather than darkening on the way. A backend without gradients draws the first colour
 flat; `canvas.drawsGradients` says which you have.
 

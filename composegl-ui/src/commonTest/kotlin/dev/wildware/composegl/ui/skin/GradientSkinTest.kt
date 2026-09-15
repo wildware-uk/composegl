@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.game.RadialCooldown
 import dev.wildware.composegl.ui.game.Reticle
 import dev.wildware.composegl.ui.game.rememberCooldown
 import dev.wildware.composegl.ui.game.rememberReticleState
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
@@ -137,6 +138,53 @@ class GradientSkinTest {
         ui.assertFocused("quit")
         assertEquals(focused, ui.backgroundOf("quit").brush, "the pad moves it back")
         assertEquals(resting, ui.backgroundOf("play").brush)
+    }
+
+    @Test
+    fun `a skinned gradient keeps a radius per corner as the pointer changes its state`() {
+        val tabs = Skin.Default.overriddenWith(
+            SkinFormat.read(
+                """
+                {
+                  "styles": {
+                    "button": {
+                      "background": { "gradient": { "vertical": ["#3A6EA5", "#1B2A41"] }, "corner": { "topLeft": 8, "topRight": 8 }, "border": "#5B8DEF" },
+                      "hovered": { "background": { "gradient": { "vertical": ["#5B8DEF", "#3A6EA5"] }, "corner": [0, 0, 8, 8] } }
+                    }
+                  }
+                }
+                """.trimIndent(),
+            ),
+        )
+        uiTest {
+            // Focus sits on MAP, so ITEMS is only ever at rest or hovered.
+            ProvideSkin(tabs) {
+                Column {
+                    Button("MAP", onClick = {}, initialFocus = true)
+                    Button("ITEMS", onClick = {}, modifier = Modifier.testTag("tab"))
+                }
+            }
+        }.use { ui ->
+            fun drawn(): Pair<DrawCall.CorneredGradientRectangle, RecordingCanvas> {
+                val canvas = ui.frame()
+                val bounds = ui.node("tab").boundsInRoot
+                return canvas.only<DrawCall.CorneredGradientRectangle>().single { it.rect == bounds } to canvas
+            }
+
+            val (rest, canvas) = drawn()
+            assertEquals(Corners.top(8f), rest.corners, "the file's top corners, not one radius")
+            assertEquals(resting, rest.brush)
+            assertEquals(
+                Corners.top(8f),
+                canvas.only<DrawCall.CorneredBorder>().single { it.rect == rest.rect }.corners,
+                "and the border follows the same corners",
+            )
+
+            ui.moveTo("tab")
+            val (hovered, _) = drawn()
+            assertEquals(Corners(topLeft = 0f, topRight = 0f, bottomRight = 8f, bottomLeft = 8f), hovered.corners, "hovered")
+            assertEquals(Brush.vertical(Colour.rgb(0x5B8DEF), Colour.rgb(0x3A6EA5)), hovered.brush)
+        }
     }
 
     @Test
