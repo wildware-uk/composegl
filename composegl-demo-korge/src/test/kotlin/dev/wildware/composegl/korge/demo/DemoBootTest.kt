@@ -60,8 +60,15 @@ class DemoBootTest {
     }
 
     private fun waitFor(what: String, frames: Int = 600, check: () -> Boolean) {
-        repeat(frames) { if (frame { check() }) return }
+        val t0 = System.nanoTime()
+        repeat(frames) { i -> if (frame { check() }) { System.err.println("DBG $what ok after $i frames ${(System.nanoTime()-t0)/1e6}ms ${dbg()}"); return } }
+        System.err.println("DBG $what FAILED ${(System.nanoTime()-t0)/1e6}ms ${dbg()}")
         org.junit.jupiter.api.Assertions.fail<Unit>("$what, after $frames frames; the demo is on ${frame { demo.state.screen }}")
+    }
+
+    private fun dbg(): String = frame {
+        fun f(n: String) = KorgeDemo::class.java.getDeclaredField(n).also { it.isAccessible = true }.get(demo)
+        "frames=${f("frames")} seconds=${f("seconds")} score=${demo.state.score}"
     }
 
     private fun press(key: Key) = frame {
@@ -93,6 +100,7 @@ class DemoBootTest {
         press(Key.ESCAPE)
         waitFor("Escape went back to the menu") { demo.state.screen == DemoScreen.Menu }
         val menu = frame { demo.window(it) }
+        System.err.println("DBG changed=${changed(settings, menu)}")
         assertTrue(changed(settings, menu) > 5_000, "the settings panel was replaced by the menu in the pixels")
 
         // PLAY takes focus again when the menu comes back, so Enter starts the game.
