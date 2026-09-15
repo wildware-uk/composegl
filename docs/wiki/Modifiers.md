@@ -117,6 +117,9 @@ node add, like `offset`.
 Modifier.background(Colour.rgb(0x1A1F28), corner = 6f)
 Modifier.background(Brush.vertical(top, bottom), corner = 6f)   // a gradient
 Modifier.border(Colour.rgb(0x2C3545), width = 1f, corner = 6f)
+Modifier.border(accent, width = 2f, style = BorderStyle.Dashed(on = 6f, off = 4f))
+Modifier.border(accent, width = 2f, corner = 8f, style = BorderStyle.Dotted)
+Modifier.border(bottom = BorderSide(1f, divider))   // one edge: a divider, a tab's underline
 Modifier.shadow(Colour.argb(0x80000000), spread = 12f, corner = 6f)
 Modifier.ninePatch(frame)          // skin art, stretched properly
 Modifier.background(Accent, Corners.top(8f))  // …with a radius per corner
@@ -486,6 +489,19 @@ rather than darkening on the way. A backend without gradients draws the first co
 flat; `canvas.drawsGradients` says which you have.
 
 ![a sky panel, a green-to-red health bar, a vignette and a fade](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-gradients.png)
+
+**Borders can be one-sided, dashed or dotted.** `BorderSide(width, colour, style)` is
+one edge, and `Modifier.border(left =, top =, right =, bottom =)` takes any of the four;
+a side left out is not drawn. The edges meet in square corners, top and bottom running
+the full width. A rounded outline is the all-sides `border`, where one line follows the
+curve.
+
+`BorderStyle.Dashed(on, off)` stretches its lengths a touch so a whole number of dashes
+fits, which is why an edge always starts and ends on a dash. `BorderStyle.Dotted` is
+square dots as long as the line is thick, the same distance apart. Both are drawn as
+plain rectangles and lines, so every backend gets them without doing anything.
+
+![a header divider, tabs with an underline, dashed and dotted boxes](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-borders.png)
 
 And what `padding` does to what is inside it:
 

@@ -343,7 +343,7 @@ class ResolvedModifier private constructor(
                     // A choice as well: the pointer is one shape at a time, so later wins.
                     is PointerHoverIconElement -> hoverIcon = element.icon
                     is EffectElement -> effects += element.effect
-                    is BackgroundElement, is BrushBackgroundElement, is BorderElement, is ShadowElement,
+                    is BackgroundElement, is BrushBackgroundElement, is BorderElement, is BorderSidesElement, is ShadowElement,
                     is NinePatchElement, is SkinBackgroundElement, is DrawBehindElement ->
                         behind += PaintOp(element, padding)
                     is DrawInFrontElement -> inFront += PaintOp(element, padding)

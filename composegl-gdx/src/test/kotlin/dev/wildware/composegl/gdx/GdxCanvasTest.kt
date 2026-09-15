@@ -17,6 +17,10 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Brush
+import dev.wildware.composegl.ui.graphics.BorderSide
+import dev.wildware.composegl.ui.graphics.BorderStyle
+import dev.wildware.composegl.ui.graphics.border
+import dev.wildware.composegl.ui.graphics.borders
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.layout.ScalePolicy
@@ -661,6 +665,61 @@ class GdxCanvasTest {
 
         assertColour(Color.BLUE, frame.pixels.at(52, 100), "the left edge should be drawn.")
         assertColour(Color.BLACK, frame.pixels.at(100, 100), "the middle should be empty.")
+    }
+
+    @Test
+    fun `a bottom-only border draws the bottom edge and nothing else`() {
+        val frame = draw {
+            borders(Rect.of(50f, 50f, 100f, 60f), left = null, top = null, right = null, bottom = BorderSide(4f, blue))
+        }
+
+        assertColour(Color.BLUE, frame.pixels.at(100, 108), "the bottom edge should be drawn.")
+        assertColour(Color.BLACK, frame.pixels.at(100, 52), "there is no top edge.")
+        assertColour(Color.BLACK, frame.pixels.at(52, 80), "there is no left edge.")
+        assertColour(Color.BLACK, frame.pixels.at(147, 80), "there is no right edge.")
+    }
+
+    @Test
+    fun `a dashed border is lit on its dashes and dark in its gaps`() {
+        // 190 across fits ten dashes of 10 with nine gaps of 10 exactly, so nothing is stretched
+        // and the pattern can be read off in whole pixels.
+        val frame = draw { border(Rect.of(40f, 40f, 190f, 100f), blue, width = 4f, corner = 0f, style = BorderStyle.Dashed(10f, 10f)) }
+
+        for (dash in 0 until 10) {
+            assertColour(Color.BLUE, frame.pixels.at(45 + dash * 20, 42), "dash $dash along the top should be drawn.")
+        }
+        for (gap in 0 until 9) {
+            assertColour(Color.BLACK, frame.pixels.at(55 + gap * 20, 42), "gap $gap along the top should be empty.")
+        }
+        assertColour(Color.BLUE, frame.pixels.at(227, 42), "the edge ends on a dash rather than a stub or a gap.")
+        assertColour(Color.BLACK, frame.pixels.at(130, 90), "and the middle is still empty.")
+    }
+
+    @Test
+    fun `a dotted rounded border is broken all the way round its curve`() {
+        val frame = draw { border(Rect.of(40f, 40f, 160f, 160f), blue, width = 4f, corner = 30f, style = BorderStyle.Dotted) }
+
+        fun runs(points: List<Pair<Int, Int>>): Int {
+            var count = 0
+            var lit = false
+            for ((x, y) in points) {
+                val now = frame.pixels.at(x, y).b > 0.5f
+                if (now && !lit) count++
+                lit = now
+            }
+            return count
+        }
+        val top = runs((80..160).map { it to 42 })
+        val left = runs((80..160).map { 42 to it })
+        assertTrue(top >= 8, "the straight top should be a row of dots, counted $top")
+        assertTrue(left >= 8, "and so should the left, counted $left")
+        // Along the curve itself: a quarter circle of radius 28 about the corner's centre.
+        val curve = runs((0..90).map { degrees ->
+            val angle = Math.toRadians(180.0 + degrees)
+            (70 + 28 * kotlin.math.cos(angle)).toInt() to (70 + 28 * kotlin.math.sin(angle)).toInt()
+        })
+        assertTrue(curve >= 3, "the corner should be dotted too, not solid or missing, counted $curve")
+        assertColour(Color.BLACK, frame.pixels.at(42, 42), "the square corner outside the curve stays empty.")
     }
 
     @Test
