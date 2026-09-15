@@ -378,6 +378,17 @@ class GlCanvasTest {
     }
 
     @Test
+    fun `a gradient takes the tint in force like a flat box does`() {
+        val frame = draw {
+            pushTint(Colour.rgb(0x808080))
+            rect(box, Brush.vertical(Colour.White, Colour.White))
+            popTint()
+        }
+
+        assertColour(Colour.rgb(0x808080), frame.at(200, 180), "white through grey")
+    }
+
+    @Test
     fun `a gradient panel batches with the flat boxes round it`() {
         val frame = draw {
             rect(Rect.of(0f, 0f, 400f, 400f), Colour.White)
