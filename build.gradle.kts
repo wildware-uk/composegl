@@ -119,6 +119,7 @@ val published = setOf(
     "composegl-ui",
     "composegl-effects",
     "composegl-gdx",
+    "composegl-korge",
     "composegl-lwjgl3",
     "composegl-webgl",
     "composegl-android",

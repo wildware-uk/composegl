@@ -11,6 +11,8 @@ kotlinxBrowser = "0.5.0"
 gdx = "1.14.2"
 gdxControllers = "2.2.3"
 lwjgl = "3.4.3"
+# KorGE, as a plain library: no KorGE Gradle plugin, which would want to own the whole build.
+korge = "6.0.0"
 jspecify = "1.0.0"
 robovm = "2.3.26"
 junit = "5.14.0"
@@ -39,6 +41,7 @@ gdx-backend-android = { module = "com.badlogicgames.gdx:gdx-backend-android", ve
 gdx-platform = { module = "com.badlogicgames.gdx:gdx-platform", version.ref = "gdx" }
 gdx-controllers = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-core", version.ref = "gdxControllers" }
 gdx-controllers-desktop = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-desktop", version.ref = "gdxControllers" }
+korge = { module = "com.soywiz.korge:korge", version.ref = "korge" }
 lwjgl = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
 # LWJGL 3.4 puts @Nullable on its return types. Kotlin refuses to infer a type whose
 # annotation it cannot see, so the annotations have to be on the compile classpath —
