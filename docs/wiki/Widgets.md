@@ -658,8 +658,21 @@ lose it.
   the field, which the on-screen keyboard being open does not count as.
 - **Presets.** A click, Enter or South picks one.
 
+![an armourer's tint being mixed: the pointer is part way through a drag across the saturation and brightness square, the ring under it, and the plate of armour beside the picker is already the bronze the drag has reached, #C7762B](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-colour-picker-drag.png)
+
+That picture is taken mid-drag, with the button still down: the ring is where
+the pointer is and the swatch beside it has already changed.
+
+![a squad colour picker with the right shoulder held down: the hue has walked from red round to green, #69F224, the bar is well down the rainbow strip, and the focus ring is still on the square](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-colour-picker-pad.png)
+
+And that one with nothing but a pad: the right shoulder went down a second
+before the shutter and is still held, so the hue has turned all the way from red
+to green while focus stayed put on the square.
+
 On a right-to-left screen the square mirrors: grey is on the right, and the
 arrows still move the marker the way they point.
+
+![a lamp colour picker in the high-contrast skin, right to left: the square is on the right, the hue and alpha strips run down its left, and a drag part way down the alpha strip has left the lamp half see-through at #61FFC53D, its swatch showing the checkerboard through it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-colour-picker-rtl.png)
 
 For a settings list, `ColourPickerButton` is a small swatch that opens the
 picker under itself. It needs a `PopupHost`, like a dropdown:

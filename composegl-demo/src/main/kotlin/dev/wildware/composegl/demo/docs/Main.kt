@@ -302,6 +302,9 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
                     router.onGamepad(GamepadEvent.ButtonDown(pad, button))
                     router.onGamepad(GamepadEvent.ButtonUp(pad, button))
                 }
+                // Down and left down, so the rest of the frames are taken with a thumb still on it and
+                // whatever repeats while it is held goes on repeating up to the shutter.
+                shot.padHold.forEach { (pad, button) -> router.onGamepad(GamepadEvent.ButtonDown(pad, button)) }
             }
         }
         return read(shot.width, shot.height)

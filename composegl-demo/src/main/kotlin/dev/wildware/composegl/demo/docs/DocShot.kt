@@ -41,6 +41,10 @@ import dev.wildware.composegl.ui.input.PointerButton
  *   which player it is, and their own pad through one `InputRouter`: pad 0 is player one's.
  * @param pads buttons pressed before the shutter, through that router, so a picture of two players
  *   in two different places is the routing really putting them there.
+ * @param padHold buttons pushed down before the shutter and never let go, so the picture is taken
+ *   with a thumb still on them. For a picture of something that only happens while a button is
+ *   held — a shoulder turning a colour picker's hue — which a press and a release never reaches.
+ *   Give it [seconds] as well, or there is no time for the holding to do anything.
  * @param budget what the picture's frames are timed and traced with, for a picture of the frame
  *   budget overlay. Null gives the renderer its own.
  * @param focus whether focus is kept pointing at something, as a game's renderer does, so the
@@ -62,6 +66,7 @@ internal class DocShot(
     val stock: Boolean = false,
     val players: Int = 1,
     val pads: List<Pair<GamepadId, GamepadButton>> = emptyList(),
+    val padHold: List<Pair<GamepadId, GamepadButton>> = emptyList(),
     val budget: FrameBudget? = null,
     val focus: Boolean = false,
     val content: @Composable () -> Unit,

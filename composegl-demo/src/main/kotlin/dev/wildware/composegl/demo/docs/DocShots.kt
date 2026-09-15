@@ -56,6 +56,7 @@ import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.BorderSide
 import dev.wildware.composegl.ui.graphics.BorderStyle
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.graphics.Hsv
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.GamepadId
 import dev.wildware.composegl.ui.input.PointerEvent
@@ -152,6 +153,7 @@ import dev.wildware.composegl.ui.widget.rememberTableState
 import dev.wildware.composegl.ui.widget.Divider
 import dev.wildware.composegl.ui.widget.ColourPicker
 import dev.wildware.composegl.ui.widget.ColourPickerButton
+import dev.wildware.composegl.ui.widget.ColourSwatch
 import dev.wildware.composegl.ui.widget.Dropdown
 import dev.wildware.composegl.ui.widget.PopupHost
 import dev.wildware.composegl.ui.widget.MenuBar
@@ -907,6 +909,87 @@ private fun MutableList<DocShot>.widgets() {
                 Row(Modifier.width(220f), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = VerticalAlignment.Centre) {
                     Text("Crosshair")
                     ColourPickerButton(colour = crosshair, onColourChange = { crosshair = it }, presets = DocTeamColours)
+                }
+            }
+        }
+    })
+
+    // An armourer's tint mixed by hand: the pointer presses low down the left of the square and drags
+    // up and to the right, and is still held at the shutter, so the ring is under the finger and the
+    // plate beside it is already wearing the colour the drag has reached.
+    add(DocShot(
+        "widget-colour-picker-drag",
+        370,
+        272,
+        pointer = Offset(49f, 143f),
+        dragTo = Offset(148f, 60f),
+        hold = true,
+        stock = true,
+    ) {
+        Box(Modifier.fillMaxSize().background(Colour.rgb(0x0B0E13)).padding(14f)) {
+            var armour by remember { mutableStateOf(Hsv(28f, 0.18f, 0.55f).toColour()) }
+            Row(horizontalArrangement = Arrangement.spacedBy(14f)) {
+                ColourPicker(colour = armour, onColourChange = { armour = it }, presets = DocArmourColours)
+                Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                    Text("ARMOUR TINT", style = "label.heading")
+                    ColourSwatch(armour, size = 72f)
+                    Text(armour.toHex(), style = "label.dim")
+                }
+            }
+        }
+    })
+
+    // The hue turned by a pad alone. The right shoulder goes down on the first frame and is still held
+    // a second later, when the shutter goes, so the bar has walked a long way down the strip and the
+    // square has gone with it. Focus stays on the square, where a pad player starts.
+    add(DocShot(
+        "widget-colour-picker-pad",
+        234,
+        300,
+        stock = true,
+        focus = true,
+        seconds = 1f,
+        padHold = listOf(GamepadId(0) to GamepadButton.RightBumper),
+    ) {
+        Frame {
+            var squad by remember { mutableStateOf(Hsv(0f, 0.85f, 0.95f).toColour()) }
+            Column(verticalArrangement = Arrangement.spacedBy(10f)) {
+                Text("SQUAD COLOUR", style = "label.heading")
+                ColourPicker(
+                    colour = squad,
+                    onColourChange = { squad = it },
+                    presets = DocTeamColours,
+                    initialFocus = true,
+                )
+            }
+        }
+    })
+
+    // A level editor's light, right to left in the high-contrast skin: the square mirrors to the right
+    // and the strips run down its left, hue then alpha. The pointer really drags down the alpha strip
+    // and stays there, so the light is half see-through and the checkerboard shows through its swatch.
+    add(DocShot(
+        "widget-colour-picker-rtl",
+        270,
+        296,
+        pointer = Offset(42f, 74f),
+        dragTo = Offset(42f, 155f),
+        hold = true,
+        stock = true,
+    ) {
+        ProvideSkin(Skin.HighContrast) {
+            ProvideLayoutDirection(LayoutDirection.Rtl) {
+                Box(Modifier.fillMaxSize().background(Colour.rgb(0x0B0E13)).padding(14f)) {
+                    var light by remember { mutableStateOf(Colour.rgb(0xFFC53D)) }
+                    Column(verticalArrangement = Arrangement.spacedBy(10f)) {
+                        Text("LAMP COLOUR", style = "label.heading")
+                        ColourPicker(
+                            colour = light,
+                            onColourChange = { light = it },
+                            alpha = true,
+                            presets = DocLampColours,
+                        )
+                    }
                 }
             }
         }
@@ -2715,4 +2798,16 @@ private fun WorkingScene() {
 private val DocTeamColours = listOf(
     Colour.rgb(0xE5484D), Colour.rgb(0x5B8DEF), Colour.rgb(0x46A758),
     Colour.rgb(0xFFD600), Colour.rgb(0xFF8000), Colour.rgb(0xB06CF0),
+)
+
+/** The armoury's stock finishes, for the picture of a tint being mixed by hand. */
+private val DocArmourColours = listOf(
+    Colour.rgb(0x6E7B8B), Colour.rgb(0x8C6239), Colour.rgb(0x2F4F4F),
+    Colour.rgb(0xB08D57), Colour.rgb(0x7A2E2E), Colour.rgb(0x1B1B1B),
+)
+
+/** Lamp colours an editor offers, see-through ones included, for the right-to-left picture. */
+private val DocLampColours = listOf(
+    Colour.rgb(0xFFC53D), Colour.rgb(0xFF6B3D), Colour.rgb(0x6BD5FF),
+    Colour.argb(0x9946A758), Colour.argb(0x99B06CF0), Colour.rgb(0xFFFFFF),
 )
