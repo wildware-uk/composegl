@@ -121,6 +121,14 @@ interface UiCanvas {
         shadow(rect, colour, spread, corners.smallest)
 
     /**
+     * A gradient box with its own radius on each corner: a tab shaded top to bottom.
+     *
+     * The default body is the [Brush] call above at the smallest of the four, so a backend that
+     * draws gradients but has never heard of [Corners] keeps its gradient and squares the corners.
+     */
+    fun rect(rect: Rect, brush: Brush, corners: Corners) = rect(rect, brush, corners.smallest)
+
+    /**
      * Whether the calls that take [Corners] really round each corner by its own radius.
      *
      * False means they draw every corner at the smallest of the four, which is a squarer box in the
@@ -774,6 +782,11 @@ internal fun UiCanvas.textRun(
  */
 internal fun UiCanvas.box(rect: Rect, colour: Colour, corners: Corners) {
     if (corners.isUniform) rect(rect, colour, corners.topLeft) else rect(rect, colour, corners)
+}
+
+/** The same, for a box filled with a [Brush]. */
+internal fun UiCanvas.box(rect: Rect, brush: Brush, corners: Corners) {
+    if (corners.isUniform) rect(rect, brush, corners.topLeft) else rect(rect, brush, corners)
 }
 
 /** The same, for an outline. */

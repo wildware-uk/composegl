@@ -174,7 +174,13 @@ data class BackgroundElement(val colour: Colour, val corners: Corners = Corners.
 }
 
 /** @see dev.wildware.composegl.ui.modifier.background */
-data class BrushBackgroundElement(val brush: Brush, val corner: Float = 0f) : Modifier.Element
+data class BrushBackgroundElement(val brush: Brush, val corners: Corners = Corners.None) : Modifier.Element {
+    constructor(brush: Brush, corner: Float) : this(brush, Corners.single(corner))
+
+    /** Kept so code that read the one radius still compiles. It is the smallest of the four. */
+    @Deprecated("A gradient background has a radius per corner now.", ReplaceWith("corners"))
+    val corner: Float get() = corners.smallest
+}
 
 data class BorderElement(
     val colour: Colour,
@@ -755,6 +761,9 @@ fun Modifier.background(colour: Colour, corners: Corners) = then(BackgroundEleme
  * recomposition compares equal and costs nothing.
  */
 fun Modifier.background(brush: Brush, corner: Float = 0f) = then(BrushBackgroundElement(brush, corner))
+
+/** A gradient with its own radius on each corner: `background(Brush.vertical(a, b), Corners.top(8f))`. */
+fun Modifier.background(brush: Brush, corners: Corners) = then(BrushBackgroundElement(brush, corners))
 
 /**
  * An outline drawn inside this node, the same on all four sides.

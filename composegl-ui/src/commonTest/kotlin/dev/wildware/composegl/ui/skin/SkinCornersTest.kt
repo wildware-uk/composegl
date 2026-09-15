@@ -38,6 +38,20 @@ class SkinCornersTest {
     }
 
     @Test
+    fun `a gradient takes a corner the same three ways a fill does`() {
+        val skin = SkinFormat.read(
+            """{ "styles": { "tab": { "background": { "gradient": { "vertical": ["#202830", "#101418"] }, "corner": { "topLeft": 8, "topRight": 8 } } } } }""",
+        )
+        val gradient = skin.resolve("tab", emptySet()).background as SkinDrawable.Gradient
+
+        assertEquals(Corners.top(8f), gradient.corners)
+
+        val written = SkinFormat.write(skin)
+        assertTrue("\"corner\": [8, 8, 0, 0]" in written, written)
+        assertEquals(skin.styles, SkinFormat.read(written).styles)
+    }
+
+    @Test
     fun `two numbers are refused rather than guessed at`() {
         val problem = assertFailsWith<SkinFormatException> { fillOf("[8, 0]") }
 

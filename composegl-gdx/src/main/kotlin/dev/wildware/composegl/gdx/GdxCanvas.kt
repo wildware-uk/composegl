@@ -184,7 +184,14 @@ class GdxCanvas(
         shape(rect, fill = colour, corner = corner)
     }
 
-    override fun rect(rect: Rect, brush: Brush, corner: Float) {
+    override fun rect(rect: Rect, brush: Brush, corner: Float) =
+        gradient(rect, brush, corner, corner, corner, corner)
+
+    override fun rect(rect: Rect, brush: Brush, corners: Corners) =
+        gradient(rect, brush, corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft)
+
+    @Suppress("LongParameterList")
+    private fun gradient(rect: Rect, brush: Brush, topLeft: Float, topRight: Float, bottomRight: Float, bottomLeft: Float) {
         if (state.isHidden || rect.isEmpty) return
         // Worked out here, once, in the toolkit's coordinates — then y flipped for the batch, which
         // counts upwards. A radial gradient is symmetric and has no axis to flip.
@@ -199,7 +206,11 @@ class GdxCanvas(
             radial = brush is Brush.Radial,
             axisX = axis?.x ?: 0f,
             axisY = -(axis?.y ?: 0f),
-            corner = corner,
+            // Top is still top: the flip moves the box, and the batch's own up is the screen's up.
+            topLeft = topLeft,
+            topRight = topRight,
+            bottomRight = bottomRight,
+            bottomLeft = bottomLeft,
             aa = antialias,
         )
     }

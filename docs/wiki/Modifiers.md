@@ -454,7 +454,7 @@ The decoration ones, on the same box:
 
 ![four boxes showing background, border, shadow and alpha](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-decoration.png)
 
-**One radius, or one per corner.** `background`, `border` and `shadow` take a single
+**One radius, or one per corner.** `background` (a colour or a gradient), `border` and `shadow` take a single
 `corner`, or a `Corners` with a radius for each — clockwise from the top-left, like
 CSS. That is how a tab rounds only along its top, a speech bubble keeps one sharp
 corner, and a panel docked to the edge of the screen stays square against it:

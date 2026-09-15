@@ -267,11 +267,33 @@ class UiShapeBatch(
         axisY: Float,
         corner: Float,
         aa: Float,
+    ) = gradient(left, bottom, width, height, start, end, radial, axisX, axisY, corner, corner, corner, corner, aa)
+
+    /** The same gradient box with a radius for each corner, named as they look on screen. */
+    @Suppress("LongParameterList")
+    fun gradient(
+        left: Float,
+        bottom: Float,
+        width: Float,
+        height: Float,
+        start: Float,
+        end: Float,
+        radial: Boolean,
+        axisX: Float,
+        axisY: Float,
+        topLeft: Float,
+        topRight: Float,
+        bottomRight: Float,
+        bottomLeft: Float,
+        aa: Float,
     ) {
         val halfWidth = width / 2f
         val halfHeight = height / 2f
-        val radius = corner.coerceIn(0f, minOf(halfWidth, halfHeight).coerceAtLeast(0f))
-        radii.fill(radius)
+        val most = minOf(halfWidth, halfHeight).coerceAtLeast(0f)
+        radii[0] = topLeft.coerceIn(0f, most)
+        radii[1] = topRight.coerceIn(0f, most)
+        radii[2] = bottomRight.coerceIn(0f, most)
+        radii[3] = bottomLeft.coerceIn(0f, most)
 
         val source = white?.takeIf { it.texture != null }
         val u = source?.let { (it.u + it.u2) / 2f } ?: 0.5f

@@ -85,7 +85,7 @@ internal class SkinWrite(private val art: ArtAtlas?) {
         }
         is SkinDrawable.Gradient -> obj {
             key("gradient") { brush(drawable.brush) }
-            if (drawable.corner != 0f) key("corner") { number(drawable.corner) }
+            if (drawable.corners != Corners.None) key("corner") { corners(drawable.corners) }
             drawable.border?.let { key("border") { colour(it) } }
             if (drawable.border != null && drawable.borderWidth != 1f) {
                 key("borderWidth") { number(drawable.borderWidth) }

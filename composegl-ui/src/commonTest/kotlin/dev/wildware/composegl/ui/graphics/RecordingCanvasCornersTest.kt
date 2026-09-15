@@ -44,6 +44,16 @@ class RecordingCanvasCornersTest {
     }
 
     @Test
+    fun `a gradient with corners that differ is written down with all four`() {
+        val brush = Brush.vertical(Colour.White, Colour.Black)
+        canvas.rect(tab, brush, Corners.top(8f))
+        canvas.rect(tab, brush, Corners.all(6f))
+
+        assertEquals(Corners.top(8f), (canvas.calls[0] as DrawCall.CorneredGradientRectangle).corners)
+        assertEquals(6f, (canvas.calls[1] as DrawCall.GradientRectangle).corner, "four that agree are one radius")
+    }
+
+    @Test
     fun `the clip and the opacity in force are kept on a cornered box too`() {
         canvas.pushClip(Rect.of(0f, 0f, 30f, 30f))
         canvas.pushAlpha(0.5f)

@@ -7,6 +7,7 @@ import dev.wildware.composegl.ui.backend.HeadlessBackend
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.DrawCall
 import dev.wildware.composegl.ui.graphics.RecordingCanvas
@@ -232,6 +233,60 @@ class PerCornerTest {
         assertEquals(0f, drawn.only<DrawCall.Rectangle>().single().corner, "square, and still drawn: $drawn")
         assertEquals(0f, drawn.only<DrawCall.Border>().single().corner)
         assertEquals(0f, drawn.only<DrawCall.Shadow>().single().corner)
+    }
+
+    @Test
+    fun `clicking a gradient tab moves the top-rounded gradient to it`() {
+        val lit = Brush.vertical(accent, steel)
+        val selected = mutableStateOf(0)
+        val ui = show {
+            Row {
+                repeat(3) { index ->
+                    Box(
+                        Modifier.size(60f, 24f)
+                            .background(if (selected.value == index) lit else Brush.vertical(steel, steel), Corners.top(8f))
+                            .clickable { selected.value = index }
+                            .testTag("tab$index"),
+                    ) {}
+                }
+            }
+        }
+        assertEquals(Rect.of(0f, 0f, 60f, 24f), ui.drawn().only<DrawCall.CorneredGradientRectangle>().single { it.brush == lit }.rect)
+
+        ui.click("tab1")
+
+        val drawn = ui.drawn()
+        val tab = drawn.only<DrawCall.CorneredGradientRectangle>().single { it.brush == lit }
+        assertEquals(Rect.of(60f, 0f, 60f, 24f), tab.rect, "the clicked tab wears the gradient")
+        assertEquals(Corners.top(8f), tab.corners, "rounded only along its top")
+        assertTrue(drawn.only<DrawCall.GradientRectangle>().isEmpty(), "no gradient fell back to one radius: $drawn")
+    }
+
+    @Test
+    fun `a skin gradient can round only the top of a hovered button`() {
+        val skin = SkinFormat.read(
+            """
+            {
+              "styles": {
+                "button": {
+                  "background": { "gradient": { "vertical": ["#232A35", "#101418"] }, "corner": 4 },
+                  "padding": 8,
+                  "hovered": { "background": { "gradient": { "vertical": ["#39445A", "#101418"] }, "corner": [10, 10, 0, 0] } }
+                }
+              }
+            }
+            """.trimIndent(),
+        )
+        val ui = show { ProvideSkin(skin) { Button("PLAY", onClick = {}, modifier = Modifier.testTag("play")) } }
+
+        val idle = ui.drawn().only<DrawCall.GradientRectangle>().single()
+        assertEquals(4f, idle.corner, "one radius from the file is drawn as one radius")
+
+        ui.moveTo("play")
+
+        val hovered = ui.drawn().only<DrawCall.CorneredGradientRectangle>().single()
+        assertEquals(Corners.top(10f), hovered.corners)
+        assertEquals(idle.rect, hovered.rect, "the same button, only its corners changed")
     }
 
     @Test
