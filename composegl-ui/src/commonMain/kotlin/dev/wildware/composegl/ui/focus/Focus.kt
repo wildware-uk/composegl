@@ -4,6 +4,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.input.ClickMemory
 import dev.wildware.composegl.ui.input.PressGesture
+import dev.wildware.composegl.ui.input.usable
 import dev.wildware.composegl.ui.node.UiNode
 import kotlin.math.abs
 
@@ -151,6 +152,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         pressing = node
         gesture = PressGesture(node)
         node.resolved.interactions.forEach { it.press() }
+        node.sounds.press()
         return true
     }
 
@@ -200,13 +202,13 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         // Nothing is focused, so the first press does not move focus — it starts it. Pressing down
         // in a menu nobody has touched yet has to select something rather than do nothing.
         if (from == null) {
-            take(preferred(focusable))
+            stepTo(preferred(focusable))
             return current != null
         }
 
         val named = override(from, direction)
         if (named != null) {
-            take(named)
+            stepTo(named)
             return true
         }
 
@@ -230,7 +232,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
             else -> nearest(from, focusable, direction)
         } ?: return false
 
-        take(next)
+        stepTo(next)
         return true
     }
 
@@ -241,6 +243,18 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         FocusDirection.Up -> if (node.mirrorYInRoot) FocusDirection.Down else direction
         FocusDirection.Down -> if (node.mirrorYInRoot) FocusDirection.Up else direction
         FocusDirection.Next, FocusDirection.Previous -> direction
+    }
+
+    /**
+     * Focus goes to [node] because the player pressed a direction, which is the one kind of move
+     * that makes a sound. A click focusing what it clicked, a dialogue handing focus back and the
+     * first frame's auto-focus all go through [take] and stay quiet.
+     */
+    private fun stepTo(node: UiNode?) {
+        val before = current
+        take(node)
+        val now = current
+        if (now != null && now !== before && now.usable) now.sounds.focusMove()
     }
 
     // --- scopes --------------------------------------------------------------------------------

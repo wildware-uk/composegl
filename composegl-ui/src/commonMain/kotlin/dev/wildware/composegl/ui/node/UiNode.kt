@@ -7,6 +7,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.input.UiSounds
 import dev.wildware.composegl.ui.layout.ConstraintsCache
 import dev.wildware.composegl.ui.layout.Inset
 import dev.wildware.composegl.ui.layout.Measurable
@@ -153,6 +154,16 @@ class UiNode(var name: String = "node") {
             field = value
             invalidate()
         }
+
+    /**
+     * The sounds this node plays when the player hovers it, presses it or steps focus onto it.
+     *
+     * Written from [dev.wildware.composegl.ui.input.LocalUiSounds] as the node is composed, and
+     * read by the pointer router and the focus manager, which work outside composition and have no
+     * other way to ask. Nothing about layout or drawing depends on it, so changing it reports
+     * nothing.
+     */
+    var sounds: UiSounds = UiSounds.None
 
     /**
      * Whether layout has ever given this node a rectangle.

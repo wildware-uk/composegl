@@ -6,6 +6,8 @@ import dev.wildware.composegl.ui.focus.FocusDirection
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.input.DirectionHandler
 import dev.wildware.composegl.ui.input.InteractionState
+import dev.wildware.composegl.ui.input.LocalUiSounds
+import dev.wildware.composegl.ui.input.UiSounds
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Constraints
@@ -81,6 +83,7 @@ fun Slider(
     slider.enabled = enabled
     slider.knob = knob
     slider.report = onValueChange
+    slider.sounds = LocalUiSounds.current
 
     val pointer = remember(slider) { PointerHandler { slider.pointer(it) } }
     val directions = remember(slider) { DirectionHandler { slider.nudge(it) } }
@@ -182,12 +185,34 @@ private class SliderPolicy(
 private class SliderLogic {
 
     var value = 0f
+        set(now) {
+            // A new value has arrived, so whatever was sounded before it is finished with.
+            if (now != field) sounded = Float.NaN
+            field = now
+        }
     var range = 0f..1f
     var step = 0f
     var horizontal = true
     var enabled = true
     var knob = 0f
     var report: (Float) -> Unit = {}
+    var sounds: UiSounds = UiSounds.None
+
+    /**
+     * Whether a drag on a continuous slider has moved the value since the press. Such a drag changes
+     * the value every frame, and a sound every frame is a buzz, so it plays one change when it lets
+     * go instead. A stepped slider plays one per step as the knob lands, like a detent.
+     */
+    private var dragged = false
+
+    /**
+     * The last value a change was played for, until [value] next changes.
+     *
+     * [value] only catches up at the next frame, and a mouse or a pad can report several times
+     * before that, each one asking for the same new value. Until it does, asking for the same value
+     * again is the same change, and stays quiet.
+     */
+    private var sounded = Float.NaN
 
     /** How far the knob can move, in pixels. Written by layout, read by input. */
     var travel = 0f
@@ -198,9 +223,14 @@ private class SliderLogic {
             // The press takes the pointer, so the rest of the drag arrives here even when it
             // wanders off the control — which is what makes a slider draggable past its own ends
             // rather than sticking wherever the pointer left it.
-            is PointerEvent.Press -> { moveTo(event.position); true }
+            is PointerEvent.Press -> { dragged = false; moveTo(event.position); true }
             is PointerEvent.Move -> if (event.pressed.isEmpty()) false else { moveTo(event.position); true }
-            is PointerEvent.Release, is PointerEvent.Cancel -> true
+            is PointerEvent.Release -> {
+                if (dragged) sounds.change()
+                dragged = false
+                true
+            }
+            is PointerEvent.Cancel -> { dragged = false; true }
             is PointerEvent.Scroll, is PointerEvent.Exit -> false
         }
     }
@@ -223,8 +253,16 @@ private class SliderLogic {
 
         // At the end, the direction is not used. That is how a player leaves the control.
         if (wanted == value) return false
+        changed(wanted)
         report(wanted)
         return true
+    }
+
+    /** Plays a change for [wanted], unless one was already played for it this frame. */
+    private fun changed(wanted: Float) {
+        if (wanted == sounded) return
+        sounded = wanted
+        sounds.change()
     }
 
     private fun moveTo(position: Offset) {
@@ -233,7 +271,9 @@ private class SliderLogic {
         // The knob is grabbed by its middle, so the value under the pointer is the value it gets.
         val fraction = ((along - knob / 2f) / travel).coerceIn(0f, 1f)
         val wanted = settle(range.start + (if (horizontal) fraction else 1f - fraction) * span)
-        if (wanted != value) report(wanted)
+        if (wanted == value) return
+        if (step > 0f) changed(wanted) else dragged = true
+        report(wanted)
     }
 
     private val span: Float get() = range.endInclusive - range.start
