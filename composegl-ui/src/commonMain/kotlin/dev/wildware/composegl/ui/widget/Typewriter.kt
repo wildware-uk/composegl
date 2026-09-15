@@ -256,7 +256,7 @@ fun Typewriter(
     val inherited = LocalContentStyle.current
     val resolved = if (style == null && inherited != null) inherited else named
     val fonts = rememberFonts()
-    val face = textStyle ?: resolved.textStyle
+    val face = rememberScaled(textStyle ?: resolved.textStyle)
     val ink = colour ?: resolved.textColour
 
     // Only while there is more to show. A finished line asks the runtime for nothing at all.

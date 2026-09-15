@@ -26,6 +26,7 @@ import dev.wildware.composegl.ui.text.TextOutline
 import dev.wildware.composegl.ui.text.TextStyle
 import dev.wildware.composegl.ui.widget.LocalTextOutline
 import dev.wildware.composegl.ui.widget.rememberFonts
+import dev.wildware.composegl.ui.widget.rememberScaled
 
 /**
  * A place in the game's world. Mutable on purpose: the layer owns one and lends it out.
@@ -247,8 +248,8 @@ fun DamageNumberLayer(
     val painter = remember(numbers, projection, fonts, ordinary, critical, clocks, style) {
         NumberPainter(numbers, projection, fonts, clocks)
     }
-    painter.ordinary(ordinary.textStyle, ordinary.textColour)
-    painter.critical(critical.textStyle, critical.textColour)
+    painter.ordinary(rememberScaled(ordinary.textStyle), ordinary.textColour)
+    painter.critical(rememberScaled(critical.textStyle), critical.textColour)
     painter.outline(LocalTextOutline.current)
 
     // Nothing is asked of the runtime while the screen is quiet: the effect only exists while

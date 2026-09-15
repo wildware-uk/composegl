@@ -146,8 +146,11 @@ fun Text(
     val resolved = if (style == null && inherited != null) inherited else named
     val fonts = rememberFonts()
     val ink = colour ?: resolved.textColour
-    val face = remember(resolved.textStyle, textStyle, maxLines, ellipsis) {
-        val base = textStyle ?: resolved.textStyle
+    // Scaled here, before anything is measured, so the backend lays the text out and bakes its
+    // glyphs at the size the player asked for rather than measuring small and being stretched.
+    val scale = LocalTextScale.current
+    val face = remember(resolved.textStyle, textStyle, maxLines, ellipsis, scale) {
+        val base = (textStyle ?: resolved.textStyle).scaled(scale)
         base.copy(
             maxLines = if (maxLines > 0) maxLines else base.maxLines,
             ellipsis = ellipsis ?: base.ellipsis,
@@ -340,8 +343,11 @@ fun Text(
     val resolved = if (style == null && inherited != null) inherited else named
     val fonts = rememberFonts()
     val ink = colour ?: resolved.textColour
-    val face = remember(resolved.textStyle, textStyle, maxLines, ellipsis) {
-        val base = textStyle ?: resolved.textStyle
+    // Scaled here, before anything is measured, so the backend lays the text out and bakes its
+    // glyphs at the size the player asked for rather than measuring small and being stretched.
+    val scale = LocalTextScale.current
+    val face = remember(resolved.textStyle, textStyle, maxLines, ellipsis, scale) {
+        val base = (textStyle ?: resolved.textStyle).scaled(scale)
         base.copy(
             maxLines = if (maxLines > 0) maxLines else base.maxLines,
             ellipsis = ellipsis ?: base.ellipsis,

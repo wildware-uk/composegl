@@ -222,8 +222,9 @@ private fun TooltipLayer(tooltips: Tooltips, style: String) {
     }
 
     val showing = tooltips.showing
-    val layout = remember(showing, showing?.text, resolved.textStyle, fonts) {
-        showing?.let { fonts.measure(it.text, resolved.textStyle) }
+    val face = rememberScaled(resolved.textStyle)
+    val layout = remember(showing, showing?.text, face, fonts) {
+        showing?.let { fonts.measure(it.text, face) }
     }
 
     val outline = LocalTextOutline.current

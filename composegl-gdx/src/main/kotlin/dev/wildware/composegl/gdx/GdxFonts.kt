@@ -51,6 +51,10 @@ class GdxTextLayout internal constructor(
  * everything by three, glyphs generated at sixteen are stretched to forty-eight and look soft.
  * Registering the sizes a game actually needs at the scales it expects is the current answer.
  *
+ * The same goes for a player's text size. `ProvideTextScale` asks for whole sizes — 16 at 125% is
+ * a style at 20 — so every one of them has to be here before it is asked for.
+ * `scaledTextSizes(listOf(16), listOf(1f, 1.25f, 1.5f))` is the list to hand [registerTrueType].
+ *
  * @param atlas where generated glyphs are packed. One is made and disposed for you unless you
  *   supply one to share between two registries.
  */

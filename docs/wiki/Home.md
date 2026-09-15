@@ -65,5 +65,6 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
 
 Games. A HUD that costs nothing while it is standing still, bars with a damage
 trail, a crosshair with spread and hit markers, damage numbers anchored in the
-world, pad navigation that works without being wired up, and prompts that change
-the moment somebody picks up a controller.
+world, pad navigation that works without being wired up, prompts that change
+the moment somebody picks up a controller, and a text size setting that makes
+the words bigger without making the whole interface bigger.

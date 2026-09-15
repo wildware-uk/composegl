@@ -19,6 +19,7 @@ import dev.wildware.composegl.ui.layout.ScalePolicy
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.skin.Skin
 import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.text.scaledTextSizes
 import dev.wildware.composegl.ui.widget.LocalFonts
 import dev.wildware.composegl.ui.skin.ProvideSkin
 import java.awt.image.BufferedImage
@@ -45,7 +46,8 @@ fun main() {
     val window = GlfwWindow("composegl doc shots", Window, Window, visible = false, vsync = false)
     val fonts = StbFonts(pageSize = 1024)
     val typeface = resource("fonts/DejaVuSans.ttf")
-    fonts.register("body", typeface, listOf(12, 13, 16, 20))
+    // Every size again at 125% and 150%, for the picture of the text size setting.
+    fonts.register("body", typeface, scaledTextSizes(listOf(12, 13, 16, 20), listOf(1f, 1.25f, 1.5f)))
     fonts.register("display", typeface, listOf(34))
     // What the toolkit's own skin asks for, for the pictures taken without the example's skin.
     fonts.register("default", typeface, listOf(12, 13, 14, 16, 18, 22, 26))
