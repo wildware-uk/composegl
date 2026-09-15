@@ -39,6 +39,8 @@ import dev.wildware.composegl.ui.input.GamepadId
  *   in two different places is the routing really putting them there.
  * @param budget what the picture's frames are timed and traced with, for a picture of the frame
  *   budget overlay. Null gives the renderer its own.
+ * @param focus whether focus is kept pointing at something, as a game's renderer does, so the
+ *   picture opens with a widget focused. Off for every other picture, which wants no focus ring.
  */
 internal class DocShot(
     val name: String,
@@ -55,6 +57,7 @@ internal class DocShot(
     val players: Int = 1,
     val pads: List<Pair<GamepadId, GamepadButton>> = emptyList(),
     val budget: FrameBudget? = null,
+    val focus: Boolean = false,
     val content: @Composable () -> Unit,
 )
 

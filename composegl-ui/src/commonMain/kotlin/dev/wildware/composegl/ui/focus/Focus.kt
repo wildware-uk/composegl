@@ -86,8 +86,49 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
 
     private var current: UiNode? = null
 
+    init {
+        // The most recent manager over a root is the one a FocusOverlay inside it draws.
+        root.focusManager = this
+    }
+
     /** The node with focus, or null when nothing has it. */
     val focused: UiNode? get() = current
+
+    /**
+     * Told whenever focus lands on a different node or leaves one. What a `FocusOverlay` redraws on,
+     * since a focus move on a node with no focus look of its own changes nothing else on screen.
+     */
+    internal val movedListeners = mutableListOf<() -> Unit>()
+
+    /**
+     * Where [moveFocus] would take focus from where it is now, without moving it. Null when nothing
+     * is focused or there is nowhere to go.
+     *
+     * The answer when the focused node lets the press through: a slider that takes Left for itself
+     * is not asked, because asking would move its knob. What a test uses to say "Down from here
+     * reaches Options" without pressing anything, and what a `FocusOverlay` draws its arrows to.
+     */
+    fun targetOf(direction: FocusDirection): UiNode? = peek(direction)?.node
+
+    /** Where a direction goes, and whether a `focusOrder` named it rather than the geometry finding it. */
+    internal class Step(val node: UiNode, val ordered: Boolean)
+
+    /** [targetOf], saying which rule chose. The same order [moveFocus] asks in, less the node's own handlers. */
+    internal fun peek(direction: FocusDirection): Step? {
+        val from = current ?: return null
+        val focusable = focusables()
+        if (focusable.isEmpty()) return null
+        override(from, direction)?.let { return Step(it, ordered = true) }
+        val next = when (direction) {
+            FocusDirection.Next -> step(focusable, from, 1)
+            FocusDirection.Previous -> step(focusable, from, -1)
+            else -> nearest(from, focusable, direction)
+        } ?: return null
+        return Step(next, ordered = false)
+    }
+
+    /** Every node Tab and the pad can reach now, inside the innermost trap. */
+    internal fun reachable(): List<UiNode> = focusables()
 
     /**
      * How a direction press picks its winner, for the times a screen's geometry is the exception.
@@ -410,6 +451,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         if (node === current) return
         release(current)
         current = node
+        if (node != null) movedListeners.forEach { it() }
         // A held Enter only counts while focus is on what it pressed: moving away is sliding off.
         gesture?.inside = node === pressing
         node?.focusState?.focus()
@@ -451,7 +493,10 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     private fun release(node: UiNode?) {
         node?.focusState?.unfocus()
         if (node != null) tellAncestors(node, focused = false)
-        if (node === current) current = null
+        if (node != null && node === current) {
+            current = null
+            movedListeners.forEach { it() }
+        }
     }
 
     /** Everything [node] is inside, told that focus has arrived in it or left it. */

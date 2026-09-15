@@ -424,6 +424,29 @@ class OverdrawTest {
         assertFalse(calls.shades().map { it.rect }.covers(125f, 125f), "and so not shaded")
     }
 
+    @Test
+    fun `a focus overlay turned on beside it is not counted`() {
+        val ui = open {
+            var focus by remember { mutableStateOf(false) }
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.offset(100f, 100f).size(50f, 50f).background(Colour.Blue).clickable { focus = true }.testTag("panel"))
+                OverdrawOverlay(true, cell = 1f)
+                FocusOverlay(focus)
+            }
+        }
+        val before = ui.overdraw()
+        assertEquals(1, before.at(125f, 125f))
+
+        ui.click("panel")
+        val calls = drawn(ui)
+        assertTrue(calls.any { it is DrawCall.Rectangle && it.colour == FocusOverlayColours.HitArea }, "the focus overlay's tint is up")
+
+        val after = ui.overdraw()
+        assertEquals(1, after.at(125f, 125f), "the tint is the focus overlay's, not the screen's")
+        assertEquals(before.areaAtLeast(2), after.areaAtLeast(2))
+        assertFalse(calls.shades().map { it.rect }.covers(125f, 125f), "and so not shaded")
+    }
+
     private companion object {
         val Shades = setOf(OverdrawColours.Twice, OverdrawColours.Three, OverdrawColours.Four, OverdrawColours.More)
     }

@@ -405,7 +405,7 @@ internal class InspectorState {
         val screen = screen ?: return null
         fun visit(node: UiNode): UiNode? {
             val resolved = node.resolved
-            if (resolved.alpha <= 0f || resolved.scale <= 0f || node.content is LayoutOverlayPainter || node.content is OverdrawPainter) return null
+            if (resolved.alpha <= 0f || resolved.scale <= 0f || node.content is DebugOverlayPainter) return null
             val inside = node.everMeasured && point in node.boundsInRoot
             if (!inside && (resolved.clip != null || resolved.scale != 1f)) return null
             val children = node.drawOrder
@@ -506,7 +506,7 @@ private fun InspectorLayer(state: InspectorState) {
 internal class InspectorHighlight(
     private val hovered: UiNode?,
     private val pinned: UiNode?,
-) : (UiCanvas, Rect) -> Unit {
+) : DebugOverlayPainter {
 
     var node: UiNode? = null
 

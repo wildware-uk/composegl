@@ -133,6 +133,21 @@ class UiNode(var name: String = "node") {
         }
 
     /**
+     * The focus manager most recently built over this node as its root, or null. How a
+     * `FocusOverlay` inside the tree finds the focus it should draw without being handed it.
+     *
+     * A new one marks the frame changed, so an overlay already on draws once and starts listening to
+     * it before its first move rather than after some unrelated change. Managers are built once per
+     * screen, so that is one frame.
+     */
+    internal var focusManager: dev.wildware.composegl.ui.focus.FocusManager? = null
+        set(value) {
+            if (field === value) return
+            field = value
+            invalidate()
+        }
+
+    /**
      * Where inside its content box this node's [content] really puts ink, or null when the answer
      * is "all of it".
      *
