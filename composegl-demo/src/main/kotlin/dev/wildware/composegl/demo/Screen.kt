@@ -95,6 +95,7 @@ import dev.wildware.composegl.ui.widget.ProvideBackStack
 import dev.wildware.composegl.ui.widget.rememberLazyListState
 import dev.wildware.composegl.ui.widget.LazyColumn
 import dev.wildware.composegl.ui.widget.Slider
+import dev.wildware.composegl.ui.widget.Stepper
 import dev.wildware.composegl.ui.widget.TextField
 import dev.wildware.composegl.ui.widget.Tabs
 import dev.wildware.composegl.ui.widget.Text
@@ -407,6 +408,20 @@ private fun StatusPage(state: DemoState) {
             range = 0f..100f,
             step = 5f,
         )
+        // Picked with left and right and nothing else, so a player on a stick changes it without
+        // anything opening. Holding the direction runs through the options.
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = VerticalAlignment.Centre,
+        ) {
+            Text("Difficulty", style = "label.dim")
+            Stepper(
+                options = listOf("Story", "Normal", "Veteran", "Insane"),
+                selected = state.difficulty,
+                onSelect = { state.difficulty = it },
+            )
+        }
         Checkbox(state.invertY, onCheckedChange = { state.invertY = it }, label = "Invert Y")
         Toggle(state.subtitles, onCheckedChange = { state.subtitles = it }, label = "Subtitles")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -798,10 +813,11 @@ class DemoState {
         if (autoCycle) selected = (seconds / 0.8f).toInt() % 10
     }
 
-    /** Three settings, so the example has something a slider, a checkbox and a switch are about. */
+    /** Settings, so the example has something a slider, a stepper, a checkbox and a switch are about. */
     var music by mutableStateOf(70f)
     var invertY by mutableStateOf(false)
     var subtitles by mutableStateOf(true)
+    var difficulty by mutableStateOf("Normal")
 
     var selected by mutableStateOf(3)
 

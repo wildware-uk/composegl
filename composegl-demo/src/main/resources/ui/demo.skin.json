@@ -114,6 +114,22 @@
       "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } }
     },
 
+    "stepper": {
+      "background": { "fill": "#2000FFFF", "corner": 6, "border": "#304CC2FF", "padding": [2, 4] },
+      "hovered": { "background": { "fill": "#3000FFFF", "corner": 6, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#2000FFFF", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    "stepper.arrow": {
+      "textColour": "#4CC2FF",
+      "padding": [10, 2],
+      "hovered": { "textColour": "#8ADBFF" },
+      "pressed": { "textColour": "#FFFFFF", "contentOffset": [0, 1] },
+      "disabled": { "textColour": "#304CC2FF" }
+    },
+
+    "stepper.value": { "textColour": "#E8F4FF", "padding": [8, 2] },
+
     // --- typing ---
     //
     // The caret and the highlight are their own styles because a game restyles them separately:

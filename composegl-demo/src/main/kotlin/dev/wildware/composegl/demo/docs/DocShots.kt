@@ -87,9 +87,11 @@ import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.Divider
 import dev.wildware.composegl.ui.widget.Image
+import dev.wildware.composegl.ui.widget.NumberStepper
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.ScrollArea
 import dev.wildware.composegl.ui.widget.Slider
+import dev.wildware.composegl.ui.widget.Stepper
 import dev.wildware.composegl.ui.widget.Text
 import dev.wildware.composegl.ui.widget.TextField
 import dev.wildware.composegl.ui.widget.Toggle
@@ -476,6 +478,16 @@ private fun MutableList<DocShot>.widgets() {
                     Text("INVENTORY")
                     Text("Drag me by the frame", style = "label.dim")
                 }
+            }
+        }
+    })
+
+    add(DocShot("widget-stepper", 300, 160) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(12f)) {
+                Stepper(listOf("Low", "Medium", "High"), "Medium", onSelect = {})
+                NumberStepper(7, onValueChange = {}, range = 0..10, initialFocus = true)
+                Stepper(listOf("Story", "Normal", "Veteran"), "Story", onSelect = {})
             }
         }
     })
