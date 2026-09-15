@@ -44,22 +44,22 @@ Each item names the files it should touch. Items that name different files can g
 
 ### Canvas extras (`KorgeCanvas.kt`, `KorgeShapeBatch.kt`)
 
-1. **Gradients.** The shader and `KorgeShapeBatch.gradient` already handle them. Override
-   `rect(Rect, Brush, …)` and set `drawsGradients` to true. Port gdx's gradient pixel tests.
-2. **Per-corner radii.** The shader already has four radii per vertex. Add the `Corners` overloads of
-   `rect`, `border` and `shadow`, and set `roundsCornersSeparately`.
-3. **Rotated images.** `KorgeShapeBatch.textured(…, degrees)` exists. Override the `image` call that
-   takes `degrees` and set `rotatesImages`.
-4. **Blend modes.** `KorgeShapeBatch.blend` exists. Add `pushBlend`/`popBlend` and `supports`.
-5. **Tint.** Multiply `CanvasState.tint` into `faded()`, then add `pushTint`/`popTint` and `tints`.
+1. **Gradients.** Done. `rect(Rect, Brush, …)` draws both kinds; `drawsGradients` is true.
+2. **Per-corner radii.** Done. The `Corners` overloads of `rect`, `border` and `shadow`;
+   `roundsCornersSeparately` is true.
+3. **Rotated images.** Done. The `image` call that takes `degrees`; `rotatesImages` is true.
+4. **Blend modes.** Done. `pushBlend`/`popBlend`, and `supports` says yes to both modes. A layer or
+   effect that draws outside the batch must follow `state.blend` itself.
+5. **Tint.** Done. `faded()` multiplies in the tint; `pushTint`/`popTint`; `tints` is true.
+   Tests: `KorgeCanvasExtrasTest`, `KorgeCanvasExtrasScreenTest`.
 6. **Layers**, in a new `KorgeLayers.kt` (a pool of `AGFrameBuffer`s): `layer`, `drawLayer`, plus
    turn, cut (`featherOutline`), mirror, onto and tilt (the `w` in `a_uiPos` is already in place).
    Composite with `blend(…, premultiplied = true)`.
 7. **ShaderEffect programs**, in a new `KorgeEffects.kt`. It turns the toolkit's `ShaderSource` GLSL
    into a KorGE program with `FragmentShaderRawGlSl` (check which GLSL version the context uses), and
    is used by `drawLayer(…, effect)`.
-8. **Draw-call tracing** already records a reason per flush. Add a test like gdx's
-   `DrawCallTraceGlTest`.
+8. **Draw-call tracing.** Done: `KorgeDrawCallTraceTest`. When layers and effects land, add their
+   `Layer` and `Shader` reasons to its second test, as gdx's has.
 9. **Render target for in-world UI**, in a new `KorgeRenderTarget.kt`, modelled on
    `GdxRenderTarget.kt`. It draws a screen into a texture a game can put on a sprite.
 

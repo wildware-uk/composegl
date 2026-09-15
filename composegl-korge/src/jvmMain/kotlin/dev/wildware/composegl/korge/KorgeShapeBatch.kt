@@ -194,8 +194,7 @@ internal class KorgeShapeBatch(
 
     /**
      * One rounded box filled with a gradient between [start] and [end], the end colour riding in the
-     * border's slot. Not reached by the canvas yet — see the design note — but the shader already
-     * answers it, so that turning gradients on is a canvas change and not a shader one.
+     * border's slot, so a gradient panel batches with the flat boxes round it.
      *
      * @param radial true for outwards from the middle; false for straight along ([axisX], [axisY]),
      *   already divided by its length, y down.

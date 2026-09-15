@@ -2,9 +2,12 @@ package dev.wildware.composegl.korge
 
 import dev.wildware.composegl.ui.debug.BatchBreak
 import dev.wildware.composegl.ui.debug.DrawCallTrace
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.graphics.BlendMode
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.CanvasState
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
@@ -172,16 +175,86 @@ class KorgeCanvas(private val atlas: KorgeAtlas? = null) : UiCanvas, AutoCloseab
         borderWidth: Float = 0f,
         shadow: Colour = Colour.Transparent,
         shadowSpread: Float = 0f,
+    ) = shape(rect, fill, corner, corner, corner, corner, border, borderWidth, shadow, shadowSpread)
+
+    /**
+     * The one place a box reaches the batch. Four floats rather than a [Corners], so the single-radius
+     * calls, which are most of a frame, make no object on their way through.
+     */
+    @Suppress("LongParameterList")
+    private fun shape(
+        rect: Rect,
+        fill: Colour,
+        topLeft: Float,
+        topRight: Float,
+        bottomRight: Float,
+        bottomLeft: Float,
+        border: Colour,
+        borderWidth: Float,
+        shadow: Colour,
+        shadowSpread: Float,
     ) {
         batch().shape(
             rect.left, rect.top, rect.width, rect.height,
             fill = fill.faded(),
-            topLeft = corner, topRight = corner, bottomRight = corner, bottomLeft = corner,
+            topLeft = topLeft, topRight = topRight, bottomRight = bottomRight, bottomLeft = bottomLeft,
             border = border.faded(), borderWidth = borderWidth,
             shadow = shadow.faded(), shadowSpread = shadowSpread,
             aa = antialias,
         )
     }
+
+    // --- a radius per corner ---
+
+    // Four radii are four more numbers on the same vertex, so a tab and a plain panel beside it still
+    // batch together: the shader picks a corner's radius by which quarter of the box a pixel is in.
+
+    override fun rect(rect: Rect, colour: Colour, corners: Corners) {
+        if (state.isHidden || rect.isEmpty) return
+        shape(rect, colour, corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft, Colour.Transparent, 0f, Colour.Transparent, 0f)
+    }
+
+    override fun border(rect: Rect, colour: Colour, width: Float, corners: Corners) {
+        if (state.isHidden || rect.isEmpty || width <= 0f) return
+        shape(rect, Colour.Transparent, corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft, colour, width, Colour.Transparent, 0f)
+    }
+
+    override fun shadow(rect: Rect, colour: Colour, spread: Float, corners: Corners) {
+        if (state.isHidden || spread <= 0f) return
+        shape(rect, Colour.Transparent, corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft, Colour.Transparent, 0f, colour, spread)
+    }
+
+    /** Each corner by its own radius, in the same shader as everything else. */
+    override val roundsCornersSeparately: Boolean get() = true
+
+    // --- gradients ---
+
+    override fun rect(rect: Rect, brush: Brush, corner: Float) =
+        gradient(rect, brush, corner, corner, corner, corner)
+
+    override fun rect(rect: Rect, brush: Brush, corners: Corners) =
+        gradient(rect, brush, corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft)
+
+    @Suppress("LongParameterList")
+    private fun gradient(rect: Rect, brush: Brush, topLeft: Float, topRight: Float, bottomRight: Float, bottomLeft: Float) {
+        if (state.isHidden || rect.isEmpty) return
+        // Worked out once, in the toolkit's coordinates, which are the batch's too: no flip. A radial
+        // gradient is symmetric and has no axis.
+        val axis = (brush as? Brush.Linear)?.axis(rect.width, rect.height)
+        batch().gradient(
+            rect.left, rect.top, rect.width, rect.height,
+            start = brush.first.faded(),
+            end = brush.last.faded(),
+            radial = brush is Brush.Radial,
+            axisX = axis?.x ?: 0f,
+            axisY = axis?.y ?: 0f,
+            topLeft = topLeft, topRight = topRight, bottomRight = bottomRight, bottomLeft = bottomLeft,
+            aa = antialias,
+        )
+    }
+
+    /** Both kinds, straight and radial, through the same shader as every other box. */
+    override val drawsGradients: Boolean get() = true
 
     // --- text and pictures ---
 
@@ -229,6 +302,93 @@ class KorgeCanvas(private val atlas: KorgeAtlas? = null) : UiCanvas, AutoCloseab
             colour = tint.faded(),
         )
     }
+
+    // --- turned pictures ---
+
+    /**
+     * The same picture, turned: four corners on the processor and the same quad in the same batch, so
+     * a sunburst of rays costs no draw call more than one ray.
+     */
+    @Suppress("LongParameterList")
+    override fun image(
+        texture: TextureHandle,
+        destination: Rect,
+        degrees: Float,
+        pivotX: Float,
+        pivotY: Float,
+        tint: Colour,
+        source: Rect?,
+    ) {
+        if (degrees == 0f) {
+            image(texture, destination, tint, source)
+            return
+        }
+        if (state.isHidden || destination.isEmpty) return
+        val korge = texture as? KorgeTexture ?: notOnePicture(texture)
+        val bitmap = korge.bitmap
+        val width = bitmap.width.toFloat()
+        val height = bitmap.height.toFloat()
+        batch().textured(
+            bitmap,
+            smooth = korge.smooth,
+            left = destination.left,
+            top = destination.top,
+            width = destination.width,
+            height = destination.height,
+            pivotX = destination.left + destination.width * pivotX,
+            pivotY = destination.top + destination.height * pivotY,
+            degrees = degrees,
+            u = (source?.left ?: 0f) / width,
+            v = (source?.top ?: 0f) / height,
+            u2 = (source?.right ?: width) / width,
+            v2 = (source?.bottom ?: height) / height,
+            colour = tint.faded(),
+        )
+    }
+
+    /** It really turns one, and turning costs no draw call. */
+    override val rotatesImages: Boolean get() = true
+
+    // --- blending and tint ---
+
+    /**
+     * Both: every quad goes through the batch, and the batch names its blending on every draw. A layer
+     * or an effect that draws some other way has to follow [BlendMode] too.
+     */
+    override fun supports(mode: BlendMode): Boolean = true
+
+    override fun pushBlend(mode: BlendMode) {
+        state.pushBlend(mode)
+        applyBlend()
+    }
+
+    override fun popBlend() {
+        state.popBlend()
+        applyBlend()
+    }
+
+    /**
+     * The batch's blending follows the toolkit's blend stack, which has already decided the innermost
+     * mode wins. The batch flushes first: what is queued was queued to blend the old way.
+     *
+     * `batch?`, and nothing outside a frame: pushing a mode should not build a batch. [begin] starts
+     * the batch at plain blending, which is where a fresh state starts too.
+     */
+    private fun applyBlend() {
+        if (context == null) return
+        batch?.blend(state.blend, premultiplied = false)
+    }
+
+    /**
+     * No flush: the tint goes into each vertex's colour as it is queued (see [faded]), so a tinted
+     * hotbar batches with the untinted panel behind it.
+     */
+    override fun pushTint(tint: Colour) = state.pushTint(tint)
+
+    override fun popTint() = state.popTint()
+
+    /** Every call that takes a colour. Not raw(). */
+    override val tints: Boolean get() = true
 
     // --- clipping and opacity ---
 
@@ -314,12 +474,16 @@ class KorgeCanvas(private val atlas: KorgeAtlas? = null) : UiCanvas, AutoCloseab
     }
 
     /**
-     * ARGB with the opacity in force multiplied into the alpha. The toolkit's colours are straight,
-     * and so is everything the shader does with them.
+     * ARGB with the opacity in force multiplied into the alpha and the tint in force into the other
+     * three. The toolkit's colours are straight, and so is everything the shader does with them.
      */
     private fun Colour.faded(): Int {
         val alpha = (((argb ushr 24) and 0xFF) * state.alpha).toInt().coerceIn(0, 255)
-        return (alpha shl 24) or (argb and 0xFFFFFF)
+        val tint = state.tint
+        val red = ((argb shr 16) and 0xFF) * tint.red / 255
+        val green = ((argb shr 8) and 0xFF) * tint.green / 255
+        val blue = (argb and 0xFF) * tint.blue / 255
+        return (alpha shl 24) or (red shl 16) or (green shl 8) or blue
     }
 
     /**
