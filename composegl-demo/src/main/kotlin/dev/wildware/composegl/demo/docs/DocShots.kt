@@ -57,6 +57,7 @@ import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.layoutId
+import dev.wildware.composegl.ui.modifier.mirror
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onPlaced
 import dev.wildware.composegl.ui.modifier.onSizeChanged
@@ -728,6 +729,27 @@ private fun MutableList<DocShot>.modifiers() {
         }
     })
 
+    // The same two pieces of art twice, the second time through mirror(). The word inside the
+    // portrait is there on purpose: text flips with everything else, and the picture should say so.
+    add(DocShot("modifier-mirror", 420, 170) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(28f)) {
+                Labelled("as drawn") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(14f), verticalAlignment = VerticalAlignment.Centre) {
+                        Profile(Modifier)
+                        Arrow(Modifier)
+                    }
+                }
+                Labelled("mirror()") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(14f), verticalAlignment = VerticalAlignment.Centre) {
+                        Profile(Modifier.mirror())
+                        Arrow(Modifier.mirror())
+                    }
+                }
+            }
+        }
+    })
+
     // The same square art four times, cut four ways at draw time.
     add(DocShot("modifier-clip-shape", 420, 150) {
         Frame {
@@ -811,6 +833,27 @@ private fun ParallaxScene(pointerX: Float) {
         }
         // Where the pointer is, so the picture says what the layers are reacting to.
         Box(Modifier.offset(x = centre.x + pointerX - 4f, y = centre.y - 4f).size(8f).background(Colour.White, corner = 4f)) {}
+    }
+}
+
+/** A head in profile, looking right: a face, an eye and a nose on the right, a word on its cheek. */
+@Composable
+private fun Profile(modifier: Modifier) {
+    Box(modifier.size(80f, 96f).background(Ink, corner = 6f)) {
+        Box(Modifier.offset(10f, 14f).size(54f, 66f).background(Steel, corner = 20f)) {}
+        Box(Modifier.offset(60f, 40f).size(14f, 12f).background(Steel, corner = 4f)) {}
+        Box(Modifier.offset(44f, 30f).size(8f, 8f).background(Accent, corner = 4f)) {}
+        // Not a word made of symmetric letters: flipped, those only look reordered.
+        Box(Modifier.offset(12f, 56f)) { Text("HEY", style = "label.dim") }
+    }
+}
+
+/** An arrow pointing right: a shaft and a head. */
+@Composable
+private fun Arrow(modifier: Modifier) {
+    Row(modifier, verticalAlignment = VerticalAlignment.Centre) {
+        Box(Modifier.size(30f, 10f).background(Accent)) {}
+        Box(Modifier.size(18f, 30f).background(Accent, corner = 3f)) {}
     }
 }
 

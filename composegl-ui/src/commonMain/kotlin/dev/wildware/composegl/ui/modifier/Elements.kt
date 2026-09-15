@@ -218,11 +218,15 @@ data class ScaleElement(
 ) : Modifier.Element {
     init {
         // Zero is allowed and draws nothing, because a panel springing in from nothing is the
-        // commonest way this gets used. Negative would be a mirror, which nothing here can do.
+        // commonest way this gets used. Negative would be a mirror, which is its own modifier so
+        // that an easing dipping below zero is caught rather than flipping a panel for a frame.
         require(!factor.isNaN()) { "a scale cannot be NaN" }
-        require(factor >= 0f) { "a scale cannot be negative, was $factor" }
+        require(factor >= 0f) { "a scale cannot be negative, was $factor; flip with Modifier.mirror" }
     }
 }
+
+/** @see dev.wildware.composegl.ui.modifier.mirror */
+data class MirrorElement(val horizontal: Boolean = true, val vertical: Boolean = false) : Modifier.Element
 
 /** @see dev.wildware.composegl.ui.modifier.rotate */
 data class RotateElement(
@@ -793,11 +797,11 @@ fun Modifier.zIndex(z: Float) = then(ZIndexElement(z))
  * A factor of one costs a comparison and takes no picture at all. Zero draws nothing, the same
  * early-out a fully transparent node gets, and nothing inside it can be clicked or focused either.
  *
- * Unlike [alpha], which quietly clamps, this throws on a factor it cannot draw. A negative one is a
- * mirror, and nothing here mirrors, so clamping it to zero would answer a question nobody asked
- * with an invisible widget. That matters for one animation in particular: an anticipate or back
- * easing dips below zero on the way in, so hand it over as `scale(t.coerceAtLeast(0f))` rather than
- * discovering it on the frame the curve undershoots.
+ * Unlike [alpha], which quietly clamps, this throws on a factor it cannot draw. A negative one would
+ * be a mirror, and a mirror is [mirror]: clamping it to zero would answer a question nobody asked
+ * with an invisible widget, and flipping would turn a panel inside out for the one frame an
+ * anticipate or back easing dips below zero. Hand one of those over as `scale(t.coerceAtLeast(0f))`
+ * rather than discovering it on the frame the curve undershoots.
  *
  * @param origin the point that stays where it is, as a place inside this node: [Alignment.Centre]
  *   grows it about its middle, [Alignment.TopStart] about its top-left corner.
@@ -806,6 +810,48 @@ fun Modifier.zIndex(z: Float) = then(ZIndexElement(z))
  */
 fun Modifier.scale(factor: Float, origin: Alignment = Alignment.Centre) =
     then(ScaleElement(factor, origin))
+
+/**
+ * Flips this node and everything under it, left for right when [horizontal] is set and top for
+ * bottom when [vertical] is, in place about its own middle.
+ *
+ * ```kotlin
+ * Portrait(Modifier.mirror(horizontal = speaker.isOnRight))  // one piece of art, facing either way
+ * Arrow(Modifier.mirror(vertical = pointsDown))
+ * ```
+ *
+ * Built the way [scale] is: the subtree is drawn into an offscreen picture the right way round and
+ * that picture is put down read from the other side. Nothing inside knows — so **text inside flips
+ * too** and reads backwards. That is what a mirror is, and it is why this belongs round the art and
+ * not round a whole speech bubble: put the portrait in a mirrored node and its name label beside it.
+ *
+ * Layout does not move: the node keeps its slot, and its own rectangle is the same rectangle
+ * mirrored. What moves is everything *inside* it, and clicks, pad focus and
+ * [dev.wildware.composegl.ui.node.UiNode.boundsInRoot] move with it — a button drawn on the right
+ * of a mirrored row is clicked on the right and is the one focus reaches going right.
+ * [dev.wildware.composegl.ui.node.UiNode.toLocal] is mirrored as well, so a pointer handler inside
+ * sees a drag to the right on screen as one to the left in its own coordinates, which is the only
+ * answer that keeps a mirrored slider under the player's finger.
+ *
+ * The rest is [scale]'s bargain:
+ *
+ * - **A capture is a clip.** Anything a child draws outside this node's rectangle is cut off while
+ *   the mirror is on, and cannot be clicked there either.
+ * - **It degrades honestly.** A canvas that cannot make the picture, or that says no to
+ *   [dev.wildware.composegl.ui.graphics.UiCanvas.mirrorsLayers], draws the subtree the right way
+ *   round, and hit testing stays the right way round with it.
+ * - **Two mirrors cancel.** `mirror().mirror()` is the node as it was, and costs nothing, so a
+ *   mirrored screen can hold a mirrored portrait and get it facing the original way.
+ *
+ * It composes with the rest of the chain on the same node. A [scale] grows the mirrored picture
+ * about its origin, sharing the one capture. A [rotate] turns the mirrored picture. An [effect]
+ * works on the mirrored picture, which costs one more capture than the effect alone.
+ *
+ * `mirror(horizontal = false)` changes nothing and takes no picture, so the flag can come straight
+ * from game state.
+ */
+fun Modifier.mirror(horizontal: Boolean = true, vertical: Boolean = false) =
+    then(MirrorElement(horizontal, vertical))
 
 /**
  * Turns this node and everything under it, clockwise, by [degrees].

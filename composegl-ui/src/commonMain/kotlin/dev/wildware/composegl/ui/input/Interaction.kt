@@ -103,6 +103,10 @@ fun interface KeyHandler {
  * The same hook serves the keyboard and the pad, because the arrow keys and the stick both ask
  * focus to move and this is asked first — a widget claims its axis once and works on both.
  *
+ * The direction is in the node's own axes, as a pointer handler's position is: inside a
+ * `Modifier.mirror` the player's Right arrives as Left, so a mirrored slider's knob still moves
+ * the way the arrow points on screen.
+ *
  * A handler written inline is a new object every recomposition and so never compares equal —
  * `remember` it, exactly as with [PointerHandler].
  */

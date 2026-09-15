@@ -214,7 +214,15 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         // the control to its left. It is asked after an explicit focus order, because a screen
         // that wired a direction by hand meant it, and it may say no — a slider already at its
         // maximum lets the next press to the right take focus away, which is how a player leaves.
-        if (from.resolved.focusDirections.any { it.onDirection(direction) }) return true
+        //
+        // In the node's own directions, the way a pointer handler gets its own coordinates: inside
+        // a mirror the player's Right is towards the node's own left, so a mirrored slider's knob
+        // follows the arrow on screen instead of running away from it.
+        val handlers = from.resolved.focusDirections
+        if (handlers.isNotEmpty()) {
+            val own = ownDirection(from, direction)
+            if (handlers.any { it.onDirection(own) }) return true
+        }
 
         val next = when (direction) {
             FocusDirection.Next -> step(focusable, from, 1)
@@ -224,6 +232,15 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
 
         take(next)
         return true
+    }
+
+    /** [direction] as [node] sees it: left for right under a horizontal mirror, up for down under a vertical one. */
+    private fun ownDirection(node: UiNode, direction: FocusDirection): FocusDirection = when (direction) {
+        FocusDirection.Left -> if (node.mirrorXInRoot) FocusDirection.Right else direction
+        FocusDirection.Right -> if (node.mirrorXInRoot) FocusDirection.Left else direction
+        FocusDirection.Up -> if (node.mirrorYInRoot) FocusDirection.Down else direction
+        FocusDirection.Down -> if (node.mirrorYInRoot) FocusDirection.Up else direction
+        FocusDirection.Next, FocusDirection.Previous -> direction
     }
 
     // --- scopes --------------------------------------------------------------------------------
@@ -395,13 +412,14 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         while (walk != null) {
             val handlers = walk.resolved.reveals
             if (handlers.isNotEmpty()) {
-                val corner = walk.boundsInRoot.topLeft
-                var local = area.translate(Offset(-corner.x, -corner.y))
                 // In the scroller's own units, not in screen pixels. Inside a scaled panel the two
                 // differ, and a list handed screen pixels scrolls by the wrong distance — which
                 // looks like the list being slightly wrong rather than like a scale being wrong.
-                val scale = walk.scaleInRoot
-                if (scale != 1f && scale > 0f) local = local.scaledAbout(0f, 0f, 1f / scale)
+                // Inside a mirrored one the corners swap as well, so both are carried across and
+                // put back in order rather than one corner being moved.
+                val a = walk.toLocal(area.topLeft)
+                val b = walk.toLocal(Offset(area.right, area.bottom))
+                val local = Rect(minOf(a.x, b.x), minOf(a.y, b.y), maxOf(a.x, b.x), maxOf(a.y, b.y))
                 handlers.forEach { it.onReveal(local) }
             }
             walk = walk.parent

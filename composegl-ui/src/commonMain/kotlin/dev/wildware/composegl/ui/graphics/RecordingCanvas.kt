@@ -172,6 +172,10 @@ sealed interface DrawCall {
          * or null when it was put down whole. See [UiCanvas.cutLayer].
          */
         val outline: List<Float>? = null,
+        /** Whether the picture was put down with its left and right swapped. */
+        val mirrorX: Boolean = false,
+        /** Whether the picture was put down with its top and bottom swapped. */
+        val mirrorY: Boolean = false,
     ) : DrawCall
 
     /** Recorded but not run: a recording canvas has no backend object to hand the block. */
@@ -458,6 +462,17 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     /** It records the outline, so it really cuts one. */
     override val cutsLayers: Boolean get() = true
+
+    override fun drawLayer(layer: TextureHandle, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
+        record(
+            DrawCall.Layer(
+                destination, null, clip = state.clip, alpha = state.alpha, mirrorX = mirrorX, mirrorY = mirrorY,
+            ),
+        )
+    }
+
+    /** It records which way round, so it really mirrors one. */
+    override val mirrorsLayers: Boolean get() = true
 
     /** A picture with nothing in it: there are no pixels here to be a handle to. */
     private class LayerHandle(bounds: Rect) : TextureHandle {

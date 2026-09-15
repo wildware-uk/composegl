@@ -19,6 +19,7 @@ import dev.wildware.composegl.ui.modifier.border
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.drawInFront
 import dev.wildware.composegl.ui.modifier.effect
+import dev.wildware.composegl.ui.modifier.mirror
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.rotate
 import dev.wildware.composegl.ui.modifier.scale
@@ -368,6 +369,108 @@ class DrawPassTest {
         draw(node)
 
         assertEquals(emptyList<String>(), kinds())
+    }
+
+    // --- mirroring ---
+
+    /** A backend that makes pictures but cannot flip one. */
+    private class NoMirror(canvas: RecordingCanvas) : UiCanvas by canvas {
+        override val mirrorsLayers: Boolean get() = false
+    }
+
+    @Test
+    fun `a mirror is one picture put down read from the other side`() {
+        val node = node("panel", Modifier.size(40f).mirror().background(red))
+
+        draw(node)
+
+        assertEquals(listOf("Rectangle", "Layer"), kinds())
+        val layer = canvas.only<DrawCall.Layer>().single()
+        assertEquals(true, layer.mirrorX)
+        assertEquals(false, layer.mirrorY)
+        assertEquals(Rect.of(0f, 0f, 40f, 40f), layer.bounds, "in the node's own rectangle")
+        assertEquals(null, layer.effect)
+    }
+
+    @Test
+    fun `a mirror that says no takes no picture`() {
+        draw(node("panel", Modifier.size(40f).mirror(horizontal = false).background(red)))
+
+        assertEquals(listOf("Rectangle"), kinds())
+    }
+
+    @Test
+    fun `two mirrors on one node take no picture`() {
+        draw(node("panel", Modifier.size(40f).mirror().mirror().background(red)))
+
+        assertEquals(listOf("Rectangle"), kinds())
+    }
+
+    @Test
+    fun `a mirror and a scale share one picture`() {
+        draw(node("panel", Modifier.size(40f).mirror(vertical = true).scale(2f).background(red)))
+
+        val layer = canvas.only<DrawCall.Layer>().single()
+        assertEquals(Rect(-20f, -20f, 60f, 60f), layer.bounds)
+        assertEquals(true, layer.mirrorX)
+        assertEquals(true, layer.mirrorY)
+    }
+
+    @Test
+    fun `a mirror under an effect is the picture the shader works on`() {
+        draw(node("panel", Modifier.size(40f).mirror().effect(glow).background(red)))
+
+        val layers = canvas.only<DrawCall.Layer>()
+        assertEquals(2, layers.size)
+        assertEquals(true, layers[0].mirrorX, "the inner picture is the flipped one")
+        assertEquals(null, layers[0].effect)
+        assertEquals(glow, layers[1].effect, "and the glow is put round what it made")
+        assertEquals(false, layers[1].mirrorX)
+    }
+
+    @Test
+    fun `a turned mirror is flipped and then turned`() {
+        draw(node("panel", Modifier.size(40f).mirror().rotate(90f).background(red)))
+
+        val layers = canvas.only<DrawCall.Layer>()
+        assertEquals(listOf(true, false), layers.map { it.mirrorX })
+        assertEquals(listOf(0f, 90f), layers.map { it.degrees })
+    }
+
+    @Test
+    fun `a canvas that cannot mirror draws the right way round and is clicked that way`() {
+        val label = node("label", Modifier.size(10f).background(blue))
+        val panel = node("panel", Modifier.size(40f).mirror().background(red), children = listOf(label))
+        tree.root.insertAt(0, panel)
+        MeasurePass().run(tree.root, Constraints.atMost(500f, 500f))
+        assertEquals(Rect.of(30f, 0f, 10f, 10f), label.boundsInRoot, "before a draw it believes its chain")
+
+        DrawPass(NoMirror(canvas)).draw(tree.root)
+
+        assertEquals(listOf("Rectangle", "Rectangle"), kinds(), "no picture taken for a flip nobody can do")
+        assertEquals(Rect.of(0f, 0f, 10f, 10f), label.boundsInRoot, "and hit testing goes back with the drawing")
+    }
+
+    @Test
+    fun `where a mirrored node is drawn is where it says it is`() {
+        val label = node("label", Modifier.size(20f).background(blue))
+        val inner = node("inner", Modifier.size(30f), children = listOf(label))
+        val panel = node("panel", Modifier.size(60f).mirror().background(red), children = listOf(inner))
+
+        draw(panel)
+
+        // The label is drawn at 0..20 inside a picture of 0..60; read from the other side, its
+        // right edge is 60 - 20 = 40 from the left.
+        val layer = canvas.only<DrawCall.Layer>().single()
+        val drawn = canvas.only<DrawCall.Rectangle>().last { it.colour == blue }.rect
+        val flipped = Rect(
+            layer.bounds.right - (drawn.right - layer.bounds.left),
+            drawn.top,
+            layer.bounds.right - (drawn.left - layer.bounds.left),
+            drawn.bottom,
+        )
+        assertEquals(flipped, label.boundsInRoot)
+        assertEquals(Rect.of(40f, 0f, 20f, 20f), flipped)
     }
 
     @Test

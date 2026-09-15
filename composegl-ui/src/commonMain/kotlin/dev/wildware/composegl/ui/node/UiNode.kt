@@ -306,6 +306,46 @@ class UiNode(var name: String = "node") {
     internal val drawnScale: Float get() = if (scaleApplied) resolved.scale else 1f
 
     /**
+     * Whether the last draw pass managed the mirror a [dev.wildware.composegl.ui.modifier.mirror]
+     * asks for. The same optimism and the same degrading as [scaleApplied], kept separately because
+     * a canvas can make pictures and still be unable to flip one.
+     */
+    internal var mirrorApplied: Boolean = true
+
+    /** Whether this node's left and right are swapped as it is actually drawn. */
+    internal val drawnMirrorX: Boolean get() = mirrorApplied && resolved.mirrorX
+
+    /** Whether this node's top and bottom are swapped as it is actually drawn. */
+    internal val drawnMirrorY: Boolean get() = mirrorApplied && resolved.mirrorY
+
+    /**
+     * Whether this node's own x runs right to left on screen: an odd number of drawn horizontal
+     * mirrors on it and above it. What [toLocal] and a focused node's arrow keys are turned by.
+     */
+    internal val mirrorXInRoot: Boolean
+        get() {
+            var mirrored = false
+            var node: UiNode? = this
+            while (node != null) {
+                if (node.drawnMirrorX) mirrored = !mirrored
+                node = node.parent
+            }
+            return mirrored
+        }
+
+    /** Whether this node's own y runs bottom to top on screen. See [mirrorXInRoot]. */
+    internal val mirrorYInRoot: Boolean
+        get() {
+            var mirrored = false
+            var node: UiNode? = this
+            while (node != null) {
+                if (node.drawnMirrorY) mirrored = !mirrored
+                node = node.parent
+            }
+            return mirrored
+        }
+
+    /**
      * How much bigger or smaller this node is drawn than it was laid out, this node's own scale
      * and every ancestor's together.
      *
@@ -371,6 +411,18 @@ class UiNode(var name: String = "node") {
         var bottom = startBottom
         var node: UiNode? = this
         while (node != null) {
+            // A mirror first, because the draw pass flips the picture in place and then puts it
+            // down scaled: a flip about the middle of the node is a flip about its own width.
+            if (node.drawnMirrorX) {
+                val flipped = node.width - right
+                right = node.width - left
+                left = flipped
+            }
+            if (node.drawnMirrorY) {
+                val flipped = node.height - bottom
+                bottom = node.height - top
+                top = flipped
+            }
             val factor = node.drawnScale
             if (factor != 1f) {
                 // Alignment with a child of no width is the anchor itself: 0, half, or all of
@@ -489,13 +541,18 @@ class UiNode(var name: String = "node") {
      * that moves at the wrong speed rather than anything you can see in a screenshot.
      *
      * A node scaled to nothing is drawn nowhere, so every point in it is the same point.
+     *
+     * Inside a [dev.wildware.composegl.ui.modifier.mirror] the axis runs the other way: the node's
+     * own left edge is drawn on the right, so that is where its x of zero is measured from.
      */
     fun toLocal(point: Offset): Offset {
-        val corner = boundsInRoot.topLeft
+        val drawn = boundsInRoot
         val scale = scaleInRoot
-        if (scale == 1f) return Offset(point.x - corner.x, point.y - corner.y)
         if (scale <= 0f) return Offset.Zero
-        return Offset((point.x - corner.x) / scale, (point.y - corner.y) / scale)
+        val x = if (mirrorXInRoot) drawn.right - point.x else point.x - drawn.left
+        val y = if (mirrorYInRoot) drawn.bottom - point.y else point.y - drawn.top
+        if (scale == 1f) return Offset(x, y)
+        return Offset(x / scale, y / scale)
     }
 
     /** Tells the tree that this frame is not the same as the last one. */

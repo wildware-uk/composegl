@@ -275,7 +275,7 @@ class PointerRouter(
      */
     private fun candidatesUnder(point: Offset): List<UiNode> {
         val found = mutableListOf<UiNode>()
-        collect(root, 0f, 0f, 1f, point.x, point.y, found)
+        collect(root, 0f, 0f, 1f, 1f, point.x, point.y, found)
         return found
     }
 
@@ -288,8 +288,11 @@ class PointerRouter(
      * the scale has to be applied here too, the same way and with the same arithmetic, or a scaled
      * button would be drawn in one place and found in another.
      *
-     * [scale] is what every ancestor together does to this node — so a child's position and size
-     * are multiplied by it, measured from the corner its parent is actually drawn at.
+     * [scaleX] and [scaleY] are what every ancestor together does to this node — so a child's
+     * position and size are multiplied by them, measured from where its parent's own zero is
+     * actually drawn. They are negative under an odd number of mirrors, which is the whole of how
+     * a mirror is carried down: that zero is then the parent's drawn right or bottom edge, and the
+     * child's rectangle runs back from it.
      *
      * Floats rather than an [Offset] and a [Rect]: this runs over every node in the tree on every
      * mouse move, and the pair of objects it used to make per node was two allocations a node for
@@ -299,7 +302,8 @@ class PointerRouter(
         node: UiNode,
         originX: Float,
         originY: Float,
-        scale: Float,
+        scaleX: Float,
+        scaleY: Float,
         pointX: Float,
         pointY: Float,
         into: MutableList<UiNode>,
@@ -309,10 +313,16 @@ class PointerRouter(
         // cannot see you cannot click.
         if (resolved.alpha <= 0f) return
 
-        var left = originX + node.x * scale
-        var top = originY + node.y * scale
-        var right = left + node.width * scale
-        var bottom = top + node.height * scale
+        // Where this node's own zero and its far edge are drawn. Under a mirror the far edge is
+        // the smaller number, so the rectangle is whichever way round they came out.
+        val startX = originX + node.x * scaleX
+        val startY = originY + node.y * scaleY
+        val endX = startX + node.width * scaleX
+        val endY = startY + node.height * scaleY
+        var left = if (scaleX < 0f) endX else startX
+        var right = if (scaleX < 0f) startX else endX
+        var top = if (scaleY < 0f) endY else startY
+        var bottom = if (scaleY < 0f) startY else endY
 
         // This node's own scale, about its own anchor. Deliberately the same arithmetic as
         // Rect.scaledAbout rather than a call to it: the helper builds a Rect, and this runs over
@@ -320,35 +330,49 @@ class PointerRouter(
         // is where it says it is` pins the arithmetic against what the canvas is asked to
         // composite, because nothing else would notice the three parting.
         val own = node.drawnScale
+        // The anchor is a place in the node's own coordinates, so it is measured from its own zero
+        // along its own axes — the drawn right edge, under a mirror above it.
+        val anchorX = startX + resolved.scaleOrigin.xIn(node.width, 0f) * scaleX
+        val anchorY = startY + resolved.scaleOrigin.yIn(node.height, 0f) * scaleY
         if (own != 1f) {
-            val anchorX = left + resolved.scaleOrigin.xIn(node.width, 0f) * scale
-            val anchorY = top + resolved.scaleOrigin.yIn(node.height, 0f) * scale
             left = anchorX + (left - anchorX) * own
             right = anchorX + (right - anchorX) * own
             top = anchorY + (top - anchorY) * own
             bottom = anchorY + (bottom - anchorY) * own
         }
 
+        // This node's own mirror leaves its rectangle where it is and turns the axes its children
+        // are measured along: their zero is drawn where this node's far edge is.
+        val mirrorX = node.drawnMirrorX
+        val mirrorY = node.drawnMirrorY
+        val innerX = anchorX + ((if (mirrorX) endX else startX) - anchorX) * own
+        val innerY = anchorY + ((if (mirrorY) endY else startY) - anchorY) * own
+        val innerScaleX = if (mirrorX) -scaleX * own else scaleX * own
+        val innerScaleY = if (mirrorY) -scaleY * own else scaleY * own
+
         val inside = pointX >= left && pointX < right && pointY >= top && pointY < bottom
         // Two things stop the search early, and both are the same rule: nothing outside them is
-        // drawn, so nothing outside them can be hit, children included. A clip says so. A scale
-        // says so too, because the subtree is captured at exactly this node's own rectangle and
-        // a child that overflows it is cut off on screen — so without this line a child hanging
-        // out of a shrunk panel keeps taking clicks in the empty space where it used to be.
-        if ((resolved.clip != null || own != 1f) && !inside) return
+        // drawn, so nothing outside them can be hit, children included. A clip says so. A scale or
+        // a mirror says so too, because the subtree is captured at exactly this node's own
+        // rectangle and a child that overflows it is cut off on screen — so without this line a
+        // child hanging out of a shrunk panel keeps taking clicks in the empty space where it used
+        // to be.
+        if ((resolved.clip != null || own != 1f || mirrorX || mirrorY) && !inside) return
         // And a clip that is a shape says so for the corners it cut away, in the node's own units
         // for the same reason a hit shape is asked in them.
-        if (inside && !insideClipShape(node, left, top, scale * own, pointX, pointY)) return
+        if (inside && !insideClipShape(node, innerX, innerY, innerScaleX, innerScaleY, pointX, pointY)) return
 
         // The draw pass's own list, walked the other way, so a lifted card takes the press.
         val children = node.drawOrder
         for (index in children.indices.reversed()) {
-            collect(children[index], left, top, scale * own, pointX, pointY, into)
+            collect(children[index], innerX, innerY, innerScaleX, innerScaleY, pointX, pointY, into)
         }
         // The rectangle said yes; a node with a shape of its own now gets to say no. Turning it
         // down here rather than at the top leaves the children alone and lets the event carry on
         // to whatever is underneath this node.
-        if (inside && resolved.isInteractive && ownsPoint(node, left, top, scale * own, pointX, pointY)) {
+        if (inside && resolved.isInteractive &&
+            ownsPoint(node, innerX, innerY, innerScaleX, innerScaleY, pointX, pointY)
+        ) {
             into += node
         }
     }
@@ -364,14 +388,15 @@ class PointerRouter(
      */
     private fun ownsPoint(
         node: UiNode,
-        left: Float,
-        top: Float,
-        total: Float,
+        zeroX: Float,
+        zeroY: Float,
+        totalX: Float,
+        totalY: Float,
         pointX: Float,
         pointY: Float,
     ): Boolean {
         val shape = node.resolved.hitShape ?: return true
-        return shape(Offset((pointX - left) / total, (pointY - top) / total), Size(node.width, node.height))
+        return shape(Offset((pointX - zeroX) / totalX, (pointY - zeroY) / totalY), Size(node.width, node.height))
     }
 
     /**
@@ -382,15 +407,19 @@ class PointerRouter(
      */
     private fun insideClipShape(
         node: UiNode,
-        left: Float,
-        top: Float,
-        total: Float,
+        zeroX: Float,
+        zeroY: Float,
+        totalX: Float,
+        totalY: Float,
         pointX: Float,
         pointY: Float,
     ): Boolean {
         val shape = node.resolved.clip?.shape ?: return true
         if (shape === Shapes.Rectangle) return true
-        return shape.contains(Offset((pointX - left) / total, (pointY - top) / total), Size(node.width, node.height))
+        return shape.contains(
+            Offset((pointX - zeroX) / totalX, (pointY - zeroY) / totalY),
+            Size(node.width, node.height),
+        )
     }
 
     /**

@@ -83,6 +83,13 @@ class ResolvedModifier private constructor(
     /** The point a [rotation] turns about, as a place inside the node. */
     val rotationOrigin: Alignment,
     /**
+     * Whether this node is drawn with its left and right swapped. False for almost every node there
+     * has ever been; see [dev.wildware.composegl.ui.modifier.mirror].
+     */
+    val mirrorX: Boolean,
+    /** Whether this node is drawn with its top and bottom swapped. */
+    val mirrorY: Boolean,
+    /**
      * The blend function this node and its subtree are drawn with. [BlendMode.SourceOver] for
      * almost every node there has ever been; see [dev.wildware.composegl.ui.modifier.blend].
      */
@@ -192,6 +199,8 @@ class ResolvedModifier private constructor(
             var scaleOrigin = Alignment.Centre
             var rotation = 0f
             var rotationOrigin = Alignment.Centre
+            var mirrorX = false
+            var mirrorY = false
             var clip: ClipElement? = null
             var clipBehind = 0
             var clipInFront = 0
@@ -264,6 +273,12 @@ class ResolvedModifier private constructor(
                         rotation += element.degrees
                         rotationOrigin = element.origin
                     }
+                    // A quantity, like a scale of minus one: two mirrors on one node cancel, so a
+                    // portrait flipped inside a flipped panel faces the way the art was drawn.
+                    is MirrorElement -> {
+                        mirrorX = mirrorX != element.horizontal
+                        mirrorY = mirrorY != element.vertical
+                    }
                     // Where it sits in the chain matters for a shape: what was painted before it
                     // stays whole and what comes after it is cut. A later clip is a later answer.
                     is ClipElement -> {
@@ -310,7 +325,7 @@ class ResolvedModifier private constructor(
             return ResolvedModifier(
                 size, fill, aspectRatio, sizeIn, defaultMinSize, padding, offset, weight, alignment, layoutId, alpha,
                 scale, scaleOrigin,
-                rotation, rotationOrigin,
+                rotation, rotationOrigin, mirrorX, mirrorY,
                 blend, zIndex, clip, clipBehind, clipInFront, hitShape, hoverIcon, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
