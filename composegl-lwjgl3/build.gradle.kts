@@ -4,10 +4,12 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-description = "The raw OpenGL backend: a GLFW window, one shader and stb_truetype. No engine."
+description = "The raw OpenGL backend: a GLFW window, an LWJGL binding for the shared renderer, and stb_truetype. No engine."
 
 dependencies {
     api(project(":composegl-ui"))
+    // The renderer. This module is its binding: LWJGL's OpenGL, stb_truetype glyphs, and a window.
+    api(project(":composegl-render"))
     api(libs.lwjgl)
     compileOnly(libs.jspecify)
     api(libs.lwjgl.glfw)
@@ -36,26 +38,25 @@ dependencies {
 }
 
 /**
- * The promise this module exists to keep, checked rather than remembered.
- *
- * A second backend is only evidence that the toolkit's seams are real if it genuinely shares
- * nothing with the first. One convenient import of a LibGDX class — a `Color`, a `Matrix4`, a
- * texture region — and this stops being a second opinion and becomes a second voice agreeing with
- * itself.
+ * No engine types, and none of the renderer this module used to carry: it draws through
+ * composegl-render, so stb's font packer — which baked a whole atlas of its own — has no business here.
  */
 val noEngineTypes = tasks.register<BytecodeReferenceCheck>("checkNoEngineTypes") {
-    description = "Fails if the raw OpenGL backend names LibGDX."
+    description = "Fails if the raw OpenGL backend names LibGDX or a renderer of its own."
     group = "verification"
     classDirectories.from(layout.buildDirectory.dir("classes/kotlin/main"))
-    forbiddenPackages.set(listOf("com/badlogic/gdx"))
+    forbiddenPackages.set(listOf("com/badlogic/gdx", "org/lwjgl/stb/STBTTPackContext"))
     reason.set(
-        "This backend is the toolkit's second opinion. It has to reach the same pictures by its " +
-            "own route, or it proves nothing.",
+        "This backend is the reference raw-OpenGL wrapper round the shared renderer. It binds GL, " +
+            "rasterises glyphs and runs a window; it does not name an engine or pack an atlas itself.",
     )
     dependsOn(tasks.named("classes"))
 }
 
 tasks.named("check") { dependsOn(noEngineTypes) }
+
+// The renderer lives in composegl-render. Shaders and draw calls here would be a second one.
+confineRenderer("LwjglGl.kt")
 
 // The same tests on a GL 3.2 core context. The window here asks for no version, so Mesa is told to
 // hand out a forward-compatible core one: what a game that brings its own GL 3 context would give

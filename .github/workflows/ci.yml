@@ -45,7 +45,7 @@ jobs:
       - name: The toolkit and the WebGL backend, in a real browser
         run: |
           export CHROME_BIN="$(command -v google-chrome || command -v chromium)"
-          ./gradlew :composegl-ui:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserTest :composegl-demo-web:wasmJsBrowserTest :composegl-demo-web:wasmJsBrowserDistribution --stacktrace
+          ./gradlew :composegl-ui:wasmJsBrowserTest :composegl-render:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserTest :composegl-demo-web:wasmJsBrowserTest :composegl-demo-web:wasmJsBrowserDistribution --stacktrace
 
       - name: Keep what went wrong
         if: failure()
@@ -92,8 +92,8 @@ jobs:
           GALLIUM_DRIVER: llvmpipe
         run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-gdx:testGl30 :composegl-lwjgl3:testGl30 --rerun-tasks --stacktrace
 
-      # The second backend, which shares no code with the first. Its job is to disagree when the
-      # toolkit has quietly assumed something about LibGDX.
+      # The raw OpenGL backend, a thin wrapper round composegl-render with no LibGDX anywhere. Its
+      # job is to disagree when the toolkit has quietly assumed something about LibGDX.
       - name: The same scenes, drawn with no LibGDX anywhere
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'

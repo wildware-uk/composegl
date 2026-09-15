@@ -25,10 +25,9 @@ class GlfwClipboard(private val window: GlfwWindow) : Clipboard {
 /**
  * Everything the toolkit needs from the outside world, with no engine providing any of it.
  *
- * The second backend, and the reason [UiBackend] can be trusted. It is written against the same
- * interface as the LibGDX one, shares no code with it, and draws the same scenes — so anything the
- * toolkit quietly assumes about LibGDX shows up here as a picture that came out wrong or as code
- * that will not compile.
+ * The reference thin wrapper round the library's own renderer: raw OpenGL through LWJGL, glyphs
+ * from stb_truetype, and a GLFW window. It names no engine, so anything the toolkit quietly assumes
+ * about LibGDX shows up here as a picture that came out wrong or as code that will not compile.
  *
  * Desktop only, and not the one to ship a game on. A game needs audio, assets, a soft keyboard,
  * Android and iOS, and LibGDX already has all of them.

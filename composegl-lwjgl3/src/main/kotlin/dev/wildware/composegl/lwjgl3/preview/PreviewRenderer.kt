@@ -5,9 +5,6 @@ import dev.wildware.composegl.lwjgl3.Lwjgl3Backend
 import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.preview.PreviewFunction
 import dev.wildware.composegl.ui.preview.uiTest
-import org.lwjgl.BufferUtils
-import org.lwjgl.opengl.GL11
-import org.lwjgl.opengl.GL30
 import java.awt.image.BufferedImage
 
 /**
@@ -44,21 +41,16 @@ class PreviewRenderer(val backend: Lwjgl3Backend) {
     private fun read(target: GlRenderTarget): BufferedImage {
         val width = target.width
         val height = target.height
-        val bytes = BufferUtils.createByteBuffer(width * height * 4)
-
-        val previous = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING)
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, target.framebufferName)
-        GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes)
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, previous)
+        val bytes = target.readPixels()
 
         val image = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
         for (y in 0 until height) {
             for (x in 0 until width) {
                 // OpenGL hands back the bottom row first.
                 val at = ((height - 1 - y) * width + x) * 4
-                val alpha = bytes.get(at + 3).toInt() and 0xFF
+                val alpha = bytes[at + 3].toInt() and 0xFF
                 fun straight(channel: Int): Int {
-                    val premultiplied = bytes.get(at + channel).toInt() and 0xFF
+                    val premultiplied = bytes[at + channel].toInt() and 0xFF
                     return if (alpha == 0) 0 else minOf(255, (premultiplied * 255 + alpha / 2) / alpha)
                 }
                 image.setRGB(x, y, (alpha shl 24) or (straight(0) shl 16) or (straight(1) shl 8) or straight(2))
