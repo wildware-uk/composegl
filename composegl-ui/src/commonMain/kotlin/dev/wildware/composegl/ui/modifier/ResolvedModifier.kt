@@ -362,7 +362,7 @@ class ResolvedModifier private constructor(
                     is BackgroundElement, is BrushBackgroundElement, is BorderElement, is BorderSidesElement, is ShadowElement,
                     is NinePatchElement, is SkinBackgroundElement, is DrawBehindElement ->
                         behind += PaintOp(element, padding)
-                    is DrawInFrontElement -> inFront += PaintOp(element, padding)
+                    is DrawInFrontElement, is DebugBoundsElement -> inFront += PaintOp(element, padding)
                     is InteractionElement -> interactions += element.state
                     is PointerInputElement -> handlers += element.handler
                     is KeyInputElement -> keyHandlers += element.handler

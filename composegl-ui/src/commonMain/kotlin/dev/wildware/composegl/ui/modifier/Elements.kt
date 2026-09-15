@@ -330,6 +330,9 @@ data class DrawBehindElement(val draw: UiCanvas.(Rect) -> Unit) : Modifier.Eleme
 /** Draw whatever you like, on top of this node and its children. */
 data class DrawInFrontElement(val draw: UiCanvas.(Rect) -> Unit) : Modifier.Element
 
+/** @see dev.wildware.composegl.ui.modifier.debugBounds */
+data class DebugBoundsElement(val colour: Colour, val label: Boolean) : Modifier.Element
+
 // --- what a node does about the player ------------------------------------------------------
 
 /**
@@ -1212,6 +1215,30 @@ fun Modifier.skew(x: Float = 0f, y: Float = 0f, origin: Alignment = Alignment.Ce
 fun Modifier.drawBehind(draw: UiCanvas.(Rect) -> Unit) = then(DrawBehindElement(draw))
 
 fun Modifier.drawInFront(draw: UiCanvas.(Rect) -> Unit) = then(DrawInFrontElement(draw))
+
+/**
+ * Shows where this node is: an outline in [colour] over it and its children, and a faint wash.
+ *
+ * ```kotlin
+ * Panel(Modifier.debugBounds())                              // a magenta box
+ * Panel(Modifier.debugBounds(Colour.Red, label = true))      // …with its size in the corner
+ * ```
+ *
+ * The thing to reach for instead of a temporary [border]. It changes nothing about the node but what
+ * is drawn on top of it: no size, no padding, no input — a click passes straight through — and a
+ * data class, so a screen recomposing with the same box on it stays still and costs nothing.
+ *
+ * It paints where it sits in the chain, like a border does. First in the chain, which is where a
+ * widget's own `modifier` parameter puts it, outlines the whole widget; after a `padding` it outlines
+ * what is inside the padding. A node with no width or no height shows as a line, which is usually
+ * the answer to why it could not be seen.
+ *
+ * [label] puts the size in whole units, `120x40`, in a chip in the top-left corner. The digits are
+ * drawn out of rectangles, so they need no font and read the same on every backend. Black on a light
+ * [colour] and white on a dark one.
+ */
+fun Modifier.debugBounds(colour: Colour = Colour.Magenta, label: Boolean = false) =
+    then(DebugBoundsElement(colour, label))
 
 fun Modifier.interaction(state: InteractionState) = then(InteractionElement(state))
 
