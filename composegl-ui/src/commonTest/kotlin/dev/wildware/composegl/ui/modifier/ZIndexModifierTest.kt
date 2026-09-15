@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.backend.HeadlessBackend
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.DrawCall
@@ -192,6 +193,33 @@ class ZIndexModifierTest {
         selected = -1
         frame()
         assertEquals(listOf(red, green, blue), paintOrder(), "and nothing lifted is source order again")
+    }
+
+    @Test
+    fun `a pile inside a shaped clip is drawn in the same order it is clicked in`() {
+        var selected by mutableStateOf(-1)
+        val clicked = mutableListOf<Int>()
+        show {
+            // A shaped clip draws its children into a picture by a path of its own, so the order
+            // has to be kept there too, or the card on top is not the card that takes the press.
+            Box(Modifier.size(300f, 200f).clipShape(Shapes.roundedRect(12f))) {
+                listOf(red, green, blue).forEachIndexed { index, colour ->
+                    LeafLayout(
+                        Modifier.offset(index * 50f, 0f).size(100f, 100f)
+                            .zIndex(if (index == selected) 1f else 0f)
+                            .background(colour)
+                            .clickable { clicked += index; selected = index },
+                    )
+                }
+            }
+        }
+        assertEquals(listOf(red, green, blue), paintOrder())
+
+        click(25f, 50f)
+        assertEquals(listOf(green, blue, red), paintOrder(), "red was clicked and came forward inside the clip")
+
+        click(75f, 50f)
+        assertEquals(listOf(0, 0), clicked, "and the overlap it is drawn over is red's")
     }
 
     // --- the pointer -----------------------------------------------------------------------

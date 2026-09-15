@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import dev.wildware.composegl.testing.Goldens
 import dev.wildware.composegl.testing.imageOf
 import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.host.UiHost
@@ -25,6 +26,7 @@ import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.clickable
+import dev.wildware.composegl.ui.modifier.clipShape
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.zIndex
@@ -57,8 +59,8 @@ class GdxZIndexTest {
 
     /** Three cards fanned out like a hand, each overlapping the next by half. */
     @Composable
-    private fun Hand(clicked: MutableList<Int>) {
-        Box(Modifier.size(240f, 240f).background(Colour.rgb(0x12161D))) {
+    private fun Hand(clicked: MutableList<Int>, table: Modifier = Modifier) {
+        Box(Modifier.size(240f, 240f).background(Colour.rgb(0x12161D)).then(table)) {
             listOf(red, green, blue).forEachIndexed { index, colour ->
                 LeafLayout(
                     Modifier
@@ -129,6 +131,33 @@ class GdxZIndexTest {
             pointer.onPointer(PointerEvent.Press(PointerId.Mouse, Offset(145f, 120f)))
             pointer.onPointer(PointerEvent.Release(PointerId.Mouse, Offset(145f, 120f)))
             assertEquals(listOf(1), clicked, "the card on top is the card that was clicked")
+        } finally {
+            host.dispose()
+        }
+    }
+
+    @Test
+    fun `a lifted card inside a shaped clip is still painted on top`() {
+        val host = UiHost()
+        val clicked = mutableListOf<Int>()
+        try {
+            // A shaped clip draws its children into a picture by a path of its own, which has to
+            // keep the lift as well.
+            host.setContent { Hand(clicked, Modifier.clipShape(Shapes.roundedRect(16f))) }
+            val greenBlue = 145 to 120
+
+            lifted = 1
+            val raised = frame(host, 0L)
+            try {
+                assertNear(green, raised.rgbAt(greenBlue.first, greenBlue.second), "green is lifted over blue")
+            } finally {
+                raised.dispose()
+            }
+
+            val pointer = PointerRouter(host.root)
+            pointer.onPointer(PointerEvent.Press(PointerId.Mouse, Offset(145f, 120f)))
+            pointer.onPointer(PointerEvent.Release(PointerId.Mouse, Offset(145f, 120f)))
+            assertEquals(listOf(1), clicked, "and the green pixel is the green card's click")
         } finally {
             host.dispose()
         }
