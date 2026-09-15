@@ -1,4 +1,4 @@
-package dev.wildware.composegl.ui.game
+package dev.wildware.composegl.game
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember

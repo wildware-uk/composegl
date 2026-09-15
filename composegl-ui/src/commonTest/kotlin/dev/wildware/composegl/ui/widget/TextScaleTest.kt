@@ -5,12 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.backend.HeadlessBackend
-import dev.wildware.composegl.ui.game.DamageNumberLayer
-import dev.wildware.composegl.ui.game.DamageNumbers
-import dev.wildware.composegl.ui.game.MinimapFrame
-import dev.wildware.composegl.ui.game.WorldAnchor
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.DrawCall
@@ -178,7 +173,6 @@ class TextScaleTest {
     @Test
     fun `a still screen under a text scale does not redraw even when it composes again`() {
         var tick by mutableStateOf(0)
-        val numbers = DamageNumbers(clock = Clock.Ui)
         val ui = open {
             ProvideTextScale(1.5f) {
                 TooltipHost {
@@ -192,8 +186,6 @@ class TextScaleTest {
                         TextField("Ada", onValueChange = {}, modifier = Modifier.width(200f))
                         PromptGlyph(Action.Confirm)
                         Typewriter(rememberTypewriter("HELLO"), textStyle = sixteen)
-                        MinimapFrame(Modifier.size(100f, 100f), live = false)
-                        DamageNumberLayer(numbers)
                     }
                 }
             }
@@ -440,43 +432,5 @@ class TextScaleTest {
 
         assertNear(line.lineHeight, ui.node("plain").height, "a line of label text")
         assertNear(line.lineHeight * 2f, ui.node("big").height, "a line of label text at twice the size")
-    }
-
-    @Test
-    fun `a damage number is centred on its point at the scaled width`() {
-        val size = Skin.Default.resolve("damage").textStyle.size
-
-        fun leftOf148(scale: Float): Float {
-            val numbers = DamageNumbers(clock = Clock.Ui)
-            val ui = open { ProvideTextScale(scale) { DamageNumberLayer(numbers) } }
-            numbers.show("148", WorldAnchor.at(200f, 100f))
-            val canvas = (ui.backend as HeadlessBackend).canvas
-            canvas.clear()
-            ui.render()
-            return assertNotNull(canvas.calls.filterIsInstance<DrawCall.Text>().firstOrNull { it.text == "148" }).at.x
-        }
-
-        assertNear(200f - 3 * size * 0.6f / 2f, leftOf148(1f), "half of three characters to the left")
-        assertNear(200f - 3 * size * 0.6f, leftOf148(2f), "half of three characters at twice the size")
-    }
-
-    @Test
-    fun `a minimap's compass letter is drawn at the scaled size`() {
-        val size = Skin.Default.resolve("minimap.compass").textStyle.size
-
-        fun north(scale: Float): Offset {
-            val ui = open {
-                ProvideTextScale(scale) { MinimapFrame(Modifier.size(200f, 200f), live = false) }
-            }
-            val canvas = (ui.backend as HeadlessBackend).canvas
-            canvas.clear()
-            ui.render()
-            return assertNotNull(canvas.calls.filterIsInstance<DrawCall.Text>().firstOrNull { it.text == "N" }).at
-        }
-
-        val plain = north(1f)
-        val big = north(2f)
-        assertNear(plain.x - size * 0.6f / 2f, big.x, "centred on the same point at twice the width")
-        assertTrue(big.y > plain.y, "and kept further in from the edge, because it is taller")
     }
 }

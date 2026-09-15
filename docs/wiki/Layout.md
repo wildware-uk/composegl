@@ -78,6 +78,9 @@ Row(Modifier.fillMaxWidth()) {
 }
 ```
 
+`MinimapFrame` here, and `Bar` and `Reticle` further down, are game widgets: they come
+from `composegl-game` (import `dev.wildware.composegl.game`). See [[Game widgets]].
+
 ![a weighted 16:9 frame beside a square, and a row of four square thumbnails](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-aspect-ratio.png)
 
 One rule: take the axis that is settled — by `width`, `height`, `fillMax*` or a

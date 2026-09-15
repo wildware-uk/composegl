@@ -7,9 +7,9 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.animation.Clock
-import dev.wildware.composegl.ui.game.DamageNumbers
-import dev.wildware.composegl.ui.game.ParticleEmitter
-import dev.wildware.composegl.ui.game.ParticleStyle
+import dev.wildware.composegl.game.DamageNumbers
+import dev.wildware.composegl.game.ParticleEmitter
+import dev.wildware.composegl.game.ParticleStyle
 import dev.wildware.composegl.ui.graphics.Colour
 
 /** One thing on show, and whether it is currently on. */

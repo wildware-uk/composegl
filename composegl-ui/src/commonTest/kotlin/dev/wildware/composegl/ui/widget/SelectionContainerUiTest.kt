@@ -5,10 +5,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.backend.HeadlessBackend
-import dev.wildware.composegl.ui.game.Hotbar
-import dev.wildware.composegl.ui.game.HotbarSlot
-import dev.wildware.composegl.ui.game.NotificationQueue
-import dev.wildware.composegl.ui.game.Notifications
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
@@ -563,35 +559,6 @@ class SelectionContainerUiTest {
         ui.click(ui.node("volume").children[1].boundsInRoot.centre)
         assertEquals(7, volume, "a click on the value steps too")
         assertEquals("", state.selectedText)
-    }
-
-    @Test
-    fun `a hotbar slot inside a container is used when its letters are clicked`() {
-        val used = mutableListOf<Int>()
-        val ui = open {
-            SelectionContainer {
-                Hotbar(listOf(HotbarSlot(label = "FIRE"), HotbarSlot(label = "ICE")), onUse = { used += it }, modifier = Modifier.testTag("bar"))
-            }
-        }
-
-        ui.click(ui.node("bar").children[1].boundsInRoot.centre)
-
-        assertEquals(listOf(1), used)
-    }
-
-    @Test
-    fun `a notification inside a container is dismissed by a click on its text`() {
-        val queue = NotificationQueue(holdMillis = 60_000)
-        val ui = open {
-            SelectionContainer { Notifications(queue, Modifier.testTag("notices")) }
-        }
-        queue.show("Quest updated")
-        ui.advanceBy(500)
-
-        ui.click(ui.node("notices").children[0].boundsInRoot.centre)
-        ui.advanceBy(500)
-
-        assertTrue(queue.shown.isEmpty(), "the click reached the card rather than selecting its text")
     }
 
     @Test

@@ -12,6 +12,9 @@ dependencies {
     // The same interface, drawn twice. The example carries both backends because that is the
     // proof: `Screen` and the widgets are shared between the two mains without a line changing.
     implementation(project(":composegl-lwjgl3"))
+
+    // The HUD's game widgets, which live in their own module.
+    implementation(project(":composegl-game"))
     implementation(libs.gdx.backend.lwjgl3)
     runtimeOnly(variantOf(libs.gdx.platform) { classifier("natives-desktop") })
     runtimeOnly(variantOf(libs.gdx.freetype.platform) { classifier("natives-desktop") })

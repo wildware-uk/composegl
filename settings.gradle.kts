@@ -44,6 +44,7 @@ include(
     "composegl-ui",
     "composegl-render",
     "composegl-effects",
+    "composegl-game",
     "composegl-gdx",
     "composegl-korge",
     "composegl-lwjgl3",

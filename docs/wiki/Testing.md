@@ -850,7 +850,8 @@ uiTest(preview).use { ui -> ui.click("resume") }
 
 ## Seeded randomness
 
-Anything random takes a seed, so it can be a golden:
+Anything random takes a seed, so it can be a golden. `ParticleEmitter` lives in
+`composegl-game` (import `dev.wildware.composegl.game`; see [[Game widgets]]):
 
 ```kotlin
 val sparks = ParticleEmitter(capacity = 120, seed = 4L)

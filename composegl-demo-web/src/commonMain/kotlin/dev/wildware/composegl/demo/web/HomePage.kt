@@ -9,9 +9,9 @@ import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.animation.wait
-import dev.wildware.composegl.ui.game.Bar
-import dev.wildware.composegl.ui.game.Reticle
-import dev.wildware.composegl.ui.game.rememberReticleState
+import dev.wildware.composegl.game.Bar
+import dev.wildware.composegl.game.Reticle
+import dev.wildware.composegl.game.rememberReticleState
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box

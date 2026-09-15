@@ -1,4 +1,4 @@
-package dev.wildware.composegl.ui.game
+package dev.wildware.composegl.game
 
 import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.geometry.Rect

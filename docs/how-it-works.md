@@ -56,7 +56,8 @@ worked, and a broken save leaves the last skin that worked on screen. The widget
 `Text`, `Image`, `Button`, `IconButton`, `Checkbox`, `RadioButton`, `Toggle`, `Slider`,
 `ScrollArea`, `LazyColumn`, `LazyRow`, `Panel`, `Dialog`, `Tabs`, `TextField`, `Bar`, `Hotbar`,
 `RadialCooldown`, `DamageNumberLayer`, `ParticleLayer`, `Reticle`, `Tooltip`, `Typewriter`, `PromptGlyph`, `Notifications` and `MinimapFrame` ship with
-the toolkit, and the example is built from them. Typing works the whole way through: a caret that blinks
+the toolkit — the game ones in the separate `composegl-game` module, built from the toolkit's public
+API alone — and the example is built from them. Typing works the whole way through: a caret that blinks
 and stops blinking mid-word, selection by shift or by dragging, double-click for a word, word-wise
 movement, the system clipboard through whichever backend is running, and a field that scrolls
 sideways so a long name never types itself off the edge.

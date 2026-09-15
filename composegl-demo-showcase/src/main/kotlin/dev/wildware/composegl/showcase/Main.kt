@@ -23,8 +23,8 @@ import dev.wildware.composegl.showcase.world.Particles
 import dev.wildware.composegl.showcase.world.Scene3D
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.draw.DrawPass
-import dev.wildware.composegl.ui.game.WorldAnchor
-import dev.wildware.composegl.ui.game.WorldProjection
+import dev.wildware.composegl.game.WorldAnchor
+import dev.wildware.composegl.game.WorldProjection
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.host.UiHost
 import dev.wildware.composegl.ui.host.UiRenderer

@@ -8,8 +8,8 @@ import dev.wildware.composegl.effects.outline
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.effect.Uniform
-import dev.wildware.composegl.ui.game.ParticleEmitter
-import dev.wildware.composegl.ui.game.ParticleStyle
+import dev.wildware.composegl.game.ParticleEmitter
+import dev.wildware.composegl.game.ParticleStyle
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect

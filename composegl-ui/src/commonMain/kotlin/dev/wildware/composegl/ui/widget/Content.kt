@@ -38,7 +38,8 @@ fun ProvideContentStyle(style: ResolvedStyle, content: @Composable () -> Unit) {
  * are all readable over whatever is moving underneath.
  *
  * **Which widgets look at this**, because "everything inside" is a promise worth being exact
- * about: [Text], [Typewriter], [Tooltip], `DamageNumberLayer` and `Minimap`'s compass letters. Not
+ * about: [Text], [Typewriter], [Tooltip], and in `composegl-game` `DamageNumberLayer` and
+ * `MinimapFrame`'s compass letters. Not
  * [TextField] — a field is a box on a background of its own, and its caret and selection are
  * measured off the raw glyph advances, so an outline there would be paint in the wrong place as
  * often as not. Not [PromptGlyph] — a key-cap already has its own background to stand out against.

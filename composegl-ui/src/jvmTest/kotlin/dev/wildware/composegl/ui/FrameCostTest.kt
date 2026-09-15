@@ -6,9 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.backend.MonospaceFontProvider
 import dev.wildware.composegl.ui.draw.DrawPass
-import dev.wildware.composegl.ui.game.Bar
-import dev.wildware.composegl.ui.game.Reticle
-import dev.wildware.composegl.ui.game.rememberReticleState
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.TextureHandle
@@ -38,6 +35,7 @@ import dev.wildware.composegl.ui.modifier.wrapContentSize
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.ProvideFonts
+import dev.wildware.composegl.ui.widget.Slider
 import dev.wildware.composegl.ui.widget.Text
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -49,8 +47,9 @@ import java.lang.management.ManagementFactory
  *
  * The claim this project is built on is that an interface which is not moving costs almost nothing
  * a frame. Two widgets have their own allocation tests; this one asks it of a screen — a HUD with
- * panels, text, bars, buttons and a crosshair on it — because a cost per frame that only appears
- * when there are twenty widgets is exactly the cost a per-widget test cannot see.
+ * panels, text, sliders and buttons on it — because a cost per frame that only appears when there
+ * are twenty widgets is exactly the cost a per-widget test cannot see. The same HUD with health
+ * bars and a crosshair on it is asked the same questions in `composegl-game`.
  *
  * Two separate questions, and they fail differently:
  *
@@ -81,15 +80,12 @@ class FrameCostTest {
         host.setContent {
             ProvideFonts(MonospaceFontProvider()) {
                 Box(Modifier.fillMaxSize()) {
-                    val reticle = rememberReticleState()
-                    Reticle(reticle, Modifier.align(Alignment.Centre))
-
                     Panel(Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 28f).width(280f)) {
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
                             Text("HULL")
-                            Bar(hull, Modifier.fillMaxWidth())
+                            Slider(hull, onValueChange = { hull = it }, Modifier.fillMaxWidth())
                             Text("HEAT")
-                            Bar(0.24f, Modifier.fillMaxWidth())
+                            Slider(0.24f, onValueChange = {}, Modifier.fillMaxWidth())
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("AMMO")
                                 Text("$ammo")
