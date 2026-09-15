@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlin.random.Random
 
 /** Which screen the player is looking at. */
 enum class Screen { Menu, Playing, Paused, GameOver }
@@ -19,9 +20,14 @@ data class HighScore(val name: String, val score: Int, val difficulty: Difficult
  * interface reads it. Because every field is snapshot state, the interface is rebuilt exactly when
  * one of them changes and not otherwise — which is why a HUD costs nothing between mouthfuls.
  *
- * Nothing here touches OpenGL or a window, so it can be driven from a test.
+ * Nothing here touches OpenGL or a window, so it can be driven from a test. Pass a seeded [random]
+ * there too: food lands wherever it says, and food that happens to land in the snake's path gets
+ * eaten, so an unseeded test scores points by luck about one run in twenty.
  */
-class SnakeSession(private val scores: HighScoreStore = HighScoreStore.InMemory()) {
+class SnakeSession(
+    private val scores: HighScoreStore = HighScoreStore.InMemory(),
+    private val random: Random = Random.Default,
+) {
 
     var screen by mutableStateOf(Screen.Menu)
         private set
@@ -54,13 +60,13 @@ class SnakeSession(private val scores: HighScoreStore = HighScoreStore.InMemory(
     }
 
     /** The rules. Replaced on each new game so the board size can change. */
-    var game: SnakeGame = SnakeGame(boardWidth, boardHeightFor(boardWidth))
+    var game: SnakeGame = SnakeGame(boardWidth, boardHeightFor(boardWidth), random)
         private set
 
     private var secondsSinceStep = 0f
 
     fun startGame() {
-        game = SnakeGame(boardWidth, boardHeightFor(boardWidth))
+        game = SnakeGame(boardWidth, boardHeightFor(boardWidth), random)
         secondsSinceStep = 0f
         score = 0
         length = game.snake.size
