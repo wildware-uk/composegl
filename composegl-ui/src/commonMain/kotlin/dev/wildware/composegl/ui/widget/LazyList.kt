@@ -22,6 +22,7 @@ import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onReveal
 import dev.wildware.composegl.ui.saveable.rememberSaveable
+import dev.wildware.composegl.ui.saveable.rememberSaveableStateHolder
 
 /**
  * Where a lazy list is, and what it has learned about its own contents.
@@ -253,6 +254,10 @@ private fun LazyList(
     state.revision
     val window = state.window(overscan)
 
+    // A row scrolled out of the window leaves the tree, and without this its rememberSaveable state
+    // would go with it. Each row is a screen of its own here, kept under its key until it is back.
+    val rows = rememberSaveableStateHolder()
+
     Layout(
         modifier = modifier.onReveal(reveal).onPointer(drag).clip(),
         name = if (vertical) "lazyColumn" else "lazyRow",
@@ -261,8 +266,9 @@ private fun LazyList(
                 // One node per item whatever the item emits, so layout can match children to
                 // indices by counting. The key is what keeps an item's state with the item when
                 // the list is reordered rather than with the slot it happened to be in.
-                key(key?.invoke(index) ?: index) {
-                    Box { LazyItem(index, item) }
+                val itemKey = key?.invoke(index) ?: index
+                key(itemKey) {
+                    Box { rows.SaveableStateProvider(itemKey) { LazyItem(index, item) } }
                 }
             }
             if (bars) ScrollBar(state.axis, vertical = vertical, style = style, gestures = gestures)

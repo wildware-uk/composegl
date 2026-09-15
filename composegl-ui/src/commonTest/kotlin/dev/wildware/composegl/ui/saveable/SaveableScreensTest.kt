@@ -341,6 +341,81 @@ class SaveableScreensTest {
     }
 
     @Test
+    fun `rows that share one explicit key each get their own value back in order`() {
+        val ui = open {
+            Game(listOf("party", "map")) { key ->
+                if (key == "party") {
+                    Column {
+                        repeat(3) { row ->
+                            var level by rememberSaveable(key = "level") { mutableStateOf(1) }
+                            Button("LEVEL $level", onClick = { level++ }, modifier = Modifier.testTag("member$row"))
+                        }
+                    }
+                } else {
+                    Text("THE MAP")
+                }
+            }
+        }
+        ui.click("member1")
+        ui.click("member2")
+        ui.click("member2")
+
+        ui.click("to-map")
+        ui.click("to-party")
+
+        ui.assertText("member0", "LEVEL 1")
+        ui.assertText("member1", "LEVEL 2")
+        ui.assertText("member2", "LEVEL 3")
+    }
+
+    @Test
+    fun `a lazy row scrolled out of sight still has its value when scrolled back`() {
+        val ui = open {
+            LazyColumn(count = 200, modifier = Modifier.size(200f, 100f).testTag("party")) { row ->
+                var level by rememberSaveable { mutableStateOf(1) }
+                Button("LEVEL $level", onClick = { level++ }, modifier = Modifier.size(200f, 25f).testTag("member$row"))
+            }
+        }
+        ui.click("member0")
+        ui.click("member0")
+        ui.assertText("member0", "LEVEL 3")
+
+        ui.scroll("party", Offset(0f, 100f))
+        ui.assertDoesNotExist("member0")
+        ui.scroll("party", Offset(0f, -100f))
+
+        ui.assertText("member0", "LEVEL 3")
+        ui.assertText("member1", "LEVEL 1")
+    }
+
+    @Test
+    fun `a lazy row follows its item key when the list is reordered while scrolled away`() {
+        val ui = open {
+            var items by remember { mutableStateOf((0 until 200).map { "item$it" }) }
+            Column {
+                Button("REVERSE", onClick = { items = items.reversed() }, modifier = Modifier.testTag("reverse"))
+                LazyColumn(
+                    count = items.size,
+                    key = { items[it] },
+                    modifier = Modifier.size(200f, 100f).testTag("list"),
+                ) { index ->
+                    var picks by rememberSaveable { mutableStateOf(0) }
+                    Button("PICKS $picks", onClick = { picks++ }, modifier = Modifier.size(200f, 25f).testTag(items[index]))
+                }
+            }
+        }
+        ui.click("item0")
+        ui.scroll("list", Offset(0f, 100f))
+        ui.assertDoesNotExist("item0")
+
+        ui.click("reverse")
+        ui.scroll("list", Offset(0f, 1000f))
+
+        ui.assertText("item0", "PICKS 1")
+        ui.assertText("item1", "PICKS 0")
+    }
+
+    @Test
     fun `an explicit key finds the value from a different place in the code`() {
         val ui = open {
             var wide by remember { mutableStateOf(true) }

@@ -93,11 +93,17 @@ Rows built in a loop each get their own value back, in order, even without a
 
 - **Outside a holder** there is nowhere to put the value, and `rememberSaveable`
   is exactly `remember`. An `if (open) Screen()` with no holder still forgets.
-- **Rows scrolled out of a `LazyColumn`** are thrown away with their state, as
-  before. The list's own position is kept; a row's private `rememberSaveable` is
-  not.
 - **One key, one place.** The same key showing twice at once is an error, because
-  each copy would save over the other.
+  each copy would save over the other. That includes a `LazyColumn` whose `key`
+  gives two items the same value.
+
+## Rows in a lazy list
+
+A row scrolled out of a `LazyColumn` or `LazyRow` leaves the tree, but its
+`rememberSaveable` state is kept, under the row's `key` (or its index when there
+is no `key`), and it is back when the row scrolls back into view. With a `key`,
+the state follows the item when the list is sorted. This needs no holder above
+the list.
 
 ---
 

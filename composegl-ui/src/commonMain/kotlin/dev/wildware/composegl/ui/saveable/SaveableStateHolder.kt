@@ -79,7 +79,10 @@ private class SaveableStateHolderImpl : SaveableStateHolder {
                 onDispose {
                     if (showing[key] === registry) showing -= key
                     if (forgetOnLeave.remove(key)) return@onDispose
-                    saved[key] = registry.performSave()
+                    // A screen with nothing to keep keeps no entry: a lazy list of thousands of rows
+                    // makes one of these per row it ever showed.
+                    val state = registry.performSave()
+                    if (state.isNotEmpty()) saved[key] = state
                 }
             }
         }
