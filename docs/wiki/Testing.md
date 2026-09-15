@@ -127,8 +127,8 @@ back stack, so `OnBack` and prompts work as they do in a game.
 
 | Call | What it does |
 |---|---|
-| `click(tag)` · `press(tag)` · `dragTo(at)` · `release()` · `moveTo(tag)` · `scroll(tag, delta)` | the mouse, at the middle of the node; `dragTo` moves it with the button held |
-| `key(Key.Tab)` · `key(Key.Tab, Modifiers.Shift)` · `keyDown` · `keyUp` | a key, to the focused widget first |
+| `click(tag)` · `click(tag, PointerButton.Secondary)` · `press(tag)` · `dragTo(at)` · `release()` · `moveTo(tag)` · `scroll(tag, delta)` | the mouse, at the middle of the node; `dragTo` moves it with the button held |
+| `key(Key.Tab)` · `key(Key.Tab, Modifiers.Shift)` · `keyDown` · `keyDown(key, repeat = true)` · `keyUp` | a key, to the focused widget first |
 | `type("Ada")` | text to the focused widget, one character at a time |
 | `pad(GamepadButton.South)` · `padDown` · `padUp` · `stick(x, y)` | a pad; `stick(x, y, horizontal = RightX, vertical = RightY)` for the right stick |
 | `holdStick(x, y, millis)` · `cursor` | a pad driving a `VirtualCursor`: push, wait, let go |

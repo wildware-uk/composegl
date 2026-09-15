@@ -433,6 +433,19 @@ Modifier.onPointer { event ->
 }
 ```
 
+A pad does not bubble through widgets on its own: the navigator turns South into a
+press and the d-pad into a focus move. A control that wants the raw buttons — a
+key binding button waiting for "any button" — asks for them first:
+
+```kotlin
+Modifier.onGamepadEvent { event ->
+    event is GamepadEvent.ButtonDown && listening   // true: the navigator never sees it
+}
+```
+
+It walks out from the focused node like a key. Take an up only when you took its
+down, or the navigator is left holding a button that never comes up.
+
 `Cancel` is the one people forget. The window lost focus, the platform started a
 system gesture, a finger lifted outside the screen — whatever had the pointer must
 let go **without** firing a click. Handle it and a dragged slider does not stick.

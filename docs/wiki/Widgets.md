@@ -588,6 +588,46 @@ AnimatedVisibility(
 
 ---
 
+## Rebinding controls
+
+```kotlin
+KeyBindButton(
+    binding = binds[Jump],                    // a key, a mouse button or a pad button; null draws a dash
+    onBind = { input ->
+        binds[Jump] = input
+        prompts.bind(Jump, input)             // every PromptGlyph(Jump) follows
+    },
+    cancelKey = Key.Escape,                   // and GamepadButton.Back on a pad
+)
+```
+
+![a controls list with one binding waiting for a press](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-keybind.png)
+
+Click it, press Enter on it or press South on it, and it says **PRESS A KEY**. The
+next press of anything is the answer, and nothing else hears it: an arrow or the
+d-pad is bound instead of moving focus, East is bound instead of going back. The
+release of that press is swallowed too, so binding Enter or South does not start it
+listening again. Escape or the pad's Back gives up, and so does focus leaving it.
+
+A mouse button counts when it is pressed on the button, which is where the cursor
+already is. Sticks and triggers are not bindings. `accepts = { it !is InputBinding.Mouse }`
+refuses a kind of press and keeps listening.
+
+It never decides what a clash means. `onBind` gets the press either way, and
+`clashesWith` says who else has it:
+
+```kotlin
+onBind = { input ->
+    val clash = binds.clashesWith(input, ignoring = Jump)
+    if (clash.isEmpty()) binds[Jump] = input else warning = "Already used by ${clash.first()}"
+}
+```
+
+Pass a `KeyBindState` to read `isListening` from outside — a "press Esc to cancel"
+line under the list — or to call `listen()` yourself.
+
+---
+
 ## Typewriter
 
 ```kotlin

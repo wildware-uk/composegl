@@ -45,6 +45,11 @@ import dev.wildware.composegl.ui.graphics.BorderStyle
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerId
+import dev.wildware.composegl.ui.input.GamepadButton
+import dev.wildware.composegl.ui.input.InputBinding
+import dev.wildware.composegl.ui.input.Key
+import dev.wildware.composegl.ui.widget.KeyBindButton
+import dev.wildware.composegl.ui.widget.KeyBindState
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
@@ -793,6 +798,20 @@ private fun MutableList<DocShot>.widgets() {
                     AnimatedImage(rememberSpriteAnimation("coin_", fps = 12f), Modifier.size(48f))
                     Text("AnimatedImage at 12 fps")
                 }
+            }
+        }
+    })
+
+    // A controls screen mid-rebind: one binding waiting for a press, the others showing a key, a
+    // mouse button and a pad button. Through the stock skin, which is where the amber waiting
+    // state is defined.
+    add(DocShot("widget-keybind", 360, 200, stock = true) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                BindRow("JUMP", InputBinding.Keyboard(Key.Space))
+                BindRow("CROUCH", InputBinding.Keyboard(Key.C), listening = true)
+                BindRow("FIRE", InputBinding.Mouse(dev.wildware.composegl.ui.input.PointerButton.Primary))
+                BindRow("INTERACT", InputBinding.Gamepad(GamepadButton.West))
             }
         }
     })
@@ -1586,5 +1605,15 @@ private fun Scores(sorted: Boolean, animated: Boolean) {
                 }
             }
         }
+    }
+}
+
+/** One action on a controls screen: its name, then the button that rebinds it. */
+@Composable
+private fun BindRow(action: String, binding: InputBinding, listening: Boolean = false) {
+    val state = remember { KeyBindState().also { if (listening) it.listen() } }
+    Row(Modifier.width(300f), verticalAlignment = VerticalAlignment.Centre) {
+        Text(action, Modifier.weight(1f))
+        KeyBindButton(binding, onBind = {}, state = state, modifier = Modifier.width(150f))
     }
 }

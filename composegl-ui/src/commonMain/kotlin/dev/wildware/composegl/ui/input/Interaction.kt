@@ -95,6 +95,23 @@ fun interface KeyHandler {
 }
 
 /**
+ * Pad events for one node, while it has focus, offered before the pad navigates.
+ *
+ * A key binding screen is the reason: while it is waiting for "the next button", South is not
+ * "press" and the d-pad is not "move", they are answers. Return true to say the event was used,
+ * and the navigator never sees it — no click, no focus move, no back.
+ *
+ * Like a key it starts at the focused node and walks outwards. Return true for an up only when the
+ * down was yours too, or the navigator is left holding a button that never comes up.
+ *
+ * A handler written inline is a new object every recomposition and so never compares equal —
+ * `remember` it, exactly as with [KeyHandler].
+ */
+fun interface GamepadHandler {
+    fun onGamepad(event: GamepadEvent): Boolean
+}
+
+/**
  * A direction, offered to the focused node before focus moves off it.
  *
  * What a slider, a set of tabs or a scrolling list needs: Left on a slider is a smaller number,

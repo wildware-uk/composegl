@@ -65,6 +65,11 @@
       "disabled": { "background": { "fill": "#141A22", "corner": 8, "border": "#2A3440" }, "textColour": "#5A6675" }
     },
 
+    "button.listening": {
+      "background": { "fill": "#40F0B429", "corner": 8, "border": "#F0B429", "borderWidth": 2, "padding": [16, 10] },
+      "textColour": "#F0B429"
+    },
+
     "button.quiet": {
       "background": { "fill": "#18FFFFFF", "corner": 8, "border": "#30FFFFFF", "padding": [16, 10] },
       "textColour": "#9AA4B2",
