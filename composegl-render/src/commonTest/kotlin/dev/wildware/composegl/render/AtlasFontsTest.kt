@@ -252,6 +252,32 @@ class AtlasFontsTest {
     }
 
     @Test
+    fun `solid colour is sampled from the middle of the white block and never at its edge`() {
+        val fonts = TestFonts().apply { font("body", "A", advance = 0.5f, sizes = listOf(16)) }
+        val device = RecordingDevice()
+        val canvas = RenderCanvas(device, fonts)
+        canvas.begin(Viewport.oneToOne(Size(100f, 100f)))
+        canvas.rect(Rect.of(0f, 0f, 10f, 10f), Colour.Blue)
+        canvas.end()
+
+        val white = fonts.atlas.white
+        val size = white.page.size.toFloat()
+        val draw = device.draws.single()
+        assertSame(white.page.texture(device), draw.texture, "the atlas page and not a texture of its own")
+        val u = ShapeVertex.Attributes.single { it.name == "a_texCoord0" }.offset
+        val middle = GlyphAtlas.WhiteBlock / 2f
+        for (corner in 0 until 4) {
+            val x = draw.at(corner, u) * size
+            val y = draw.at(corner, u + 1) * size
+            assertEquals(white.x + middle, x, "across, corner $corner")
+            assertEquals(white.y + middle, y, "down, corner $corner")
+            // Smooth sampling reads a texel either way: the sample stays that far inside the block.
+            assertTrue(x - 1f >= white.x && x + 1f <= white.x + GlyphAtlas.WhiteBlock, "a texel in from the edge across")
+            assertTrue(y - 1f >= white.y && y + 1f <= white.y + GlyphAtlas.WhiteBlock, "a texel in from the edge down")
+        }
+    }
+
+    @Test
     fun `codepoints of some text are sorted and joined into runs`() {
         assertEquals(listOf(' '.code..' '.code, 'a'.code..'c'.code, 'x'.code..'x'.code), AtlasFonts.codepointsOf("xcab a"))
     }
