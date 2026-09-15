@@ -55,6 +55,8 @@ class ResolvedModifier private constructor(
     val offset: Offset,
     val weight: Float?,
     val alignment: Alignment?,
+    /** The name a parent layout can find this node by; see [dev.wildware.composegl.ui.modifier.layoutId]. */
+    val layoutId: Any?,
     val alpha: Float,
     /**
      * How much bigger or smaller this node is drawn than it was laid out. One for almost every
@@ -147,6 +149,7 @@ class ResolvedModifier private constructor(
             var offset = Offset.Zero
             var weight: Float? = null
             var alignment: Alignment? = null
+            var layoutId: Any? = null
             var alpha = 1f
             var blend = BlendMode.SourceOver
             var zIndex = 0f
@@ -189,6 +192,8 @@ class ResolvedModifier private constructor(
                     is OffsetElement -> offset += Offset(element.x, element.y)
                     is WeightElement -> weight = element.weight
                     is AlignElement -> alignment = element.alignment
+                    // A choice: a node has one name, and a later one is a rename.
+                    is LayoutIdElement -> layoutId = element.layoutId
                     is AlphaElement -> alpha *= element.alpha.coerceIn(0f, 1f)
                     // A choice rather than a quantity: two blend functions on one node are two
                     // answers to the same question, so the later one is the answer. Nesting still
@@ -238,7 +243,7 @@ class ResolvedModifier private constructor(
             }
 
             return ResolvedModifier(
-                size, fill, padding, offset, weight, alignment, alpha, scale, scaleOrigin,
+                size, fill, padding, offset, weight, alignment, layoutId, alpha, scale, scaleOrigin,
                 rotation, rotationOrigin,
                 blend, zIndex, clip, hitShape, effects.toList(),
                 behind.toList(), inFront.toList(),

@@ -41,6 +41,7 @@ Modifier.offset(x = 0f, y = 2f)    // move it, without moving anything else
 Modifier.align(Alignment.TopEnd)   // inside a Box
 Modifier.weight(1f)                // inside a Row or Column
 Modifier.zIndex(1f)                // drawn over its siblings, and clicked first
+Modifier.layoutId("icon")          // inside a layout of your own; see [[Custom layouts]]
 ```
 
 **zIndex is for lifting one thing out of a pile.** Siblings paint in the order
