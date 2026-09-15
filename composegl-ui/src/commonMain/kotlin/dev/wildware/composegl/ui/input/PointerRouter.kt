@@ -172,9 +172,10 @@ class PointerRouter(
      * Every interactive node containing [point], in the order they should be offered it.
      *
      * The reverse of the order they are drawn in: children before their parent, last sibling
-     * before its earlier siblings. So the node on top and furthest down the tree is asked first,
-     * and a node that declines an event lets it through to whatever is underneath — an overlay
-     * that watches without blocking, a transparent gutter beside a list.
+     * drawn — the highest `zIndex`, then the last written — before the ones under it. So the node
+     * on top and furthest down the tree is asked first, and a node that declines an event lets it
+     * through to whatever is underneath — an overlay that watches without blocking, a transparent
+     * gutter beside a list.
      */
     private fun candidatesUnder(point: Offset): List<UiNode> {
         val found = mutableListOf<UiNode>()
@@ -240,7 +241,8 @@ class PointerRouter(
         // out of a shrunk panel keeps taking clicks in the empty space where it used to be.
         if ((resolved.clip != null || own != 1f) && !inside) return
 
-        val children = node.children
+        // The draw pass's own list, walked the other way, so a lifted card takes the press.
+        val children = node.drawOrder
         for (index in children.indices.reversed()) {
             collect(children[index], left, top, scale * own, pointX, pointY, into)
         }

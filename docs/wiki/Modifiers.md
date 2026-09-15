@@ -40,7 +40,27 @@ Modifier.offset(x = 0f, y = 2f)    // move it, without moving anything else
 ```kotlin
 Modifier.align(Alignment.TopEnd)   // inside a Box
 Modifier.weight(1f)                // inside a Row or Column
+Modifier.zIndex(1f)                // drawn over its siblings, and clicked first
 ```
+
+**zIndex is for lifting one thing out of a pile.** Siblings paint in the order
+they are written. A selected card, a dragged tile, a hovered item can come forward
+without being moved in the code — which would also move it in focus order and
+change what recomposition matches it by:
+
+```kotlin
+Card(Modifier.zIndex(if (selected) 1f else 0f))
+```
+
+Higher is drawn later, so on top. Equal values keep source order, so the default of
+zero changes nothing, and a negative value sinks a node under its siblings. Clicks
+and hover follow the picture: where two cards overlap, the one on top gets the
+press. Layout and focus do not — a row still lays out left to right as written, and
+Tab still walks in source order. It orders siblings only: a child with a huge
+zIndex inside a low parent stays under that parent's higher siblings. Two on one
+node add, like `offset`.
+
+![three overlapping cards, the middle one lifted over both neighbours](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-zindex.png)
 
 **How it looks**
 
