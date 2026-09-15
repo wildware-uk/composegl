@@ -97,11 +97,16 @@ object Shapes {
      */
     fun roundedRect(corner: Float): Shape {
         require(corner >= 0f) { "a corner cannot be negative, was $corner" }
-        return RoundedRect(Corners.all(corner))
+        return roundedRect(Corners.all(corner))
     }
 
-    /** The same with a radius per corner, so a clip can follow a tab rounded only along its top. */
-    fun roundedRect(corners: Corners): Shape = RoundedRect(corners)
+    /**
+     * The same with a radius per corner, so a clip can follow a tab rounded only along its top.
+     *
+     * No rounding at all is [Rectangle] itself, so a corner radius that animates down to nothing
+     * ends up a scissor again rather than a picture of a square.
+     */
+    fun roundedRect(corners: Corners): Shape = if (corners == Corners.None) Rectangle else RoundedRect(corners)
 
     /**
      * Any convex outline, as x, y, x, y… **fractions of the box**: 0, 0 is its top-left and 1, 1 its

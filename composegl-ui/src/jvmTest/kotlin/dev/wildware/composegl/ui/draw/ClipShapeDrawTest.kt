@@ -121,6 +121,14 @@ class ClipShapeDrawTest {
     }
 
     @Test
+    fun `a rounded rectangle with no rounding is a scissor and takes no picture`() {
+        draw(portrait(Modifier.size(20f).clipShape(Shapes.roundedRect(0f))))
+
+        assertTrue(canvas.only<DrawCall.Layer>().isEmpty())
+        assertEquals(Rect.of(0f, 0f, 20f, 20f), canvas.only<DrawCall.Rectangle>().single().clip)
+    }
+
+    @Test
     fun `a canvas that cannot cut clips to the rectangle instead`() {
         val uncut = object : UiCanvas by canvas {
             override val cutsLayers: Boolean get() = false
