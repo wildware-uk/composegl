@@ -196,6 +196,7 @@ Modifier.scale(1.2f)               // …drawn bigger, without re-laying it out
 Modifier.mirror()                  // …flipped to face the other way
 Modifier.rotate(8f)                // …turned clockwise
 Modifier.skew(x = -12f)            // …slanted, top leaning forward
+Modifier.rotate3d(y = 180f)        // …turned over in depth, like a card
 Modifier.effect(blur(radius = 8f)) // …through a shader
 ```
 
@@ -277,6 +278,40 @@ additive overlay instead; turning something truly grey wants `colourGrade`. What
 two backends here both can.
 
 ![a panel plain, flashed red, locked grey, and a team colour](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-tint.png)
+
+**Rotate3d is for depth.** A card flipping over, a panel swinging in on its hinge, a
+menu tipping towards the pointer:
+
+```kotlin
+Card(Modifier.rotate3d(y = flip * 180f))                                   // turns over
+Panel(Modifier.rotate3d(y = -70f * (1f - arrival), origin = Alignment.CentreStart)) // swings in
+Menu(Modifier.rotate3d(x = -tilt.y * 8f, y = tilt.x * 8f))                 // leans at the pointer
+```
+
+![A tile flat, swung about y, and tipped about x](images/modifier-rotate3d.png)
+
+Angles are degrees with CSS's signs: positive `y` sends the right edge away, positive
+`x` sends the top edge away, positive `z` turns clockwise like `rotate`. They are
+applied `z`, then `y`, then `x`, about `origin`, and a camera straight in front of that
+point looks at the result. `cameraDistance` is in 72-pixel inches, as on Android, so
+the default 8 puts it 576 pixels away; smaller is more dramatic.
+
+It is built like `rotate` and `skew`: the widget is drawn flat into a picture, and the
+picture is put down through the camera. The GPU divides by depth for every pixel, so
+the picture does not bend along the diagonal. A `skew` and a `rotate` on the same
+widget share the picture. Past 90 degrees you see the back of the picture, mirrored —
+a two-sided card swaps what it composes at the halfway point:
+
+```kotlin
+val angle = flip * 180f
+Card(Modifier.rotate3d(y = angle)) {
+    if (angle < 90f) Front() else Back(Modifier.mirror())  // mirrored again, so it reads
+}
+```
+
+Clicks do not follow it: a tilted widget is hit inside its flat box, like a turned one
+(`hitShape` is the escape hatch). Two `rotate3d`s add angle by angle. On a canvas that
+cannot tilt a picture (`canvas.tiltsLayers`) the widget is drawn without the depth.
 
 **Scale is for arriving and for fitting.** The widget and everything under it are
 drawn into an offscreen picture at the size layout gave them, and that picture is

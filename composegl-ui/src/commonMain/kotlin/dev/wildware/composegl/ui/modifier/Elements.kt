@@ -317,6 +317,35 @@ data class SkewElement(
     }
 }
 
+/** @see dev.wildware.composegl.ui.modifier.rotate3d */
+data class Rotate3dElement(
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val z: Float = 0f,
+    val cameraDistance: Float = DefaultCameraDistance,
+    val origin: Alignment = Alignment.Centre,
+) : Modifier.Element {
+    init {
+        // Any angle is an angle, as it is for a flat turn. A camera has to be somewhere in front.
+        require(x.isFinite() && y.isFinite() && z.isFinite()) { "a 3D rotation must be finite, was ($x, $y, $z)" }
+        require(cameraDistance > 0f && cameraDistance.isFinite()) {
+            "a camera distance must be positive and finite, was $cameraDistance"
+        }
+    }
+}
+
+/**
+ * How far away the camera looking at a [rotate3d] sits unless told otherwise, in the unit
+ * [CameraDistanceUnit] names: eight, which is Android's and Compose's default too.
+ */
+const val DefaultCameraDistance = 8f
+
+/**
+ * How many of the toolkit's pixels one unit of camera distance is: seventy-two, a typographic
+ * inch, the unit Android measures its camera in. So the default camera is 576 pixels away.
+ */
+const val CameraDistanceUnit = 72f
+
 /** @see dev.wildware.composegl.ui.modifier.effect */
 data class EffectElement(val effect: ShaderEffect) : Modifier.Element
 
@@ -1221,6 +1250,75 @@ fun Modifier.rotate(degrees: Float, origin: Alignment = Alignment.Centre) =
  */
 fun Modifier.skew(x: Float = 0f, y: Float = 0f, origin: Alignment = Alignment.Centre) =
     then(SkewElement(x, y, origin))
+
+/**
+ * Turns this node and everything under it in depth, by [x], [y] and [z] degrees, seen through a
+ * camera [cameraDistance] away.
+ *
+ * What a card flip, a panel swinging in from the side or a menu tilting towards the pointer is:
+ *
+ * ```kotlin
+ * Card(Modifier.rotate3d(y = flip * 180f))                    // a card turning over
+ * Panel(Modifier.rotate3d(y = -70f * (1f - arrival), origin = Alignment.CentreStart))  // a door
+ * Menu(Modifier.rotate3d(x = -tilt.y * 8f, y = tilt.x * 8f))  // leaning towards the pointer
+ * ```
+ *
+ * The signs are CSS's in y-down coordinates: a positive [y] sends the right edge away from you,
+ * a positive [x] sends the top edge away, and a positive [z] turns clockwise in the plane of the
+ * screen, the way [rotate] does. The turns are applied [z] first, then [y], then [x] — the order
+ * `rotateX() rotateY() rotateZ()` means in CSS — about [origin], and the result is seen by a
+ * camera straight in front of that point.
+ *
+ * [cameraDistance] is in inches of 72 pixels, as Android's is, so the default of eight puts the
+ * camera 576 pixels away. Closer is more dramatic: a card turning near a close camera swells
+ * towards you as its edge passes. Further is flatter, and a very large distance is nearly an
+ * orthographic squash.
+ *
+ * Built exactly as [rotate] and [skew] are, and on the same picture: the subtree is drawn upright
+ * into an offscreen picture at the size it was laid out, and that picture is put down on a quad
+ * with its far side smaller. The GPU divides by depth for every pixel, so the picture is not bent
+ * along the quad's diagonal the way four corners alone would bend it. A [skew] and a [rotate] on
+ * the same node share the picture: the slant is applied to the flat picture first, then the turn
+ * in depth, then the flat turn on the screen.
+ *
+ * Past ninety degrees you are looking at the back of the picture, which shows it mirrored — CSS's
+ * `backface-visibility: visible`. A card with two faces swaps what it composes at the halfway point:
+ *
+ * ```kotlin
+ * val angle = flip * 180f
+ * Card(Modifier.rotate3d(y = angle)) {
+ *     if (angle < 90f) Front() else Back(Modifier.mirror())   // mirrored once more, so it reads
+ * }
+ * ```
+ *
+ * The bargain [rotate] makes holds here too:
+ *
+ * - **Clicks do not follow it.** A tilted node is hit inside its upright box, because hit testing,
+ *   focus and `boundsInRoot` work in rectangles. `hitShape` is the escape hatch for the rare node
+ *   that needs better.
+ * - **A capture is a clip**, the node's own rectangle.
+ * - **It degrades honestly.** A canvas with no offscreen drawing draws the subtree plainly, and one
+ *   that can make pictures but not tilt them
+ *   ([dev.wildware.composegl.ui.graphics.UiCanvas.tiltsLayers] is false) draws it without the turn
+ *   in depth, still slanted and turned if a [skew] or [rotate] asks.
+ * - **Two on one node add angle by angle.** `rotate3d(y = 20f).rotate3d(y = flip * 180f)` is a
+ *   standing tilt plus an animated flip. That is exact for turns about one axis and only close for
+ *   several, which do not commute; the last camera distance and origin win.
+ *
+ * A node with all three angles at zero costs three comparisons and takes no picture.
+ *
+ * @param origin the point that stays where it is and that the camera looks at: [Alignment.Centre]
+ *   spins a card about its middle, [Alignment.CentreStart] swings a panel on its left edge.
+ * @throws IllegalArgumentException if an angle is not finite, or the camera distance is not
+ *   positive and finite.
+ */
+fun Modifier.rotate3d(
+    x: Float = 0f,
+    y: Float = 0f,
+    z: Float = 0f,
+    cameraDistance: Float = DefaultCameraDistance,
+    origin: Alignment = Alignment.Centre,
+) = then(Rotate3dElement(x, y, z, cameraDistance, origin))
 
 fun Modifier.drawBehind(draw: UiCanvas.(Rect) -> Unit) = then(DrawBehindElement(draw))
 

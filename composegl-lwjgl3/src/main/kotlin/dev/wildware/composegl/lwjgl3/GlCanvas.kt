@@ -1,6 +1,7 @@
 package dev.wildware.composegl.lwjgl3
 
 import dev.wildware.composegl.ui.geometry.Corners
+import dev.wildware.composegl.ui.geometry.Matrix4
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
@@ -827,6 +828,40 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     /** It really does, on the same quad the upright composite uses. */
     override val drawsLayersOnto: Boolean get() = true
 
+    override fun drawLayer(layer: TextureHandle, destination: Rect, transform: Matrix4) {
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layer as? GlTexture
+            ?: error("this canvas can only draw layers it made, not ${layer::class}")
+
+        // Each corner through the transform, left undivided: x, y and w. The batch counts y up, so
+        // y is flipped — as y' = base - y after the divide, which before it is base * w - y.
+        val base = flipBase()
+        val corners = FloatArray(12)
+        transform.project(destination.left, destination.top, corners, 0)
+        transform.project(destination.right, destination.top, corners, 3)
+        transform.project(destination.right, destination.bottom, corners, 6)
+        transform.project(destination.left, destination.bottom, corners, 9)
+        for (at in 0 until 12 step 3) corners[at + 1] = base * corners[at + 2] - corners[at + 1]
+
+        // Premultiplied and faded in all four channels for the same reasons the upright composite is.
+        batch().blend(state.blend, premultiplied = true)
+        val fade = state.alpha.coerceIn(0f, 1f)
+        val grey = (fade * 255f).roundToInt().coerceIn(0, 255)
+        batch().projected(
+            name = picture.name,
+            corners = corners,
+            u = picture.u,
+            v = picture.v,
+            u2 = picture.u2,
+            v2 = picture.v2,
+            tint = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey),
+        )
+        batch().blend(state.blend, premultiplied = false)
+    }
+
+    /** It really does, dividing by depth for every pixel in the same shader as everything else. */
+    override val tiltsLayers: Boolean get() = true
+
     private fun bindFramebuffer(name: Int) {
         framebuffer = name
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, name)
@@ -983,7 +1018,10 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
      * From the bottom of the layer when there is one, which is why drawing into a layer needs no
      * arithmetic of its own anywhere else.
      */
-    private fun flip(y: Float) = (layer?.bounds?.bottom ?: viewport.design.height) - y
+    private fun flip(y: Float) = flipBase() - y
+
+    /** What [flip] subtracts from. */
+    private fun flipBase() = layer?.bounds?.bottom ?: viewport.design.height
 
     /**
      * What to say about a texture this canvas cannot draw.

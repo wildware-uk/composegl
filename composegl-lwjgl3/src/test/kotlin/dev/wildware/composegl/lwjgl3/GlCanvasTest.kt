@@ -5,6 +5,7 @@ import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.effect.Uniform
 import dev.wildware.composegl.ui.geometry.Corners
+import dev.wildware.composegl.ui.geometry.Matrix4
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
@@ -571,6 +572,67 @@ class GlCanvasTest {
         assertColour(red, frame.at(120, 120), "the inner picture is inside the outer one")
         assertColour(blue, frame.at(50, 50), "and the outer one's own drawing is still in it")
         assertColour(blue, frame.at(85, 85), "including where the inner one leant away")
+    }
+
+    /**
+     * A card 160 square with its middle at (120, 120), turned [degrees] about y and seen by a camera
+     * [distance] away. At sixty degrees and 200 away its near left edge is seen at x = 58.8 and its
+     * far right edge at 149.7.
+     */
+    private fun turnedAboutY(degrees: Float, distance: Float = 200f) =
+        Matrix4.translation(120f, 120f) * Matrix4.perspective(distance) *
+            Matrix4.rotationY(degrees) * Matrix4.translation(-120f, -120f)
+
+    /** Red on the left half, blue on the right, captured and put down through [transform]. */
+    private fun halves(transform: Matrix4, alpha: Float = 1f): Frame {
+        val bounds = Rect.of(40f, 40f, 160f, 160f)
+        return draw {
+            val picture = layer(bounds) {
+                rect(Rect.of(40f, 40f, 80f, 160f), red)
+                rect(Rect.of(120f, 40f, 80f, 160f), blue)
+            }
+            pushAlpha(alpha)
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds, transform)
+            popAlpha()
+        }
+    }
+
+    @Test
+    fun `a tilted layer is divided by depth per pixel so it does not bend along the diagonal`() {
+        // The line between red and blue is the card's middle, which the camera looks straight at,
+        // so perspective puts it exactly at x = 120. Stretched flat across two triangles it would
+        // land halfway between the edges on this row, at 104 — and x = 112 would be blue.
+        val frame = halves(turnedAboutY(60f))
+
+        assertColour(red, frame.at(112, 120), "the near half takes more of the screen")
+        assertColour(red, frame.at(117, 120), "right up to the middle")
+        assertColour(blue, frame.at(124, 120), "and the far half starts there")
+        assertColour(Colour.Black, frame.at(160, 120), "the far edge has swung in past 150")
+        assertColour(red, frame.at(64, 10), "the near edge grows past the box's top")
+        assertColour(Colour.Black, frame.at(145, 55), "while the far edge shrinks below it")
+    }
+
+    @Test
+    fun `a layer turned all the way over shows its back mirrored`() {
+        val frame = halves(turnedAboutY(180f))
+
+        assertColour(blue, frame.at(60, 120), "blue has come round to the left")
+        assertColour(red, frame.at(180, 120), "and red to the right")
+    }
+
+    @Test
+    fun `a tilted layer fades with the opacity in force`() {
+        val frame = halves(turnedAboutY(30f), alpha = 0.5f)
+
+        assertColour(Colour.rgb(0x800000), frame.at(80, 120), "half red over black")
+    }
+
+    @Test
+    fun `a layer turned so a corner is behind the camera is clipped not drawn inside out`() {
+        val frame = halves(turnedAboutY(80f, distance = 60f))
+
+        assertColour(Colour.Black, frame.at(200, 120), "nothing inside out on the right")
+        assertColour(Colour.Black, frame.at(240, 30), "nor in the far corner")
     }
 
     @Test

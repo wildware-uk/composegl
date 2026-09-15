@@ -209,6 +209,11 @@ The optional extras, each of which degrades rather than fails:
   `Modifier.rotate` and `Modifier.skew` are composited with. Leave them and the
   default puts the picture down upright in `destination`; say so in `turnsLayers`
   and `drawsLayersOnto`.
+- `drawLayer(layer, destination, transform)` — a picture through a `Matrix4`, for
+  `Modifier.rotate3d`. Project each corner of `destination` with
+  `transform.project(x, y, into, at)` and hand the GPU the undivided x, y and w, so it
+  divides per pixel and the picture does not bend. Leave it and the default draws the
+  picture flat in `destination`; say so in `tiltsLayers`.
 - `pushBlend(mode)` / `popBlend()` — additive blending, for light. Leave them and
   everything paints the ordinary way; say so in `supports(mode)`.
 - Everything in `raw { }` — your business entirely.

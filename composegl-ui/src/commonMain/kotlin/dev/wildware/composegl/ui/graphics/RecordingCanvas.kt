@@ -2,6 +2,7 @@ package dev.wildware.composegl.ui.graphics
 
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.geometry.Corners
+import dev.wildware.composegl.ui.geometry.Matrix4
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.layout.Viewport
@@ -215,6 +216,25 @@ sealed interface DrawCall {
     data class LayerOnto(
         val bounds: Rect,
         val corners: List<Offset>,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : DrawCall
+
+    /**
+     * A subtree drawn into an offscreen picture and put down through a transform in depth — a
+     * `Modifier.rotate3d`, with any slant and flat turn on the same node folded in.
+     *
+     * [bounds] is the box before anything was done to it. [corners] are where its top-left,
+     * top-right, bottom-right and bottom-left were seen on the screen, depth divided out, and
+     * [depths] the w each of them had: more than one is further away than the picture's own plane,
+     * less is nearer, and zero or less is at or behind the camera. The calls the subtree made are
+     * recorded before this, as they are for a [Layer].
+     */
+    data class TiltedLayer(
+        val bounds: Rect,
+        val transform: Matrix4,
+        val corners: List<Offset>,
+        val depths: List<Float>,
         override val clip: Rect,
         override val alpha: Float,
     ) : DrawCall
@@ -560,6 +580,24 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     /** It records the corners, so it really puts one on them. */
     override val drawsLayersOnto: Boolean get() = true
+
+    override fun drawLayer(layer: TextureHandle, destination: Rect, transform: Matrix4) {
+        val xs = floatArrayOf(destination.left, destination.right, destination.right, destination.left)
+        val ys = floatArrayOf(destination.top, destination.top, destination.bottom, destination.bottom)
+        record(
+            DrawCall.TiltedLayer(
+                destination,
+                transform,
+                List(4) { transform.map(xs[it], ys[it]) },
+                List(4) { transform.depthOf(xs[it], ys[it]) },
+                state.clip,
+                state.alpha,
+            ),
+        )
+    }
+
+    /** It records the transform, so it really tilts one. */
+    override val tiltsLayers: Boolean get() = true
 
     /** A picture with nothing in it: there are no pixels here to be a handle to. */
     private class LayerHandle(bounds: Rect) : TextureHandle {
