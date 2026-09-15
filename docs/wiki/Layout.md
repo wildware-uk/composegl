@@ -458,9 +458,8 @@ Because it is one list rather than rows of rows, the awkward parts of nested
 - **`key` works on each item.** Reorder or remove items and each one's node,
   state and focus move with it.
 
-There is no lazy grid yet: every cell is composed. That is fine for a bag of
-forty slots; a thousand-item catalogue wants a `LazyColumn` of rows. A cell
-cannot span several columns yet either.
+Every cell is composed. That is fine for a bag of forty slots; a thousand-item
+catalogue wants a [lazy grid](#long-grids). A cell cannot span several columns yet.
 
 ---
 
@@ -480,6 +479,41 @@ LazyColumn(count = saves.size, spacing = 6f) { index ->
 
 It scrolls, draws its own scrollbars, and only measures what is on screen plus a
 couple either side. `key` and `spacing` do what you expect.
+
+### Long grids
+
+A shop catalogue, a sprite browser, an inventory of a thousand: `LazyVerticalGrid`
+builds only the rows on screen, plus two spare either side.
+
+```kotlin
+val state = rememberLazyGridState()
+
+LazyVerticalGrid(
+    count = inventory.size,
+    columns = GridCells.Fixed(8),
+    state = state,
+    key = { inventory[it].id },
+    spacing = 4f,
+) { index ->
+    Slot(inventory[index])
+}
+
+state.scrollToItem(120)   // brings the row item 120 is in to the top
+```
+
+- **Columns work as in `Grid`.** `Fixed(8)` shares the width between eight;
+  `Adaptive(minSize = 56f)` fits as many as it can. Resize an adaptive grid and
+  it reflows, keeping the item at the top where it was.
+- **It scrolls like a `LazyColumn`.** The wheel, a drag, a flick and its scrollbar
+  all work. Each row is as tall as its tallest cell.
+- **Focus works with no wiring.** Arrows and the d-pad move to the neighbouring
+  cell, Tab walks across then down, and moving onto a row below the fold scrolls
+  it into view.
+
+`LazyHorizontalGrid(count, rows = GridCells.Fixed(2))` is the same lying down: it
+fills down, then across, and scrolls sideways.
+
+![a lazy grid of a thousand numbered tiles, scrolled part of the way down](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-lazy-grid.png)
 
 ---
 

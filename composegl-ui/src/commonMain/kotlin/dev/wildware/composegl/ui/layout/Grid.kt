@@ -205,18 +205,31 @@ internal data class GridPolicy(
     }
 
     /** How many columns fit in [available], which may be unbounded. */
-    internal fun columnCount(available: Float): Int = when (columns) {
-        is GridCells.Fixed -> columns.count
-        is GridCells.Adaptive -> {
-            check(available.isFinite()) {
-                "Grid(columns = GridCells.Adaptive(${columns.minSize})) was offered an unbounded width, " +
-                    "so there is no telling how many columns fit. Give it a width, or use GridCells.Fixed."
-            }
-            // n columns and n - 1 gaps fit when n * (size + gap) <= available + gap. The nudge is
-            // for widths that fit exactly: 204 / 68 in floats is 2.9999998 as often as it is 3.
-            val fit = ((available + horizontalSpacing) / (columns.minSize + horizontalSpacing) + 1e-4f).toInt()
-            fit.coerceAtLeast(1)
+    internal fun columnCount(available: Float): Int = columns.countIn(available, horizontalSpacing)
+}
+
+/**
+ * How many lines of cells fit across [available], which may be unbounded, with [spacing] between.
+ *
+ * Shared by [Grid] and the lazy grids, so a grid of a thousand wraps at exactly the width a grid of
+ * ten does. [what] names the caller and [dimension] the direction, for the failure message.
+ */
+internal fun GridCells.countIn(
+    available: Float,
+    spacing: Float,
+    what: String = "Grid(columns = ",
+    dimension: String = "width",
+): Int = when (this) {
+    is GridCells.Fixed -> count
+    is GridCells.Adaptive -> {
+        check(available.isFinite()) {
+            "${what}GridCells.Adaptive($minSize)) was offered an unbounded $dimension, so there is no " +
+                "telling how many fit. Give it a $dimension, or use GridCells.Fixed."
         }
+        // n cells and n - 1 gaps fit when n * (size + gap) <= available + gap. The nudge is for
+        // sizes that fit exactly: 204 / 68 in floats is 2.9999998 as often as it is 3.
+        val fit = ((available + spacing) / (minSize + spacing) + 1e-4f).toInt()
+        fit.coerceAtLeast(1)
     }
 }
 

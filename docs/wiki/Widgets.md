@@ -472,13 +472,15 @@ the options are `"item"` and `"item.selected"` — the same ones a menu uses.
 ```kotlin
 LazyColumn(count = saves.size, spacing = 6f) { index -> SaveRow(saves[index]) }
 LazyRow(count = 9, spacing = 4f) { slot -> HotbarSlot(slot) }
+LazyVerticalGrid(count = shop.size, columns = GridCells.Adaptive(64f)) { index -> ShopTile(shop[index]) }
 
 ScrollArea(Modifier.fillMaxSize()) { LongPatchNotes() }
 ```
 
 ![a panel of save slots with a scrollbar down the side](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-scroll.png)
 
-`LazyColumn` measures only what is on screen. `ScrollArea` is for content that is
+`LazyColumn` and `LazyVerticalGrid` measure only what is on screen; [[Layout]]
+covers grids. `ScrollArea` is for content that is
 one piece and simply too tall.
 
 Both remember how far they were scrolled when their screen is left and come
