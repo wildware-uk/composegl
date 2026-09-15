@@ -39,6 +39,7 @@ internal class GlEffects : AutoCloseable {
     private val programs = HashMap<String, Program>()
 
     private val vertexBuffer = GL15.glGenBuffers()
+    private val vertexArray = VertexArrays.create()
     private val vertices = FloatArray(4 * FloatsPerVertex)
     private val upload = BufferUtils.createFloatBuffer(vertices.size)
 
@@ -103,6 +104,7 @@ internal class GlEffects : AutoCloseable {
         val destination = if (mode == BlendMode.Additive) GL11.GL_ONE else GL11.GL_ONE_MINUS_SRC_ALPHA
         GL14.glBlendFuncSeparate(GL11.GL_ONE, destination, GL11.GL_ONE, destination)
 
+        VertexArrays.bind(vertexArray)
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vertexBuffer)
         GL15.glBufferData(GL15.GL_ARRAY_BUFFER, upload, GL15.GL_STREAM_DRAW)
         GL20.glEnableVertexAttribArray(0)
@@ -120,6 +122,7 @@ internal class GlEffects : AutoCloseable {
         GL20.glDisableVertexAttribArray(0)
         GL20.glDisableVertexAttribArray(1)
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0)
+        VertexArrays.unbind(vertexArray)
         GL20.glUseProgram(0)
     }
 
@@ -127,6 +130,7 @@ internal class GlEffects : AutoCloseable {
         programs.values.forEach { GL20.glDeleteProgram(it.name) }
         programs.clear()
         GL15.glDeleteBuffers(vertexBuffer)
+        VertexArrays.delete(vertexArray)
     }
 
     private fun put(corner: Int, x: Float, y: Float, u: Float, v: Float) {

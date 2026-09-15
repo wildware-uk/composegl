@@ -28,7 +28,7 @@ internal class GdxEffects : Disposable {
     private val programs = HashMap<String, ShaderProgram>()
 
     private val mesh = Mesh(
-        Mesh.VertexDataType.VertexArray,
+        streamedVertexType(),
         false,
         4,
         0,

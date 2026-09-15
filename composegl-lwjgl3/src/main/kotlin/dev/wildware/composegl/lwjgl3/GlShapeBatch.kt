@@ -40,6 +40,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
 
     private val vertexBuffer = GL15.glGenBuffers()
     private val indexBuffer = GL15.glGenBuffers()
+    private val vertexArray = VertexArrays.create()
 
     private val vertices = FloatArray(maxQuads * 4 * FloatsPerVertex)
     private val upload = BufferUtils.createFloatBuffer(vertices.size)
@@ -69,9 +70,11 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
             indices.put(vertex)
         }
         indices.flip()
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, indexBuffer)
-        GL15.glBufferData(GL15.GL_ELEMENT_ARRAY_BUFFER, indices, GL15.GL_STATIC_DRAW)
-        GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0)
+        // Uploaded through the array slot: which slot fills a buffer does not matter, and the element
+        // slot belongs to a vertex array object, which is not bound yet.
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, indexBuffer)
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, indices, GL15.GL_STATIC_DRAW)
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0)
     }
 
     /** Starts a frame. [projection] is a column-major 4x4, in design coordinates. */
@@ -165,6 +168,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         GL20.glUniformMatrix4fv(projectionUniform, false, projection)
         GL20.glUniform1i(textureUniform, 0)
 
+        VertexArrays.bind(vertexArray)
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vertexBuffer)
         GL15.glBufferData(GL15.GL_ARRAY_BUFFER, upload, GL15.GL_STREAM_DRAW)
         Attributes.forEachIndexed { index, attribute ->
@@ -185,6 +189,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         Attributes.indices.forEach { GL20.glDisableVertexAttribArray(it) }
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0)
         GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0)
+        VertexArrays.unbind(vertexArray)
 
         renderCalls++
         trace?.record(reason)
@@ -704,6 +709,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         GL20.glDeleteProgram(program)
         GL15.glDeleteBuffers(vertexBuffer)
         GL15.glDeleteBuffers(indexBuffer)
+        VertexArrays.delete(vertexArray)
     }
 
     private fun compile(): Int {
