@@ -21,6 +21,7 @@ import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.modifier.ShadowElement
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.graphics.BlendMode
+import dev.wildware.composegl.ui.graphics.Colour
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -85,6 +86,12 @@ class DrawPass(val canvas: UiCanvas) {
         val blended = resolved.blend != BlendMode.SourceOver && canvas.supports(resolved.blend)
         if (blended) canvas.pushBlend(resolved.blend)
 
+        // Outside the effects and the scale, so their pictures are drawn already tinted — a canvas
+        // carries the tint into a layer rather than applying it to the picture on the way back.
+        // White is nothing to push, which is every node without a tint on it.
+        val tinted = resolved.tint != Colour.White
+        if (tinted) canvas.pushTint(resolved.tint)
+
         // Where a scale grows or shrinks from, in the coordinates the node is drawn in. Alignment
         // with a child of no width is the anchor itself: the left edge, the middle, or the right.
         val scale = resolved.scale
@@ -100,6 +107,7 @@ class DrawPass(val canvas: UiCanvas) {
             turned(node, resolved, bounds, scale, anchorX, anchorY)
         }
 
+        if (tinted) canvas.popTint()
         if (blended) canvas.popBlend()
         if (faded) canvas.popAlpha()
     }

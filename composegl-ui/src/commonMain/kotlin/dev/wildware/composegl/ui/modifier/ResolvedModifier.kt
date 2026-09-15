@@ -18,6 +18,7 @@ import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.graphics.BlendMode
+import dev.wildware.composegl.ui.graphics.Colour
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.tan
@@ -113,6 +114,11 @@ class ResolvedModifier private constructor(
      * node there has ever been; see [dev.wildware.composegl.ui.modifier.zIndex].
      */
     val zIndex: Float,
+    /**
+     * The opaque colour this node and its subtree are multiplied by. White, which changes nothing,
+     * for almost every node there has ever been; see [dev.wildware.composegl.ui.modifier.tint].
+     */
+    val tint: Colour,
     val clip: ClipElement?,
     /**
      * How many of [behind] came before the [clip] in the chain, and so are drawn outside a clip
@@ -209,6 +215,7 @@ class ResolvedModifier private constructor(
             var alpha = 1f
             var blend = BlendMode.SourceOver
             var zIndex = 0f
+            var tint = Colour.White
             var scale = 1f
             var scaleOrigin = Alignment.Centre
             var rotation = 0f
@@ -276,6 +283,10 @@ class ResolvedModifier private constructor(
                     // A quantity, like an offset: two on one node add, so a resting lift and a
                     // drag's lift on the same node are both there.
                     is ZIndexElement -> zIndex += element.z
+                    // A quantity, like opacity: a team colour and a locked grey on one node are
+                    // both there. Read as a tint first, so its alpha is a strength by the time two
+                    // of them meet.
+                    is TintElement -> tint = tint.modulate(element.colour.asTint())
                     // A quantity, like opacity: two scales on one node multiply, so a panel
                     // arriving at 0.9 inside a fit correction of 0.8 is drawn at 0.72 rather than
                     // silently losing one of them. Where it grows from is a choice, so later wins.
@@ -354,7 +365,7 @@ class ResolvedModifier private constructor(
                 if (skewSlopeX == 0f) 0f else atan(skewSlopeX) / DegreesToRadians,
                 if (skewSlopeY == 0f) 0f else atan(skewSlopeY) / DegreesToRadians,
                 skewOrigin,
-                blend, zIndex, clip, clipBehind, clipInFront, hitShape, hoverIcon, effects.toList(),
+                blend, zIndex, tint, clip, clipBehind, clipInFront, hitShape, hoverIcon, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click, drag,

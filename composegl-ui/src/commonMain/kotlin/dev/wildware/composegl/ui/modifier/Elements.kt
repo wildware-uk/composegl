@@ -211,6 +211,9 @@ data class ZIndexElement(val z: Float) : Modifier.Element {
     }
 }
 
+/** @see dev.wildware.composegl.ui.modifier.tint */
+data class TintElement(val colour: Colour) : Modifier.Element
+
 /** @see dev.wildware.composegl.ui.modifier.scale */
 data class ScaleElement(
     val factor: Float,
@@ -767,6 +770,34 @@ fun Modifier.blend(mode: BlendMode) = then(BlendElement(mode))
  * Two on one node add, like [offset]: a resting lift and a dragged one are both there.
  */
 fun Modifier.zIndex(z: Float) = then(ZIndexElement(z))
+
+/**
+ * Multiplies every colour this node and everything under it draws by [colour].
+ *
+ * ```kotlin
+ * Hotbar(slots, Modifier.tint(Colour.Red.scaleAlpha(flash)))   // a damage flash
+ * Image("sword", Modifier.tint(Colour.Grey))                   // a locked item, dimmed
+ * Image("banner", Modifier.tint(team.colour))                  // one piece of art, every team
+ * ```
+ *
+ * **The alpha is how strong the tint is, not an opacity.** At zero nothing changes and at one the
+ * colour applies in full, so an animated flash is one number going from one to zero. Use [alpha]
+ * to fade.
+ *
+ * A plain multiply, the one a tinted picture already gets: no shader, no offscreen picture, and so
+ * no clip at the node's edge and no ceiling on how big the subtree is. White leaves a thing alone
+ * and black makes it black; nothing can be made brighter than it was, so a flash towards white
+ * wants [blend] with [dev.wildware.composegl.ui.graphics.BlendMode.Additive] on an overlay
+ * instead. Greying out *into* grey rather than dimming wants a shader — see `colourGrade`.
+ *
+ * Applies to the whole subtree, the way [alpha] does. Two on one node, or one inside another,
+ * multiply: a team colour on a slot that is also locked is both.
+ *
+ * A canvas is allowed not to have one — [dev.wildware.composegl.ui.graphics.UiCanvas.tints]
+ * answers — and then the subtree draws in its own colours. What a canvas's `raw` block draws, and
+ * what a shader effect adds of its own, are not tinted.
+ */
+fun Modifier.tint(colour: Colour) = then(TintElement(colour))
 
 /**
  * Draws this node, and everything under it, bigger or smaller.

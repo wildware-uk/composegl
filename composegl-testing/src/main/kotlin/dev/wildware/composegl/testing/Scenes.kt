@@ -317,6 +317,42 @@ fun scenes(): List<Scene> = listOf(
             ?: tile(art, down, "Slide")
     },
 
+    /**
+     * Tints: the same panel plain, flashed halfway to red, and locked grey; nine-patch art dimmed;
+     * two tints nested; and a tinted group drawn through a layer.
+     *
+     * The layer is the one to watch. A backend that tinted the picture on the way back as well as
+     * the parts going in would draw that corner a shade darker than the plain grey one beside it.
+     */
+    Scene("tint") { art ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+
+        panel(art, Rect.of(10f, 10f, 105f, 64f))
+        pushTint(Colour.Red.scaleAlpha(0.6f))
+        panel(art, Rect.of(125f, 10f, 105f, 64f))
+        popTint()
+
+        pushTint(Colour.Grey)
+        panel(art, Rect.of(10f, 84f, 105f, 64f))
+        popTint()
+        pushTint(Colour.rgb(0x80FF80))
+        art.panel.drawInto(this, Rect.of(125f, 84f, 105f, 64f))
+        popTint()
+
+        // A team colour inside a locked grey: both, not whichever came last.
+        pushTint(Colour.Grey)
+        pushTint(Accent)
+        rect(Rect.of(10f, 158f, 105f, 72f), Paper, corner = 10f)
+        popTint()
+        popTint()
+
+        val group = Rect.of(125f, 158f, 105f, 72f)
+        pushTint(Colour.Grey)
+        val picture = layer(group) { rect(group, Paper, corner = 10f) }
+        if (picture != null) drawLayer(picture, group) else rect(group, Paper, corner = 10f)
+        popTint()
+    },
+
     Scene("clip") { art ->
         rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
         rect(Rect.of(30f, 30f, 180f, 180f), Panel, corner = 8f)

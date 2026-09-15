@@ -182,7 +182,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
         // Complained about last, so that an unbalanced frame still leaves things tidy for whatever
         // the game draws next.
-        check(state.isBalanced) { "a clip, an alpha or a blend was pushed and never popped" }
+        check(state.isBalanced) { "a clip, an alpha, a blend or a tint was pushed and never popped" }
     }
 
     // --- shapes ---
@@ -233,7 +233,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             flipped[at + 1] = flip(points[at + 1])
             at += 2
         }
-        batch().fan(white(), flipped, colour.scaleAlpha(state.alpha))
+        batch().fan(white(), flipped, colour.inForce())
     }
 
     private fun shape(
@@ -283,15 +283,15 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             bottom = flip(rect.bottom),
             width = rect.width,
             height = rect.height,
-            fill = fill.scaleAlpha(state.alpha),
+            fill = fill.inForce(),
             // Top is still top: the flip moves the box, and the batch's own up is the screen's up.
             topLeft = topLeft,
             topRight = topRight,
             bottomRight = bottomRight,
             bottomLeft = bottomLeft,
-            border = border.scaleAlpha(state.alpha),
+            border = border.inForce(),
             borderWidth = borderWidth,
-            shadow = shadow.scaleAlpha(state.alpha),
+            shadow = shadow.inForce(),
             shadowSpread = shadowSpread,
             aa = antialias,
         )
@@ -305,7 +305,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             ?: error("this canvas can only draw text measured by StbFonts, not ${layout::class}")
         val atlas = checkNotNull(fonts) { "this canvas was made without fonts, so it cannot draw text" }.texture()
 
-        val tint = colour.scaleAlpha(state.alpha)
+        val tint = colour.inForce()
 
         // Indexed rather than `forEach`: that asks the list for an iterator, and an outlined run
         // comes through here nine times, so a HUD of labels would make an object per copy per run
@@ -343,7 +343,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             v = slice.top,
             u2 = slice.right,
             v2 = slice.bottom,
-            tint = tint.scaleAlpha(state.alpha),
+            tint = tint.inForce(),
         )
     }
 
@@ -430,7 +430,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             v = slice.top,
             u2 = slice.right,
             v2 = slice.bottom,
-            tint = tint.scaleAlpha(state.alpha),
+            tint = tint.inForce(),
         )
     }
 
@@ -463,6 +463,20 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         state.pushBlend(mode)
         applyBlend()
     }
+
+    /**
+     * No flush and no GL: the tint goes into each vertex's colour as it is queued, so a tinted
+     * hotbar batches with the untinted panel behind it.
+     */
+    override fun pushTint(tint: Colour) = state.pushTint(tint)
+
+    override fun popTint() = state.popTint()
+
+    /** Every call that takes a colour, and every picture drawn inside a layer. Not raw(). */
+    override val tints: Boolean get() = true
+
+    /** A colour as it reaches the batch: the tint in force multiplied in, then faded. */
+    private fun Colour.inForce(): Colour = modulate(state.tint).scaleAlpha(state.alpha)
 
     override fun popBlend() {
         state.popBlend()
@@ -568,7 +582,8 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         layer = LayerFrame(bounds, pixelWidth, pixelHeight)
         // Full opacity and a clip of exactly the layer. The opacity out here is applied when the
         // picture is drawn back, which is what makes a group fade as one object.
-        state = CanvasState(bounds)
+        // The tint is the exception, and comes in with it: see UiCanvas.pushTint.
+        state = previousState.forLayer(bounds)
 
         bindFramebuffer(target.framebufferName)
         setViewport(0, 0, pixelWidth, pixelHeight)
@@ -585,7 +600,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         try {
             block()
             batch().flush()
-            check(state.isBalanced) { "a clip, an alpha or a blend was pushed inside a layer and never popped" }
+            check(state.isBalanced) { "a clip, an alpha, a blend or a tint was pushed inside a layer and never popped" }
         } finally {
             layer = previousLayer
             state = previousState

@@ -57,6 +57,7 @@ import dev.wildware.composegl.ui.modifier.clipShape
 import dev.wildware.composegl.ui.modifier.draggable
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.drawBehind
+import dev.wildware.composegl.ui.modifier.tint
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -715,6 +716,26 @@ private fun MutableList<DocShot>.modifiers() {
         }
     })
 
+    // The four things a tint is for, on the same little card: as it is, a damage flash caught
+    // halfway, a locked one, and a team colour on white art.
+    add(DocShot("modifier-tint", 460, 120) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(14f)) {
+                Tile("plain") { Modifier.background(Accent, corner = 6f).border(Paper, width = 2f, corner = 6f) }
+                Tile("flash") {
+                    Modifier.tint(Colour.Red.scaleAlpha(0.6f))
+                        .background(Accent, corner = 6f).border(Paper, width = 2f, corner = 6f)
+                }
+                Tile("locked") {
+                    Modifier.tint(Colour.Grey).background(Accent, corner = 6f).border(Paper, width = 2f, corner = 6f)
+                }
+                Tile("team") {
+                    Modifier.tint(Colour.Orange).background(Paper, corner = 6f).border(Paper, width = 2f, corner = 6f)
+                }
+            }
+        }
+    })
+
     add(DocShot("modifier-padding", 340, 150) {
         Frame {
             Row(horizontalArrangement = Arrangement.spacedBy(20f)) {
@@ -903,6 +924,7 @@ private fun Arrow(modifier: Modifier) {
 private val Ink = Colour.rgb(0x12161D)
 private val Steel = Colour.rgb(0x2C3545)
 private val Accent = Colour.rgb(0x4CC2FF)
+private val Paper = Colour.rgb(0xE6EDF5)
 
 /** The accent, dark enough that [Slab]'s dim label is still readable on top of it. */
 private val Deep = Colour.rgb(0x1D4F70)

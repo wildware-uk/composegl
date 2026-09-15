@@ -121,6 +121,7 @@ Modifier.clip()                    // children cannot draw outside
 Modifier.clip(corner = 6f)         // …with rounded corners
 Modifier.clipShape(Shapes.Circle)  // …or any convex shape: a round portrait
 Modifier.alpha(0.4f)               // the subtree fades as one thing
+Modifier.tint(Colour.Red)          // …every colour in it multiplied by red
 Modifier.scale(1.2f)               // …drawn bigger, without re-laying it out
 Modifier.mirror()                  // …flipped to face the other way
 Modifier.rotate(8f)                // …turned clockwise
@@ -184,6 +185,28 @@ share one picture. Clicks do not follow it: a slanted widget is hit inside its
 upright box, exactly as a turned one is. Two skews on one axis add their slopes, and
 an angle of ±90 or beyond throws. On a canvas that cannot put a picture on four
 corners (`canvas.drawsLayersOnto`) the widget is drawn without the slant.
+
+**Tint multiplies a whole subtree by a colour.** A damage flash, a locked item
+dimmed, one piece of art in every team's colour — with no shader and no offscreen
+picture, just the multiply a tinted image already gets:
+
+```kotlin
+Hotbar(slots, Modifier.tint(Colour.Red.scaleAlpha(flash)))   // flash runs 1 → 0
+Image("sword", Modifier.tint(Colour.Grey))                   // locked
+Image("banner", Modifier.tint(team.colour))                  // one banner, four teams
+```
+
+The colour's alpha is **how strong the tint is**, not an opacity: at 0 nothing changes,
+at 1 the colour applies in full. So a flash is one number animating back to zero. Fade
+with `alpha`, not with this.
+
+Two tints multiply, on one widget or nested, so a team colour on a locked slot is both.
+White changes nothing and nothing gets brighter, so a flash *towards* white wants an
+additive overlay instead; turning something truly grey wants `colourGrade`. What a
+`raw` block draws is not tinted. A canvas says whether it can with `canvas.tints`; the
+two backends here both can.
+
+![a panel plain, flashed red, locked grey, and a team colour](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-tint.png)
 
 **Scale is for arriving and for fitting.** The widget and everything under it are
 drawn into an offscreen picture at the size layout gave them, and that picture is

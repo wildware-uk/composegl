@@ -41,6 +41,20 @@ value class Colour(val argb: Int) {
         return Colour(mix(alpha, tint.alpha), mix(red, tint.red), mix(green, tint.green), mix(blue, tint.blue))
     }
 
+    /**
+     * This colour read as a tint: the opaque colour a whole subtree is multiplied by.
+     *
+     * The alpha is how much of the tint applies rather than an opacity, so `Colour.Red.scaleAlpha(flash)`
+     * is a damage flash that is not there at zero and fully red at one. Read as an opacity it would
+     * fade the thing being tinted out of sight, which nobody who wrote that line meant.
+     */
+    fun asTint(): Colour {
+        val strength = alpha
+        if (strength == 0xFF) return this
+        fun towards(channel: Int) = 255 - (255 - channel) * strength / 255
+        return Colour(0xFF, towards(red), towards(green), towards(blue))
+    }
+
     /** Mixes towards [other]. `fraction` of 0 is this colour, 1 is the other. */
     fun lerp(other: Colour, fraction: Float): Colour {
         val t = fraction.coerceIn(0f, 1f)
