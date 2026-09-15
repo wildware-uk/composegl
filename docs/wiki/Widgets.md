@@ -897,6 +897,12 @@ TreeView(
 - **Right to left** — the indent comes in from the right, a closed row's arrow
   points left, and Left and Right swap.
 
+![a save picker where a click on Chapter 2's arrow has opened it, showing its three saves](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-tree-click.png)
+
+![a quest log on a pad: A Crown of Thorns chosen with South, then focus moved down to Side quests and opened with Right, while Done stays shut](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-tree-quest-log.png)
+
+![a right-to-left bestiary in the high-contrast skin, the indent coming in from the right, shut rows' arrows pointing left, focus on Wraith and Lich chosen](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-tree-rtl.png)
+
 What is open is kept by key in a `TreeState`, so a row stays open when the list
 is sorted. The default `rememberTreeState()` is saved like any `rememberSaveable`
 (see [[Saving state]]). Make your own to open rows from code:
