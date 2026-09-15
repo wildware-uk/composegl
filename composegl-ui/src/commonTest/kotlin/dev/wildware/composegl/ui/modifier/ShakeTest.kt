@@ -220,8 +220,11 @@ class ShakeTest {
         assertNotEquals(slot, panel())
 
         shake.stop()
-        frames(2)
+        assertEquals(Offset.Zero, shake.offset, "straight back, not after the next frame's step")
+        assertEquals(0f, shake.trauma)
+        frame()
         assertEquals(slot, panel())
+        assertEquals(slot, drawnPanel())
         repeat(5) { assertFalse(frame()) }
     }
 

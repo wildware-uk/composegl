@@ -192,5 +192,9 @@ fun rememberShake(
  *
  * Put it before `background` and friends so the whole widget moves, or after them to shake the
  * contents inside a frame that stays put.
+ *
+ * The offset is read here, while composing, so every frame of a shake recomposes the scope that
+ * calls this. Nothing for a panel, but keep a shaken widget in a small composable of its own rather
+ * than at the top of a screen with a hundred widgets in it. A still shake costs nothing.
  */
 fun Modifier.shake(shake: ShakeState): Modifier = offset(shake.offset.x, shake.offset.y)
