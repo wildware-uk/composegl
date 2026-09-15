@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.testTag
+import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.testing.UiTest
 import dev.wildware.composegl.ui.testing.uiTest
 import kotlin.test.AfterTest
@@ -311,5 +312,141 @@ class StepperScreenTest {
         ui.assertText("quality", shows("Low"))
 
         assertEquals(right, ui.node("quality").children[2].boundsInRoot)
+    }
+
+    // --- odd values ------------------------------------------------------------------------------
+
+    @Test
+    fun `a volume below its range steps up into it and never down`() {
+        val reported = mutableListOf<Int>()
+        val ui = open {
+            Column {
+                var volume by remember { mutableStateOf(-3) }
+                NumberStepper(
+                    value = volume,
+                    onValueChange = { reported += it; volume = it },
+                    range = 0..10,
+                    initialFocus = true,
+                    modifier = Modifier.testTag("volume"),
+                )
+                Button("NEXT", onClick = {}, modifier = Modifier.testTag("next"))
+            }
+        }
+        ui.assertText("volume", shows("-3"))
+
+        // Left from below the range has nowhere lower to go, so it lets focus move on.
+        ui.key(Key.Left)
+        ui.assertText("volume", shows("-3"))
+        assertEquals(emptyList(), reported)
+        ui.key(Key.Up)
+        ui.assertFocused("volume")
+
+        ui.key(Key.Right)
+        ui.assertText("volume", shows("0"))
+        assertEquals(listOf(0), reported)
+    }
+
+    @Test
+    fun `a selection that is not one of the options shows nothing and right picks the first`() {
+        val ui = open {
+            var quality by remember { mutableStateOf("Ultra") }
+            Stepper(
+                options = listOf("Low", "Medium", "High"),
+                selected = quality,
+                onSelect = { quality = it },
+                initialFocus = true,
+                modifier = Modifier.testTag("quality"),
+            )
+        }
+        assertEquals(listOf("<", ">"), ui.texts("quality").filter { it.isNotEmpty() })
+
+        ui.key(Key.Left)
+        assertEquals(listOf("<", ">"), ui.texts("quality").filter { it.isNotEmpty() })
+
+        ui.key(Key.Right)
+        ui.assertText("quality", shows("Low"))
+    }
+
+    @Test
+    fun `a stepper with no options takes no direction and no click`() {
+        var picked = 0
+        val ui = open {
+            Column {
+                Stepper(
+                    options = emptyList<String>(),
+                    selected = "",
+                    onSelect = { picked++ },
+                    initialFocus = true,
+                    modifier = Modifier.testTag("empty"),
+                )
+                Button("NEXT", onClick = {}, modifier = Modifier.testTag("next"))
+            }
+        }
+
+        ui.key(Key.Right)
+        ui.key(Key.Enter)
+        ui.click(ui.pieceOf("empty", 2))
+        ui.click(ui.pieceOf("empty", 1))
+        assertEquals(0, picked)
+        ui.key(Key.Down)
+        ui.assertFocused("next")
+    }
+
+    @Test
+    fun `new options widen the value to the new widest`() {
+        var options by mutableStateOf(listOf("A", "B"))
+        val ui = open {
+            Stepper(options = options, selected = options[0], onSelect = {}, modifier = Modifier.testTag("s"))
+        }
+        val before = ui.node("s").children[1].boundsInRoot.width
+
+        options = listOf("A", "A much longer choice")
+        ui.settle()
+        assertTrue(ui.node("s").children[1].boundsInRoot.width > before, "the value did not grow")
+    }
+
+    @Test
+    fun `a stepper squeezed to no width lays out and still steps`() {
+        val ui = open {
+            var volume by remember { mutableStateOf(2) }
+            NumberStepper(
+                value = volume,
+                onValueChange = { volume = it },
+                initialFocus = true,
+                modifier = Modifier.width(0f).testTag("volume"),
+            )
+        }
+        assertEquals(0f, ui.node("volume").boundsInRoot.width)
+        ui.key(Key.Right)
+        ui.assertText("volume", shows("3"))
+    }
+
+    @Test
+    fun `a stepper taken off the screen while its arrow is held stops stepping`() {
+        var shown by mutableStateOf(true)
+        var volume = 0
+        val ui = open {
+            if (shown) {
+                var v by remember { mutableStateOf(0) }
+                NumberStepper(value = v, onValueChange = { v = it; volume = it }, modifier = Modifier.testTag("volume"))
+            }
+        }
+
+        ui.press(ui.pieceOf("volume", 2))
+        assertEquals(1, volume)
+        shown = false
+        ui.advanceBy(2_000)
+        ui.release()
+        assertEquals(1, volume)
+        ui.assertDoesNotExist("volume")
+    }
+
+    @Test
+    fun `a still stepper draws nothing new frame after frame`() {
+        val ui = open { Settings() }
+        ui.key(Key.Right)
+        ui.settle()
+        ui.render()
+        assertEquals(false, ui.render(), "a stepper nobody touched asked for another frame")
     }
 }
