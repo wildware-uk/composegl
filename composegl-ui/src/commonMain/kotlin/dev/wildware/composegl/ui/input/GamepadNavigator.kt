@@ -2,6 +2,7 @@ package dev.wildware.composegl.ui.input
 
 import dev.wildware.composegl.ui.focus.FocusDirection
 import dev.wildware.composegl.ui.focus.FocusManager
+import dev.wildware.composegl.ui.widget.openContextMenu
 import kotlin.math.abs
 
 /**
@@ -89,12 +90,24 @@ class GamepadNavigator(
      */
     private fun offered(event: GamepadEvent): Boolean {
         if (event is GamepadEvent.Connected || event is GamepadEvent.Disconnected) return false
-        var node = focus.focused
+        val focused = focus.focused
+        var node = focused
+        // A context menu past a focus trap is behind a dialog, and not the focused widget's to open.
+        var menus = true
         while (node != null) {
             node.resolved.gamepadHandlers.forEach { if (it.onGamepad(event)) return true }
+            // The nearest context menu bound to this button opens, under the focused node.
+            val menu = node.resolved.contextMenu
+            if (menus && event is GamepadEvent.ButtonDown && menu != null && menu.enabled && menu.padButton == event.button &&
+                node.openContextMenu(null, edgeOf = focused ?: node)
+            ) {
+                return true
+            }
+            if (node.resolved.focusTrap) menus = false
             node = node.parent
         }
-        return false
+        // Then anything listening wherever focus is: the button a menu bar is bound to.
+        return focus.offerShortcut { candidate -> candidate.resolved.shortcutGamepad.any { it.onGamepad(event) } }
     }
 
     private fun axis(event: GamepadEvent.Axis): Boolean {

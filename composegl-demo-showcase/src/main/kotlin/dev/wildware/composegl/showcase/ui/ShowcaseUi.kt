@@ -52,7 +52,15 @@ import dev.wildware.composegl.ui.skin.ProvideSkin
 import dev.wildware.composegl.ui.skin.Skin
 import dev.wildware.composegl.ui.skin.styled
 import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.input.GamepadButton
+import dev.wildware.composegl.ui.input.Key
+import dev.wildware.composegl.ui.input.KeyShortcut
+import dev.wildware.composegl.ui.input.Modifiers
+import dev.wildware.composegl.ui.input.plus
 import dev.wildware.composegl.ui.widget.LocalFonts
+import dev.wildware.composegl.ui.widget.MenuBar
+import dev.wildware.composegl.ui.widget.PopupHost
+import dev.wildware.composegl.ui.widget.contextMenu
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.Text
 import dev.wildware.composegl.ui.widget.Toggle
@@ -82,41 +90,90 @@ fun ShowcaseUi(
             // every widget rather than by whatever happens to have focus.
             val hotbar = remember { HotbarState() }
 
-            Box(Modifier.fillMaxSize().onKeyEvent(hotbar::onKey)) {
-                if (state.isOn(Exhibit.Hud)) {
-                    CombatHud(state)
-                    Radar(state)
-                    Abilities(state, hotbar)
-                }
+            // The menu bar's menus and the target panel's context menu drop through this.
+            PopupHost {
+                Box(Modifier.fillMaxSize().onKeyEvent(hotbar::onKey)) {
+                    if (state.isOn(Exhibit.Hud)) {
+                        CombatHud(state)
+                        Radar(state)
+                        Abilities(state, hotbar)
+                    }
 
-                if (state.isOn(Exhibit.Tracking)) TargetTags(state)
+                    if (state.isOn(Exhibit.Tracking)) TargetTags(state)
 
-                if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
+                    if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
 
-                // Over the scene and under the panels, which is where a hit happens. The game
-                // fills the pool from its own loop; this only draws it.
-                if (state.isOn(Exhibit.Sparks)) ParticleLayer(state.sparks, Modifier.fillMaxSize())
+                    // Over the scene and under the panels, which is where a hit happens. The game
+                    // fills the pool from its own loop; this only draws it.
+                    if (state.isOn(Exhibit.Sparks)) ParticleLayer(state.sparks, Modifier.fillMaxSize())
 
-                // The numbers live in the pool the game writes to; this only draws them, through
-                // the game's own camera.
-                if (state.isOn(Exhibit.Damage)) {
-                    DamageNumberLayer(state.damage, Modifier.fillMaxSize(), projection)
-                }
+                    // The numbers live in the pool the game writes to; this only draws them, through
+                    // the game's own camera.
+                    if (state.isOn(Exhibit.Damage)) {
+                        DamageNumberLayer(state.damage, Modifier.fillMaxSize(), projection)
+                    }
 
-                ExhibitPanel(state)
+                    ExhibitPanel(state)
 
-                // Behind the game's own switch, which is the only place that decision belongs.
-                if (budget.isOn) {
-                    FrameBudgetOverlay(
-                        budget,
-                        Modifier.align(Alignment.TopStart).padding(left = 28f, top = 220f),
-                    )
+                    // Behind the game's own switch, which is the only place that decision belongs.
+                    if (budget.isOn) {
+                        FrameBudgetOverlay(
+                            budget,
+                            Modifier.align(Alignment.TopStart).padding(left = 28f, top = 220f),
+                        )
+                    }
+
+                    // Last, so it is over the scene's panels. Alt or F10 reaches it from the keyboard,
+                    // the pad's View button from a pad.
+                    ShowcaseMenus(state, budget)
                 }
             }
         }
     }
 }
 
+/** How far down the panels along the top start, clear of the menu bar. */
+private const val BelowMenus = 64f
+
+/**
+ * The menu bar across the top: what is on show, which drone is locked, and the frame budget.
+ *
+ * Every item is state the rest of the screen already reads, so the bar is only another way of
+ * changing it — the switches in the corner and the ticks in the Show menu always agree.
+ */
+@Composable
+private fun ShowcaseMenus(state: ShowcaseState, budget: FrameBudget) {
+    MenuBar(Modifier.align(Alignment.TopStart), padButton = GamepadButton.Back) {
+        Menu("&Show") {
+            Exhibit.entries.forEach { exhibit ->
+                CheckItem(exhibit.title, checked = state.isOn(exhibit)) { state.toggle(exhibit) }
+            }
+            Separator()
+            Item("Show &everything", shortcut = Modifiers.Primary + Key.E) {
+                Exhibit.entries.forEach { if (!state.isOn(it)) state.toggle(it) }
+            }
+            Item("&Hide everything", shortcut = Modifiers.Primary + Key.H) {
+                Exhibit.entries.forEach { if (state.isOn(it)) state.toggle(it) }
+            }
+        }
+        Menu("&Target", enabled = state.targets.isNotEmpty()) {
+            state.targets.forEachIndexed { index, target ->
+                RadioItem(target.callsign, selected = state.locked == index) { state.locked = index }
+            }
+            Separator()
+            Item("&Release lock", enabled = state.locked >= 0) { state.locked = -1 }
+        }
+        Menu("&Debug") {
+            // F3 itself is the game's, answered before the interface sees it; the item says so.
+            CheckItem("Frame &budget", checked = budget.isOn, shortcut = KeyShortcut(Key.F3)) { budget.toggle() }
+            Submenu("Set &heat") {
+                listOf("Cold" to 0f, "Warm" to 0.5f, "Overheating" to 0.95f).forEach { (name, heat) ->
+                    Item(name) { state.heat = heat }
+                }
+            }
+        }
+    }
+}
 
 /**
  * The four effects the toolkit ships, on four ordinary widgets.
@@ -130,7 +187,7 @@ fun ShowcaseUi(
 @Composable
 private fun ShaderShelf(state: ShowcaseState) {
     Panel(
-        Modifier.align(Alignment.TopCentre).padding(top = 28f),
+        Modifier.align(Alignment.TopCentre).padding(top = BelowMenus),
         style = "panel.quiet",
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8f)) {
@@ -189,13 +246,18 @@ private fun CombatHud(state: ShowcaseState) {
         }
     }
 
-    if (target != null) TargetPanel(target)
+    if (target != null) TargetPanel(target, state)
 }
 
 /** What is locked: its shields, its hull, and how far away it is. */
 @Composable
-private fun TargetPanel(target: TargetReadout) {
-    Panel(Modifier.align(Alignment.TopEnd).padding(right = 28f, top = 28f).width(260f)) {
+private fun TargetPanel(target: TargetReadout, state: ShowcaseState) {
+    // A right-click, a long press, Shift+F10 or the pad's North on it opens what can be done to it.
+    val menu = Modifier.contextMenu {
+        Item("&Next target") { state.locked = (state.locked + 1) % state.targets.size.coerceAtLeast(1) }
+        Item("&Release lock") { state.locked = -1 }
+    }
+    Panel(Modifier.align(Alignment.TopEnd).padding(right = 28f, top = BelowMenus).width(260f).then(menu)) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8f)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(target.callsign, style = "label.title")
@@ -225,7 +287,7 @@ private fun Radar(state: ShowcaseState) {
     }
 
     MinimapFrame(
-        Modifier.align(Alignment.TopStart).padding(left = 28f, top = 28f).size(180f, 180f),
+        Modifier.align(Alignment.TopStart).padding(left = 28f, top = BelowMenus).size(180f, 180f),
         heading = state.heading,
         rotate = true,
         markers = markers,

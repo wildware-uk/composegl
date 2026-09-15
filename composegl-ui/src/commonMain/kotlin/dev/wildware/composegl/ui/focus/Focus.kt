@@ -6,6 +6,7 @@ import dev.wildware.composegl.ui.input.ClickMemory
 import dev.wildware.composegl.ui.input.PressGesture
 import dev.wildware.composegl.ui.input.usable
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.node.UiTree
 import kotlin.math.abs
 
 /** Which way the player asked focus to go. [Next] and [Previous] are Tab and Shift-Tab. */
@@ -90,6 +91,9 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         // The most recent manager over a root is the one a FocusOverlay inside it draws.
         root.focusManager = this
     }
+
+    /** The tree focus is kept on, for a router to tell its input watchers. */
+    internal val tree: UiTree? get() = root.tree
 
     /** The node with focus, or null when nothing has it. */
     val focused: UiNode? get() = current
@@ -343,17 +347,40 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         val now = trap()
         if (now === scope) return
 
-        val returning = leftBehind.lastOrNull()?.scope === now
-        if (returning) {
-            val outside = leftBehind.removeLast()
+        // Searched for rather than only compared with the last one: two traps can go in the same
+        // frame — a menu and the menu bar it was opened from both closing on one click — and the
+        // player belongs back where they were before the outer one, not stuck between the two.
+        val returning = leftBehind.indexOfLast { it.scope === now }
+        if (returning >= 0) {
+            val outside = leftBehind[returning]
+            while (leftBehind.size > returning) leftBehind.removeLast()
+            val closed = scope
             scope = now
             val back = outside.focused
-            if (back != null && back.isFocusable && back.isInside(now)) take(back)
+            // Unless focus has already been put somewhere real outside the trap that closed: a menu
+            // closing on Escape hands focus to its own title, which is not where it was when the
+            // menu opened if the player has moved along the bar since.
+            val held = current
+            val placed = held != null && !held.isInside(closed) && held in focusables()
+            if (!placed && back != null && back.isFocusable && back.isInside(now)) take(back)
             return
         }
 
         leftBehind.addLast(Outside(scope, current))
         scope = now
+    }
+
+    /**
+     * Asks [ask] of every node a shortcut may reach, in tree order, until one says yes: inside the
+     * innermost trap, and skipping anything drawn as nothing along with everything inside it — the
+     * same rule the focusable list follows.
+     */
+    internal fun offerShortcut(ask: (UiNode) -> Boolean): Boolean = offerWithin(scope ?: root, ask)
+
+    private fun offerWithin(node: UiNode, ask: (UiNode) -> Boolean): Boolean {
+        if (node.resolved.alpha <= 0f || node.resolved.scale <= 0f) return false
+        if (ask(node)) return true
+        return node.children.any { offerWithin(it, ask) }
     }
 
     /** The innermost trap: the last one in tree order, which is the one drawn on top. */

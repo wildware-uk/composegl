@@ -3,6 +3,9 @@ package dev.wildware.composegl.ui.node
 import dev.wildware.composegl.ui.animation.Clocks
 import dev.wildware.composegl.ui.draw.RectCache
 import dev.wildware.composegl.ui.input.FrameWaiter
+import dev.wildware.composegl.ui.input.InputWatcher
+import dev.wildware.composegl.ui.input.KeyEvent
+import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
@@ -96,6 +99,7 @@ class UiNode(var name: String = "node") {
             if (field == value) return
             field = value
             cachedResolution = null
+            watcher?.invoke()
             // The parent's pile may have a different order now. Asked again next time rather than
             // worked out here, because a chain changing almost never changes a zIndex.
             parent?.cachedDrawOrder = null
@@ -559,6 +563,13 @@ class UiNode(var name: String = "node") {
     internal fun boundsIn(ancestor: UiNode): Rect = inRoot(0f, 0f, width, height, until = ancestor)
 
     /**
+     * A point in this node's own coordinates, where it is drawn in [ancestor]'s: the way back from
+     * [toLocal], through every scale and mirror in between.
+     */
+    internal fun pointIn(ancestor: UiNode, point: Offset): Offset =
+        inRoot(point.x, point.y, point.x, point.y, until = ancestor).topLeft
+
+    /**
      * A rectangle written in this node's own coordinates, in the root's.
      *
      * The walk [boundsInRoot] is: carried up a level at a time, scaled about this level's anchor,
@@ -796,6 +807,13 @@ class UiNode(var name: String = "node") {
         invalidate()
     }
 
+    /**
+     * Told when this node's [modifier] changes and when it leaves its tree, directly or with an
+     * ancestor. Null on nearly every node; an open context menu sets it on the node it is about, so
+     * it can show the latest items and close when the node goes.
+     */
+    internal var watcher: (() -> Unit)? = null
+
     private fun attachTo(tree: UiTree?) {
         if (this.tree === tree) return
         // A marquee waits on its tree's frames, and a node leaving must stop it waiting there. It
@@ -809,6 +827,7 @@ class UiNode(var name: String = "node") {
             sizeAnimation?.forget()
         }
         mutableChildren.forEach { it.attachTo(tree) }
+        if (tree == null) watcher?.invoke()
     }
 
     internal fun becomeRootOf(tree: UiTree) {
@@ -1020,6 +1039,28 @@ class UiTree(val root: UiNode = UiNode("root")) {
     internal fun runWaiters() {
         if (waiting.isEmpty()) return
         waiting.toList().forEach { it.onFrame(clocks) }
+    }
+
+    /** Whatever is watching every key and press on this tree. Empty unless a menu bar is on it. */
+    private val watchers = ArrayList<InputWatcher>(1)
+
+    internal fun watchInput(watcher: InputWatcher) {
+        if (watcher !in watchers) watchers += watcher
+    }
+
+    internal fun stopWatchingInput(watcher: InputWatcher) {
+        watchers -= watcher
+    }
+
+    /** Tells every [InputWatcher] about [event]. Over a copy, since one may stop watching as it hears. */
+    internal fun watched(event: KeyEvent) {
+        if (watchers.isEmpty()) return
+        watchers.toList().forEach { it.onKey(event) }
+    }
+
+    internal fun watched(event: PointerEvent.Press) {
+        if (watchers.isEmpty()) return
+        watchers.toList().forEach { it.onPress(event) }
     }
 
     override fun toString(): String = root.debugTree()

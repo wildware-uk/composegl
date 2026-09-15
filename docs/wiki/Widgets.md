@@ -513,7 +513,135 @@ anything else you provided around the dropdown. Forget the host and the screen
 fails as it is built, saying so.
 
 The field is the `"dropdown"` style, the list's panel `"dropdown.list"`, and
-the options are `"item"` and `"item.selected"` — the same ones a menu uses.
+the options are `"item"` and `"item.selected"`.
+
+---
+
+## Menus
+
+File, Edit, View along the top of an editor, and a menu that opens on an
+inventory slot. Both are written in one scope — `Item`, `CheckItem`,
+`RadioItem`, `Submenu` and `Separator` — so a list of items written once works
+in either. Both drop through a `PopupHost`, so one has to be round the screen.
+
+### Menu bars
+
+```kotlin
+PopupHost {
+    Column(Modifier.fillMaxSize()) {
+        MenuBar(padButton = GamepadButton.Back) {
+            Menu("&File") {
+                Item("&New", shortcut = Modifiers.Primary + Key.N) { newLevel() }
+                Item("&Save", shortcut = Modifiers.Primary + Key.S, enabled = dirty) { save() }
+                Submenu("&Recent") {
+                    recent.forEach { level -> Item(level.name) { open(level) } }
+                }
+                Separator()
+                Item("&Quit") { quit() }
+            }
+            Menu("&View") {
+                CheckItem("&Grid", checked = showGrid) { showGrid = it }
+                Separator()
+                RadioItem("&Wireframe", selected = mode == Wire) { mode = Wire }
+                RadioItem("S&haded", selected = mode == Shaded) { mode = Shaded }
+            }
+        }
+        LevelEditor()
+    }
+}
+```
+
+The bar is as wide as what holds it: the top of the screen, or the top of a
+window. The menu scope is plain Kotlin, not composables. It runs every time the
+bar is composed, so `enabled = dirty` greys Save out the moment nothing needs
+saving, and a shortcut works while its menu is closed.
+
+- **Mouse.** Click a title to open it; click it again to close it. While one is
+  open, move onto another title to switch. Rest on a submenu's row to open it.
+  Moving diagonally from that row towards the submenu does not close it, even
+  across the rows in between.
+- **Keyboard.** Alt on its own, or F10, puts focus on the bar. The arrows move,
+  and Down, Enter or a title's letter opens a menu. Alt with a letter — Alt+F —
+  opens that menu from anywhere. Alt held for anything else — Alt+Left in a
+  field, Alt+click — does not. A click below the bar while it has focus gives
+  focus to what was clicked. In a menu, Right opens a submenu and Left
+  closes it; Left and Right with nowhere to go move to the next menu along.
+  Escape closes one level at a time, and the last one gives focus back to
+  wherever it was.
+- **Shortcuts.** `Modifiers.Primary + Key.S` is Ctrl+S, or Command+S on a Mac,
+  and the menu writes it that way beside the item. It fires from anywhere on
+  the screen while every menu is closed. It does not fire through an open
+  dialogue, or when the focused widget used the key itself — a text field keeps
+  its Ctrl+A.
+- **Pad.** `padButton` puts focus on the bar and takes it away. The d-pad moves,
+  South opens and chooses, the shoulders switch menus, and East closes one
+  level through `OnBack`. Leave `padButton` null and a pad cannot reach the bar.
+- **Letters.** `&` marks the letter: `"&File"` underlines the F while the
+  keyboard or pad is driving the bar. `&&` is an ampersand. A translated label
+  marks its own letter — `"&Fichier"`.
+- **Right to left**, the bar reads from the right, menus hang from a title's
+  right edge, submenus open to the left, and Left opens a submenu.
+
+Items can be disabled (`enabled = false`), which greys them out, skips them on
+the arrows and stops their shortcut. `icon = { Image("icons/save", Modifier.size(16f)) }`
+puts a picture in the column before the label. A submenu with no room on its
+side opens on the other side.
+
+Styles: `"menubar"` behind the titles, `"menubar.title"` for a title and
+`"menubar.title.open"` for the one whose menu is open. A menu is `"menu"`, a row
+`"menu.item"` (`"menu.item.open"` while its submenu is open), then
+`"menu.shortcut"`, `"menu.separator"`, and `"menu.check"` and `"menu.radio"` for
+the tick and the dot.
+
+### Context menus
+
+```kotlin
+Box(Modifier.size(64f).contextMenu {
+    Item("&Use") { use(item) }
+    Item("S&plit stack", enabled = item.count > 1) { split(item) }
+    Separator()
+    Item("&Drop") { drop(item) }
+})
+```
+
+It opens four ways:
+
+- **Right-click** — at the pointer. It wins over a button inside that only
+  clicks. A widget that takes the right button itself with `onPointer` keeps it,
+  and so does a button that is not inside the menu's widget, like a HUD button
+  drawn over a map.
+- **Long press** — at the finger, after the same hold `onLongPress` uses. Like a
+  right-click it reaches past a button inside that only clicks, so on a touch
+  screen a slot built as a button still opens its menu. The release is not a
+  click. A widget's own `onLongPress` wins. Only a pointer or a finger holds it
+  open: a held Enter or South is still a click. A press that moves — a slider's
+  thumb, a list scrolling — is not a hold. A quick tap still reaches a
+  clickable around the menu's widget.
+- **Shift+F10** — the menu of the focused widget, or of the nearest one around
+  it with a menu, opens under the focused widget itself.
+- **`padButton`** (the pad's North unless you say) — the same, from a pad.
+
+None of these reach past a dialog: a `Dialog` open over the menu's widget keeps
+Shift+F10, the pad button and right-clicks on its own buttons to itself.
+
+It hangs down and towards the end of where it opened, and flips back when it
+would go off the screen. While it is open, focus is trapped in it. Escape, Back,
+East and a click outside close it, and so does the widget it opened on leaving
+the screen. While it is open it shows the items as the widget last composed
+them. Its items' shortcuts are shown but do not fire; put the same item on a
+`MenuBar` for that.
+
+To share items, write them as an extension and call it in both:
+
+```kotlin
+fun MenuScope.editItems() {
+    Item("Cu&t", shortcut = Modifiers.Primary + Key.X) { cut() }
+    Item("&Copy", shortcut = Modifiers.Primary + Key.C) { copy() }
+}
+
+MenuBar { Menu("&Edit") { editItems() } }
+TextField(notes, { notes = it }, Modifier.contextMenu { editItems() })
+```
 
 ---
 

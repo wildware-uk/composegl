@@ -345,6 +345,55 @@
       "background": { "fill": "#232A35", "corner": 4, "border": "#39445A", "padding": 4 }
     },
 
+    // --- menus ---
+    //
+    // A menu bar is a strip of quiet titles, and the one whose menu is open is lit so the menu hanging
+    // under it is plainly its own. The menu is a raised panel of rows; the shortcut column is dimmer
+    // than the label, because it is a reminder and not the thing being chosen.
+
+    "menubar": { "background": { "fill": "#1A1F28", "border": "#2C3545", "padding": [4, 2] } },
+
+    "menubar.title": {
+      "background": { "fill": "#00000000", "corner": 4, "padding": [10, 5] },
+      "hovered": { "background": { "fill": "#232A35", "corner": 4 } },
+      "focused": { "background": { "fill": "#232A35", "corner": 4, "border": "#5B8DEF" } },
+      "pressed": { "background": { "fill": "#2C3545", "corner": 4 } },
+      "disabled": { "textColour": "#5E6B7E" }
+    },
+
+    "menubar.title.open": {
+      "background": { "fill": "#2F53A8", "corner": 4, "padding": [10, 5] },
+      "focused": { "background": { "fill": "#2F53A8", "corner": 4, "border": "#7BA5F5" } }
+    },
+
+    "menu": {
+      "background": { "fill": "#232A35", "corner": 4, "border": "#39445A", "padding": 4 }
+    },
+
+    "menu.item": {
+      "background": "none",
+      "padding": [10, 5],
+      "hovered": { "background": { "fill": "#2C3545", "corner": 3 } },
+      "focused": { "background": { "fill": "#2C3545", "corner": 3, "border": "#5B8DEF" } },
+      "pressed": { "background": { "fill": "#39445A", "corner": 3 } },
+      "disabled": { "textColour": "#5E6B7E" }
+    },
+
+    "menu.item.open": {
+      "background": { "fill": "#2C3545", "corner": 3, "padding": [10, 5] }
+    },
+
+    "menu.shortcut": { "textColour": "#9BA6B6", "text": { "size": 14 } },
+    "menu.separator": { "background": { "fill": "#39445A" } },
+    "menu.check": {
+      "background": { "fill": "#5B8DEF", "corner": 2 },
+      "disabled": { "tint": "#80FFFFFF" }
+    },
+    "menu.radio": {
+      "background": { "fill": "#5B8DEF", "corner": 7 },
+      "disabled": { "tint": "#80FFFFFF" }
+    },
+
     // --- tabs ---
     //
     // A heading rather than a button: flat until it is the chosen one, which is the one thing a

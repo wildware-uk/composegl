@@ -21,6 +21,7 @@ import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.widget.ContextMenuElement
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.tan
@@ -237,6 +238,15 @@ class ResolvedModifier private constructor(
      * every node there has ever been; see [dev.wildware.composegl.ui.modifier.marquee].
      */
     val marquee: MarqueeElement? = null,
+    /** Keys offered to this node wherever focus is, once nothing around focus took them. */
+    val shortcutKeys: List<KeyHandler> = emptyList(),
+    /** Pad events offered to this node wherever focus is, once nothing around focus took them. */
+    val shortcutGamepad: List<GamepadHandler> = emptyList(),
+    /**
+     * The menu a right-click, a long press, Shift+F10 or its pad button opens on this node, or null
+     * for almost every node there has ever been. See [dev.wildware.composegl.ui.widget.contextMenu].
+     */
+    val contextMenu: ContextMenuElement? = null,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
@@ -253,7 +263,8 @@ class ResolvedModifier private constructor(
      */
     val isInteractive: Boolean
         get() = interactions.isNotEmpty() || handlers.isNotEmpty() || click != null || drag != null ||
-            focusable?.enabled == true || hoverIcon != null || pointerFocus != null
+            focusable?.enabled == true || hoverIcon != null || pointerFocus != null ||
+            contextMenu?.enabled == true
 
     companion object {
 
@@ -327,6 +338,9 @@ class ResolvedModifier private constructor(
             var placement: PlacementAnimation? = null
             var placementFrame: PlacementFrame? = null
             var marquee: MarqueeElement? = null
+            val shortcutKeys = mutableListOf<KeyHandler>()
+            val shortcutGamepad = mutableListOf<GamepadHandler>()
+            var contextMenu: ContextMenuElement? = null
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -453,6 +467,10 @@ class ResolvedModifier private constructor(
                     is KeyInputElement -> keyHandlers += element.handler
                     is TextInputElement -> textHandlers += element.handler
                     is GamepadInputElement -> gamepadHandlers += element.handler
+                    is ShortcutKeyElement -> shortcutKeys += element.handler
+                    is ShortcutGamepadElement -> shortcutGamepad += element.handler
+                    // A choice: one press opens one menu, so a later one is a replacement.
+                    is ContextMenuElement -> contextMenu = element
                     is ClickableElement -> click = element
                     // Resolved away when disabled, rather than carried: a disabled draggable is an
                     // absent one, and every reader asking `drag != null` gets that for free.
@@ -497,6 +515,7 @@ class ResolvedModifier private constructor(
                 reveals.toList(), focusWithin.toList(), focusTrap, testTag,
                 sizeChanged.toList(), placed.toList(), contentSize,
                 placement, placementFrame, marquee,
+                shortcutKeys.toList(), shortcutGamepad.toList(), contextMenu,
             )
         }
     }
