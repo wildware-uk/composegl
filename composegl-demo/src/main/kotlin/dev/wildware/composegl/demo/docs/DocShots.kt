@@ -28,6 +28,7 @@ import dev.wildware.composegl.ui.layout.layoutId
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.alpha
+import dev.wildware.composegl.ui.modifier.aspectRatio
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.border
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
@@ -149,6 +150,20 @@ private fun MutableList<DocShot>.layout() {
                 Slab("weight(1f)", Modifier.weight(1f), Steel)
                 Slab("weight(2f)", Modifier.weight(2f), Deep)
                 Slab("width(80f)", Modifier.width(80f), Steel)
+            }
+        }
+    })
+
+    add(DocShot("layout-aspect-ratio", 420, 290) {
+        Frame {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8f)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8f)) {
+                    Shaped("16:9", Modifier.weight(2f).aspectRatio(16f / 9f), Deep)
+                    Shaped("1:1", Modifier.weight(1f).aspectRatio(1f), Steel)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8f)) {
+                    repeat(4) { Shaped("1:1", Modifier.weight(1f).aspectRatio(1f), Steel) }
+                }
             }
         }
     })
@@ -556,6 +571,14 @@ private fun Swatch(label: String) {
 @Composable
 private fun Slab(label: String, modifier: Modifier, colour: Colour) {
     Box(modifier.height(36f).background(colour, corner = 6f), contentAlignment = Alignment.Centre) {
+        Text(label, style = "label.dim")
+    }
+}
+
+/** A box whose shape comes entirely from its modifier, with the ratio written on it. */
+@Composable
+private fun Shaped(label: String, modifier: Modifier, colour: Colour) {
+    Box(modifier.background(colour, corner = 6f), contentAlignment = Alignment.Centre) {
         Text(label, style = "label.dim")
     }
 }

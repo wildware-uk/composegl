@@ -1,7 +1,9 @@
 package dev.wildware.composegl.ui.layout
 
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.aspectRatio
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
+import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.layoutId
@@ -101,6 +103,119 @@ class MeasurePassTest {
 
         assertEquals(200f, box.width)
         assertEquals(50f, box.height)
+    }
+
+    // --- aspect ratio ---
+
+    @Test
+    fun `aspectRatio derives the height from a filled width`() {
+        val box = node("box", Modifier.fillMaxWidth().aspectRatio(16f / 9f))
+        run(box, Constraints.atMost(320f, 1000f))
+
+        assertEquals(320f, box.width)
+        assertEquals(180f, box.height)
+    }
+
+    @Test
+    fun `aspectRatio derives the width from a filled height`() {
+        val box = node("box", Modifier.fillMaxHeight().aspectRatio(3f / 4f))
+        run(box, Constraints.atMost(1000f, 400f))
+
+        assertEquals(300f, box.width)
+        assertEquals(400f, box.height)
+    }
+
+    @Test
+    fun `aspectRatio derives the height from a fixed width`() {
+        val box = node("box", Modifier.width(120f).aspectRatio(2f))
+        run(box)
+
+        assertEquals(120f, box.width)
+        assertEquals(60f, box.height)
+    }
+
+    @Test
+    fun `aspectRatio on its own takes the widest shape that fits`() {
+        val square = node("square", Modifier.aspectRatio(1f))
+        run(square, Constraints.atMost(300f, 200f))
+
+        assertEquals(200f, square.width, "300 wide would need 300 tall, and only 200 is on offer")
+        assertEquals(200f, square.height)
+    }
+
+    @Test
+    fun `aspectRatio keeps the bounded axis and clamps the derived one`() {
+        // Full width in a short slot: 400 wide at 3:4 would be 533 tall, and the slot is 300.
+        val box = node("box", Modifier.fillMaxWidth().aspectRatio(3f / 4f))
+        run(box, Constraints.atMost(400f, 300f))
+
+        assertEquals(400f, box.width, "the axis that was asked for is kept")
+        assertEquals(300f, box.height, "the derived one is clamped rather than overflowing")
+    }
+
+    @Test
+    fun `aspectRatio keeps a filled height when the width cannot follow it`() {
+        // Full height in a narrow slot: 400 tall at 16:9 would be 711 wide, and the slot is 300.
+        val box = node("box", Modifier.fillMaxHeight().aspectRatio(16f / 9f))
+        run(box, Constraints.atMost(300f, 400f))
+
+        assertEquals(400f, box.height, "the axis that was asked for is kept")
+        assertEquals(300f, box.width, "the derived one is clamped rather than overflowing")
+    }
+
+    @Test
+    fun `matchHeightConstraintsFirst tries the height before the width`() {
+        // No square fits 350..400 wide and at most 100 tall, so the one that is tried first is kept
+        // on its own axis and the other axis is clamped. Each node is measured as a root, because a
+        // parent would loosen the minimum away before the node ever saw it.
+        val offer = Constraints(minWidth = 350f, maxWidth = 400f, maxHeight = 100f)
+
+        val widthFirst = node("wide", Modifier.aspectRatio(1f))
+        MeasurePass().run(widthFirst, offer)
+        assertEquals(400f, widthFirst.width, "the widest square, cut down to the height on offer")
+        assertEquals(100f, widthFirst.height)
+
+        val heightFirst = node("tall", Modifier.aspectRatio(1f, matchHeightConstraintsFirst = true))
+        MeasurePass().run(heightFirst, offer)
+        assertEquals(350f, heightFirst.width, "the tallest square, pushed out to the narrowest width")
+        assertEquals(100f, heightFirst.height)
+    }
+
+    @Test
+    fun `with nothing bounded aspectRatio leaves the size to the content`() {
+        val box = node("box", Modifier.aspectRatio(2f)) { child(node("child", Modifier.size(30f, 70f))) }
+        run(box, Constraints.Unbounded)
+
+        assertEquals(30f, box.width)
+        assertEquals(70f, box.height)
+    }
+
+    @Test
+    fun `aspectRatio shapes a weighted child in a row`() {
+        val policy = LinearPolicy(true, Arrangement.Start, Alignment(vertical = VerticalAlignment.Top))
+        val row = node("row", Modifier.width(300f), policy) {
+            child(node("left", Modifier.weight(1f).aspectRatio(1f)))
+            child(node("right", Modifier.weight(2f).aspectRatio(2f)))
+        }
+        run(row)
+
+        val (left, right) = row.children
+        assertEquals(100f, left.width)
+        assertEquals(100f, left.height)
+        assertEquals(200f, right.width)
+        assertEquals(100f, right.height)
+    }
+
+    @Test
+    fun `padding sits inside the shaped box`() {
+        val box = node("box", Modifier.width(200f).aspectRatio(2f).padding(10f)) {
+            child(node("child", Modifier.fillMaxSize()))
+        }
+        run(box)
+
+        assertEquals(100f, box.height)
+        assertEquals(180f, box.children.single().width)
+        assertEquals(80f, box.children.single().height)
     }
 
     @Test

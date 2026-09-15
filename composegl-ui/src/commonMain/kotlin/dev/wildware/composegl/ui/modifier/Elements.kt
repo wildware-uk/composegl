@@ -33,6 +33,19 @@ data class SizeElement(val width: Float? = null, val height: Float? = null) : Mo
 /** A share of what the parent offered, from 0 to 1. Null on an axis means "leave it alone". */
 data class FillElement(val widthFraction: Float? = null, val heightFraction: Float? = null) : Modifier.Element
 
+/** @see dev.wildware.composegl.ui.modifier.aspectRatio */
+data class AspectRatioElement(
+    val ratio: Float,
+    val matchHeightConstraintsFirst: Boolean = false,
+) : Modifier.Element {
+    init {
+        // Checked here, where the bad number is nearest whatever worked it out, rather than turning
+        // a whole screen of rectangles to NaN on the frame a thumbnail's height comes back as zero.
+        require(!ratio.isNaN()) { "an aspect ratio cannot be NaN" }
+        require(ratio > 0f && ratio.isFinite()) { "an aspect ratio must be positive and finite, was $ratio" }
+    }
+}
+
 data class PaddingElement(val padding: Padding) : Modifier.Element
 
 /** Moved from where layout put it, without changing the space it takes up. */
@@ -217,6 +230,35 @@ fun Modifier.fillMaxWidth(fraction: Float = 1f) = then(FillElement(widthFraction
 fun Modifier.fillMaxHeight(fraction: Float = 1f) = then(FillElement(heightFraction = fraction))
 
 fun Modifier.fillMaxSize(fraction: Float = 1f) = then(FillElement(fraction, fraction))
+
+/**
+ * Keeps this node a fixed shape — [ratio] is width divided by height — inside whatever room it gets.
+ *
+ * ```kotlin
+ * Image(portrait, Modifier.fillMaxWidth().aspectRatio(3f / 4f))   // as wide as the slot, 4 tall per 3 wide
+ * MinimapFrame(Modifier.height(180f).aspectRatio(1f))              // square
+ * ```
+ *
+ * One rule: take the axis that is settled, derive the other from it, then clamp to what the
+ * parent allows. "Settled" is read after [size], [width], [height] and the `fillMax*` family, so
+ * those decide the axis and this decides the other. With neither axis settled it picks the biggest
+ * shape that fits the offer — the widest first, or the tallest first when
+ * [matchHeightConstraintsFirst] says so.
+ *
+ * When no shape of this ratio fits at all — full width in a slot too short for it — the axis that
+ * was asked for is kept and the derived one is cut down to the room there is. The node comes out
+ * the wrong shape rather than spilling over its neighbours, which is the same bargain [size] makes
+ * when it asks for more than the parent has.
+ *
+ * With nothing bounded either way, a scrolling list's cross axis inside another scrolling list,
+ * there is no shape to derive and the content decides the size.
+ *
+ * Two of these on one node is a choice rather than a quantity, so the later one wins.
+ *
+ * @throws IllegalArgumentException if [ratio] is zero, negative, infinite or not a number.
+ */
+fun Modifier.aspectRatio(ratio: Float, matchHeightConstraintsFirst: Boolean = false) =
+    then(AspectRatioElement(ratio, matchHeightConstraintsFirst))
 
 fun Modifier.padding(all: Float) = then(PaddingElement(Padding.all(all)))
 
