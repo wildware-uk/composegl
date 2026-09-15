@@ -3,9 +3,12 @@ package dev.wildware.composegl.ui.node
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.backend.MonospaceFontProvider
 import dev.wildware.composegl.ui.focus.FocusManager
+import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.input.KeyEvent
 import dev.wildware.composegl.ui.input.KeyEventType
@@ -20,6 +23,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.resolve
 import dev.wildware.composegl.ui.modifier.testTag
+import dev.wildware.composegl.ui.testing.uiTest
 import dev.wildware.composegl.ui.host.UiHost
 import dev.wildware.composegl.ui.host.settle
 import dev.wildware.composegl.ui.widget.Button
@@ -235,5 +239,59 @@ class TestTagTest {
     @Test
     fun `a tag does not make a node something the pointer can hit`() {
         assertFalse(Modifier.testTag("scenery").resolve().isInteractive)
+    }
+
+    // --- driven through uiTest -------------------------------------------------------------------
+
+    @Test
+    fun `a uiTest clicks focuses and reads buttons by their tags`() {
+        var played = 0
+        uiTest(Size(400f, 300f)) {
+            Column {
+                Button("QUIT", onClick = {}, initialFocus = true, modifier = Modifier.testTag("quit"))
+                Button("PLAY", onClick = { played++ }, modifier = Modifier.testTag("play"))
+            }
+        }.use { ui ->
+            ui.assertText("play", "PLAY")
+            ui.click("play")
+            assertEquals(1, played, "the click went to the middle of the tagged button")
+
+            ui.pad(GamepadButton.DpadUp)
+            ui.assertFocused("quit")
+            ui.key(Key.Down)
+            ui.assertFocused("play")
+            ui.pad(GamepadButton.South)
+            assertEquals(2, played)
+        }
+    }
+
+    @Test
+    fun `a uiTest click on a misspelt tag fails and prints the tags that are there`() {
+        uiTest(Size(400f, 300f)) {
+            Button("PLAY", onClick = {}, modifier = Modifier.testTag("play"))
+        }.use { ui ->
+            val failure = assertFailsWith<IllegalStateException> { ui.click("plya") }
+            val message = failure.message.orEmpty()
+            assertTrue("plya" in message, message)
+            assertTrue("#play" in message, "the tree is printed with the tag that is there: $message")
+        }
+    }
+
+    @Test
+    fun `a button whose tag a click changes is found by its new tag`() {
+        uiTest(Size(400f, 300f)) {
+            var armed by remember { mutableStateOf(false) }
+            Button(
+                if (armed) "FIRE" else "ARM",
+                onClick = { armed = !armed },
+                modifier = Modifier.testTag(if (armed) "fire" else "arm"),
+            )
+        }.use { ui ->
+            ui.click("arm")
+            ui.assertDoesNotExist("arm")
+            ui.assertText("fire", "FIRE")
+            ui.click("fire")
+            ui.assertText("arm", "ARM")
+        }
     }
 }
