@@ -238,15 +238,15 @@ class GdxFontFallbackTest {
 
     @Test
     fun `registering pictures marks the atlas for upload`() {
-        val pages = fonts.atlas.pageCount
-
         fonts.registerPictures("emoji", mapOf("😀" to smiley), listOf(16))
         fonts.fallBackTo(listOf("emoji"))
 
-        // Placed on a page in memory with no GPU anywhere; a page uploads what changed on it when
-        // it is next drawn.
+        // Written onto a page in memory with no GPU anywhere; a page uploads what changed on it
+        // when it is next drawn, which composegl-render's GlyphAtlasTest holds it to.
         val picture = drawn("😀").single()
-        assertTrue(picture.page != null && fonts.atlas.pageCount >= pages)
+        val page = checkNotNull(picture.page) { "the picture should be on an atlas page" }
+        val middle = page.rgbaAt(picture.x + picture.width.toInt() / 2, picture.y + picture.height.toInt() / 2)
+        assertTrue(middle and 0xFF != 0, "the picture's own pixels should be on the page, not a blank spot")
     }
 
     private companion object {

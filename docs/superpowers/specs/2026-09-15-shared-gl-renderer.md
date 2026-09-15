@@ -42,7 +42,8 @@ What the code does where this design said otherwise. The code is the reference.
   change. Its `FreeTypeRasteriser` loads glyphs with LibGDX's hinting flags, gamma and whole-pixel
   metrics. Ten goldens whose scenes have text were re-made once for the lost kerning. Context loss
   is noticed in `begin` on Android, where LibGDX makes a new `GLVersion` with each new context,
-  rather than by a helper in `composegl-android`, which has no renderer dependency. Render gained
+  rather than by a helper in `composegl-android`, which has no renderer dependency. As §8 asked,
+  its text-free scenes are also held to lwjgl3's goldens (added in a follow-up check). Render gained
   `BoundPicture.rotated`, an open `lend` round `raw` blocks, and text drawn by a canvas made
   without fonts.
 - **korge (step 5).** `AtlasFonts` gained `LineBreaking.Paragraph` (ui's `paragraph()`, which KorGE
