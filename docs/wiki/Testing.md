@@ -151,7 +151,7 @@ a pulsing low-health bar: put it on a clock and stop that clock
 **Text is read off the drawing.** `assertText` draws the node and what is inside it into
 a recording and joins the text, one run per line. That is what a player reads: the label
 on a button, the lines in a field, or the field's placeholder while it is empty. Text
-under a parent faded to nothing reads as empty.
+under a parent faded or shrunk to nothing reads as empty.
 
 **Mistakes fail loudly.** A misspelt tag prints the tree. Clicking a node with no area,
 or one off the screen, fails, because a real click there would do nothing and a test
