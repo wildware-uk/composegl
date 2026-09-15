@@ -967,13 +967,18 @@ private fun MutableList<DocShot>.widgets() {
         Frame { Scoreboard() }
     })
 
-    // A server browser scrolled well down its list, with the header still at the top. Server has been
-    // widened into Map through the table's state, as a drag leaves it, and the divider between them is
-    // really pressed, so it is lit. (A drag made in one go between frames outruns the divider's grab
-    // area before it is laid out again, which a hand at sixty frames a second does not.)
-    add(DocShot("widget-table-resize", 480, 260, pointer = Offset(TableDividerX, 32f), press = true, stock = true, seconds = 0.2f) {
-        Frame { ServerBrowser() }
-    })
+    // A server browser scrolled well down its list, with the header still at the top. The divider
+    // between Server and Map is really pressed and dragged right, in one quick flick between frames,
+    // and still held, so it is lit and Server has grown into Map up to where the pointer is.
+    add(
+        DocShot(
+            "widget-table-resize", 480, 260,
+            pointer = Offset(TableDividerFrom, 32f), dragTo = Offset(TableDividerTo, 32f), hold = true,
+            stock = true, seconds = 0.2f,
+        ) {
+            Frame { ServerBrowser() }
+        },
+    )
 
     // Right to left in the high-contrast skin: a backpack sorted by value, lowest first, with the pad
     // stepped down into the rows, so a focus ring sits on one of them.
@@ -2377,8 +2382,9 @@ private fun Scoreboard() {
 
 private class DocServer(val name: String, val map: String, val players: String, val ping: Int)
 
-/** Where the divider after the server browser's first column is, in its picture, once Server is widened. */
-private const val TableDividerX = 229f
+/** Where the divider after the server browser's first column is in its picture, before and after the drag. */
+private const val TableDividerFrom = 189f
+private const val TableDividerTo = 229f
 
 /** A long server list scrolled down, for the picture of the frozen header and a column drag. */
 @Composable
@@ -2393,10 +2399,6 @@ private fun ServerBrowser() {
         names.mapIndexed { i, name -> DocServer(name, maps[i % maps.size], "${(i * 7) % 17}/16", 18 + (i * 37) % 140) }
     }
     val state = rememberTableState()
-    remember {
-        state.setColumnWidth(0, 212f)
-        state.setColumnWidth(1, 90f)
-    }
     // After the first layout, once the list knows how many rows it has and how tall they are.
     LaunchedEffect(Unit) {
         repeat(2) { withFrameNanos {} }

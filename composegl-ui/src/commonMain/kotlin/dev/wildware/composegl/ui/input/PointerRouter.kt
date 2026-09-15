@@ -207,13 +207,7 @@ class PointerRouter(
     private fun move(event: PointerEvent.Move): Boolean {
         val capture = captures[event.pointerId]
         if (capture != null) {
-            val inside = capture.node.claims(event.position)
-            if (inside != capture.inside) {
-                capture.inside = inside
-                // Dragging off a button un-presses it, and coming back presses it again. Nothing
-                // has been decided yet — that happens on release.
-                capture.node.resolved.interactions.forEach { if (inside) it.press() else it.release() }
-            }
+            pressWhereInside(capture, event.position)
             val used = deliver(capture.node, event)
             // A press that is doing something — a slider's thumb following it, a selection growing,
             // a list about to scroll — is not a hold, and a context menu opening under it would pull
@@ -222,6 +216,8 @@ class PointerRouter(
                 capture.gesture.refuseMenu()
             }
             drag(capture, event, used)
+            // Asked again, since this move may be the one that started the drag.
+            pressWhereInside(capture, event.position)
             // Captured means captured: the event belongs to this gesture whether or not a handler
             // had anything to say about it.
             return true
@@ -232,6 +228,22 @@ class PointerRouter(
         hover(event.pointerId, path)
         if (event.type.hasCursor) show(iconOf(path))
         return candidates.any { deliver(it, event) }
+    }
+
+    /**
+     * Keeps the captured node pressed while the pointer is inside it, and while it is being dragged.
+     *
+     * Dragging off a button un-presses it, and coming back presses it again. Nothing has been
+     * decided yet — that happens on release. A node being dragged is different: it stays pressed
+     * wherever the pointer goes until the button comes up. "Inside" is asked of where the node was
+     * last laid out, so a thin handle the pointer outruns between frames — a column divider under
+     * a fast flick — would otherwise go dark while it is still following the hand.
+     */
+    private fun pressWhereInside(capture: Capture, at: Offset) {
+        val inside = capture.drag != null || capture.node.claims(at)
+        if (inside == capture.inside) return
+        capture.inside = inside
+        capture.node.resolved.interactions.forEach { if (inside) it.press() else it.release() }
     }
 
     private fun release(event: PointerEvent.Release): Boolean {
