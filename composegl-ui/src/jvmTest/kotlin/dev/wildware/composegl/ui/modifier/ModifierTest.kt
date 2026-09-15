@@ -103,6 +103,10 @@ class ModifierChainTest {
         assertThrows(IllegalArgumentException::class.java) { Modifier.size(-1f) }
         assertThrows(IllegalArgumentException::class.java) { Modifier.weight(0f) }
         assertThrows(IllegalArgumentException::class.java) { Modifier.border(Colour.White, width = -1f) }
+        assertThrows(IllegalArgumentException::class.java) { Modifier.aspectRatio(0f) }
+        assertThrows(IllegalArgumentException::class.java) { Modifier.aspectRatio(-1f) }
+        assertThrows(IllegalArgumentException::class.java) { Modifier.aspectRatio(Float.NaN) }
+        assertThrows(IllegalArgumentException::class.java) { Modifier.aspectRatio(Float.POSITIVE_INFINITY) }
     }
 
     @Test
@@ -164,6 +168,14 @@ class ResolvedModifierTest {
 
         assertEquals(SizeElement(20f, 20f), resolved.size)
         assertEquals(Alignment.Centre, resolved.alignment)
+    }
+
+    @Test
+    fun `a second aspect ratio replaces the first`() {
+        val resolved = Modifier.aspectRatio(1f).aspectRatio(16f / 9f, matchHeightConstraintsFirst = true).resolve()
+
+        assertEquals(AspectRatioElement(16f / 9f, matchHeightConstraintsFirst = true), resolved.aspectRatio)
+        assertNull(Modifier.size(10f).resolve().aspectRatio, "a node nobody shaped has no shape")
     }
 
     @Test

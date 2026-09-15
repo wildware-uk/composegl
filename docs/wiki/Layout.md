@@ -64,6 +64,32 @@ with a size inside it — and `Constraints` has `minWidth`, `maxWidth`, `minHeig
 
 ---
 
+## Keeping a shape: `aspectRatio`
+
+A portrait, a minimap or a video thumbnail wants a flexible size and a fixed
+shape. `aspectRatio` is width divided by height:
+
+```kotlin
+Image(portrait, Modifier.fillMaxWidth().aspectRatio(3f / 4f))  // height follows the width
+MinimapFrame(Modifier.height(180f).aspectRatio(1f))            // width follows the height
+Row(Modifier.fillMaxWidth()) {
+    repeat(4) { Thumbnail(Modifier.weight(1f).aspectRatio(16f / 9f)) }
+}
+```
+
+![a weighted 16:9 frame beside a square, and a row of four square thumbnails](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-aspect-ratio.png)
+
+One rule: take the axis that is settled — by `width`, `height`, `fillMax*` or a
+weight — work out the other, then clamp to what the parent allows. With neither
+settled it takes the biggest shape that fits, widest first
+(`matchHeightConstraintsFirst = true` tries tallest first).
+
+If the shape cannot fit — full width in a slot too short for it — the settled axis
+is kept and the other is cut down. The node comes out the wrong shape instead of
+spilling over its neighbours. With nothing bounded at all, the content decides.
+
+---
+
 ## Sharing out the leftovers: `weight`
 
 Inside a `Row` or a `Column`, `weight` says "give me a share of whatever is left

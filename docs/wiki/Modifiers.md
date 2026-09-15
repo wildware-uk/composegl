@@ -24,6 +24,7 @@ Modifier.height(40f)
 Modifier.fillMaxWidth()            // all of what the parent offers
 Modifier.fillMaxHeight(0.5f)       // half of it
 Modifier.fillMaxSize()
+Modifier.fillMaxWidth().aspectRatio(3f / 4f)  // as wide as the slot, height follows at 3:4
 ```
 
 **Space**

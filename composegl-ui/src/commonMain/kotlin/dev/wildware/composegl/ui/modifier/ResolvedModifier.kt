@@ -51,6 +51,8 @@ data class PaintOp(val element: Modifier.Element, val inset: Padding) {
 class ResolvedModifier private constructor(
     val size: SizeElement?,
     val fill: FillElement?,
+    /** The shape this node keeps, or null for none. See [dev.wildware.composegl.ui.modifier.aspectRatio]. */
+    val aspectRatio: AspectRatioElement?,
     val padding: Padding,
     val offset: Offset,
     val weight: Float?,
@@ -145,6 +147,7 @@ class ResolvedModifier private constructor(
         internal fun of(modifier: Modifier): ResolvedModifier {
             var size: SizeElement? = null
             var fill: FillElement? = null
+            var aspectRatio: AspectRatioElement? = null
             var padding = Padding.None
             var offset = Offset.Zero
             var weight: Float? = null
@@ -188,6 +191,8 @@ class ResolvedModifier private constructor(
                         element.widthFraction ?: fill?.widthFraction,
                         element.heightFraction ?: fill?.heightFraction,
                     )
+                    // A choice: two shapes are two answers to one question, so the later one is it.
+                    is AspectRatioElement -> aspectRatio = element
                     is PaddingElement -> padding += element.padding
                     is OffsetElement -> offset += Offset(element.x, element.y)
                     is WeightElement -> weight = element.weight
@@ -243,7 +248,7 @@ class ResolvedModifier private constructor(
             }
 
             return ResolvedModifier(
-                size, fill, padding, offset, weight, alignment, layoutId, alpha, scale, scaleOrigin,
+                size, fill, aspectRatio, padding, offset, weight, alignment, layoutId, alpha, scale, scaleOrigin,
                 rotation, rotationOrigin,
                 blend, zIndex, clip, hitShape, effects.toList(),
                 behind.toList(), inFront.toList(),

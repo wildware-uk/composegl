@@ -171,7 +171,7 @@ internal class Inset : PlacementScope {
  * is 50 tall and as wide as it can be.
  */
 internal fun ResolvedModifier.applyTo(incoming: Constraints, cache: ConstraintsCache): Constraints {
-    if (size == null && fill == null) return incoming
+    if (size == null && fill == null && aspectRatio == null) return incoming
 
     // The four numbers first, one object at the end. Written out rather than with `let`, because
     // a lambda that assigns to a local puts that local in a heap box and makes a fresh lambda to
@@ -208,6 +208,50 @@ internal fun ResolvedModifier.applyTo(incoming: Constraints, cache: ConstraintsC
         val fixed = incoming.constrainHeight(incoming.maxHeight * heightFraction)
         minHeight = fixed
         maxHeight = fixed
+    }
+
+    // `aspectRatio` reads the room the lines above left, so whichever axis they settled is the one
+    // it derives from. Up to four shapes are tried, each one axis's limit with the other worked out
+    // from it: first keeping to every limit, then — if none fits — keeping only the one it started
+    // from and clamping the other. A shape of zero on either side is not a shape, so a minimum of
+    // nothing is never a starting point. With every try out, the content decides.
+    val shape = aspectRatio
+    if (shape != null) {
+        val ratio = shape.ratio
+        var found = false
+        var shapedWidth = 0f
+        var shapedHeight = 0f
+        pass@ for (strict in 0..1) {
+            for (step in 0..3) {
+                // Width's maximum, height's maximum, width's minimum, height's minimum; the two axes
+                // swapped at each level when height is to be matched first.
+                val fromWidth = (step % 2 == 0) != shape.matchHeightConstraintsFirst
+                val fromMax = step < 2
+                val width: Float
+                val height: Float
+                if (fromWidth) {
+                    width = if (fromMax) maxWidth else minWidth
+                    if (!width.isFinite()) continue
+                    height = width / ratio
+                } else {
+                    height = if (fromMax) maxHeight else minHeight
+                    if (!height.isFinite()) continue
+                    width = height * ratio
+                }
+                if (width <= 0f || height <= 0f) continue
+                if (strict == 0 && !(width in minWidth..maxWidth && height in minHeight..maxHeight)) continue
+                shapedWidth = width.coerceIn(minWidth, maxWidth)
+                shapedHeight = height.coerceIn(minHeight, maxHeight)
+                found = true
+                break@pass
+            }
+        }
+        if (found) {
+            minWidth = shapedWidth
+            maxWidth = shapedWidth
+            minHeight = shapedHeight
+            maxHeight = shapedHeight
+        }
     }
 
     if (minWidth == incoming.minWidth && maxWidth == incoming.maxWidth &&
