@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.draw
 
+import dev.wildware.composegl.ui.debug.DebugBounds
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
@@ -15,6 +16,7 @@ import dev.wildware.composegl.ui.modifier.BackgroundElement
 import dev.wildware.composegl.ui.modifier.BrushBackgroundElement
 import dev.wildware.composegl.ui.modifier.BorderElement
 import dev.wildware.composegl.ui.modifier.BorderSidesElement
+import dev.wildware.composegl.ui.modifier.DebugBoundsElement
 import dev.wildware.composegl.ui.modifier.DrawBehindElement
 import dev.wildware.composegl.ui.modifier.DrawInFrontElement
 import dev.wildware.composegl.ui.modifier.NinePatchElement
@@ -494,6 +496,7 @@ class DrawPass(val canvas: UiCanvas) {
             is SkinBackgroundElement -> element.drawable.drawInto(canvas, rect, element.tint)
             is DrawBehindElement -> element.draw(canvas, rect)
             is DrawInFrontElement -> element.draw(canvas, rect)
+            is DebugBoundsElement -> DebugBounds.draw(canvas, rect, element.colour, element.label)
             else -> Unit
         }
     }

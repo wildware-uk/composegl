@@ -365,6 +365,27 @@ Both degrade honestly on a backend that cannot do them: the picture is drawn upr
 and the glow is drawn as ordinary paint. Ask `canvas.rotatesImages` and
 `canvas.supports(BlendMode.Additive)` first if you would rather draw something else.
 
+**Seeing where a widget went**
+
+```kotlin
+Panel(Modifier.debugBounds())                           // a magenta box round it
+Panel(Modifier.debugBounds(Colour.Red, label = true))   // …with its size, 120x40, in the corner
+```
+
+What to write instead of a temporary `border` you then have to remember to take
+off. It draws an outline and a faint wash over the widget and its children, and
+changes nothing else: not the size, not the padding, not the clicks — a click goes
+straight through it. It is a data class, so a screen that recomposes with the same
+box on it stays still.
+
+It paints where it sits in the chain, like a border. First, which is where a
+widget's own `modifier` puts it, boxes the whole widget; after a `padding` it boxes
+what the padding left. A widget laid out with no width shows as a line, which is
+often the answer. The label's digits are drawn with rectangles, so they need no
+font and look the same on every backend.
+
+![a panel, its padding, a button and a zero-width box, each outlined with its size](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-debug-bounds.png)
+
 **A note on colours.** `Colour.rgb(0x…)` and `Colour.argb(0x…)` are how you write
 one. There are also about a dozen named ones — `Colour.Red`, `Colour.Grey`,
 `Colour.Orange` — for a debug box, an example, or a prototype nobody has skinned

@@ -67,6 +67,7 @@ import dev.wildware.composegl.ui.modifier.draggable
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.tint
+import dev.wildware.composegl.ui.modifier.debugBounds
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -958,6 +959,24 @@ private fun MutableList<DocShot>.modifiers() {
                     Tile("rounded") { Modifier.border(Accent, width = 2f, corner = 10f, style = BorderStyle.Dashed(on = 6f, off = 4f)) }
                     Tile("dotted") { Modifier.border(Accent, width = 2f, corner = 8f, style = BorderStyle.Dotted) }
                     Tile("left only") { Modifier.background(Steel).border(left = BorderSide(4f, Accent)) }
+                }
+            }
+        }
+    })
+
+    add(DocShot("modifier-debug-bounds", 420, 150) {
+        Frame {
+            // The same padded panel with a button in it, boxed at three depths, so the picture shows
+            // the panel, what its padding left, and the button — and that none of them moved.
+            Column(
+                Modifier.debugBounds(label = true).background(Ink, corner = 6f)
+                    .padding(18f).debugBounds(Colour.Yellow),
+                verticalArrangement = Arrangement.spacedBy(10f),
+            ) {
+                Text("SETTINGS", style = "label.dim")
+                Row(horizontalArrangement = Arrangement.spacedBy(12f)) {
+                    Button("APPLY", onClick = {}, modifier = Modifier.debugBounds(Colour.Cyan, label = true))
+                    Box(Modifier.size(0f, 36f).debugBounds(Colour.Orange, label = true)) {}
                 }
             }
         }
