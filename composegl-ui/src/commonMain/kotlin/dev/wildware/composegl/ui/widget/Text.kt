@@ -17,6 +17,13 @@ import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
 import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
+import dev.wildware.composegl.ui.layout.LayoutDirection
+import dev.wildware.composegl.ui.layout.LocalLayoutDirection
+import dev.wildware.composegl.ui.layout.absolute
+import dev.wildware.composegl.ui.text.FontMetrics
+import dev.wildware.composegl.ui.text.readsLeftToRight
+import dev.wildware.composegl.ui.text.visualText
+import kotlin.math.min
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
@@ -152,8 +159,12 @@ fun Text(
     anchor: TextAnchor,
 ) {
     // A selection has to know where every character is, and only the overload that breaks its own
-    // lines does. So a label inside a SelectionContainer is that one, with nothing styled.
-    if (LocalSelection.current != null) {
+    // lines does. So a label inside a SelectionContainer is that one, with nothing styled. So is a
+    // label that would not read correctly handed to the backend whole — Hebrew, Arabic, or digits in
+    // a right-to-left screen — because the backend draws every string left to right as it is stored.
+    val direction = LocalLayoutDirection.current
+    val inOrder = remember(text, direction) { text.readsLeftToRight(direction) }
+    if (LocalSelection.current != null || !inOrder) {
         Text(text, modifier, style, textStyle, colour, align, softWrap, maxLines, ellipsis, outline, anchor, runs = emptyList())
         return
     }
@@ -238,7 +249,7 @@ private class TextPainter(
         measuredFor = room
 
         val width = constraints.constrainWidth(block.size.width)
-        shift = when (align) {
+        shift = when (align.absolute(layoutDirection)) {
             HorizontalAlignment.Start -> 0f
             HorizontalAlignment.Centre -> (width - block.size.width) / 2f
             HorizontalAlignment.End -> width - block.size.width
@@ -607,6 +618,7 @@ private class RunPainter(
 
     private var measured: Paragraph? = null
     private var measuredFor = Float.NaN
+    private var measuredIn = LayoutDirection.Ltr
     private var shift = 0f
 
     override fun MeasureScope.measure(
@@ -614,8 +626,15 @@ private class RunPainter(
         constraints: Constraints,
     ): MeasureResult {
         val room = if (softWrap) constraints.maxWidth else Float.POSITIVE_INFINITY
+        val direction = layoutDirection
         val kept = measured
-        val block = if (kept != null && room == measuredFor) kept else fonts.paragraph(text, style, room, align)
+        val block = if (kept != null && room == measuredFor && direction == measuredIn) kept else {
+            // A digit read in the other direction is drawn in the other order, so pieces measured for
+            // the old direction are not the pieces this one draws.
+            if (direction != measuredIn) pieces.clear()
+            fonts.paragraph(text, style, room, align, direction)
+        }
+        measuredIn = direction
         return placed(block, room, constraints)
     }
 
@@ -639,7 +658,7 @@ private class RunPainter(
 
         val width = constraints.constrainWidth(block.size.width)
         // The block inside the node; the lines inside the block are already placed by `align`.
-        shift = when (align) {
+        shift = when (align.absolute(layoutDirection)) {
             HorizontalAlignment.Start -> 0f
             HorizontalAlignment.Centre -> (width - block.size.width) / 2f
             HorizontalAlignment.End -> width - block.size.width
@@ -752,22 +771,35 @@ private class RunPainter(
             for (index in lines.indices) {
                 val line = lines[index]
                 val top = bounds.top + line.top
+                val baseline = bounds.top + line.baseline
                 val left = bounds.left + shift + line.left
-                var at = line.range.min
+                val geometry = block.geometryOf(index)
                 var x = 0f
-                while (at < line.range.max) {
-                    val end = boundaryAfter(at, line.range.max)
-                    val piece = pieceOf(at, end)
-                    val tint = colourAt(at) ?: colour
-                    textRun(piece, left + x, top, tint, outline)
-                    val decoration = decorationAt(at)
-                    if (decoration != TextDecoration.None) {
-                        val thickness = decoration.thicknessFor(metrics)
-                        val y = bounds.top + line.baseline + decoration.offsetFrom(metrics)
-                        rect(Rect(left + x, y, left + x + piece.size.width, y + thickness), tint)
+                if (geometry == null) {
+                    var at = line.range.min
+                    while (at < line.range.max) {
+                        val end = boundaryAfter(at, line.range.max)
+                        val piece = pieceOf(at, end)
+                        drawPiece(piece, at, left + x, top, baseline, metrics)
+                        x += piece.size.width
+                        at = end
                     }
-                    x += piece.size.width
-                    at = end
+                } else {
+                    // Run by run, left to right as they are drawn, and inside each run piece by piece
+                    // at the run edges. A piece of a run read from the right starts where its last
+                    // character is, which is the smaller of its two ends.
+                    for (run in geometry.runs.indices) {
+                        val on = geometry.runs[run]
+                        var at = on.range.min
+                        while (at < on.range.max) {
+                            val end = boundaryAfter(at, on.range.max)
+                            val pieceLeft = min(geometry.xIn(run, at), geometry.xIn(run, end))
+                            drawPiece(pieceOf(at, end, on.rightToLeft), at, left + pieceLeft, top, baseline, metrics)
+                            at = end
+                        }
+                    }
+                    // A line read from the right ends on the left, and that is where it is cut off.
+                    x = if (block.isRightToLeft(index)) 0f else geometry.right
                 }
                 // The ellipsis belongs to the label rather than to whatever run happened to be cut
                 // in half by the limit, so it is drawn in the label's own colour and undecorated.
@@ -778,6 +810,18 @@ private class RunPainter(
         }
     }
 
+    /** One piece of one run, in its run's colour, with its run's line under or through it. */
+    private fun UiCanvas.drawPiece(piece: TextLayout, at: Int, x: Float, top: Float, baseline: Float, metrics: FontMetrics) {
+        val tint = colourAt(at) ?: colour
+        textRun(piece, x, top, tint, outline)
+        val decoration = decorationAt(at)
+        if (decoration != TextDecoration.None) {
+            val thickness = decoration.thicknessFor(metrics)
+            val y = baseline + decoration.offsetFrom(metrics)
+            rect(Rect(x, y, x + piece.size.width, y + thickness), tint)
+        }
+    }
+
     /** The next place the drawing has to stop, which is the next run edge or the end of the line. */
     private fun boundaryAfter(at: Int, limit: Int): Int {
         for (boundary in boundaries) if (boundary > at) return minOf(boundary, limit)
@@ -785,13 +829,14 @@ private class RunPainter(
     }
 
     /**
-     * One piece of the text, measured once and kept.
+     * One piece of the text, measured once and kept, in the order it is drawn.
      *
-     * `-1, -1` is the ellipsis, which is the one piece that is not a stretch of the text.
+     * `-1, -1` is the ellipsis, which is the one piece that is not a stretch of the text. A piece of
+     * a right-to-left run is handed to the backend reversed, since the backend draws left to right.
      */
-    private fun pieceOf(from: Int, to: Int): TextLayout =
+    private fun pieceOf(from: Int, to: Int, rightToLeft: Boolean = false): TextLayout =
         pieces.getOrPut(from.toLong() shl 32 or (to.toLong() and 0xFFFFFFFFL)) {
-            fonts.measure(if (from < 0) style.ellipsis else text.substring(from, to), flat)
+            fonts.measure(if (from < 0) style.ellipsis else visualText(text, from, to, rightToLeft), flat)
         }
 
     private fun colourAt(index: Int): Colour? {

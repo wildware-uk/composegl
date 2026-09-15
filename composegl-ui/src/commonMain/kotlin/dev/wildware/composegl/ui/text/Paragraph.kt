@@ -4,6 +4,8 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
+import dev.wildware.composegl.ui.layout.LayoutDirection
+import dev.wildware.composegl.ui.layout.absolute
 import kotlin.math.abs
 
 /**
@@ -51,6 +53,11 @@ data class TextLine(
  *
  * Everything here is measured from the paragraph's own top-left corner. Where the paragraph itself
  * is on the screen is the caller's business.
+ *
+ * Text that mixes directions — a Hebrew name in an English sentence, a number in Arabic — is laid
+ * out in the order it is read: each line is [runsOf] one direction or the other, and every position
+ * asked about here is where that character is *drawn*, not where it is stored. A right-to-left run's
+ * width is measured the same way round as any other, so the no-kerning bargain above covers it too.
  */
 class Paragraph internal constructor(
     val text: String,
@@ -60,6 +67,11 @@ class Paragraph internal constructor(
     val lines: List<TextLine>,
     val size: Size,
     private val fonts: FontProvider,
+    /**
+     * The direction of the screen this was laid out for. It decides which side a `Start` line sits
+     * on, and which way a paragraph with no letters in it — a line of digits — reads.
+     */
+    val direction: LayoutDirection,
 ) {
 
     /**
@@ -73,6 +85,46 @@ class Paragraph internal constructor(
 
     private val layouts = HashMap<Int, TextLayout>()
     private val widths = HashMap<Long, Float>()
+
+    /** Which way each character reads, worked out the first time anybody asks. */
+    private val bidi by lazy { BidiText(text, direction) }
+    private val geometries = arrayOfNulls<BidiLine>(lines.size)
+    private val spanWidths = HashMap<Long, Float>()
+    private val ellipsisWidth by lazy { if (style.ellipsis.isEmpty()) 0f else fonts.measure(style.ellipsis, flat).size.width }
+
+    /**
+     * Line [line]'s stretches of one direction, in the order they are drawn from the left.
+     *
+     * One run for a line of English. Three for `Press שלום to start`, the middle one right to left.
+     */
+    fun runsOf(line: Int): List<BidiRun> =
+        geometryOf(line)?.runs ?: listOf(BidiRun(lines[line].range, rightToLeft = false))
+
+    /** Whether the paragraph line [line] belongs to reads from the right, so ends on the left. */
+    fun isRightToLeft(line: Int): Boolean = bidi.isRightToLeftAt(lines[line].range.min)
+
+    /** The characters of [run] in the order they are drawn: reversed, for one that reads from the right. */
+    fun textOf(run: BidiRun): String = visualText(text, run.range.min, run.range.max, run.rightToLeft)
+
+    /**
+     * Where each run of line [line] is, or null for a line that is simply its characters in order —
+     * which is every line of a paragraph with nothing right-to-left in it, and costs nothing to ask.
+     */
+    internal fun geometryOf(line: Int): BidiLine? {
+        if (bidi.allLeftToRight) return null
+        return geometries[line] ?: run {
+            val on = lines[line]
+            // A cut-off right-to-left line ends on the left, so its ellipsis is drawn there and the
+            // words start after it.
+            val lead = if (on.ellipsised && isRightToLeft(line)) ellipsisWidth else 0f
+            BidiLine(bidi.runs(on.range.min, on.range.max), lead) { from, to -> spanWidth(from, to) }
+                .also { geometries[line] = it }
+        }
+    }
+
+    private fun spanWidth(from: Int, to: Int): Float = spanWidths.getOrPut(from.toLong() shl 32 or to.toLong()) {
+        fonts.measure(text.substring(from, to), flat).size.width
+    }
 
     /** Distance from the top down to the first line's baseline. */
     val firstBaseline: Float get() = lines.firstOrNull()?.baseline ?: metrics.ascent
@@ -97,11 +149,17 @@ class Paragraph internal constructor(
         result
     }
 
-    /** Line [line], measured and ready to draw, ellipsis and all. */
+    /** Line [line], measured and ready to draw, ellipsis and all, in the order it is drawn. */
     fun layoutOf(line: Int): TextLayout = layouts.getOrPut(line) {
         val on = lines[line]
-        val body = text.substring(on.range.min, on.range.max)
-        fonts.measure(if (on.ellipsised) body + style.ellipsis else body, flat)
+        val geometry = geometryOf(line)
+        val body = geometry?.runs?.joinToString("") { textOf(it) } ?: text.substring(on.range.min, on.range.max)
+        val shown = when {
+            !on.ellipsised -> body
+            geometry != null && isRightToLeft(line) -> style.ellipsis + body
+            else -> body + style.ellipsis
+        }
+        fonts.measure(shown, flat)
     }
 
     /** Which line character [index] is on. A position at a break belongs to the line before it. */
@@ -170,12 +228,21 @@ class Paragraph internal constructor(
             if (end < start) continue
             // An empty slice of a line is nothing — but a caret is empty on purpose and is one box.
             if (end == start && from != to) continue
-            result += Rect(
-                left = line.left + xIn(index, start),
-                top = line.top,
-                right = line.left + xIn(index, end),
-                bottom = line.top + lineHeight,
-            )
+            val geometry = geometryOf(index)
+            if (geometry == null || end == start) {
+                result += Rect(
+                    left = line.left + xIn(index, start),
+                    top = line.top,
+                    right = line.left + xIn(index, end),
+                    bottom = line.top + lineHeight,
+                )
+            } else {
+                // One box per run the range touches: across a Hebrew word and the English beside it,
+                // the selected part of each is where that part is drawn.
+                geometry.spans(start, end) { left, right ->
+                    result += Rect(line.left + left, line.top, line.left + right, line.top + lineHeight)
+                }
+            }
             if (to <= line.range.max) break
         }
         return result
@@ -186,6 +253,7 @@ class Paragraph internal constructor(
         if (lines.isEmpty()) return 0f
         val on = lines[line]
         val at = index.coerceIn(on.range.min, on.range.max)
+        geometryOf(line)?.let { return it.x(at) }
         if (at <= on.range.min) return 0f
         if (at >= on.range.max) return on.width
         return widths.getOrPut(line.toLong() shl 32 or at.toLong()) {
@@ -215,6 +283,24 @@ fun FontProvider.paragraph(
     style: TextStyle = TextStyle.Default,
     maxWidth: Float = Float.POSITIVE_INFINITY,
     align: HorizontalAlignment = HorizontalAlignment.Start,
+): Paragraph = paragraph(text, style, maxWidth, align, LayoutDirection.Ltr)
+
+/**
+ * The same, for a screen that reads in [direction].
+ *
+ * `Start` and `End` in [align] are the sides [direction] puts them on, so a `Start` paragraph in a
+ * right-to-left screen has its lines against the right. Each paragraph still reads the way its own
+ * first letter does — an English sentence in an Arabic screen reads left to right — and only one
+ * with no letters at all, a line of digits, takes [direction] as its own.
+ */
+// An overload rather than a fifth defaulted parameter, for the reason the Text overloads record: a
+// defaulted parameter added to a published function changes its signature.
+fun FontProvider.paragraph(
+    text: String,
+    style: TextStyle = TextStyle.Default,
+    maxWidth: Float = Float.POSITIVE_INFINITY,
+    align: HorizontalAlignment = HorizontalAlignment.Start,
+    direction: LayoutDirection,
 ): Paragraph {
     val flat = style.copy(maxLines = 0)
     val ranges = ArrayList<TextRange>()
@@ -252,11 +338,12 @@ fun FontProvider.paragraph(
     // The first baseline sits an ascent down, and every line after it a line height further. The
     // block is as tall as its lines, not as tall as its glyphs, so two paragraphs in a column sit
     // the same distance apart whether or not either has a descender on its last line.
+    val side = align.absolute(direction)
     val lines = kept.mapIndexed { index, range ->
         val width = widths[index]
         TextLine(
             range = range,
-            left = when (align) {
+            left = when (side) {
                 HorizontalAlignment.Start -> 0f
                 HorizontalAlignment.Centre -> (blockWidth - width) / 2f
                 HorizontalAlignment.End -> blockWidth - width
@@ -267,7 +354,7 @@ fun FontProvider.paragraph(
             ellipsised = index == ellipsisOn,
         )
     }
-    return Paragraph(text, style, metrics, lines, Size(blockWidth, lines.size * lineHeight), this)
+    return Paragraph(text, style, metrics, lines, Size(blockWidth, lines.size * lineHeight), this, direction)
 }
 
 /**

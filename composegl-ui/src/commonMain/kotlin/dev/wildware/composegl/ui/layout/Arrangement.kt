@@ -33,7 +33,10 @@ fun interface Arrangement {
 
     companion object {
 
-        /** Packed against the beginning. The left of a row, the top of a column. */
+        /**
+         * Packed against the beginning. The left of a row — the right, in a right-to-left screen —
+         * and the top of a column.
+         */
         val Start: Arrangement = Arrangement { _, sizes, count, into ->
             runningFrom(0f, 0f, sizes, count, into)
         }

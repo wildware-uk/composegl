@@ -14,6 +14,8 @@ import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.input.KeyEventType
 import dev.wildware.composegl.ui.input.KeyHandler
 import dev.wildware.composegl.ui.layout.Box
+import dev.wildware.composegl.ui.layout.LayoutDirection
+import dev.wildware.composegl.ui.layout.LocalLayoutDirection
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.onKeyEvent
 import dev.wildware.composegl.ui.skin.LocalSkin
@@ -84,7 +86,13 @@ class SelectionState {
     }
 
     /** The keys a selection answers to. Null for any it has no use for, which carry on outwards. */
-    internal fun onKey(key: Key, shift: Boolean, primary: Boolean, clipboard: Clipboard): Boolean {
+    internal fun onKey(
+        key: Key,
+        shift: Boolean,
+        primary: Boolean,
+        clipboard: Clipboard,
+        direction: LayoutDirection = LayoutDirection.Ltr,
+    ): Boolean {
         val holder = owner ?: return false
         val value = held
         return when {
@@ -107,7 +115,7 @@ class SelectionState {
                     Key.End -> if (primary) Movement.TextEnd else Movement.LineEnd
                     else -> return false
                 }
-                select(holder, value.move(movement, extend = true))
+                select(holder, value.move(movement, extend = true, direction = direction))
                 true
             }
             else -> false
@@ -172,11 +180,12 @@ fun SelectionContainer(
 
     // On the container rather than on each label, because a key starts at the focused label and walks
     // outwards through here — and there is one selection, so there is one thing to copy.
-    val keys = remember(state, clipboard) {
+    val direction = LocalLayoutDirection.current
+    val keys = remember(state, clipboard, direction) {
         KeyHandler { event ->
             state.shiftHeld = event.modifiers.shift
             event.type == KeyEventType.Down &&
-                state.onKey(event.key, event.modifiers.shift, event.modifiers.isPrimary, clipboard)
+                state.onKey(event.key, event.modifiers.shift, event.modifiers.isPrimary, clipboard, direction)
         }
     }
 

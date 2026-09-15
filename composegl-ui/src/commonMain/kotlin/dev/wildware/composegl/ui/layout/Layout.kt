@@ -40,11 +40,13 @@ fun Layout(
     measurePolicy: MeasurePolicy,
 ) {
     val sounds = LocalUiSounds.current
+    val direction = LocalLayoutDirection.current
     ComposeNode<UiNode, UiApplier>(
         factory = { UiNode() },
         update = {
             set(name) { this.name = it }
             set(sounds) { this.sounds = it }
+            set(direction) { this.layoutDirection = it }
             set(modifier) { this.modifier = it }
             set(measurePolicy) { this.measurePolicy = it }
             set(draw) { this.content = it }
@@ -94,11 +96,13 @@ fun LeafLayout(
     ink: ((Rect) -> Rect?)?,
 ) {
     val sounds = LocalUiSounds.current
+    val direction = LocalLayoutDirection.current
     ComposeNode<UiNode, UiApplier>(
         factory = { UiNode() },
         update = {
             set(name) { this.name = it }
             set(sounds) { this.sounds = it }
+            set(direction) { this.layoutDirection = it }
             set(modifier) { this.modifier = it }
             set(measurePolicy) { this.measurePolicy = it }
             set(draw) { this.content = it }

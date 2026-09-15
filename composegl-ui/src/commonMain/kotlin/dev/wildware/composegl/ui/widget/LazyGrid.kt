@@ -10,6 +10,8 @@ import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.GridCells
 import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
 import dev.wildware.composegl.ui.layout.Layout
+import dev.wildware.composegl.ui.layout.LayoutDirection
+import dev.wildware.composegl.ui.layout.LocalLayoutDirection
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
@@ -202,13 +204,16 @@ private fun LazyGrid(
     val gestures = remember { ScrollGestures() }
     gestures.horizontal = if (vertical) null else state.axis
     gestures.vertical = if (vertical) state.axis else null
+    // A sideways grid in a right-to-left screen starts on the right and scrolls towards the left.
+    val mirrored = !vertical && LocalLayoutDirection.current == LayoutDirection.Rtl
+    gestures.mirrored = mirrored
 
     val drag = remember(gestures) { PointerHandler { gestures.onPointer(it) } }
     val reveal = remember(gestures) { RevealHandler { gestures.reveal(it) } }
     // The same as a lazy list: a cell that slides is measured with the scroll taken out.
-    val frame = remember(state, vertical) {
+    val frame = remember(state, vertical, mirrored) {
         object : PlacementFrame {
-            override val scrolledX: Float get() = if (vertical) 0f else state.position
+            override val scrolledX: Float get() = if (vertical) 0f else if (mirrored) -state.position else state.position
             override val scrolledY: Float get() = if (vertical) state.position else 0f
         }
     }
@@ -331,6 +336,9 @@ private class LazyGridPolicy(
             null
         }
 
+        // Worked out from the left and turned round at the end, as the other layouts do: a vertical
+        // grid's first column goes on the right, and a sideways grid's first row of cells too.
+        val rightToLeft = layoutDirection == LayoutDirection.Rtl
         return layout(width, height) {
             // Where each line starts, walked forward from the first rather than summed from the top
             // for every cell.
@@ -343,7 +351,9 @@ private class LazyGridPolicy(
                     line++
                 }
                 val sideways = (index % perLine) * (cell + across)
-                if (vertical) placeable.at(sideways, start) else placeable.at(start, sideways)
+                val x = if (vertical) sideways else start
+                val y = if (vertical) start else sideways
+                placeable.at(if (rightToLeft) width - x - placeable.width else x, y)
             }
             if (vertical) bar?.at(width - thickness, 0f) else bar?.at(0f, height - thickness)
         }

@@ -170,6 +170,10 @@ import dev.wildware.composegl.ui.widget.VirtualCursor
 import dev.wildware.composegl.ui.layout.Baseline
 import dev.wildware.composegl.ui.modifier.paddingFrom
 import dev.wildware.composegl.ui.text.TextStyle
+import dev.wildware.composegl.ui.text.Locale
+import dev.wildware.composegl.ui.text.ProvideLocale
+import dev.wildware.composegl.ui.text.Strings
+import dev.wildware.composegl.ui.text.stringOf
 import dev.wildware.composegl.ui.widget.rememberScrollState
 import dev.wildware.composegl.ui.widget.dragSource
 import dev.wildware.composegl.ui.widget.dropTarget
@@ -665,6 +669,50 @@ private fun MutableList<DocShot>.widgets() {
                 Column(verticalArrangement = Arrangement.spacedBy(8f)) {
                     Text("Seed: 8F3A-22C1")
                     Text("Drag to select, Ctrl+C to copy.", style = "label.dim")
+                }
+            }
+        }
+    })
+
+    // One options panel from one set of strings, twice: in English, and in Hebrew, which mirrors it.
+    // The last line is a Hebrew sentence with an English name in it, drawn in reading order.
+    add(DocShot("localisation-rtl", 600, 200) {
+        val strings = remember {
+            Strings(
+                mapOf(
+                    Locale.English to mapOf(
+                        "title" to "OPTIONS",
+                        "music" to "Music",
+                        "name" to "Name",
+                        "welcome" to "Welcome back, Ada!",
+                    ),
+                    Locale("he") to mapOf(
+                        "title" to "אפשרויות",
+                        "music" to "מוזיקה",
+                        "name" to "שם",
+                        "welcome" to "ברוך שובך, Ada!",
+                    ),
+                ),
+            )
+        }
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(48f)) {
+                for (language in listOf(Locale.English, Locale("he"))) {
+                    ProvideLocale(language, strings) {
+                        Column(Modifier.width(240f), verticalArrangement = Arrangement.spacedBy(10f)) {
+                            Text(stringOf("title"), style = "label")
+                            Checkbox(true, onCheckedChange = {}, label = stringOf("music"))
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10f),
+                                verticalAlignment = VerticalAlignment.Centre,
+                            ) {
+                                Text(stringOf("name"))
+                                TextField(if (language == Locale.English) "Ada" else "עדה", onValueChange = {}, modifier = Modifier.weight(1f))
+                            }
+                            Text(stringOf("welcome"), style = "label.dim")
+                        }
+                    }
                 }
             }
         }

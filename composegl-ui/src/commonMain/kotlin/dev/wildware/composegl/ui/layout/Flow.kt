@@ -120,6 +120,9 @@ internal data class FlowPolicy(
             lineTop += lineCross + crossSpacing
             start = end
         }
+        // A flow row in a right-to-left screen fills from the right, and a flow column's first
+        // column is the one on the right.
+        mirrorPlacements(width, count)
 
         return layout(width, height, count)
     }

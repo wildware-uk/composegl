@@ -259,7 +259,10 @@ class ResolvedModifier private constructor(
 
         val None = Modifier.resolve()
 
-        internal fun of(modifier: Modifier): ResolvedModifier {
+        internal fun of(
+            modifier: Modifier,
+            direction: dev.wildware.composegl.ui.layout.LayoutDirection = dev.wildware.composegl.ui.layout.LayoutDirection.Ltr,
+        ): ResolvedModifier {
             var size: SizeElement? = null
             var fill: FillElement? = null
             var aspectRatio: AspectRatioElement? = null
@@ -349,6 +352,14 @@ class ResolvedModifier private constructor(
                         element.height ?: intrinsicSize?.height,
                     )
                     is PaddingElement -> padding += element.padding
+                    // Turned into a left and a right here, which is why a node whose direction
+                    // changes resolves its chain again.
+                    is RelativePaddingElement -> padding +=
+                        if (direction == dev.wildware.composegl.ui.layout.LayoutDirection.Ltr) {
+                            Padding(element.start, element.top, element.end, element.bottom)
+                        } else {
+                            Padding(element.end, element.top, element.start, element.bottom)
+                        }
                     // Kept, not folded: each one is measured from a line that is not known until
                     // layout, and the room one adds is the most any of them asks for, not a sum.
                     is BaselinePaddingElement -> baselinePadding += element
@@ -515,3 +526,7 @@ private fun SizeInElement?.then(later: SizeInElement): SizeInElement {
 
 /** Reads the chain into the answers layout and drawing want. */
 fun Modifier.resolve(): ResolvedModifier = ResolvedModifier.of(this)
+
+/** The same, for a node laid out in [direction], which decides the sides `paddingRelative` names. */
+fun Modifier.resolve(direction: dev.wildware.composegl.ui.layout.LayoutDirection): ResolvedModifier =
+    ResolvedModifier.of(this, direction)

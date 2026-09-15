@@ -15,7 +15,9 @@ import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
+import dev.wildware.composegl.ui.layout.LayoutDirection
 import dev.wildware.composegl.ui.layout.LeafLayout
+import dev.wildware.composegl.ui.layout.LocalLayoutDirection
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
@@ -161,6 +163,12 @@ internal class ScrollGestures {
     var horizontal: ScrollAxis? = null
     var vertical: ScrollAxis? = null
 
+    /**
+     * Whether the sideways axis starts on the right, as it does in a right-to-left screen. Scrolled
+     * along then reveals what is to the left, so a drag, the wheel and a reveal all turn round.
+     */
+    var mirrored = false
+
     private var dragging = false
     private var lastAt = Offset.Zero
     private var lastTime = 0L
@@ -187,7 +195,7 @@ internal class ScrollGestures {
                 track(moved, event.timeMillis)
                 lastAt = event.position
                 // Dragged left means scrolled right: the contents follow the finger.
-                horizontal?.scrollBy(-moved.x)
+                horizontal?.scrollBy(if (mirrored) moved.x else -moved.x)
                 vertical?.scrollBy(-moved.y)
                 true
             }
@@ -195,7 +203,7 @@ internal class ScrollGestures {
 
         is PointerEvent.Release -> {
             if (dragging) {
-                horizontal?.fling(speedX)
+                horizontal?.fling(if (mirrored) -speedX else speedX)
                 vertical?.fling(speedY)
             }
             dragging = false
@@ -210,7 +218,8 @@ internal class ScrollGestures {
         }
 
         is PointerEvent.Scroll -> {
-            val moved = horizontal?.scrollBy(event.delta.x * WheelStep) == true
+            val sideways = if (mirrored) -event.delta.x else event.delta.x
+            val moved = horizontal?.scrollBy(sideways * WheelStep) == true
             vertical?.scrollBy(event.delta.y * WheelStep) == true || moved
         }
 
@@ -244,7 +253,12 @@ internal class ScrollGestures {
     fun reveal(area: Rect): Boolean {
         val across = horizontal
         val down = vertical
-        val dx = if (across == null) 0f else shift(area.left, area.right, across.visible)
+        // Measured from the right in a mirrored area, which is where scrolling starts from there.
+        val dx = when {
+            across == null -> 0f
+            mirrored -> shift(across.visible - area.right, across.visible - area.left, across.visible)
+            else -> shift(area.left, area.right, across.visible)
+        }
         val dy = if (down == null) 0f else shift(area.top, area.bottom, down.visible)
         if (dx == 0f && dy == 0f) return false
         across?.scrollTo(across.position + dx)
@@ -308,6 +322,7 @@ internal fun ScrollBar(axis: ScrollAxis, vertical: Boolean, style: String, gestu
     val thumb = rememberStyle("$style.thumb", states)
 
     val bar = remember(axis, vertical) { ScrollBarLogic(axis, vertical, gestures) }
+    bar.mirrored = !vertical && LocalLayoutDirection.current == LayoutDirection.Rtl
     val pointer = remember(bar) { PointerHandler { bar.onPointer(it) } }
     val painter = remember(bar, track, thumb) { BarPainter(bar, track, thumb) }
 
@@ -333,6 +348,9 @@ internal class ScrollBarLogic(
 ) : MeasurePolicy {
 
     private var length = 0f
+
+    /** Whether the thumb starts at the right, for a sideways bar in a right-to-left screen. */
+    var mirrored = false
 
     override fun MeasureScope.measure(
         measurables: List<Measurable>,
@@ -364,7 +382,8 @@ internal class ScrollBarLogic(
     val thumbStart: Float
         get() {
             val travel = length - thumbLength
-            return if (axis.maximum <= 0f || travel <= 0f) 0f else axis.position / axis.maximum * travel
+            val along = if (axis.maximum <= 0f || travel <= 0f) 0f else axis.position / axis.maximum * travel
+            return if (mirrored) (travel - along).coerceAtLeast(0f) else along
         }
 
     private var grabbed = false
@@ -414,7 +433,8 @@ internal class ScrollBarLogic(
     private fun moveTo(along: Float) {
         val travel = length - thumbLength
         if (travel <= 0f) return
-        axis.scrollTo(((along - grabAt) / travel).coerceIn(0f, 1f) * axis.maximum)
+        val fraction = ((along - grabAt) / travel).coerceIn(0f, 1f)
+        axis.scrollTo((if (mirrored) 1f - fraction else fraction) * axis.maximum)
     }
 
     private companion object {

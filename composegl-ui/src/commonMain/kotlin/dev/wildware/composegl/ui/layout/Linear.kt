@@ -116,6 +116,9 @@ internal data class LinearPolicy(
                 placements[index * 2 + 1] = positions[index]
             }
         }
+        // Worked out left to right above, and turned round here in one place for a right-to-left
+        // screen: the first child of a row on the right, a column's Start children against it.
+        mirrorPlacements(width, count)
 
         return layout(width, height, count)
     }
@@ -240,7 +243,7 @@ internal data class LinearPolicy(
 }
 
 /**
- * Children in a line, left to right.
+ * Children in a line, from the start: left to right, or right to left in a right-to-left screen.
  *
  * ```kotlin
  * Row(horizontalArrangement = Arrangement.spacedBy(8f)) {

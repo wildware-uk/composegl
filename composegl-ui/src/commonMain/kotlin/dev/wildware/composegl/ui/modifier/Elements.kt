@@ -75,6 +75,14 @@ data class IntrinsicSizeElement(
 
 data class PaddingElement(val padding: Padding) : Modifier.Element
 
+/** Padding at the start and end of a line rather than at the left and right; see [paddingRelative]. */
+data class RelativePaddingElement(
+    val start: Float = 0f,
+    val top: Float = 0f,
+    val end: Float = 0f,
+    val bottom: Float = 0f,
+) : Modifier.Element
+
 /** Room measured from a line of text; see [paddingFrom]. */
 data class BaselinePaddingElement(
     val baseline: Baseline,
@@ -675,6 +683,16 @@ fun Modifier.padding(horizontal: Float = 0f, vertical: Float = 0f) =
 
 fun Modifier.padding(left: Float = 0f, top: Float = 0f, right: Float = 0f, bottom: Float = 0f) =
     then(PaddingElement(Padding(left, top, right, bottom)))
+
+/**
+ * Padding named by where a line starts and ends rather than by left and right.
+ *
+ * The same as `padding(left = start, right = end)` in a left-to-right screen, and the mirror of it
+ * in a right-to-left one: an icon's gap before its label stays between the icon and the label
+ * whichever side the icon is on. Adds to any other padding on the node.
+ */
+fun Modifier.paddingRelative(start: Float = 0f, top: Float = 0f, end: Float = 0f, bottom: Float = 0f) =
+    then(RelativePaddingElement(start, top, end, bottom))
 
 fun Modifier.offset(x: Float = 0f, y: Float = 0f) = then(OffsetElement(x, y))
 

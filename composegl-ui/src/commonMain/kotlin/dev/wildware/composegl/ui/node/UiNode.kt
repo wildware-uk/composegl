@@ -103,6 +103,26 @@ class UiNode(var name: String = "node") {
         }
 
     /**
+     * Which way this node reads, taken from [dev.wildware.composegl.ui.layout.LocalLayoutDirection]
+     * where it was composed.
+     *
+     * Its policy asks it, through [dev.wildware.composegl.ui.layout.MeasureScope.layoutDirection],
+     * to know which side `Start` is; and its own `paddingRelative` is turned into a left and a
+     * right by it, which is why changing it resolves the chain again.
+     */
+    var layoutDirection: dev.wildware.composegl.ui.layout.LayoutDirection = dev.wildware.composegl.ui.layout.LayoutDirection.Ltr
+        set(value) {
+            if (field == value) return
+            field = value
+            scope.layoutDirection = value
+            cachedResolution = null
+            // The parent's pile may have a different order now. Asked again next time rather than
+            // worked out here, because a chain changing almost never changes a zIndex.
+            parent?.cachedDrawOrder = null
+            invalidate()
+        }
+
+    /**
      * How this node arranges its children.
      *
      * Defaults to stacking them, so a node that nobody gave a policy to still behaves — the root,
@@ -362,7 +382,7 @@ class UiNode(var name: String = "node") {
 
     /** The chain read into the answers layout and drawing ask, computed once per change. */
     val resolved: ResolvedModifier
-        get() = cachedResolution ?: modifier.resolve().also { cachedResolution = it }
+        get() = cachedResolution ?: modifier.resolve(layoutDirection).also { cachedResolution = it }
 
     // --- filled in by layout, meaningless before the first pass ---
 

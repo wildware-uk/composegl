@@ -122,6 +122,15 @@ interface PlacementScope {
 interface MeasureScope {
 
     /**
+     * Which way the node being measured reads.
+     *
+     * A layout that puts children side by side asks this to know which side is the start: a [Row]
+     * in Arabic puts its first child on the right. A layout that only stacks or centres things has
+     * no reason to look.
+     */
+    val layoutDirection: LayoutDirection get() = LayoutDirection.Ltr
+
+    /**
      * The size this layout has chosen, and what to do once it is settled.
      *
      * @param place runs after every layout in the tree has a size, which is why a parent can

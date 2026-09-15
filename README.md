@@ -102,6 +102,7 @@ You need `composegl-ui` and exactly one backend.
 | [Input](docs/wiki/Input.md) · [Backends](docs/wiki/Backends.md) · [Shaders](docs/wiki/Shaders.md) | mouse, keyboard, gamepad, the cursor's shape; a pad-driven cursor for maps and inventories; UI sounds; long press, double click, hold to repeat; drag and drop between slots, with a pad too; and writing your own |
 | [Split-screen](docs/wiki/Split-screen.md) | local co-op: a viewport and a HUD per player, and each pad, the keyboard and the mouse routed to the right one |
 | [Saving state](docs/wiki/Saving-state.md) | `rememberSaveable`: the tab, the scroll and the half-typed name survive leaving a screen |
+| [Localisation](docs/wiki/Localisation.md) | strings looked up by the player's language with fallbacks and plurals; rows, alignment and padding that mirror for Arabic and Hebrew; Hebrew and English on one line drawn in reading order, with a caret that moves the way the arrows point |
 | [Testing](docs/wiki/Testing.md) | screens tested with no window: tag a widget, then click, type and press pad buttons on it with `uiTest`; and `@Preview` composables drawn to PNGs with `renderPreviews`; print the tree with `dump`; animations paused and stepped a frame at a time |
 | [How it works](docs/how-it-works.md) | the long version: what is built, and why |
 | [Releasing](docs/releasing.md) | how a version gets to Maven Central |

@@ -15,6 +15,8 @@ import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
 import dev.wildware.composegl.ui.layout.Layout
+import dev.wildware.composegl.ui.layout.LayoutDirection
+import dev.wildware.composegl.ui.layout.LocalLayoutDirection
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
@@ -530,16 +532,26 @@ private fun LazyList(
     val gestures = remember { ScrollGestures() }
     gestures.horizontal = if (vertical) null else state.axis
     gestures.vertical = if (vertical) state.axis else null
+    // A row in a right-to-left screen starts on the right and scrolls towards the left.
+    val mirrored = !vertical && LocalLayoutDirection.current == LayoutDirection.Rtl
+    gestures.mirrored = mirrored
 
     val drag = remember(gestures) { PointerHandler { gestures.onPointer(it) } }
-    val reveal = remember(gestures, state, vertical) {
-        RevealHandler { gestures.reveal(state.clearOfHeader(it, vertical)) }
+    val reveal = remember(gestures, state, vertical, mirrored) {
+        RevealHandler { area ->
+            // The header is pinned against the start, so the area is turned round to be measured
+            // from there before it is cleared of it.
+            val visible = state.axis.visible
+            val fromStart = if (mirrored) area.copy(left = visible - area.right, right = visible - area.left) else area
+            val clear = state.clearOfHeader(fromStart, vertical)
+            gestures.reveal(if (mirrored) clear.copy(left = visible - clear.right, right = visible - clear.left) else clear)
+        }
     }
     // An item that slides is measured against the list with the scroll taken out, so scrolling is
     // not every row moving.
-    val frame = remember(state, vertical) {
+    val frame = remember(state, vertical, mirrored) {
         object : PlacementFrame {
-            override val scrolledX: Float get() = if (vertical) 0f else state.position
+            override val scrolledX: Float get() = if (vertical) 0f else if (mirrored) -state.position else state.position
             override val scrolledY: Float get() = if (vertical) state.position else 0f
         }
     }
@@ -682,9 +694,14 @@ private class LazyPolicy(
 
         pin(starts, placeables, scrolled)
 
+        val mirrored = !vertical && layoutDirection == LayoutDirection.Rtl
         return layout(width, height) {
             placeables.forEachIndexed { slot, placeable ->
-                if (vertical) placeable.at(0f, starts[slot]) else placeable.at(starts[slot], 0f)
+                when {
+                    vertical -> placeable.at(0f, starts[slot])
+                    mirrored -> placeable.at(width - starts[slot] - placeable.width, 0f)
+                    else -> placeable.at(starts[slot], 0f)
+                }
             }
             if (vertical) bar?.at(width - thickness, 0f) else bar?.at(0f, height - thickness)
         }
