@@ -56,7 +56,7 @@ fun main() {
     // Which page of the status panel a screenshot opens on, since a script cannot click a tab.
     System.getenv("COMPOSEGL_DEMO_TAB")?.toIntOrNull()?.let { state.tab = it }
     val cursor = GlfwSystemCursor(window)
-    val input = DemoInput(state, host.root, cursor)
+    val input = DemoInput(state, host.root, host.clocks, cursor)
     val pointerInput = GlfwPointerInput(
         sink = input,
         viewport = { viewport },

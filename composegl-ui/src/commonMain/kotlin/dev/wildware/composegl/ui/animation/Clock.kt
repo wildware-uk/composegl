@@ -100,10 +100,21 @@ class Clocks {
         val delta = (frameNanos - previous).coerceAtLeast(0L)
         if (delta == 0L) return
 
+        debug.beginFrame()
         elapsed.keys.forEach { clock ->
-            if (clock !in stopped) elapsed[clock] = (elapsed[clock] ?: 0L) + delta
+            // Stopped first: a clock the game has stopped must not spend a developer's step.
+            if (clock !in stopped && debug.moves(clock)) {
+                elapsed[clock] = (elapsed[clock] ?: 0L) + debug.scale(clock, delta)
+            }
         }
     }
+
+    /**
+     * Freezing, stepping and slowing these clocks, for somebody debugging an animation.
+     *
+     * Separate from [stop] and [start], which are the game's. See [ClockDebug].
+     */
+    val debug = ClockDebug()
 
     /**
      * Makes sure [clock] is one of the clocks being advanced.
@@ -125,10 +136,11 @@ class Clocks {
      * What a test harness waits on: a fade whose last few frames change nothing a player can see
      * is still a fade, and looking before it lands reads a value it was only passing through. An
      * animation on a stopped clock is not counted, because it will not arrive until a game starts
-     * that clock again and waiting for it would be waiting forever.
+     * that clock again and waiting for it would be waiting forever. The same goes for a clock frozen
+     * by [debug], unless a step is still waiting to be taken on it.
      */
     val isAnimating: Boolean
-        get() = playing.any { (clock, count) -> count > 0 && clock !in stopped }
+        get() = playing.any { (clock, count) -> count > 0 && clock !in stopped && debug.willMove(clock) }
 
     internal fun began(clock: Clock) {
         playing[clock] = (playing[clock] ?: 0) + 1

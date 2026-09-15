@@ -109,7 +109,7 @@ class Demo : ApplicationAdapter() {
         // The whole of the engine's involvement in input: a translator, pointed at a sink. What
         // the sink does with an event — which node it hit, whether that is a click — is the
         // toolkit's business and has nothing to do with LibGDX.
-        input = DemoInput(state, host.root, GdxSystemCursor())
+        input = DemoInput(state, host.root, host.clocks, GdxSystemCursor())
         scriptedKeys = System.getenv("COMPOSEGL_DEMO_KEYS")?.let { input.keyScript(it) } ?: emptyList()
         pointerInput = GdxPointerInput(input, { viewport })
         keyboardInput = GdxKeyboardInput(input)

@@ -233,6 +233,50 @@ prints the dump, so a failing test already says where everything was.
 
 ---
 
+## Animations a frame at a time
+
+A spring that overshoots for three frames is over before you can see it. Freeze the
+clocks and step them instead:
+
+```kotlin
+host.clocks.debug.pause()            // every animation holds where it is
+host.clocks.debug.step(frames = 1)   // the next frame moves them one frame, then they hold again
+host.clocks.debug.speed = 0.25f      // or run everything at a quarter speed
+host.clocks.debug.resume()
+```
+
+![A bouncy spring stepped frame by frame, every frame left behind](images/clock-debug.png)
+
+Every call takes a clock too, so the world can be stepped while the pause menu over it
+keeps animating: `pause(Clock.World)`, `step(frames = 1, clock = Clock.World)`,
+`setSpeed(Clock.World, 0.5f)`. Paused with no clock means every clock, including ones
+made later.
+
+**It is not the game's pause.** `clocks.stop(Clock.World)` is the game pausing; `debug`
+is you looking. The game starting its world again does not undo a debug pause, and a
+step does not move a clock the game has stopped.
+
+**A step is taken on the next frame**, because an animation only moves when a frame
+arrives. It is as long as that frame, at the clock's speed. Stepping a running clock
+pauses it first. Resuming throws away steps not yet taken.
+
+**On keys**, for a game running in front of you. `ClockDebugKeys` is a key handler: F5
+freezes and lets go, F6 steps (and keeps stepping while held), F7 and F8 halve and
+double the speed between an eighth and real time. Ask it first in your sink:
+
+```kotlin
+val debugKeys = ClockDebugKeys(host.clocks)                  // or ClockDebugKeys(host.clocks, Clock.World)
+override fun onKey(event: KeyEvent) = debugKeys.onKey(event) || router.onKey(event)
+```
+
+The example has them on: run `:composegl-demo:run` and press F5.
+
+**In a test** it is the same calls on `ui.host.clocks`. A frozen clock is not waited for,
+so `settle` does not hang on it, and a step waiting to be taken is, so the next line sees
+the frame it moved. `ClockDebugUiTest` walks a spring's overshoot one F6 at a time.
+
+---
+
 ## One call instead of three
 
 A test that only wants to *read* the tree — what is on the screen, where it is,
