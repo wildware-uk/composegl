@@ -139,6 +139,24 @@ fun AnimatedVisibility(
     initiallyVisible: Boolean = visible,
     clock: Clock = Clock.Ui,
     content: @Composable () -> Unit,
+) = AnimatedPresence(visible, modifier, enter, exit, initiallyVisible, clock, onGone = {}, content)
+
+/**
+ * [AnimatedVisibility], and told when the content has finished leaving.
+ *
+ * [onGone] runs once an exit has played to its end and the content is out of the tree — never when
+ * the exit is cut short by showing it again. It is how [Crossfade] knows when to forget a page.
+ */
+@Composable
+internal fun AnimatedPresence(
+    visible: Boolean,
+    modifier: Modifier,
+    enter: EnterTransition,
+    exit: ExitTransition,
+    initiallyVisible: Boolean,
+    clock: Clock,
+    onGone: () -> Unit,
+    content: @Composable () -> Unit,
 ) {
     val clocks = LocalClocks.current
     val state = remember(clocks, clock) { VisibilityState(initiallyVisible, clocks, clock) }
@@ -147,9 +165,16 @@ fun AnimatedVisibility(
     // recomposition, and keying on it would restart the animation every frame it plays.
     val currentEnter by rememberUpdatedState(enter)
     val currentExit by rememberUpdatedState(exit)
+    val currentOnGone by rememberUpdatedState(onGone)
 
     LaunchedEffect(state, visible) {
-        if (visible) state.show(currentEnter.parts) else state.hide(currentExit.parts)
+        if (visible) {
+            state.show(currentEnter.parts)
+        } else {
+            state.hide(currentExit.parts)
+            // Only reached when the exit finished; shown again part-way, this was cancelled.
+            currentOnGone()
+        }
     }
 
     // The effect above runs after this frame is composed, so it cannot be what decides this frame.

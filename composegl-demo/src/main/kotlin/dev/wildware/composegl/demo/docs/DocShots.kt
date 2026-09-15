@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.animation.AnimatedVisibility
+import dev.wildware.composegl.ui.animation.Crossfade
 import dev.wildware.composegl.ui.animation.Easings
 import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.animation.Spring
@@ -765,6 +766,37 @@ private fun MutableList<DocShot>.widgets() {
                                 Column(verticalArrangement = Arrangement.spacedBy(8f)) {
                                     Text(title)
                                     Button("RESUME", onClick = {})
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    })
+
+    // A menu page a fifth of a second into fading to the options page: both on screen at once, one
+    // going and one coming, which is the thing `when (page)` cannot do.
+    add(DocShot("widget-crossfade", 460, 200, seconds = 0.2f) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(20f)) {
+                listOf("MAIN" to false, "FADING" to true).forEach { (_, switches) ->
+                    var options by remember { mutableStateOf(false) }
+                    LaunchedEffect(switches) { if (switches) options = true }
+                    Crossfade(
+                        options,
+                        Modifier.size(200f, 160f),
+                        spec = Tween(400, easing = Easings.Linear),
+                        contentAlignment = Alignment.Centre,
+                    ) { showingOptions ->
+                        Panel(Modifier.width(200f)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                                if (showingOptions) {
+                                    Text("OPTIONS")
+                                    Button("VOLUME", onClick = {})
+                                } else {
+                                    Text("MAIN MENU")
+                                    Button("PLAY", onClick = {})
                                 }
                             }
                         }

@@ -628,6 +628,42 @@ line under the list — or to call `listen()` yourself.
 
 ---
 
+## Switching screens: Crossfade
+
+`when (page) { … }` swaps one screen for the next in a single frame: an instant
+cut. `Crossfade` fades the old screen out while the new one fades in over it.
+
+```kotlin
+Crossfade(targetState = page) { page ->
+    when (page) {
+        Page.Main -> MainMenu()
+        Page.Options -> Options()
+    }
+}
+```
+
+![a main menu half way through fading into the options page](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-crossfade.png)
+
+- **Each page keeps its own state.** A leaving page is handed the value it was
+  showing, so a portrait fading between expressions shows the old face on the way out.
+- **What counts as a new page:** `contentKey`. Key a portrait on its expression and a
+  change to its health redraws it with no fade.
+- **Changing your mind** turns round. Go back to a page still fading out and it fades
+  back in, with its state (a counter, a scroll position) intact. Once a page has faded
+  all the way out it is forgotten, so coming back later starts it fresh.
+- **Timing:** `spec = Tween(300)`, or a spring. `clock = Clock.World` holds the fade
+  still while the game is paused.
+- **Layout:** pages sit on top of each other, newest on top (a page you go back to
+  keeps its place underneath). While both are there the
+  box is as big as the bigger one; `contentAlignment` places the smaller one.
+- **Focus** stays on a button in the old page until that page is gone, then moves into
+  the new page, to its `initialFocus` button if it has one.
+- **Cost:** settled, it is one page at full opacity and asks for no frames.
+- A leaving page can still be clicked until it is gone.
+- Only a fade. There is no slide or scale between pages yet.
+
+---
+
 ## Typewriter
 
 ```kotlin
