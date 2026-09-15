@@ -89,6 +89,7 @@ import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.layoutId
+import dev.wildware.composegl.ui.modifier.marquee
 import dev.wildware.composegl.ui.modifier.mirror
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onPlaced
@@ -1195,6 +1196,20 @@ private fun MutableList<DocShot>.modifiers() {
         }
     })
 
+    // Four name slots photographed at the same moment, three seconds in. The delays and speeds
+    // differ so each one is at a different point of its trip: still because it fits, resting,
+    // part way across, and coming round with the copy following it in.
+    add(DocShot("modifier-marquee", 520, 190, seconds = 3f) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                Scrolling("fits: never moves", "Iron Sword", delayMillis = 0, speed = 30f)
+                Scrolling("resting: delayMillis", "Sword of a Thousand Truths", delayMillis = 60_000, speed = 30f)
+                Scrolling("scrolling", "Sword of a Thousand Truths", delayMillis = 1_500, speed = 40f)
+                Scrolling("coming round", "Sword of a Thousand Truths", delayMillis = 0, speed = 55f)
+            }
+        }
+    })
+
     add(DocShot("modifier-padding", 340, 150) {
         Frame {
             Row(horizontalArrangement = Arrangement.spacedBy(20f)) {
@@ -1591,6 +1606,17 @@ private fun Labelled(name: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4f)) {
         Text(name, style = "label.dim")
         content()
+    }
+}
+
+/** A caption, then a name in a 180-wide slot that scrolls when the name is too long for it. */
+@Composable
+private fun Scrolling(caption: String, name: String, delayMillis: Int, speed: Float) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12f), verticalAlignment = VerticalAlignment.Centre) {
+        Text(caption, Modifier.width(150f), style = "label.dim")
+        Box(Modifier.width(180f).background(Steel, corner = 4f).padding(horizontal = 8f, vertical = 4f)) {
+            Text(name, Modifier.marquee(speed = speed, delayMillis = delayMillis))
+        }
     }
 }
 

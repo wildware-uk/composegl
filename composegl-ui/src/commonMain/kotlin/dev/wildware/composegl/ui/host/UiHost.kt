@@ -143,6 +143,7 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
         val changed = tree.consumeChanges()
         if (changed) changedFrames++
         lastFrameChanged = changed
+        onlyRedrawn = changed && tree.onlyRedrawn
         return changed
     }
 
@@ -152,6 +153,8 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
      */
     internal fun layoutChanged(): Boolean {
         if (!tree.consumeChanges()) return false
+        // Still only a redraw if the frame before layout was nothing or only a redraw as well.
+        onlyRedrawn = (!lastFrameChanged || onlyRedrawn) && tree.onlyRedrawn
         if (!lastFrameChanged) changedFrames++
         lastFrameChanged = true
         return true
@@ -159,6 +162,13 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
 
     /** Whether the last [frame] said it changed, so a layout change in the same frame counts once. */
     private var lastFrameChanged = false
+
+    /**
+     * Whether everything this frame changed, before and after layout, was only a redraw — a
+     * marquee sliding along. What lets a test harness stop waiting on one.
+     */
+    internal var onlyRedrawn = false
+        private set
 
     fun dispose() {
         if (isDisposed) return

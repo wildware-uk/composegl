@@ -425,6 +425,38 @@ every run and a test can say exactly where the widget was. Give two widgets shak
 by side different seeds, or they move in step. A still shake costs no frames; `stop()`
 puts it straight back.
 
+**Marquee**
+
+```kotlin
+Text(trackName, Modifier.width(160f).marquee(speed = 30f, delayMillis = 1500))
+Text(itemName, Modifier.width(120f).marquee(iterations = 2))       // two trips, then rest
+Text(bossName, Modifier.width(200f).marquee(clock = Clock.World))  // stops with the game
+```
+
+![four name slots at the same moment: a name that fits sitting still, one resting before it starts, one part way across, and one coming round with its copy behind](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-marquee.png)
+
+A song title, a player name, an item name in a narrow hotbar tooltip: text too long
+for its slot scrolls round inside it instead of wrapping or losing its end to an
+ellipsis.
+
+The contents are measured with no limit on their width, so a label stays on one line,
+and the widget keeps the width it was given. **It only moves when the contents
+overflow.** A name that fits sits still, is not cut, stays centred if it was centred,
+and costs nothing. One that does not rests for `delayMillis`, slides left at `speed`
+units a second, and comes round with a copy `spacing` behind it (32 by default), so the
+loop has no seam. It rests again at the start of every trip. Everything is cut to the
+widget's box inside its padding.
+
+It runs on a clock — `Clock.Ui` by default, so it keeps going under a pause menu — and
+only the drawing moves: nothing recomposes, layout does not change, and a frame is
+asked for only while the contents are actually moving. The rest at the start of each
+trip is free. New contents, a new width or a different marquee start again from rest; a
+new colour — a title lighting up under the pointer — carries on from where it was.
+
+Where it sits in the chain does not matter. It is for labels: a button inside a marquee
+is clicked where layout put it, not where it has scrolled to. `uiTest` does not wait for
+a marquee to stop, since it never does; `advanceBy` moves it along.
+
 **Your own drawing**
 
 ```kotlin

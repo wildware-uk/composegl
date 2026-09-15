@@ -22,6 +22,7 @@ import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
+import dev.wildware.composegl.ui.modifier.MarqueeWords
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.focusableByPointer
@@ -204,7 +205,9 @@ private class TextPainter(
     private val softWrap: Boolean,
     private val fonts: FontProvider,
     private val outline: TextOutline?,
-) : MeasurePolicy {
+) : MeasurePolicy, MarqueeWords {
+
+    override val marqueeWords: Any get() = text
 
     private var measured: TextLayout? = null
 
@@ -569,7 +572,9 @@ private class RunPainter(
     private val outline: TextOutline?,
     private val runs: List<TextRun>,
     private val view: RunView,
-) : MeasurePolicy {
+) : MeasurePolicy, MarqueeWords {
+
+    override val marqueeWords: Any get() = text
 
     /** The style with its line limit off. See [Paragraph]: a piece is known to fit on one line. */
     private val flat = style.copy(maxLines = 0)
