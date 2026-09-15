@@ -407,9 +407,10 @@ class DrawPass(val canvas: UiCanvas) {
                 canvas,
                 node.drawnContent.of(
                     bounds.left + padding.left,
-                    bounds.top + padding.top,
+                    // The room `paddingFrom` added, the same as the plain path.
+                    bounds.top + padding.top + node.baselineTop,
                     bounds.right - padding.right,
-                    bounds.bottom - padding.bottom,
+                    bounds.bottom - padding.bottom - node.baselineBottom,
                 ),
             )
         }
