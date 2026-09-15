@@ -124,6 +124,7 @@ internal data class GridPolicy(
             }
             top += rowHeight + verticalSpacing
         }
+        mirrorPlacements(width, count)
 
         return layout(width, height, count)
     }

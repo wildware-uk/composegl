@@ -9,6 +9,8 @@ import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
 import dev.wildware.composegl.ui.layout.Layout
+import dev.wildware.composegl.ui.layout.LayoutDirection
+import dev.wildware.composegl.ui.layout.LocalLayoutDirection
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
@@ -141,14 +143,17 @@ fun ScrollArea(
     val gestures = remember { ScrollGestures() }
     gestures.horizontal = if (horizontal) state.across else null
     gestures.vertical = if (vertical) state.down else null
+    val mirrored = LocalLayoutDirection.current == LayoutDirection.Rtl
+    gestures.mirrored = mirrored
 
     val drag = remember(gestures) { PointerHandler { gestures.onPointer(it) } }
     val reveal = remember(gestures) { RevealHandler { gestures.reveal(it) } }
     DriveFling(state.across, state.down)
-    // The same as a lazy list: what slides inside is measured with the scroll taken out.
-    val frame = remember(state) {
+    // The same as a lazy list: what slides inside is measured with the scroll taken out. Mirrored,
+    // scrolling moves the contents right rather than left.
+    val frame = remember(state, mirrored) {
         object : PlacementFrame {
-            override val scrolledX: Float get() = state.x
+            override val scrolledX: Float get() = if (mirrored) -state.x else state.x
             override val scrolledY: Float get() = state.y
         }
     }
@@ -206,8 +211,11 @@ private class ScrollPolicy(
         val barY = if (bars) measurables[1].measure(Constraints.fixed(thickness, height)) else null
         val barX = if (bars) measurables[2].measure(Constraints.fixed(width, thickness)) else null
 
+        // In a right-to-left screen the contents start against the right, and x is how far they have
+        // moved right from there.
+        val left = if (layoutDirection == LayoutDirection.Rtl) width - inside.width + x else -x
         return layout(width, height) {
-            inside.at(-x, -y)
+            inside.at(left, -y)
             barY?.at(width - thickness, 0f)
             barX?.at(0f, height - thickness)
         }

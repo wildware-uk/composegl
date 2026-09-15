@@ -603,6 +603,22 @@ measuring.
 
 ---
 
+## Right to left
+
+In a right-to-left screen — Arabic, Hebrew — every layout here is its own mirror image:
+a `Row`'s first child is on the right, `Arrangement.Start` packs right, a `Column`'s
+`Start` children hug the right, and `Modifier.paddingRelative(start = …)` pads the right.
+`padding(left = …)`, `offset` and custom layouts are left alone, and Tab order does not
+change.
+
+```kotlin
+ProvideLayoutDirection(LayoutDirection.Rtl) { OptionsScreen() }
+```
+
+`ProvideLocale` sets it for you from the language. See **[[Localisation]]**.
+
+---
+
 ## What next
 
 - **[[Modifiers]]** — the full list, and what the chain order does

@@ -15,6 +15,7 @@ import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
 import dev.wildware.composegl.ui.layout.Layout
+import dev.wildware.composegl.ui.layout.LayoutDirection
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
@@ -164,15 +165,19 @@ private class SliderPolicy(
 
         val travel = (span - knob).coerceAtLeast(0f)
         slider.travel = travel
+        // A sideways slider in a right-to-left screen has its minimum on the right, the way the
+        // screen reads, and fills from there.
+        val mirrored = horizontal && layoutDirection == LayoutDirection.Rtl
+        slider.mirrored = mirrored
 
         // A vertical slider's maximum is at the top, because that is where a player reaches for
-        // "more". So its knob runs the other way down the screen.
-        val knobAt = if (horizontal) fraction * travel else (1f - fraction) * travel
+        // "more". So its knob runs the other way down the screen, as a mirrored one does across it.
+        val knobAt = if (horizontal && !mirrored) fraction * travel else (1f - fraction) * travel
         val middle = knobAt + knob / 2f
 
         val track = measurables[0].measure(fixed(span, thickness))
         val fill = measurables[1].measure(
-            if (horizontal) fixed(middle, thickness) else fixed(span - middle, thickness),
+            if (horizontal && !mirrored) fixed(middle, thickness) else fixed(span - middle, thickness),
         )
         val handle = measurables[2].measure(Constraints.fixed(knob, knob))
 
@@ -180,7 +185,7 @@ private class SliderPolicy(
             if (horizontal) {
                 val centre = (height - thickness) / 2f
                 track.at(0f, centre)
-                fill.at(0f, centre)
+                fill.at(if (mirrored) middle else 0f, centre)
                 handle.at(knobAt, (height - knob) / 2f)
             } else {
                 val centre = (width - thickness) / 2f
@@ -213,6 +218,9 @@ private class SliderLogic {
     var range = 0f..1f
     var step = 0f
     var horizontal = true
+
+    /** Whether the minimum is on the right, in a right-to-left screen. Written by layout. */
+    var mirrored = false
     var enabled = true
     var knob = 0f
     var report: (Float) -> Unit = {}
@@ -260,8 +268,9 @@ private class SliderLogic {
     fun nudge(direction: FocusDirection): Boolean {
         if (!enabled) return false
         val by = when (direction) {
-            FocusDirection.Left -> if (horizontal) -1f else return false
-            FocusDirection.Right -> if (horizontal) 1f else return false
+            // The arrow points at the end it moves towards, and mirrored the maximum is on the left.
+            FocusDirection.Left -> if (!horizontal) return false else if (mirrored) 1f else -1f
+            FocusDirection.Right -> if (!horizontal) return false else if (mirrored) -1f else 1f
             FocusDirection.Up -> if (horizontal) return false else 1f
             FocusDirection.Down -> if (horizontal) return false else -1f
             else -> return false
@@ -294,7 +303,7 @@ private class SliderLogic {
         val along = if (horizontal) position.x else position.y
         // The knob is grabbed by its middle, so the value under the pointer is the value it gets.
         val fraction = ((along - knob / 2f) / travel).coerceIn(0f, 1f)
-        val wanted = settle(range.start + (if (horizontal) fraction else 1f - fraction) * span)
+        val wanted = settle(range.start + (if (horizontal && !mirrored) fraction else 1f - fraction) * span)
         if (wanted == value) return
         if (step > 0f) changed(wanted) else dragged = true
         // Only against notches. A continuous slider changes on nearly every frame of a drag, and

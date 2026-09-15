@@ -5,6 +5,7 @@ import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.input.KeyEvent
 import dev.wildware.composegl.ui.input.KeyEventType
 import dev.wildware.composegl.ui.input.TextEvent
+import dev.wildware.composegl.ui.layout.LayoutDirection
 
 /**
  * A keyboard, turned into edits.
@@ -33,12 +34,19 @@ import dev.wildware.composegl.ui.input.TextEvent
  *   nothing, so the keys are safe to press in a game that has not wired one up.
  * @param maxLength how many characters the field will hold, or zero for no limit. Typing at the
  *   limit does nothing; a paste fills whatever room is left rather than being refused whole.
+ * @param direction the direction of the screen the field is on. The arrows move across the screen
+ *   whichever it is; this decides which way a line with no letters in it reads. See [Movement].
  */
 class KeyboardEditor(
     private val multiline: Boolean = false,
     private val clipboard: Clipboard = Clipboard.None,
     private val maxLength: Int = 0,
+    private val direction: LayoutDirection = LayoutDirection.Ltr,
 ) {
+
+    /** The constructor before [direction] existed, kept so a game compiled against it still links. */
+    constructor(multiline: Boolean, clipboard: Clipboard, maxLength: Int) :
+        this(multiline, clipboard, maxLength, LayoutDirection.Ltr)
 
     /**
      * @return the value after this key, or null if the key was not the field's to deal with.
@@ -53,11 +61,11 @@ class KeyboardEditor(
             Key.Backspace -> value.apply(EditCommand.DeleteBackward)
             Key.Delete -> value.apply(EditCommand.DeleteForward)
 
-            Key.Left -> value.move(if (shortcut) Movement.WordLeft else Movement.Left, shift)
-            Key.Right -> value.move(if (shortcut) Movement.WordRight else Movement.Right, shift)
+            Key.Left -> value.move(if (shortcut) Movement.WordLeft else Movement.Left, shift, direction)
+            Key.Right -> value.move(if (shortcut) Movement.WordRight else Movement.Right, shift, direction)
 
-            Key.Home -> value.move(if (shortcut) Movement.TextStart else Movement.LineStart, shift)
-            Key.End -> value.move(if (shortcut) Movement.TextEnd else Movement.LineEnd, shift)
+            Key.Home -> value.move(if (shortcut) Movement.TextStart else Movement.LineStart, shift, direction)
+            Key.End -> value.move(if (shortcut) Movement.TextEnd else Movement.LineEnd, shift, direction)
 
             Key.A -> if (shortcut) value.selectAll() else null
 

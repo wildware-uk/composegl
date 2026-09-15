@@ -44,6 +44,7 @@ internal data class BoxPolicy(val contentAlignment: Alignment) : MeasurePolicy {
             placements[index * 2] = alignment.xIn(width, placeable.width)
             placements[index * 2 + 1] = alignment.yIn(height, placeable.height)
         }
+        mirrorPlacements(width, count)
 
         return layout(width, height, count)
     }

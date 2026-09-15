@@ -40,6 +40,17 @@ data class Alignment(
         HorizontalAlignment.End -> width - childWidth
     }
 
+    /**
+     * The same, with `Start` and `End` on the sides [direction] puts them: in a right-to-left
+     * screen a `Start` child goes against the right. What every layout here asks.
+     */
+    fun xIn(width: Float, childWidth: Float, direction: LayoutDirection): Float =
+        when (horizontal.absolute(direction)) {
+            HorizontalAlignment.Start -> 0f
+            HorizontalAlignment.Centre -> (width - childWidth) / 2f
+            HorizontalAlignment.End -> width - childWidth
+        }
+
     /** How far down from the top a child of [childHeight] goes, down a space [height] tall. */
     fun yIn(height: Float, childHeight: Float): Float = when (vertical) {
         // A baseline is something only a row can line up, and it does so before asking this; see

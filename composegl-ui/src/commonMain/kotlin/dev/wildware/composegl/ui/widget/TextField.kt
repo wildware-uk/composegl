@@ -33,7 +33,12 @@ import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
+import dev.wildware.composegl.ui.layout.LayoutDirection
 import dev.wildware.composegl.ui.layout.LeafLayout
+import dev.wildware.composegl.ui.layout.LocalLayoutDirection
+import dev.wildware.composegl.ui.text.BidiLine
+import dev.wildware.composegl.ui.text.BidiText
+import dev.wildware.composegl.ui.text.visualText
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
@@ -155,9 +160,10 @@ fun TextField(
     val caret = rememberStyle("$style.caret")
     val composing = rememberStyle("$style.composition")
     val fonts = rememberFonts()
+    val direction = LocalLayoutDirection.current
 
-    val editor = remember(multiline, maxLength, clipboard) {
-        KeyboardEditor(multiline, clipboard, maxLength)
+    val editor = remember(multiline, maxLength, clipboard, direction) {
+        KeyboardEditor(multiline, clipboard, maxLength, direction)
     }
     val change by rememberUpdatedState(onValueChange)
     val submit by rememberUpdatedState(onSubmit)
@@ -176,8 +182,8 @@ fun TextField(
     // Scaled once, here: the caret, the selection, a click's letter and the field's own height are
     // all worked out from these metrics, so they grow with the text and stay on its letters.
     val face = rememberScaled(resolved.textStyle)
-    val metrics = remember(value.text, face, fonts, multiline) {
-        FieldMetrics(fonts, face, value.text, multiline)
+    val metrics = remember(value.text, face, fonts, multiline, direction) {
+        FieldMetrics(fonts, face, value.text, multiline, direction)
     }
 
     // A phone's keyboard comes up with the field and goes away with it. On a desktop this is two
@@ -531,12 +537,16 @@ private class FieldView {
  *
  * A multi-line field breaks lines where the text says and nowhere else — there is no soft wrapping
  * in a field. A wrapping editor needs the line boxes only a shaper can give.
+ *
+ * A line holding right-to-left text is laid out run by run, the way a [dev.wildware.composegl.ui.text.Paragraph]
+ * is, and in a right-to-left screen each line sits against the right of the field.
  */
 internal class FieldMetrics(
     private val fonts: FontProvider,
     private val style: TextStyle,
     val text: String,
     multiline: Boolean,
+    val direction: LayoutDirection = LayoutDirection.Ltr,
 ) {
 
     /** Each line's stretch of the text, without its ending. One line when the field is single. */
@@ -561,6 +571,44 @@ internal class FieldMetrics(
 
     private var hint: TextLayout? = null
 
+    private val bidi by lazy { BidiText(text, direction) }
+    private val geometries = HashMap<Int, BidiLine>()
+    private val spanWidths = HashMap<Long, Float>()
+    private val runLayouts = HashMap<Long, TextLayout>()
+
+    /** How wide the field turned out, written by its painter as it measures. */
+    var fieldWidth = 0f
+
+    /**
+     * Where each run of line [line] is, or null for a line that is its characters in order — every
+     * line of a field with nothing right-to-left in it.
+     */
+    fun geometryOf(line: Int): BidiLine? {
+        if (bidi.allLeftToRight) return null
+        return geometries.getOrPut(line) {
+            BidiLine(bidi.runs(lines[line].start, lines[line].end), 0f) { from, to ->
+                spanWidths.getOrPut(from.toLong() shl 32 or to.toLong()) {
+                    fonts.measure(text.substring(from, to), style).size.width
+                }
+            }
+        }
+    }
+
+    /** One run of a line, measured in the order it is drawn. */
+    fun runLayout(from: Int, to: Int, rightToLeft: Boolean): TextLayout =
+        runLayouts.getOrPut(from.toLong() shl 32 or to.toLong()) {
+            fonts.measure(visualText(text, from, to, rightToLeft), style)
+        }
+
+    /**
+     * How far in from the left line [line] starts: nothing, or in a right-to-left screen, as far as
+     * puts it against the right with room for the caret after it. A line wider than the field starts
+     * at the left and scrolls like any other.
+     */
+    fun leadOf(line: Int): Float =
+        if (direction == LayoutDirection.Ltr) 0f
+        else (fieldWidth - layoutOf(line).size.width - CaretWidth).coerceAtLeast(0f)
+
     /** The hint, measured once. Drawn in place of the text when there is none. */
     fun hintLayout(placeholder: String): TextLayout =
         hint ?: fonts.measure(placeholder, style).also { hint = it }
@@ -580,17 +628,20 @@ internal class FieldMetrics(
         return lines.lastIndex
     }
 
-    /** How far along its line character [index] is. */
-    fun xOf(index: Int): Float = widths.getOrPut(index.coerceIn(0, text.length)) {
+    /** How far along its line character [index] is drawn, before [leadOf]. */
+    fun xOf(index: Int): Float {
         val at = index.coerceIn(0, text.length)
-        val line = lines[lineOf(at)]
-        if (at <= line.start) 0f else fonts.measure(text.substring(line.start, at), style).size.width
+        geometryOf(lineOf(at))?.let { return it.x(at) }
+        return widths.getOrPut(at) {
+            val line = lines[lineOf(at)]
+            if (at <= line.start) 0f else fonts.measure(text.substring(line.start, at), style).size.width
+        }
     }
 
     /** Where the caret sits for [index], as a line and a distance along it. */
     fun caretAt(index: Int): Offset {
         val line = lineOf(index)
-        return Offset(xOf(index), line * lineHeight)
+        return Offset(leadOf(line) + xOf(index), line * lineHeight)
     }
 
     /**
@@ -602,13 +653,15 @@ internal class FieldMetrics(
     fun indexAt(point: Offset): Int {
         val line = (point.y / lineHeight).toInt().coerceIn(0, lines.lastIndex)
         val range = lines[line]
-        if (point.x <= 0f) return range.start
+        val x = point.x - leadOf(line)
+        // Left of everything is the start only where the start is on the left.
+        if (x <= 0f && geometryOf(line) == null) return range.start
 
         var best = range.start
         var bestDistance = Float.MAX_VALUE
         var at = range.start
         while (true) {
-            val distance = kotlin.math.abs(xOf(at) - point.x)
+            val distance = kotlin.math.abs(xOf(at) - x)
             if (distance < bestDistance) {
                 bestDistance = distance
                 best = at
@@ -656,6 +709,7 @@ private class FieldPainter(
         viewport = Rect(0f, 0f, width, height)
 
         view.metrics = metrics
+        metrics.fieldWidth = width
         keepCaretInView(width, height)
 
         // Where the first line stands before any scrolling, so a field in a baseline row does not
@@ -740,11 +794,27 @@ private class FieldPainter(
         val top = bounds.top - view.scrollY
 
         if (metrics.text.isEmpty() && placeholder != null) {
-            text(metrics.hintLayout(placeholder), Offset(bounds.left, bounds.top), placeholderColour)
+            val hintLayout = metrics.hintLayout(placeholder)
+            // Against the start of the field, which in a right-to-left screen is its right.
+            val hintLeft = if (metrics.direction == LayoutDirection.Ltr) bounds.left
+            else (bounds.right - hintLayout.size.width).coerceAtLeast(bounds.left)
+            text(hintLayout, Offset(hintLeft, bounds.top), placeholderColour)
         } else {
             if (!selection.collapsed) drawSelection(left, top)
             metrics.lines.indices.forEach { line ->
-                text(metrics.layoutOf(line), Offset(left, top + line * metrics.lineHeight), style.textColour)
+                val y = top + line * metrics.lineHeight
+                val lineLeft = left + metrics.leadOf(line)
+                val geometry = metrics.geometryOf(line)
+                if (geometry == null) {
+                    text(metrics.layoutOf(line), Offset(lineLeft, y), style.textColour)
+                } else {
+                    for (run in geometry.runs.indices) {
+                        val on = geometry.runs[run]
+                        if (on.range.collapsed) continue
+                        val layout = metrics.runLayout(on.range.min, on.range.max, on.rightToLeft)
+                        text(layout, Offset(lineLeft + geometry.lefts[run], y), style.textColour)
+                    }
+                }
             }
             // Over the words rather than behind them: this is an underline, not a highlight.
             composition?.takeIf { !it.collapsed }?.let { drawComposition(it, left, top) }
@@ -816,7 +886,11 @@ private class FieldPainter(
             val onLine = metrics.lines[line]
             val from = maxOf(range.min, onLine.start)
             val to = minOf(range.max, onLine.end)
-            each(line, metrics.xOf(from), metrics.xOf(to))
+            val lead = metrics.leadOf(line)
+            val geometry = metrics.geometryOf(line)
+            // A stretch crossing a Hebrew word and the English beside it is one box per run.
+            if (geometry == null || from == to) each(line, lead + metrics.xOf(from), lead + metrics.xOf(to))
+            else geometry.spans(from, to) { spanLeft, spanRight -> each(line, lead + spanLeft, lead + spanRight) }
         }
     }
 }

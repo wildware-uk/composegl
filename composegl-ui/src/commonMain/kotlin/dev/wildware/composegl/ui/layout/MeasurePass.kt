@@ -135,7 +135,7 @@ class MeasurePass {
             node.height = outer.constrainHeight(animation.height)
             shiftContents(
                 node,
-                resize.alignment.xIn(node.width, wantWidth),
+                resize.alignment.xIn(node.width, wantWidth, node.layoutDirection),
                 resize.alignment.yIn(node.height, wantHeight),
             )
         } else {
@@ -160,7 +160,7 @@ class MeasurePass {
             val slotHeight = incoming.constrainHeight(node.height)
             // Worked out from the two enums directly: an Alignment made here to ask would be one
             // more object per wrapped node, every frame.
-            val dx = when (wrap.horizontal) {
+            val dx = when (wrap.horizontal?.absolute(node.layoutDirection)) {
                 HorizontalAlignment.Centre -> (slotWidth - node.width) / 2f
                 HorizontalAlignment.End -> slotWidth - node.width
                 HorizontalAlignment.Start, null -> 0f
@@ -594,6 +594,9 @@ internal fun Constraints.unforced(wrap: WrapContentElement, cache: ConstraintsCa
  * middle of it is using its own scope, not this one.
  */
 internal class NodeMeasureScope : MeasureScope {
+
+    /** Copied from the node before each measure, so a policy asking costs a field read. */
+    override var layoutDirection: LayoutDirection = LayoutDirection.Ltr
 
     private val result = ReusableResult()
 

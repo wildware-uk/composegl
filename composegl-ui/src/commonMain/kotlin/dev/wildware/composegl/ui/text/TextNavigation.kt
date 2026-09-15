@@ -1,11 +1,15 @@
 package dev.wildware.composegl.ui.text
 
+import dev.wildware.composegl.ui.layout.LayoutDirection
+
 /**
  * Where a key takes the caret.
  *
- * Left and right mean along the string, not across the screen: this toolkit has no bidirectional
- * text yet, so in Arabic or Hebrew these would be the wrong way round. That is a real limit, and it
- * is here rather than hidden in a widget so it can be fixed in one place when the shaper arrives.
+ * Left and right mean across the screen, the way the arrows point. In English that is the same as
+ * along the string. In a Hebrew word it is the opposite, and in a line mixing the two it is neither:
+ * the caret goes to the nearest place to its left or right that a caret can be drawn. Words follow
+ * the paragraph instead — ctrl and left in a Hebrew line goes on to the next word, which is on the
+ * left — and Home and End go to where the line starts and ends in the string.
  */
 enum class Movement {
     /** One character — one *whole* character, emoji and all. See [graphemeBefore]. */
@@ -37,21 +41,36 @@ enum class Movement {
  * word and pressed left expects. The wider movements — a word, a line, the lot — move from the
  * caret, because there is nothing surprising about ctrl-left going to the start of the word.
  */
-fun TextFieldValue.move(movement: Movement, extend: Boolean = false): TextFieldValue {
-    if (!extend && !selection.collapsed) {
+fun TextFieldValue.move(movement: Movement, extend: Boolean = false): TextFieldValue =
+    move(movement, extend, LayoutDirection.Ltr)
+
+/**
+ * The same, in a screen that reads in [direction] — which decides the way a line with no letters in
+ * it, a line of digits, reads. Every line with a letter in it reads the way that letter does.
+ */
+// An overload rather than a defaulted parameter, so a game compiled against the one above still links.
+fun TextFieldValue.move(movement: Movement, extend: Boolean = false, direction: LayoutDirection): TextFieldValue {
+    val sideways = movement == Movement.Left || movement == Movement.Right ||
+        movement == Movement.WordLeft || movement == Movement.WordRight
+    val bidi = if (sideways) BidiText(text, direction) else null
+
+    if (!extend && !selection.collapsed && bidi != null) {
+        // The end nearer the arrow, which in a right-to-left line is the later one for left.
+        val backwards = bidi.isRightToLeftAt(selection.min) == (movement == Movement.Left)
         when (movement) {
-            Movement.Left -> return copy(selection = selection.collapseToStart())
-            Movement.Right -> return copy(selection = selection.collapseToEnd())
+            Movement.Left, Movement.Right ->
+                return copy(selection = if (backwards) selection.collapseToEnd() else selection.collapseToStart())
             else -> Unit
         }
     }
 
     val from = selection.end
+    val rightToLeft = bidi != null && bidi.isRightToLeftAt(from)
     val to = when (movement) {
-        Movement.Left -> text.graphemeBefore(from)
-        Movement.Right -> text.graphemeAfter(from)
-        Movement.WordLeft -> text.wordStartBefore(from)
-        Movement.WordRight -> text.wordEndAfter(from)
+        Movement.Left -> text.visualStep(from, rightwards = false, checkNotNull(bidi))
+        Movement.Right -> text.visualStep(from, rightwards = true, checkNotNull(bidi))
+        Movement.WordLeft -> if (rightToLeft) text.wordEndAfter(from) else text.wordStartBefore(from)
+        Movement.WordRight -> if (rightToLeft) text.wordStartBefore(from) else text.wordEndAfter(from)
         Movement.LineStart -> text.lineStartAt(from)
         Movement.LineEnd -> text.lineEndAt(from)
         Movement.TextStart -> 0
@@ -59,6 +78,63 @@ fun TextFieldValue.move(movement: Movement, extend: Boolean = false): TextFieldV
     }
 
     return copy(selection = if (extend) TextRange(selection.start, to) else TextRange(to))
+}
+
+/**
+ * Where one press of an arrow takes a caret at [from]: the nearest caret position on its line that
+ * is drawn further that way.
+ *
+ * Every grapheme counts as one unit wide here. Real widths would put the positions in the same order
+ * — each is a run's edge plus a sum of widths — so the answer needs no fonts, and a field and a
+ * selectable label agree about it. At the edge of the line the caret carries on to the line after
+ * or before, whichever lies that way for the paragraph's direction.
+ */
+internal fun String.visualStep(from: Int, rightwards: Boolean, bidi: BidiText): Int {
+    if (bidi.allLeftToRight) return if (rightwards) graphemeAfter(from) else graphemeBefore(from)
+
+    val lineStart = lineStartAt(from)
+    val lineEnd = lineEndAt(from)
+    val geometry = BidiLine(bidi.runs(lineStart, lineEnd), 0f) { a, b -> graphemesBetween(a, b).toFloat() }
+    val here = geometry.x(from)
+    val hereRun = geometry.runAt(from)
+
+    var best = -1
+    var bestX = 0f
+    var at = lineStart
+    while (true) {
+        if (at != from) {
+            val x = geometry.x(at)
+            if (if (rightwards) x > here else x < here) {
+                val closer = best < 0 || (if (rightwards) x < bestX else x > bestX)
+                // Two positions drawn in one place, where two runs meet: stay in the run the caret is in.
+                val staying = best >= 0 && x == bestX && geometry.runAt(at) == hereRun && geometry.runAt(best) != hereRun
+                if (closer || staying) {
+                    best = at
+                    bestX = x
+                }
+            }
+        }
+        if (at >= lineEnd) break
+        at = graphemeAfter(at).coerceAtMost(lineEnd)
+    }
+    if (best >= 0) return best
+
+    val forwards = rightwards != bidi.isRightToLeftAt(lineStart)
+    return when {
+        forwards && lineEnd < length -> lineEnd + 1
+        !forwards && lineStart > 0 -> lineStart - 1
+        else -> from
+    }
+}
+
+private fun String.graphemesBetween(from: Int, to: Int): Int {
+    var count = 0
+    var at = from
+    while (at < to) {
+        at = graphemeAfter(at)
+        count++
+    }
+    return count
 }
 
 /** Selects everything. Ctrl-A, and the first half of "type over what is there". */
