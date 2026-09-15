@@ -72,13 +72,15 @@ The window, the fonts and the input hook are about sixty lines, and
 
 ## The modules
 
-You need `composegl-ui` and exactly one backend.
+You need `composegl-ui` and exactly one backend. The library draws the interface itself, in
+`composegl-render`; each backend is a thin wrapper that connects it to one engine's OpenGL.
 
 | | |
 |---|---|
 | `composegl-ui` | the toolkit. Multiplatform: JVM, Linux native, iOS, and the browser as WebAssembly |
+| `composegl-render` | the renderer every backend draws with. Comes with the backend; you do not add it yourself |
 | `composegl-gdx` | the LibGDX backend. The one to use |
-| `composegl-lwjgl3` | a second backend, raw OpenGL. Exists to disagree with the first |
+| `composegl-lwjgl3` | raw OpenGL on a GLFW window, desktop only. The reference thin backend |
 | `composegl-webgl` | the browser: WebGL, the page's fonts, mouse, touch, keys, pads and input methods |
 | `composegl-korge` | the KorGE backend: a screen as a view on a KorGE stage, with KorGE's input. JVM for now |
 | `composegl-android` | on a phone: what the keyboard covers, the platform's own typing, and haptics |

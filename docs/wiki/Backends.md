@@ -163,7 +163,7 @@ What differs in a browser, today:
   rule, not the toolkit's.
 - **Frame times** are coarse, because browsers blunt their clocks on purpose.
 
-The backend is held to the same scenes as the other two. Its own goldens are drawn
+The backend is held to the same scenes as the other three. Its own goldens are drawn
 in headless Chromium with WebGL in software, and the scenes with no text in them are
 also compared with the raw OpenGL backend's goldens by the same rule — shapes, clips,
 layers and effects have no reason to differ between OpenGL and WebGL. The tests are
@@ -334,21 +334,21 @@ approximate a block it knows nothing about. So it is a question instead.
 - `rawX(x)` / `rawY(y)` — a coordinate this interface would take, as the one your
   drawing object wants. Once the object is handed over the block is writing your
   coordinates, so only you can convert them. Both default to the identity; override
-  `rawY` if you measure y upwards, as both backends here do.
+  `rawY` if you measure y upwards, as every backend here does.
 - `raw(destination) { }` — the same hatch with the origin moved to the node, so a
   block that draws at `0, 0, width, height` fills it. Say so in `movesRawOrigin`.
   Override both or neither: an unmoved origin is not a lesser picture, it is the same
   drawing in the wrong place.
 
-`composegl-lwjgl3` is about 1,800 lines all in, and most of that is the window and its
-input rather than drawing.
+Each backend here is about 1,600 to 2,000 lines all in, and most of that is the window and
+its input rather than drawing. The OpenGL binding is 160 to 270 lines of one-liners.
 
 ---
 
 ## Testing a backend
 
 `composegl-testing` draws a set of scenes and compares them to per-backend golden
-PNGs. Add yours and the same scenes prove your backend agrees with the other two:
+PNGs. Add yours and the same scenes prove your backend agrees with the four here:
 
 ```
 COMPOSEGL_UPDATE_GOLDENS=1 ./gradlew :your-backend:test
