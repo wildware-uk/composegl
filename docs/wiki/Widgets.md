@@ -294,6 +294,39 @@ reloaded.
 
 ---
 
+## Showing and hiding: AnimatedVisibility
+
+`if (open) Menu()` takes the menu away the frame `open` goes false, so there is
+nothing left to animate. `AnimatedVisibility` keeps it on screen until its exit
+has played, then takes it away.
+
+```kotlin
+AnimatedVisibility(
+    visible = open,
+    enter = fadeIn() + scaleIn(from = 0.9f),
+    exit = fadeOut() + slideOut(Offset(0f, 30f)),
+) {
+    Panel { … }
+}
+```
+
+![a menu half way through fading and shrinking out](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-animated-visibility.png)
+
+- **Parts:** `fadeIn`/`fadeOut`, `scaleIn`/`scaleOut`, `slideIn`/`slideOut`. Join
+  them with `+`. Each takes its own spec, so a fade can be quick while a scale
+  settles on a spring.
+- **Changing your mind** turns round from where it is. Reopen a menu half way out
+  and it comes back without ever leaving the tree.
+- **Clocks:** `clock = Clock.World` freezes a leaving panel while the game is paused.
+- **Starting hidden:** it opens at rest when `visible` is already true. Pass
+  `initiallyVisible = false` for a toast that should animate in when it is added.
+- **Cost:** open and still, or closed, it asks for no frames.
+- A leaving panel can still be clicked until it is gone. Pass `enabled = open` to
+  its buttons if that matters.
+- Slides are in pixels, not a fraction of the panel's own size.
+
+---
+
 ## Typewriter
 
 ```kotlin
