@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.random.Random
 
 /**
  * The screen flow and the score table, without a window.
@@ -15,7 +16,9 @@ import org.junit.jupiter.api.Test
 class SnakeSessionTest {
 
     private val store = HighScoreStore.InMemory()
-    private val session = SnakeSession(store)
+
+    /** A fixed seed, so the food lands in the same place every run and no test scores by luck. */
+    private val session = SnakeSession(store, Random(1))
 
     /** One second of game time at the current speed, in the size of step the app uses. */
     private fun playFor(seconds: Float, step: Float = 1f / 60f) {
@@ -99,6 +102,11 @@ class SnakeSessionTest {
     @Test
     fun `a run that scored nothing does not enter the table`() {
         session.startGame()
+        // The snake runs straight right into the wall, so food on its row ahead would be eaten
+        // and score a point. The seed keeps it elsewhere; say so, rather than rely on it quietly.
+        val head = session.game.snake.first()
+        val food = session.game.food
+        assertFalse(food.y == head.y && food.x > head.x, "food at $food is in the snake's path; pick another seed")
         playFor(10f)
 
         assertEquals(Screen.GameOver, session.screen)
