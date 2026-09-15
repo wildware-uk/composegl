@@ -23,6 +23,8 @@ import dev.wildware.composegl.ui.game.rememberCooldown
 import dev.wildware.composegl.ui.game.rememberReticleState
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.geometry.Shape
+import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
@@ -42,6 +44,7 @@ import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.modifier.aspectRatio
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.border
+import dev.wildware.composegl.ui.modifier.clipShape
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -661,6 +664,18 @@ private fun MutableList<DocShot>.modifiers() {
             }
         }
     })
+
+    // The same square art four times, cut four ways at draw time.
+    add(DocShot("modifier-clip-shape", 420, 150) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(20f)) {
+                Labelled("Circle") { Portrait(Shapes.Circle) }
+                Labelled("Diamond") { Portrait(Shapes.Diamond) }
+                Labelled("Hexagon") { Portrait(Shapes.Hexagon) }
+                Labelled("roundedRect") { Portrait(Shapes.roundedRect(18f)) }
+            }
+        }
+    })
 }
 
 /** Three overlapping cards, fanned like a hand; [lifted] is the one given a zIndex. */
@@ -677,6 +692,18 @@ private fun Hand(lifted: Int) {
                     .background(colour, corner = 6f)
                     .border(Ink, width = 2f, corner = 6f),
             ) {}
+        }
+    }
+}
+
+/** Square stripes, cut to [shape]: what a portrait from a sprite sheet looks like through it. */
+@Composable
+private fun Portrait(shape: Shape) {
+    Box(Modifier.size(80f).clipShape(shape)) {
+        Column {
+            Box(Modifier.size(80f, 27f).background(Accent)) {}
+            Box(Modifier.size(80f, 26f).background(Colour.rgb(0xE6EDF5))) {}
+            Box(Modifier.size(80f, 27f).background(Deep)) {}
         }
     }
 }

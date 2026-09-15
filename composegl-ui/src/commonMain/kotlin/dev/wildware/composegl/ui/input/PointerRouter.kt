@@ -2,6 +2,8 @@ package dev.wildware.composegl.ui.input
 
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.geometry.Shapes
+import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.node.UiNode
 
@@ -260,6 +262,9 @@ class PointerRouter(
         // a child that overflows it is cut off on screen — so without this line a child hanging
         // out of a shrunk panel keeps taking clicks in the empty space where it used to be.
         if ((resolved.clip != null || own != 1f) && !inside) return
+        // And a clip that is a shape says so for the corners it cut away, in the node's own units
+        // for the same reason a hit shape is asked in them.
+        if (inside && !insideClipShape(node, left, top, scale * own, pointX, pointY)) return
 
         // The draw pass's own list, walked the other way, so a lifted card takes the press.
         val children = node.drawOrder
@@ -269,7 +274,7 @@ class PointerRouter(
         // The rectangle said yes; a node with a shape of its own now gets to say no. Turning it
         // down here rather than at the top leaves the children alone and lets the event carry on
         // to whatever is underneath this node.
-        if (inside && resolved.isInteractive && ownsPoint(resolved, left, top, scale * own, pointX, pointY)) {
+        if (inside && resolved.isInteractive && ownsPoint(node, left, top, scale * own, pointX, pointY)) {
             into += node
         }
     }
@@ -284,15 +289,34 @@ class PointerRouter(
      * here: a scale of zero makes an empty rectangle, and an empty rectangle contains no point.
      */
     private fun ownsPoint(
-        resolved: ResolvedModifier,
+        node: UiNode,
         left: Float,
         top: Float,
         total: Float,
         pointX: Float,
         pointY: Float,
     ): Boolean {
-        val shape = resolved.hitShape ?: return true
-        return shape(Offset((pointX - left) / total, (pointY - top) / total))
+        val shape = node.resolved.hitShape ?: return true
+        return shape(Offset((pointX - left) / total, (pointY - top) / total), Size(node.width, node.height))
+    }
+
+    /**
+     * Whether a point the node's rectangle contains is also inside the shape its clip cuts to.
+     * True for no clip and for a rectangular one, which is every clip there was before shapes.
+     *
+     * Same arguments and the same division as [ownsPoint], and for the same reason.
+     */
+    private fun insideClipShape(
+        node: UiNode,
+        left: Float,
+        top: Float,
+        total: Float,
+        pointX: Float,
+        pointY: Float,
+    ): Boolean {
+        val shape = node.resolved.clip?.shape ?: return true
+        if (shape === Shapes.Rectangle) return true
+        return shape.contains(Offset((pointX - left) / total, (pointY - top) / total), Size(node.width, node.height))
     }
 
     /**
@@ -327,8 +351,23 @@ class PointerRouter(
      * The safe call is doing real work: [toLocal] allocates, and a node without a shape — which is
      * nearly every node — never reaches it.
      */
-    private fun UiNode.claims(point: Offset): Boolean =
-        point in boundsInRoot && resolved.hitShape?.invoke(toLocal(point)) != false
+    private fun UiNode.claims(point: Offset): Boolean {
+        if (point !in boundsInRoot) return false
+        // A shaped clip anywhere above cut this point away on screen, so it is not claimed here
+        // either — otherwise a press dragged onto a corner the portrait cut off still clicks.
+        var above: UiNode? = this
+        while (above != null) {
+            val clip = above.resolved.clip?.shape
+            if (clip != null && clip !== Shapes.Rectangle &&
+                !clip.contains(above.toLocal(point), Size(above.width, above.height))
+            ) {
+                return false
+            }
+            above = above.parent
+        }
+        val shape = resolved.hitShape ?: return true
+        return shape(toLocal(point), Size(width, height))
+    }
 
     /** Asks one node's handlers, in chain order, in its own coordinates. */
     private fun deliver(node: UiNode, event: PointerEvent): Boolean {

@@ -16,6 +16,7 @@ import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.graphics.featherOutline
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextLayout
 import kotlin.math.ceil
@@ -690,6 +691,61 @@ class GdxCanvas(
 
     /** It really turns one, on the same quad the upright composite uses. */
     override val turnsLayers: Boolean get() = true
+
+    /**
+     * The picture as a fan through [outline], with a ring one screen pixel wide round it that
+     * fades to nothing — see [featherOutline]. Same texture, same shader and same batch as every
+     * other picture, so no GL state changes beyond the premultiplied blend a layer always needs.
+     *
+     * The texture coordinates are held inside the picture: the soft ring reaches half a pixel past
+     * the outline, and a sample from past the picture's edge would be whatever the texture's wrap
+     * mode found there.
+     */
+    override fun cutLayer(layer: TextureHandle, destination: Rect, outline: FloatArray) {
+        if (state.isHidden || destination.isEmpty || outline.size < 6) return
+        val picture = layer as? GdxTexture
+            ?: error("this canvas can only draw layers it made, not ${layer::class}")
+        val region = picture.region
+        val texture = region.texture
+
+        // Premultiplied and faded in all four channels, for the reasons drawLayer gives.
+        batch().blend(state.blend, premultiplied = true)
+        val fade = state.alpha.coerceIn(0f, 1f)
+        val solid = Color.toFloatBits(fade, fade, fade, fade)
+        val clear = Color.toFloatBits(0f, 0f, 0f, 0f)
+        val left = destination.left
+        val top = destination.top
+        val width = destination.width
+        val height = destination.height
+        val uSpan = region.u2 - region.u
+        val vSpan = region.v2 - region.v
+
+        featherOutline(outline, antialias) { ax, ay, aCover, bx, by, bCover, cx, cy, cCover, dx, dy, dCover ->
+            batch().corners(
+                texture,
+                ax, flip(ay),
+                region.u + ((ax - left) / width).coerceIn(0f, 1f) * uSpan,
+                region.v + ((ay - top) / height).coerceIn(0f, 1f) * vSpan,
+                if (aCover > 0f) solid else clear,
+                bx, flip(by),
+                region.u + ((bx - left) / width).coerceIn(0f, 1f) * uSpan,
+                region.v + ((by - top) / height).coerceIn(0f, 1f) * vSpan,
+                if (bCover > 0f) solid else clear,
+                cx, flip(cy),
+                region.u + ((cx - left) / width).coerceIn(0f, 1f) * uSpan,
+                region.v + ((cy - top) / height).coerceIn(0f, 1f) * vSpan,
+                if (cCover > 0f) solid else clear,
+                dx, flip(dy),
+                region.u + ((dx - left) / width).coerceIn(0f, 1f) * uSpan,
+                region.v + ((dy - top) / height).coerceIn(0f, 1f) * vSpan,
+                if (dCover > 0f) solid else clear,
+            )
+        }
+        batch().blend(state.blend, premultiplied = false)
+    }
+
+    /** It really cuts one, with a soft edge, in the same batch as everything else. */
+    override val cutsLayers: Boolean get() = true
 
     /**
      * The same picture, through somebody's shader.

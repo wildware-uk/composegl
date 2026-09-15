@@ -447,6 +447,28 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         )
     }
 
+    /**
+     * Four corners of a picture, each with its own place, texture coordinate and colour.
+     *
+     * What a picture cut to a shape is drawn with — see `GlCanvas.cutLayer`. The corners go in the
+     * order the quad is wound, 0, 1, 2 then 2, 3, 0, in coordinates already flipped. No shape
+     * maths: the colour at each corner is what softens the edge, and the texture is the picture.
+     */
+    @Suppress("LongParameterList")
+    fun corners(
+        name: Int,
+        ax: Float, ay: Float, au: Float, av: Float, aColour: Colour,
+        bx: Float, by: Float, bu: Float, bv: Float, bColour: Colour,
+        cx: Float, cy: Float, cu: Float, cv: Float, cColour: Colour,
+        dx: Float, dy: Float, du: Float, dv: Float, dColour: Colour,
+    ) {
+        use(name)
+        flat(ax, ay, au, av, aColour)
+        flat(bx, by, bu, bv, bColour)
+        flat(cx, cy, cu, cv, cColour)
+        flat(dx, dy, du, dv, dColour)
+    }
+
     private fun use(next: Int) {
         if (texture != next) {
             flush()

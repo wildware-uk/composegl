@@ -179,6 +179,10 @@ The optional extras, each of which degrades rather than fails:
 
 - `layer(bounds) { }` and `drawLayer(...)` — offscreen drawing, which is what
   [[Shaders|effects]] are built on. Return null and effects simply do not happen.
+- `cutLayer(layer, destination, outline)` — a layer put down through a convex outline,
+  which is what `Modifier.clipShape` is built on. `featherOutline` cuts the outline
+  into quads with a one-pixel soft edge for any batch that draws quads. Leave it and
+  shaped clips fall back to the node's rectangle; say so in `cutsLayers`.
 - `drawCalls` — how many times you handed work to the GPU this frame. Return -1 and
   the frame budget shows nothing for it.
 - `image(texture, destination, degrees, …)` — a turned picture. Leave it and the

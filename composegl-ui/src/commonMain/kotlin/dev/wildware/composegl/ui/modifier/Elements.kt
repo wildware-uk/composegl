@@ -7,6 +7,8 @@ import dev.wildware.composegl.ui.focus.RevealHandler
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.geometry.Shape
+import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NinePatch
@@ -163,14 +165,21 @@ data class ShadowElement(
 data class NinePatchElement(val patch: NinePatch, val tint: Colour = Colour.White) : Modifier.Element
 
 /**
- * Nothing outside this node is drawn by it or by its children.
+ * Nothing outside this node's [shape] is drawn by it or by its children.
  *
- * The [corners] are written down but the clip itself is the node's rectangle on every backend in
- * this repository: a clip is a scissor, and a scissor has no corners. That was as true of the
- * single radius before this took four.
+ * @see dev.wildware.composegl.ui.modifier.clip
+ * @see dev.wildware.composegl.ui.modifier.clipShape
  */
-data class ClipElement(val corners: Corners = Corners.None) : Modifier.Element {
+data class ClipElement(val shape: Shape = Shapes.Rectangle) : Modifier.Element {
+
+    /** A rectangle, with its corners rounded when [corner] is more than nothing. */
     constructor(corner: Float) : this(Corners.single(corner))
+
+    /** A rectangle rounded by [corners]; square corners all round is the plain rectangle. */
+    constructor(corners: Corners) : this(if (corners == Corners.None) Shapes.Rectangle else Shapes.roundedRect(corners))
+
+    /** The radii this clip rounds its rectangle by, or none when its shape is not a rounded rectangle. */
+    val corners: Corners get() = (shape as? Shapes.RoundedRect)?.corners ?: Corners.None
 
     /** Kept so code that read the one radius still compiles. It is the smallest of the four. */
     @Deprecated("A clip has a radius per corner now.", ReplaceWith("corners"))
@@ -179,6 +188,9 @@ data class ClipElement(val corners: Corners = Corners.None) : Modifier.Element {
 
 /** @see dev.wildware.composegl.ui.modifier.hitShape */
 data class HitShapeElement(val contains: (Offset) -> Boolean) : Modifier.Element
+
+/** @see dev.wildware.composegl.ui.modifier.hitShape */
+data class ShapedHitElement(val shape: Shape) : Modifier.Element
 
 data class AlphaElement(val alpha: Float) : Modifier.Element
 
@@ -560,10 +572,50 @@ fun Modifier.ninePatch(
     return if (applyPadding) painted.then(PaddingElement(patch.padding)) else painted
 }
 
+/**
+ * Nothing this node's children draw lands outside it.
+ *
+ * With no [corner] it is a scissor: free, and what every scroll area and text field in this
+ * toolkit uses. A [corner] rounds it, which is [clipShape] with [Shapes.roundedRect] and costs what
+ * that costs.
+ */
 fun Modifier.clip(corner: Float = 0f) = then(ClipElement(corner))
 
 /** The same, written with four radii so a clip can say the same [Corners] its background does. */
 fun Modifier.clip(corners: Corners) = then(ClipElement(corners))
+
+/**
+ * Nothing this node draws lands outside [shape]: a round portrait, a diamond minimap, a hexagon
+ * tile, cut from square art at draw time instead of masked by hand for every picture.
+ *
+ * ```kotlin
+ * Image(portrait, Modifier.size(64f).clipShape(Shapes.Circle).hitShape(Shapes.Circle))
+ * ```
+ *
+ * **Chain order decides what is cut.** Everything the chain paints *after* this — a background, a
+ * `drawInFront` — is cut along with the node's content and children; everything painted *before*
+ * it stays whole. So `border(ring).clipShape(Shapes.Circle).background(grey)` is a grey disc inside
+ * a square ring, and `clipShape(Shapes.Circle).background(grey)` is only the disc.
+ *
+ * **Clicks agree with it.** A point the shape cut away reaches neither this node nor anything
+ * under it in the tree, the same rule [clip] has always had for its rectangle — so what you cannot
+ * see you cannot press, and the click carries on to whatever *is* drawn there. Pass the same shape
+ * to [hitShape] when the node itself should be round to the pointer too; a clip cuts, but a node
+ * with no hit shape still claims its whole rectangle wherever the clip allows it.
+ *
+ * **It takes a picture.** A scissor is only ever a rectangle, so the subtree is drawn into an
+ * offscreen layer the size of the node and put back through the shape, with an edge softened over
+ * about one screen pixel. That is one layer per clipped node per frame — fine for a portrait or a
+ * row of tiles, not for a thousand of them. [Shapes.Rectangle] takes no picture at all and is
+ * exactly [clip].
+ *
+ * A canvas that cannot make pictures, or that cannot cut one ([UiCanvas.cutsLayers]), clips to the
+ * node's rectangle instead: everything still drawn, square. The hit testing does not follow that
+ * degrade, so on such a canvas a cut-away corner is visible and not clickable.
+ *
+ * Only convex shapes: see [Shape].
+ */
+fun Modifier.clipShape(shape: Shape) = then(ClipElement(shape))
 
 /**
  * Which points inside this node's rectangle actually belong to it.
@@ -594,6 +646,16 @@ fun Modifier.clip(corners: Corners) = then(ClipElement(corners))
  * radius or a grid pitch, is exactly that kind of lambda.
  */
 fun Modifier.hitShape(contains: (Offset) -> Boolean) = then(HitShapeElement(contains))
+
+/**
+ * The same, as a [Shape]: the one value [clipShape] takes, so what is drawn and what is clicked
+ * are one outline rather than a picture and a lambda that have to be kept in step by hand.
+ *
+ * Asked in the node's own coordinates against its own size, like the lambda above, and it competes
+ * with it the same way: whichever comes later in the chain is the node's shape. A shape compares
+ * equal to itself, so unlike the lambda it needs no `remember`.
+ */
+fun Modifier.hitShape(shape: Shape) = then(ShapedHitElement(shape))
 
 fun Modifier.alpha(alpha: Float) = then(AlphaElement(alpha))
 

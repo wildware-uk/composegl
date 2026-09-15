@@ -13,6 +13,8 @@ import dev.wildware.composegl.ui.game.ParticleStyle
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.geometry.Shape
+import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.EdgeMode
@@ -312,7 +314,33 @@ fun scenes(): List<Scene> = listOf(
         // Outside both clips again, to prove the scissor was actually lifted.
         rect(Rect.of(44f, 186f, 152f, 10f), Paper, corner = 5f)
     },
+
+    Scene("clip-shape") { art ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+
+        // Four square pictures of the same striped art, each cut to a different shape. A soft
+        // edge shows as a one-pixel blend into the ink; a staircase or a halo would change it.
+        cut(Rect.of(16f, 16f, 96f, 96f), Shapes.Circle, art)
+        cut(Rect.of(128f, 16f, 96f, 96f), Shapes.Diamond, art)
+        cut(Rect.of(16f, 128f, 96f, 96f), Shapes.Hexagon, art)
+        // Faded, to prove the opacity in force reaches the cut picture as one object.
+        pushAlpha(0.6f)
+        cut(Rect.of(128f, 128f, 96f, 96f), Shapes.roundedRect(24f), art)
+        popAlpha()
+    },
 )
+
+/** Stripes and a word, drawn into a picture and put back through [shape]. */
+private fun UiCanvas.cut(bounds: Rect, shape: Shape, art: SceneArt) {
+    val picture = layer(bounds) {
+        rect(bounds, Accent)
+        rect(Rect.of(bounds.left, bounds.top + bounds.height / 3f, bounds.width, bounds.height / 3f), Paper)
+        text(art.fonts.measure("Cut", Small), Offset(bounds.left + 36f, bounds.top + 40f), Ink)
+    } ?: return
+    val outline = shape.outline(bounds.width, bounds.height)
+    for (at in outline.indices) outline[at] += if (at % 2 == 0) bounds.left else bounds.top
+    cutLayer(picture, bounds, outline)
+}
 
 /** A picture as raw bytes: four to a pixel, red first, the top row first. */
 class RawImage(val width: Int, val height: Int, val pixels: ByteArray)
