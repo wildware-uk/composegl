@@ -72,7 +72,7 @@ internal data class FlowPolicy(
             val end = lineEnd(start, count, sizes, mainMax, gap)
             val length = lineLength(start, end, sizes, gap)
             if (length > longest) longest = length
-            depth += lineDepth(start, end, placeables)
+            depth += lineDepth(start, end, measurables, placeables)
             lines++
             start = end
         }
@@ -89,7 +89,8 @@ internal data class FlowPolicy(
         while (start < count) {
             val end = lineEnd(start, count, sizes, mainMax, gap)
             val items = end - start
-            val lineCross = lineDepth(start, end, placeables)
+            val lineCross = lineDepth(start, end, measurables, placeables)
+            val above = lineAbove(start, end, measurables, placeables)
             if (lineSizes.size < items) {
                 lineSizes = FloatArray(count)
                 linePositions = FloatArray(count)
@@ -107,8 +108,10 @@ internal data class FlowPolicy(
                 val along = linePositions[index] + mainSpacing * index
                 val alignment = measurables[child].layoutData.alignment ?: crossAlignment
                 if (horizontal) {
+                    val baseline = baselineOf(measurables[child], placeable)
                     placements[child * 2] = along
-                    placements[child * 2 + 1] = lineTop + alignment.yIn(lineCross, placeable.height)
+                    placements[child * 2 + 1] =
+                        lineTop + if (baseline.isNaN()) alignment.yIn(lineCross, placeable.height) else above - baseline
                 } else {
                     placements[child * 2] = lineTop + alignment.xIn(lineCross, placeable.width)
                     placements[child * 2 + 1] = along
@@ -147,13 +150,124 @@ internal data class FlowPolicy(
         return length
     }
 
-    private fun lineDepth(start: Int, end: Int, placeables: Array<Placeable?>): Float {
+    /**
+     * How deep a line is: its deepest child, or, when some of a flow row's children line up by their
+     * text, the reach above that shared line plus the reach below it, if that is deeper. Each line
+     * lines up on its own, as a [Row] of its own would.
+     */
+    private fun lineDepth(start: Int, end: Int, measurables: List<Measurable>, placeables: Array<Placeable?>): Float {
         var deepest = 0f
+        var below = 0f
         for (index in start until end) {
-            val cross = placeables[index]?.cross ?: 0f
-            if (cross > deepest) deepest = cross
+            val placeable = placeables[index] ?: continue
+            if (placeable.cross > deepest) deepest = placeable.cross
+            val baseline = baselineOf(measurables[index], placeable)
+            if (!baseline.isNaN() && placeable.height - baseline > below) below = placeable.height - baseline
         }
-        return deepest
+        val lined = lineAbove(start, end, measurables, placeables) + below
+        return if (lined > deepest) lined else deepest
+    }
+
+    /** The furthest any child of the line reaches above the line its text stands on; zero if none. */
+    private fun lineAbove(start: Int, end: Int, measurables: List<Measurable>, placeables: Array<Placeable?>): Float {
+        var above = 0f
+        for (index in start until end) {
+            val placeable = placeables[index] ?: continue
+            val baseline = baselineOf(measurables[index], placeable)
+            if (!baseline.isNaN() && baseline > above) above = baseline
+        }
+        return above
+    }
+
+    /** Where [placeable]'s text stands, if it is in a flow row lining children up by it; NaN if not. */
+    private fun baselineOf(measurable: Measurable, placeable: Placeable): Float {
+        if (!horizontal) return Float.NaN
+        val alignment = measurable.layoutData.alignment ?: crossAlignment
+        return if (alignment.vertical == VerticalAlignment.Baseline) placeable.firstBaseline else Float.NaN
+    }
+
+    // Written out rather than left to the default, which runs measure over stand-ins that take no
+    // room on the other axis. A line of those never fills, so a flow asked how tall it is at a width
+    // would answer one line, and asked how narrow it can be would answer everything end to end.
+    //
+    // Along the lines: at its narrowest a flow is its widest child, one to a line; at its widest,
+    // every line as long as the item limit lets it be. Across: the lines the length makes, each
+    // child as long as it would like within the length, each line as deep as its deepest child.
+
+    override fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        if (horizontal) along(measurables, max = false) else across(measurables, height, max = false)
+
+    override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        if (horizontal) along(measurables, max = true) else across(measurables, height, max = true)
+
+    override fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        if (horizontal) across(measurables, width, max = false) else along(measurables, max = false)
+
+    override fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        if (horizontal) across(measurables, width, max = true) else along(measurables, max = true)
+
+    private fun MeasureScope.along(measurables: List<IntrinsicMeasurable>, max: Boolean): Float {
+        val count = measurables.size
+        val gap = mainSpacing + arrangement.spacing
+        if (!max) {
+            var widest = 0f
+            for (index in 0 until count) {
+                val wanted = measurables[index].main(Float.POSITIVE_INFINITY, max = false)
+                if (wanted > widest) widest = wanted
+            }
+            return widest
+        }
+        val sizes = sizes(count)
+        for (index in 0 until count) sizes[index] = measurables[index].main(Float.POSITIVE_INFINITY, max = true)
+        var longest = 0f
+        var start = 0
+        while (start < count) {
+            val end = lineEnd(start, count, sizes, Float.POSITIVE_INFINITY, gap)
+            val length = lineLength(start, end, sizes, gap)
+            if (length > longest) longest = length
+            start = end
+        }
+        return longest
+    }
+
+    private fun MeasureScope.across(measurables: List<IntrinsicMeasurable>, length: Float, max: Boolean): Float {
+        val count = measurables.size
+        if (count == 0) return 0f
+        val gap = mainSpacing + arrangement.spacing
+        val sizes = sizes(count)
+        for (index in 0 until count) {
+            val wanted = measurables[index].main(Float.POSITIVE_INFINITY, max = true)
+            sizes[index] = if (length.isFinite()) wanted.coerceAtMost(length) else wanted
+        }
+        var depth = 0f
+        var lines = 0
+        var start = 0
+        while (start < count) {
+            val end = lineEnd(start, count, sizes, length, gap)
+            var deepest = 0f
+            for (index in start until end) {
+                val thickness = measurables[index].cross(sizes[index], max)
+                if (thickness > deepest) deepest = thickness
+            }
+            depth += deepest
+            lines++
+            start = end
+        }
+        return depth + crossSpacing * (lines - 1)
+    }
+
+    private fun IntrinsicMeasurable.main(cross: Float, max: Boolean) = when {
+        horizontal && max -> maxIntrinsicWidth(cross)
+        horizontal -> minIntrinsicWidth(cross)
+        max -> maxIntrinsicHeight(cross)
+        else -> minIntrinsicHeight(cross)
+    }
+
+    private fun IntrinsicMeasurable.cross(main: Float, max: Boolean) = when {
+        horizontal && max -> maxIntrinsicHeight(main)
+        horizontal -> minIntrinsicHeight(main)
+        max -> maxIntrinsicWidth(main)
+        else -> minIntrinsicWidth(main)
     }
 
     private val Placeable.main get() = if (horizontal) width else height
@@ -180,8 +294,8 @@ internal data class FlowPolicy(
  * @param verticalSpacing the gap between one line and the next.
  * @param horizontalArrangement how each line shares out the width left over, line by line. The last
  *   line of a centred flow is centred on its own.
- * @param verticalAlignment where a child sits inside a line taller than it. A child's own
- *   `Modifier.align` wins, as in a [Row].
+ * @param verticalAlignment where a child sits inside a line taller than it. `Baseline` stands the
+ *   text of each line on one line, line by line. A child's own `Modifier.align` wins, as in a [Row].
  * @param maxItemsInEachRow wraps after this many even when there is room: a grid of four across.
  */
 @Composable

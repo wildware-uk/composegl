@@ -316,8 +316,9 @@ Row(verticalAlignment = VerticalAlignment.Baseline) {
 - A child with no text at all goes at the top.
 - A child's own `Modifier.align(...)` still wins. A single child can ask for the
   baseline in a row that does not: `Modifier.align(Alignment(vertical = VerticalAlignment.Baseline))`.
-- Only a `Row` does this. In a `Box` there is nothing beside a child to line up
-  with, so `Baseline` is the same as `Top`.
+- Only a `Row` or a `FlowRow` does this; a `FlowRow` lines up each of its lines on
+  its own. In a `Box` there is nothing beside a child to line up with, so
+  `Baseline` is the same as `Top`.
 
 ### A small thing in a big slot: `wrapContentSize`
 
@@ -368,11 +369,15 @@ FlowRow(horizontalSpacing = 4f, verticalSpacing = 4f) {
 | `horizontalSpacing` | the gap between neighbours on a line |
 | `verticalSpacing` | the gap between one line and the next |
 | `horizontalArrangement` | how each line spreads out, line by line — `Centre` centres the short last line on its own |
-| `verticalAlignment` | where a child sits in a line taller than it; `Modifier.align` on a child still wins |
+| `verticalAlignment` | where a child sits in a line taller than it; `Baseline` stands each line's words on one line; `Modifier.align` on a child still wins |
 | `maxItemsInEachRow` | wrap after this many even when there is room — four across, like a grid |
 
 `FlowColumn` is the same turned on its side: top to bottom, then a new column to
 the right. It only fills up when something limits its height, so give it one.
+
+A flow sized to its contents — `Modifier.width(IntrinsicSize.Min)` on a panel
+around it — counts the wrapping: at its narrowest it is its widest child, one to a
+line, and asked how tall it is at a width it answers with every line it would make.
 
 Two things it does not do. `weight` means nothing inside a flow — there is no
 "what is left" until the line is decided. And a child wider than the whole flow

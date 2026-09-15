@@ -18,6 +18,8 @@ import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.background
+import dev.wildware.composegl.ui.modifier.fillMaxHeight
+import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.testTag
 import dev.wildware.composegl.ui.modifier.width
@@ -25,6 +27,8 @@ import dev.wildware.composegl.ui.testing.UiTest
 import dev.wildware.composegl.ui.testing.uiTest
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.ProvideFonts
+import dev.wildware.composegl.ui.widget.Text
+import dev.wildware.composegl.ui.text.TextStyle
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -329,6 +333,86 @@ class FlowUiTest {
             drawn.map { it.rect.left to it.rect.top },
             "the third box is painted on the second line",
         )
+    }
+
+    @Test
+    fun `a panel sized to its narrowest flow stacks the chips and still takes clicks`() {
+        val clicked = mutableListOf<String>()
+        val ui = open {
+            Column(Modifier.width(IntrinsicSize.Min).testTag("panel")) {
+                FlowRow(horizontalSpacing = 8f, verticalSpacing = 8f) {
+                    listOf("ONE", "TWO", "THREE").forEach { word ->
+                        Button(word, onClick = { clicked += word }, modifier = Modifier.width(90f).testTag(word))
+                    }
+                }
+            }
+        }
+
+        // A flow can wrap, so the least room it needs is its widest child, not the whole line.
+        assertEquals(90f, ui.node("panel").width)
+        assertEquals(ui.node("TWO").boundsInRoot.top, ui.node("ONE").boundsInRoot.bottom + 8f)
+
+        assertTrue(ui.click("THREE"))
+        assertEquals(listOf("THREE"), clicked)
+    }
+
+    @Test
+    fun `a bar beside a flow sized to its height reaches the bottom of the last line`() {
+        var count by mutableStateOf(4)
+        val ui = open {
+            Row(Modifier.height(IntrinsicSize.Min).testTag("row")) {
+                FlowRow(Modifier.width(200f).testTag("flow"), horizontalSpacing = 10f, verticalSpacing = 5f) {
+                    repeat(count) { Chip(it) }
+                }
+                Box(Modifier.width(6f).fillMaxHeight().testTag("bar")) {}
+            }
+        }
+
+        // Two lines of 30 and a gap of 5; asked how tall it is at 200 wide, the flow says so.
+        assertEquals(65f, ui.node("flow").height)
+        assertEquals(65f, ui.node("bar").height)
+
+        count = 5
+        ui.settle()
+        assertEquals(100f, ui.node("bar").height, "a third line makes the bar longer too")
+    }
+
+    @Test
+    fun `a flow column sized to its contents is as wide as its columns`() {
+        val ui = open {
+            Row(Modifier.width(IntrinsicSize.Max).testTag("panel")) {
+                FlowColumn(Modifier.height(70f), horizontalSpacing = 10f, verticalSpacing = 10f) {
+                    repeat(3) { index -> Box(Modifier.size(40f, 30f).testTag("cell$index")) {} }
+                }
+            }
+        }
+
+        assertEquals(50f, ui.node("cell2").boundsInRoot.left, "the third cell opened a second column")
+        assertEquals(90f, ui.node("panel").width, "two columns of 40 and the gap between them")
+    }
+
+    @Test
+    fun `a baseline flow row stands the words of each line on one line`() {
+        var value by mutableStateOf("120")
+        val ui = open {
+            // 57.6 for "120" and 19.2 for "HP" fit in 100; "99" at 38.4 more does not.
+            FlowRow(Modifier.width(100f).testTag("flow"), verticalSpacing = 4f, verticalAlignment = VerticalAlignment.Baseline) {
+                Text(value, Modifier.testTag("value"), textStyle = TextStyle(size = 32f))
+                Text("HP", Modifier.testTag("hp"), textStyle = TextStyle(size = 16f))
+                Text("99", Modifier.testTag("mp"), textStyle = TextStyle(size = 32f))
+                Text("MP", Modifier.testTag("unit"), textStyle = TextStyle(size = 16f))
+            }
+        }
+
+        fun baseline(tag: String) = ui.node(tag).let { it.layoutBoundsInRoot.top + it.firstBaseline }
+        fun near(expected: Float, actual: Float, message: String) =
+            assertTrue(kotlin.math.abs(expected - actual) < 1e-3f, "expected $expected but was $actual. $message")
+
+        assertTrue(ui.node("mp").boundsInRoot.top > 0f, "the second pair wrapped: ${ui.root.debugTree()}")
+        near(baseline("value"), baseline("hp"), "the first line's words share a line")
+        near(baseline("mp"), baseline("unit"), "and so do the second line's")
+        assertTrue(ui.node("hp").boundsInRoot.top > ui.node("value").boundsInRoot.top, "the small word dropped")
+        near(baseline("value"), ui.node("flow").layoutBoundsInRoot.top + ui.node("flow").firstBaseline, "the flow reports the first line")
     }
 
     @Test
