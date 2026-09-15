@@ -15,6 +15,7 @@ import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
+import dev.wildware.composegl.ui.layout.IntrinsicSize
 import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.height
@@ -121,6 +122,34 @@ class DividerTest {
 
         assertEquals(300f, ui.node("line").boundsInRoot.height, "the screen is the only limit")
         assertEquals(300f, ui.node("row").boundsInRoot.height, "and the row grows to hold it")
+    }
+
+    @Test
+    fun `in a row sized to its contents a vertical divider is as tall as the tallest thing beside it`() {
+        val ui = open {
+            Row(Modifier.height(IntrinsicSize.Min).testTag("row")) {
+                Box(Modifier.size(30f, 24f))
+                Divider(Modifier.testTag("line"), vertical = true, thickness = 2f)
+                Box(Modifier.size(30f, 40f))
+            }
+        }
+
+        assertEquals(40f, ui.node("row").boundsInRoot.height, "the line does not stretch the row to the screen")
+        assertEquals(Rect.of(30f, 0f, 2f, 40f), ui.node("line").boundsInRoot)
+    }
+
+    @Test
+    fun `in a menu as wide as its widest button a divider spans that width and no more`() {
+        val ui = open {
+            Column(Modifier.width(IntrinsicSize.Max).testTag("menu")) {
+                Box(Modifier.size(60f, 20f))
+                Divider(Modifier.testTag("line"))
+                Box(Modifier.size(140f, 20f))
+            }
+        }
+
+        assertEquals(140f, ui.node("menu").boundsInRoot.width, "the line does not widen the menu")
+        assertEquals(Rect.of(0f, 20f, 140f, 1f), ui.node("line").boundsInRoot)
     }
 
     @Test

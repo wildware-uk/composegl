@@ -29,7 +29,8 @@ import dev.wildware.composegl.ui.skin.rememberStyle
  * It is as long as the room it is given and [thickness] across. A horizontal one spans all the
  * width its column may have, and a vertical one all the height its row may have — so a row nobody
  * sized grows to the height of whatever holds it, the way a column with a divider in it grows to
- * its full width. Size the row to keep it short: `Row(Modifier.height(24f))`. Where there is no
+ * its full width. Size the row to keep it short: `Row(Modifier.height(24f))`, or
+ * `Row(Modifier.height(IntrinsicSize.Min))` for the height of its tallest cell. Where there is no
  * limit at all, as inside a [ScrollArea], there is no length to take and the line is zero long
  * until it is given one. `Modifier.width(120f)` on a horizontal one is a short rule rather than a
  * full one.
