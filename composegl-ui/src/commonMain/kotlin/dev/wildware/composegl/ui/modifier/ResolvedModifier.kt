@@ -198,12 +198,22 @@ class ResolvedModifier private constructor(
      * node there has ever been. See [dev.wildware.composegl.ui.modifier.animateContentSize].
      */
     val contentSize: AnimateContentSizeElement?,
+    /**
+     * The slide this node plays when layout moves it, or null for almost every node there has ever
+     * been. See [dev.wildware.composegl.ui.modifier.animatePlacement].
+     */
+    internal val placement: PlacementAnimation?,
+    /**
+     * What this node tells an animated node inside it about scrolling, when it is the thing that
+     * placement is measured from. See [dev.wildware.composegl.ui.modifier.placementFrame].
+     */
+    internal val placementFrame: PlacementFrame?,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
 
     /** Whether layout has anything to tell this node once it is finished. False for nearly all. */
-    val watchesLayout: Boolean get() = sizeChanged.isNotEmpty() || placed.isNotEmpty()
+    val watchesLayout: Boolean get() = sizeChanged.isNotEmpty() || placed.isNotEmpty() || placement != null
 
     /**
      * Whether a pointer can find this node at all.
@@ -273,6 +283,8 @@ class ResolvedModifier private constructor(
             val sizeChanged = mutableListOf<SizeChangedHandler>()
             val placed = mutableListOf<PlacedHandler>()
             var contentSize: AnimateContentSizeElement? = null
+            var placement: PlacementAnimation? = null
+            var placementFrame: PlacementFrame? = null
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -393,6 +405,9 @@ class ResolvedModifier private constructor(
                     is OnPlacedElement -> placed += element.handler
                     // A choice: one node has one size, so it follows its contents one way.
                     is AnimateContentSizeElement -> contentSize = element
+                    // A choice: one node plays one slide, and a later one is a replacement.
+                    is AnimatePlacementElement -> placement = element.animation
+                    is PlacementFrameElement -> placementFrame = element.frame
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
             }
@@ -411,6 +426,7 @@ class ResolvedModifier private constructor(
                 focusable, pointerFocus, focusRequester, focusOrder, focusDirections.toList(),
                 reveals.toList(), focusWithin.toList(), focusTrap, testTag,
                 sizeChanged.toList(), placed.toList(), contentSize,
+                placement, placementFrame,
             )
         }
     }

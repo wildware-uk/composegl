@@ -337,7 +337,8 @@ internal class OnceMeasurable(private val node: UiNode) : Measurable {
 }
 
 /**
- * Placing a node writes its position, plus whatever its `offset` modifier asked for.
+ * Placing a node writes its position, plus whatever its `offset` modifier asked for, plus how far
+ * an `animatePlacement` slide still has to go.
  *
  * One per node, kept on the node, and [on] points it at the resolution this pass read — which can
  * be a different object from last frame's even when it says the same thing.
@@ -376,8 +377,15 @@ internal class NodePlaceable(private val node: UiNode) : Placeable() {
     override val lastBaseline get() = node.lastBaseline + dy
 
     override fun placeAt(x: Float, y: Float) {
-        node.x = x + dx + resolved.offset.x
-        node.y = y + dy + resolved.offset.y
+        val placement = resolved.placement
+        if (placement == null) {
+            node.x = x + dx + resolved.offset.x
+            node.y = y + dy + resolved.offset.y
+        } else {
+            // Mid-slide, the node is still partway back towards where it was.
+            node.x = x + dx + resolved.offset.x + placement.x
+            node.y = y + dy + resolved.offset.y + placement.y
+        }
     }
 }
 

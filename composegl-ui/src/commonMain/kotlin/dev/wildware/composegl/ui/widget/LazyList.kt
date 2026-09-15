@@ -18,6 +18,8 @@ import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
 import dev.wildware.composegl.ui.layout.Placeable
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.PlacementFrame
+import dev.wildware.composegl.ui.modifier.PlacementFrameElement
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onReveal
@@ -287,6 +289,14 @@ private fun LazyList(
 
     val drag = remember(gestures) { PointerHandler { gestures.onPointer(it) } }
     val reveal = remember(gestures) { RevealHandler { gestures.reveal(it) } }
+    // An item that slides is measured against the list with the scroll taken out, so scrolling is
+    // not every row moving.
+    val frame = remember(state, vertical) {
+        object : PlacementFrame {
+            override val scrolledX: Float get() = if (vertical) 0f else state.position
+            override val scrolledY: Float get() = if (vertical) state.position else 0f
+        }
+    }
     DriveFling(state.axis)
 
     // Both of these are snapshot state, and between them they are the whole of "which items should
@@ -299,7 +309,7 @@ private fun LazyList(
     val rows = rememberSaveableStateHolder()
 
     Layout(
-        modifier = modifier.onReveal(reveal).onPointer(drag).clip(),
+        modifier = modifier.onReveal(reveal).onPointer(drag).clip().then(PlacementFrameElement(frame)),
         name = if (vertical) "lazyColumn" else "lazyRow",
         content = {
             for (index in window) {

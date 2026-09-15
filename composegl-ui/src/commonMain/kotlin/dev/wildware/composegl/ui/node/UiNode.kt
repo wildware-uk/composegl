@@ -209,6 +209,8 @@ class UiNode(var name: String = "node") {
      */
     internal fun reportLayout() {
         val resolved = this.resolved
+        // First, so anything else told about this node below hears where it is drawn this frame.
+        resolved.placement?.placed(this)
         val sizeHandlers = resolved.sizeChanged
         if (sizeHandlers !== toldSize) {
             if (sizeHandlers != toldSize) reportedWidth = Float.NaN
@@ -246,6 +248,7 @@ class UiNode(var name: String = "node") {
      * the tree, which may come back somewhere else, or losing its handlers, which may come back.
      */
     internal fun forgetReportedLayout() {
+        resolved.placement?.forget()
         reportedWidth = Float.NaN
         reportedHeight = Float.NaN
         reportedPlace = null

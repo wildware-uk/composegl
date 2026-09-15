@@ -14,6 +14,8 @@ import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.PlacementFrame
+import dev.wildware.composegl.ui.modifier.PlacementFrameElement
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onReveal
@@ -143,9 +145,16 @@ fun ScrollArea(
     val drag = remember(gestures) { PointerHandler { gestures.onPointer(it) } }
     val reveal = remember(gestures) { RevealHandler { gestures.reveal(it) } }
     DriveFling(state.across, state.down)
+    // The same as a lazy list: what slides inside is measured with the scroll taken out.
+    val frame = remember(state) {
+        object : PlacementFrame {
+            override val scrolledX: Float get() = state.x
+            override val scrolledY: Float get() = state.y
+        }
+    }
 
     Layout(
-        modifier = modifier.onReveal(reveal).onPointer(drag).clip(),
+        modifier = modifier.onReveal(reveal).onPointer(drag).clip().then(PlacementFrameElement(frame)),
         name = "scroll",
         content = {
             Box { content() }

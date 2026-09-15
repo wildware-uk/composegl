@@ -17,6 +17,8 @@ import dev.wildware.composegl.ui.layout.MeasureScope
 import dev.wildware.composegl.ui.layout.Placeable
 import dev.wildware.composegl.ui.layout.countIn
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.PlacementFrame
+import dev.wildware.composegl.ui.modifier.PlacementFrameElement
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onReveal
@@ -203,6 +205,13 @@ private fun LazyGrid(
 
     val drag = remember(gestures) { PointerHandler { gestures.onPointer(it) } }
     val reveal = remember(gestures) { RevealHandler { gestures.reveal(it) } }
+    // The same as a lazy list: a cell that slides is measured with the scroll taken out.
+    val frame = remember(state, vertical) {
+        object : PlacementFrame {
+            override val scrolledX: Float get() = if (vertical) 0f else state.position
+            override val scrolledY: Float get() = if (vertical) state.position else 0f
+        }
+    }
     DriveFling(state.axis)
 
     // The same two pieces of snapshot state a lazy list composes from; see LazyList.
@@ -215,7 +224,7 @@ private fun LazyGrid(
     }
 
     Layout(
-        modifier = modifier.onReveal(reveal).onPointer(drag).clip(),
+        modifier = modifier.onReveal(reveal).onPointer(drag).clip().then(PlacementFrameElement(frame)),
         name = if (vertical) "lazyVerticalGrid" else "lazyHorizontalGrid",
         content = {
             for (index in items) {

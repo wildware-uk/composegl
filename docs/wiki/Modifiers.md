@@ -126,6 +126,7 @@ Modifier.zIndex(1f)                // drawn over its siblings, and clicked first
 Modifier.layoutId("icon")          // inside a layout of your own; see [[Custom layouts]]
 Modifier.wrapContentSize()         // its own size, centred in a slot bigger than it
 Modifier.wrapContentWidth(HorizontalAlignment.End)
+Modifier.animatePlacement()        // slides to a new slot instead of jumping there
 ```
 
 **zIndex is for lifting one thing out of a pile.** Siblings paint in the order
@@ -146,6 +147,33 @@ zIndex inside a low parent stays under that parent's higher siblings. Two on one
 node add, like `offset`.
 
 ![three overlapping cards, the middle one lifted over both neighbours](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-zindex.png)
+
+**animatePlacement is for lists that change.** Sort an inventory, reshuffle a
+leaderboard, take a notification out of the middle of a stack, and every row that
+moved slides from where it was to where it now belongs instead of jumping:
+
+```kotlin
+LazyColumn(count = scores.size, key = { scores[it].id }) { index ->
+    ScoreRow(scores[index], Modifier.animatePlacement())
+}
+```
+
+The key matters. Without one, a sorted list keeps each row in its place and changes
+what it says, so nothing moved. Whatever moves the node counts — a sort, something
+inserted above it, a neighbour growing — and the row is put back where it was on the
+very frame it moved, so there is no flicker. A new row is not a move and appears where
+it lands. A second move mid-slide carries on from where the row got to, at the speed
+it was going, which is why the default is a spring; pass any `AnimationSpec`, and a
+`clock` of `Clock.World` if the slide should freeze with the game.
+
+The row is really there as it slides: a click, hover and focus find it where it is
+drawn. "Where it was" is measured against whatever carries the row about, so only a
+real move slides. Scrolling a `LazyColumn`, `LazyRow`, lazy grid or `ScrollArea` is not a move. A
+cell that slides inside a row that slides goes along with its row rather than sliding
+twice. Anything else that moves as a whole — a window the player drags, a panel flying
+in — should say `Modifier.placementFrame()`, or its rows will trail behind it.
+
+![a leaderboard sorted a moment ago: on the left the rows have jumped, on the right they are part way through sliding](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-animate-placement.png)
 
 **How it looks**
 

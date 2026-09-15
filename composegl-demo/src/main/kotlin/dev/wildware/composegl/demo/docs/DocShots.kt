@@ -3,6 +3,7 @@ package dev.wildware.composegl.demo.docs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +63,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.PointerParallax
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.alpha
+import dev.wildware.composegl.ui.modifier.animatePlacement
 import dev.wildware.composegl.ui.modifier.aspectRatio
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.border
@@ -1150,6 +1152,25 @@ private fun MutableList<DocShot>.modifiers() {
         }
     })
 
+    // The same four scores, sorted a couple of frames in: on the left without animatePlacement,
+    // where the sort is already over, and on the right with it, caught most of the way through.
+    // Bo climbs past everyone, so it is lifted to be drawn over the rows it passes.
+    add(DocShot("modifier-animate-placement", 420, 210, seconds = 0.42f) {
+        var sorted by remember { mutableStateOf(false) }
+        // From an effect a frame or two in, so the rows have a first place to slide away from.
+        LaunchedEffect(Unit) {
+            withFrameNanos { }
+            withFrameNanos { }
+            sorted = true
+        }
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(40f)) {
+                Labelled("as it was: jumps") { Scores(sorted, animated = false) }
+                Labelled("animatePlacement()") { Scores(sorted, animated = true) }
+            }
+        }
+    })
+
     // A popup hung under a button by the button's own onPlaced, and a panel reading out the size
     // its onSizeChanged was last handed. Nothing in it polls.
     add(DocShot("modifier-on-placed", 420, 200, seconds = 0.2f) {
@@ -1528,6 +1549,24 @@ private fun CodexPage() {
         ScrollArea(Modifier.fillMaxWidth().height(110f), scroll) {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6f)) {
                 repeat(12) { Text(if (it + 1 == entry) "> Wraith ${it + 1}" else "Wraith ${it + 1}") }
+            }
+        }
+    }
+}
+
+/** A leaderboard of four, sorted highest first once [sorted]. Bo, who climbs to the top, is lit. */
+@Composable
+private fun Scores(sorted: Boolean, animated: Boolean) {
+    val rows = listOf("Ada" to 120, "Cy" to 90, "Di" to 210, "Bo" to 340)
+    val shown = if (sorted) rows.sortedByDescending { it.second } else rows
+    Column(Modifier.width(170f), verticalArrangement = Arrangement.spacedBy(6f)) {
+        shown.forEach { (name, score) ->
+            key(name) {
+                val slide = if (animated) Modifier.animatePlacement(Tween(600, easing = Easings.Linear)) else Modifier
+                Row(Modifier.width(170f).then(slide).zIndex(if (name == "Bo") 1f else 0f).background(if (name == "Bo") Accent else Steel, corner = 6f).padding(8f)) {
+                    Text(name, Modifier.width(110f))
+                    Text("$score")
+                }
             }
         }
     }
