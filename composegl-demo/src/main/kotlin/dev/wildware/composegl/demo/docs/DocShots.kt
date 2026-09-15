@@ -101,6 +101,7 @@ import dev.wildware.composegl.ui.focus.FocusRequester
 import dev.wildware.composegl.ui.modifier.focusOrder
 import dev.wildware.composegl.ui.modifier.focusRequester
 import dev.wildware.composegl.ui.modifier.hitShape
+import dev.wildware.composegl.ui.debug.RedrawOverlay
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -1522,6 +1523,35 @@ private fun MutableList<DocShot>.modifiers() {
                 }
             }
             FocusOverlay(enabled = true)
+        }
+    })
+
+    add(DocShot("redraw-overlay", 420, 170, seconds = 1.1f) {
+        Box(Modifier.fillMaxSize()) {
+            Frame {
+                // A menu that stands still beside a score that ticks five times a second, so the
+                // picture has one node flashing and everything round it quiet.
+                Row(horizontalArrangement = Arrangement.spacedBy(24f)) {
+                    Column(
+                        Modifier.background(Ink, corner = 6f).padding(18f),
+                        verticalArrangement = Arrangement.spacedBy(10f),
+                    ) {
+                        Text("PAUSED", style = "label.dim")
+                        Button("RESUME", onClick = {})
+                        Button("QUIT", onClick = {})
+                    }
+                    var score by remember { mutableStateOf(0) }
+                    val clocks = LocalClocks.current
+                    LaunchedEffect(Unit) {
+                        while (true) {
+                            clocks.wait(Clock.Ui, 200)
+                            score += 10
+                        }
+                    }
+                    Text("SCORE $score")
+                }
+            }
+            RedrawOverlay(enabled = true)
         }
     })
 

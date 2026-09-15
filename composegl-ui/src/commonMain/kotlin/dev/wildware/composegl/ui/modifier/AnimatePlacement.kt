@@ -243,7 +243,7 @@ internal class PlacementAnimation : FrameWaiter {
         if (doneX && doneY) stop()
         // Only a real change: a slide on a stopped clock hands out the same place every frame and
         // should not redraw every frame for it.
-        if (x != wasX || y != wasY) tree.invalidate()
+        if (x != wasX || y != wasY) tree.invalidate(node)
     }
 
     /** Stops where it is supposed to be, leaving the slot it knows alone. */
@@ -251,7 +251,8 @@ internal class PlacementAnimation : FrameWaiter {
         tree?.let {
             it.stopWaiting(this)
             clocks?.ended(checkNotNull(playing))
-            it.invalidate()
+            val sliding = node
+            if (sliding != null) it.invalidate(sliding) else it.invalidate()
         }
         tree = null
         clocks = null

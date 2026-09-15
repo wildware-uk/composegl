@@ -206,7 +206,7 @@ internal class MarqueeRun(private val node: UiNode) : FrameWaiter {
         finished = false
         if (offset != 0f) {
             offset = 0f
-            node.tree?.redraw()
+            node.tree?.redraw(node)
         }
     }
 
@@ -220,7 +220,7 @@ internal class MarqueeRun(private val node: UiNode) : FrameWaiter {
         // write the same number and so draw nothing.
         if (next != offset) {
             offset = next
-            tree.redraw()
+            tree.redraw(node)
         }
         if (element.isFinishedAt(elapsed, distance)) {
             tree.stopWaiting(this)

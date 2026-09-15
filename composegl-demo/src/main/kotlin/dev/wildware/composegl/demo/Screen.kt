@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.debug.FrameBudgetOverlay
+import dev.wildware.composegl.ui.debug.RedrawOverlay
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
@@ -212,6 +213,9 @@ fun Screen(
                                 Modifier.align(Alignment.BottomEnd).padding(right = 40f, bottom = 40f),
                             )
                         }
+                        // And on the same key, a red edge on whatever just changed, so the busiest
+                        // list has a place on screen to point at.
+                        RedrawOverlay(enabled = state.budget.isOn)
                     }
                 }
             }
@@ -792,9 +796,9 @@ class DemoState {
 
     /**
      * What the interface costs a frame. Off, because it is a debug tool and the example is a
-     * picture; F3 puts it up.
+     * picture; F3 puts it up, with the five nodes that changed most under the numbers.
      */
-    val budget = FrameBudget().also { it.isOn = false }
+    val budget = FrameBudget(busiest = 5).also { it.isOn = false }
 
     /** What each action is bound to, and which pad's letters to draw. */
     val prompts = Prompts()
