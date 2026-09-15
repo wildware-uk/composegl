@@ -34,7 +34,7 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
 | | |
 |---|---|
 | **[[Your first screen]]** | a window, a panel and a working button, in about eighty lines |
-| **[[Layout]]** | `Column`, `Row`, `Box`, `weight`, and what differs from Compose |
+| **[[Layout]]** | `Column`, `Row`, `Box`, `Grid`, `weight`, and what differs from Compose |
 | **[[Modifiers]]** | the full list, and the three rules that are ours |
 | **[[Widgets]]** | everything that ships, including the game tier |
 

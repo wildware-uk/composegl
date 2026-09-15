@@ -27,6 +27,8 @@ import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
+import dev.wildware.composegl.ui.layout.Grid
+import dev.wildware.composegl.ui.layout.GridCells
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
 import dev.wildware.composegl.ui.layout.Layout
 import dev.wildware.composegl.ui.layout.MeasurePolicy
@@ -190,6 +192,25 @@ private fun MutableList<DocShot>.layout() {
                 )) {
                     Box(Modifier.widthIn(min = 160f, max = 300f).background(Steel, corner = 6f).padding(10f)) {
                         Text(words)
+                    }
+                }
+            }
+        }
+    })
+
+    add(DocShot("layout-grid", 420, 200) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(24f)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6f)) {
+                    Text("Fixed(4)", style = "label.dim")
+                    Grid(GridCells.Fixed(4), Modifier.width(184f), spacing = 4f) {
+                        repeat(10) { index -> GridTile(index, Steel) }
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(6f)) {
+                    Text("Adaptive(minSize = 40f)", style = "label.dim")
+                    Grid(GridCells.Adaptive(minSize = 40f), Modifier.width(140f), spacing = 4f) {
+                        repeat(7) { index -> GridTile(index, Deep) }
                     }
                 }
             }
@@ -652,6 +673,14 @@ private val Deep = Colour.rgb(0x1D4F70)
 private fun Swatch(label: String) {
     Box(Modifier.size(90f, 48f).background(Steel, corner = 6f), contentAlignment = Alignment.Centre) {
         Text(label, style = "label.dim")
+    }
+}
+
+/** One cell of a grid picture: as wide as the cell it was given, numbered so the order shows. */
+@Composable
+private fun GridTile(index: Int, colour: Colour) {
+    Box(Modifier.fillMaxWidth().height(40f).background(colour, corner = 5f), contentAlignment = Alignment.Centre) {
+        Text("$index", style = "label.dim")
     }
 }
 
