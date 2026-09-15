@@ -229,9 +229,53 @@ held plain button still costs no frames.
 
 ---
 
+## Dragging
+
+A window by its frame, a map being panned, an item picked up out of a slot:
+
+```kotlin
+var at by remember { mutableStateOf(Offset.Zero) }
+
+Panel(
+    Modifier
+        .offset(at.x, at.y)
+        .draggable(
+            onDragStart = { grabbedAt -> },
+            onDragEnd = { snapToSlot() },
+            onDragCancel = { at = home },   // defaults to onDragEnd
+        ) { delta -> at += delta },
+) { … }
+```
+
+![a window dragged by a mouse, over the outline of where it started](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/input-drag.png)
+
+Every hand-written drag gets one of these slightly wrong, so `draggable` does them once:
+
+- **Slop.** Nothing happens until the pointer is more than 8 units from the press
+  (`slop =` to change it). Then `onDragStart` gets where the press was, and the first
+  `onDrag` carries the whole way from there, so the item is never behind the pointer.
+  A press that stays inside the slop is still a click.
+- **Capture.** The drag carries on outside the widget and outside the window. A drag
+  is never a click, wherever it is let go.
+- **A widget that moves.** A window following the pointer moves exactly as far as
+  the pointer does. Deltas are in the widget's own units, so a half-size map pans at
+  the speed it looks like it should.
+- **Cancel.** The platform taking the gesture away calls `onDragCancel`, never
+  `onDragEnd`, so the item can go home instead of being dropped.
+- **Things inside.** A button in a draggable window is clicked by a steady press.
+  Drag from it instead and the button lets go — no click — and the window moves. A
+  slider in the window keeps its own drags: it is using the pointer, so it keeps it.
+- **Holds.** A press that becomes a drag is no longer a hold. A long press or a
+  `repeatingClickable` under it never fires, however long the drag lasts.
+
+It is the primary button or a finger. Two fingers drag two things at once. A disabled
+`draggable` does not take the press at all, and turning one off mid-drag cancels it.
+
+---
+
 ## Raw events
 
-When a widget needs more than a click:
+When a widget needs more than a click or a drag:
 
 ```kotlin
 Modifier.onPointer { event ->

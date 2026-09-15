@@ -4,6 +4,7 @@ import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.modifier.DraggableElement
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.node.UiNode
 
@@ -40,7 +41,15 @@ class PointerRouter(
 ) : InputSink {
 
     /** What a captured pointer is doing, and to whom. */
-    private class Capture(val node: UiNode, val buttons: MutableSet<PointerButton>) {
+    private class Capture(
+        /** Who has the gesture. Only changes once, when a draggable ancestor takes it over. */
+        var node: UiNode,
+        val buttons: MutableSet<PointerButton>,
+        /** The button that started it, which is what decides whether it can become a drag. */
+        val first: PointerButton,
+        /** Where it started, in the root's coordinates, so slop is measured from here. */
+        val pressedAt: Offset,
+    ) {
         /** True while the pointer is inside the captured node, which is what "pressed" means. */
         var inside = true
             set(value) {
@@ -48,8 +57,28 @@ class PointerRouter(
                 gesture.inside = value
             }
 
-        /** The long press, the repeat and the start time a double click is measured from. */
+        /**
+         * The long press, the repeat and the start time a double click is measured from. Always
+         * the node that took the press: a drag stops it, and a drag is never a click anyway.
+         */
         val gesture = PressGesture(node)
+
+        /**
+         * The draggable this gesture turned into, or null while it is still a press that might be
+         * a click. Kept, rather than read off the node each time, so a drag whose modifier goes
+         * away half way through still has someone to tell it was cancelled.
+         */
+        var drag: DraggableElement? = null
+
+        /**
+         * True once this gesture has been a drag, even one cancelled half way through. A spent
+         * gesture never starts another drag, never hands itself to a parent, and is never a click:
+         * the player was dragging, and turning the draggable off under them does not change that.
+         */
+        var dragged = false
+
+        /** Where the pointer was last reported to [drag], in the root's coordinates. */
+        var lastAt: Offset = pressedAt
     }
 
     private val captures = mutableMapOf<PointerId, Capture>()
@@ -83,6 +112,7 @@ class PointerRouter(
             val capture = captures.remove(id) ?: return@forEach
             capture.gesture.cancel()
             capture.node.resolved.interactions.forEach { it.clear() }
+            cancelDrag(capture)
         }
         hovering.keys.toList().forEach { id -> hover(id, emptyList()) }
     }
@@ -103,7 +133,7 @@ class PointerRouter(
 
         // A gesture has started, so nothing is merely hovered any more.
         hover(event.pointerId, emptyList())
-        captures[event.pointerId] = Capture(taker, mutableSetOf(event.button))
+        captures[event.pointerId] = Capture(taker, mutableSetOf(event.button), event.button, event.position)
         taker.resolved.interactions.forEach { it.press() }
         focus?.focusOn(taker)
         return true
@@ -119,7 +149,8 @@ class PointerRouter(
                 // has been decided yet — that happens on release.
                 capture.node.resolved.interactions.forEach { if (inside) it.press() else it.release() }
             }
-            deliver(capture.node, event)
+            val used = deliver(capture.node, event)
+            drag(capture, event, used)
             // Captured means captured: the event belongs to this gesture whether or not a handler
             // had anything to say about it.
             return true
@@ -144,6 +175,17 @@ class PointerRouter(
         if (capture.inside) capture.node.resolved.interactions.forEach { it.release() }
 
         deliver(capture.node, event)
+        if (capture.drag != null) {
+            // Wherever the release is, the drag gets there before it ends: a platform that reports
+            // the last few pixels only on the release must not leave the item short of the pointer.
+            val current = currentDrag(capture)
+            if (current == null) {
+                cancelDrag(capture)
+            } else {
+                follow(capture, current, event.position)
+                current.onDragEnd()
+            }
+        }
         val click = capture.node.resolved.click
         // Asked first and always, because it is also what stops the gesture waiting on the clock.
         // False when a long press or a repeat already spent the press.
@@ -151,8 +193,9 @@ class PointerRouter(
         // A release inside the node that took the press is a click. Anywhere else is a change of
         // mind, which is a thing players do on purpose and must not be a click. "Inside" is the
         // node's own answer, so sliding off a round button onto the corner of its rectangle is a
-        // change of mind like any other — the press could not have started there either.
-        if (click != null && click.enabled && capture.node.claims(event.position)) {
+        // change of mind like any other — the press could not have started there either. A drag
+        // is never a click either, even one let go exactly where it started or cancelled on the way.
+        if (!capture.dragged && click != null && click.enabled && capture.node.claims(event.position)) {
             if (stillAClick) clicks.click(capture.node, click, capture.gesture) else clicks.forget()
         } else {
             // A change of mind in between means the next click is a first one, not a second.
@@ -174,6 +217,7 @@ class PointerRouter(
         // Delivered, so a handler mid-drag can put back whatever it was moving. No click: that is
         // the entire difference between a cancel and a release.
         deliver(capture.node, event)
+        cancelDrag(capture)
         return true
     }
 
@@ -379,9 +423,122 @@ class PointerRouter(
         return handlers.any { it.onPointer(local) }
     }
 
-    /** Whether [node] takes this press: a handler that says so, or a `clickable`. */
+    /** Whether [node] takes this press: a handler that says so, a `clickable`, or a `draggable`. */
     private fun consumes(node: UiNode, event: PointerEvent.Press): Boolean =
-        deliver(node, event) || node.resolved.click != null
+        deliver(node, event) || node.resolved.click != null ||
+            (node.resolved.drag != null && event.button == PointerButton.Primary)
+
+    // --- dragging -----------------------------------------------------------------------------
+
+    /**
+     * What a captured move means for a drag: carry one on, start one, or hand the gesture to a
+     * draggable ancestor.
+     *
+     * [used] is whether the captured node's own handlers did anything with the move. A node that
+     * is using the pointer — a slider, a text selection — keeps it; one that is not, a button with
+     * nothing but a click, lets a draggable panel around it have the gesture once it is plainly a
+     * drag rather than a click.
+     */
+    private fun drag(capture: Capture, event: PointerEvent.Move, used: Boolean) {
+        val at = event.position
+        if (capture.drag != null) {
+            val current = currentDrag(capture)
+            if (current == null) cancelDrag(capture) else follow(capture, current, at)
+            return
+        }
+        if (capture.dragged || capture.first != PointerButton.Primary) return
+        // Pressed and then taken off the screen before it moved: it keeps its last modifier, but
+        // nobody can see it, so there is nothing to drag and no ancestor to hand it to.
+        if (!capture.node.isUnder(root)) return
+
+        val own = capture.node.resolved.drag
+        val taker = when {
+            own != null -> capture.node
+            used -> return
+            else -> draggableAncestorOf(capture.node) ?: return
+        }
+        val element = checkNotNull(taker.resolved.drag)
+
+        // Slop in the taker's own units, so a panel drawn at half size wants the same distance
+        // across it as it would at full size.
+        val from = taker.toLocal(capture.pressedAt)
+        if (taker.toLocal(at).distanceTo(from) <= element.slop) return
+
+        // A drag is not a hold: the long press and the repeat the press was waiting on are off.
+        capture.gesture.cancel()
+        if (taker !== capture.node) handOff(capture, taker, event)
+        capture.drag = element
+        capture.dragged = true
+        capture.lastAt = capture.pressedAt
+        element.onDragStart(from)
+        follow(capture, element, at)
+    }
+
+    /**
+     * Tells [element] how far the pointer went since it was last told, in the node's own units.
+     *
+     * Both ends are turned into the node's coordinates *now*, so wherever the node has moved to in
+     * the meantime cancels out: a window being dragged by its title bar moves exactly as far as
+     * the pointer does, instead of seeing the pointer stay still relative to itself.
+     */
+    private fun follow(capture: Capture, element: DraggableElement, at: Offset) {
+        val node = capture.node
+        val delta = node.toLocal(at) - node.toLocal(capture.lastAt)
+        capture.lastAt = at
+        if (delta.x != 0f || delta.y != 0f) element.onDrag(delta)
+    }
+
+    /**
+     * The node's draggable as it is now, or null if it was turned off mid-drag or the node itself
+     * is no longer on the screen — an item dropped into a slot that the screen then rebuilt
+     * elsewhere, say. A removed node keeps its last modifier, so without the second check it would
+     * go on being told about a drag nobody can see.
+     */
+    private fun currentDrag(capture: Capture): DraggableElement? =
+        capture.node.takeIf { it.isUnder(root) }?.resolved?.drag
+
+    /** Whether [ancestor] is this node or somewhere above it. Removal cuts the walk short. */
+    private fun UiNode.isUnder(ancestor: UiNode): Boolean {
+        var walk: UiNode? = this
+        while (walk != null) {
+            if (walk === ancestor) return true
+            walk = walk.parent
+        }
+        return false
+    }
+
+    /** Ends a drag that did not finish, if there is one. The newest callback hears it. */
+    private fun cancelDrag(capture: Capture) {
+        val started = capture.drag ?: return
+        capture.drag = null
+        (currentDrag(capture) ?: started).onDragCancel()
+    }
+
+    /** The nearest ancestor with a draggable, which is who gets a gesture its child did not want. */
+    private fun draggableAncestorOf(node: UiNode): UiNode? {
+        var walk = node.parent
+        while (walk != null) {
+            if (walk.resolved.drag != null) return walk
+            walk = walk.parent
+        }
+        return null
+    }
+
+    /**
+     * Moves a gesture from the child that took the press to the ancestor that is going to drag.
+     *
+     * The child is let go of exactly as a cancel would let go of it — un-pressed, told, and never
+     * clicked — because from its point of view that is what happened: the player's press turned
+     * out not to be for it.
+     */
+    private fun handOff(capture: Capture, to: UiNode, event: PointerEvent.Move) {
+        val from = capture.node
+        if (capture.inside) from.resolved.interactions.forEach { it.release() }
+        deliver(from, PointerEvent.Cancel(event.pointerId, event.position, event.type, event.timeMillis))
+        capture.node = to
+        capture.inside = to.claims(event.position)
+        if (capture.inside) to.resolved.interactions.forEach { it.press() }
+    }
 
     /** Moves a pointer's hover from whatever it was on to [now], touching only the difference. */
     private fun hover(id: PointerId, now: List<UiNode>) {

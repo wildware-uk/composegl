@@ -121,6 +121,8 @@ class ResolvedModifier private constructor(
     val textHandlers: List<TextHandler>,
     /** The node's `clickable`, if it has one. A later one replaces an earlier one. */
     val click: ClickableElement?,
+    /** The node's `draggable`, if it has an enabled one. A later one replaces an earlier one. */
+    val drag: DraggableElement?,
     /** Whether and how this node can hold focus. */
     val focusable: FocusableElement?,
     /** The handle a screen can use to send focus straight here. */
@@ -159,7 +161,7 @@ class ResolvedModifier private constructor(
      * mostly panels and labels.
      */
     val isInteractive: Boolean
-        get() = interactions.isNotEmpty() || handlers.isNotEmpty() || click != null ||
+        get() = interactions.isNotEmpty() || handlers.isNotEmpty() || click != null || drag != null ||
             focusable?.enabled == true
 
     companion object {
@@ -196,6 +198,7 @@ class ResolvedModifier private constructor(
             val keyHandlers = mutableListOf<KeyHandler>()
             val textHandlers = mutableListOf<TextHandler>()
             var click: ClickableElement? = null
+            var drag: DraggableElement? = null
             var focusable: FocusableElement? = null
             var focusRequester: FocusRequester? = null
             var focusOrder: FocusOrderElement? = null
@@ -278,6 +281,9 @@ class ResolvedModifier private constructor(
                     is KeyInputElement -> keyHandlers += element.handler
                     is TextInputElement -> textHandlers += element.handler
                     is ClickableElement -> click = element
+                    // Resolved away when disabled, rather than carried: a disabled draggable is an
+                    // absent one, and every reader asking `drag != null` gets that for free.
+                    is DraggableElement -> drag = element.takeIf { it.enabled }
                     is FocusableElement -> focusable = element
                     is FocusRequesterElement -> focusRequester = element.requester
                     is FocusOrderElement -> focusOrder = element
@@ -299,7 +305,7 @@ class ResolvedModifier private constructor(
                 blend, zIndex, clip, clipBehind, clipInFront, hitShape, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
-                keyHandlers.toList(), textHandlers.toList(), click,
+                keyHandlers.toList(), textHandlers.toList(), click, drag,
                 focusable, focusRequester, focusOrder, focusDirections.toList(),
                 reveals.toList(), focusWithin.toList(), focusTrap, testTag,
                 sizeChanged.toList(), placed.toList(),

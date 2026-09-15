@@ -221,6 +221,7 @@ Modifier.clickable(enabled = false) { }   // still swallows the click
 Modifier.clickable(onDoubleClick = { equip() }, onLongPress = { actions() }) { select() }
 Modifier.repeatingClickable { count++ }   // the + on a quantity picker
 Modifier.interaction(state)               // hover and press, for drawing
+Modifier.draggable { delta -> at += delta } // slop, capture and cancel done for you
 Modifier.onPointer(handler)               // raw pointer events
 Modifier.onKeyEvent(handler)
 Modifier.onTextEvent(handler)

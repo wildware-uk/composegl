@@ -45,6 +45,7 @@ import dev.wildware.composegl.ui.modifier.aspectRatio
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.border
 import dev.wildware.composegl.ui.modifier.clipShape
+import dev.wildware.composegl.ui.modifier.draggable
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -366,6 +367,20 @@ private fun MutableList<DocShot>.widgets() {
             Column(verticalArrangement = Arrangement.spacedBy(16f)) {
                 Slider(0.35f, onValueChange = {}, modifier = Modifier.width(220f))
                 Slider(0.8f, onValueChange = {}, modifier = Modifier.width(220f), initialFocus = true)
+            }
+        }
+    })
+
+    // Dragged by a real press, twelve moves and a release — not placed there by hand.
+    add(DocShot("input-drag", 440, 260, pointer = Offset(70f, 50f), dragTo = Offset(230f, 130f)) {
+        var at by remember { mutableStateOf(Offset(30f, 30f)) }
+        Box(Modifier.fillMaxSize().background(Colour.rgb(0x0B0E13))) {
+            Box(Modifier.offset(30f, 30f).size(220f, 120f).border(Steel, width = 2f, corner = 6f)) {}
+            Panel(Modifier.offset(at.x, at.y).size(220f, 120f).draggable { at += it }) {
+                Column(verticalArrangement = Arrangement.spacedBy(10f)) {
+                    Text("INVENTORY")
+                    Text("Drag me by the frame", style = "label.dim")
+                }
             }
         }
     })
