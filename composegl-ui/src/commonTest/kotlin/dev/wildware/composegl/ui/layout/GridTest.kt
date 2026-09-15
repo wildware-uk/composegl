@@ -253,6 +253,34 @@ class GridTest {
         assertTrue(slot.top >= 0f && slot.bottom <= 100f, "and the last row is on screen: $slot")
     }
 
+    @Test
+    fun `a fixed grid in a sideways scroll area is as wide as its widest cell and scrolls to the far one`() {
+        val scroll = mutableListOf<ScrollState>()
+        val ui = screen {
+            val state = rememberScrollState().also { if (scroll.isEmpty()) scroll += it }
+            ScrollArea(Modifier.size(150f, 100f), state, horizontal = true, vertical = false, bars = false) {
+                Grid(GridCells.Fixed(4), Modifier.testTag("grid"), spacing = 10f) {
+                    repeat(8) { index ->
+                        // One wide tile makes every column wide, since there is no width to share.
+                        val width = if (index == 5) 90f else 40f
+                        Button("$index", onClick = {}, initialFocus = index == 0, modifier = Modifier.size(width, 30f).testTag("slot$index"))
+                    }
+                }
+            }
+        }
+        assertEquals(4 * 90f + 3 * 10f, ui.node("grid").width, "four columns of the widest tile")
+        assertEquals(100f, ui.node("slot1").boundsInRoot.left, "the second column starts after one 90-wide column and a gap")
+        assertEquals(0f, scroll[0].x)
+
+        ui.pad(GamepadButton.DpadDown)
+        repeat(3) { ui.pad(GamepadButton.DpadRight) }
+        ui.assertFocused("slot7")
+
+        val slot = ui.node("slot7").boundsInRoot
+        assertTrue(scroll[0].x > 0f, "the area scrolled sideways")
+        assertTrue(slot.left >= 0f && slot.right <= 150f, "and the far tile is on screen: $slot")
+    }
+
     // --- items coming and going ---
 
     @Test
