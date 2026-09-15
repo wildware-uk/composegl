@@ -128,13 +128,7 @@ class Animatable<T>(
      * the next animation to pick up.
      */
     suspend fun animateTo(target: T, spec: AnimationSpec = Spring()) {
-        this.target = target
-        vectoriser.toVector(target, destination)
-        current.copyInto(start)
-        speed.copyInto(startSpeed)
-
-        clocks.register(clock)
-        val began = clocks.time(clock)
+        start(target, spec)
         isRunning = true
         clocks.began(clock)
         try {
@@ -142,8 +136,7 @@ class Animatable<T>(
                 // The one subscription an animation has. It is dropped the moment it arrives, which
                 // is what makes a settled interface cost nothing.
                 withFrameNanos { }
-                val played = clocks.time(clock) - began
-                if (step(spec, played)) return
+                if (advance()) return
             }
         } finally {
             isRunning = false
@@ -151,11 +144,41 @@ class Animatable<T>(
         }
     }
 
+    private var spec: AnimationSpec = Snap()
+    private var began = 0L
+    private var arrived = true
+
+    /**
+     * Sets off towards [target] from where it is and how fast it is going, as of the clock's time
+     * now, without waiting for anything.
+     *
+     * The half of [animateTo] a [Transition] needs: it starts several of these in the same breath,
+     * so they share a start time to the nanosecond, and then steps them all from one frame loop.
+     */
+    internal fun start(target: T, spec: AnimationSpec) {
+        this.target = target
+        this.spec = spec
+        vectoriser.toVector(target, destination)
+        current.copyInto(start)
+        speed.copyInto(startSpeed)
+        clocks.register(clock)
+        began = clocks.time(clock)
+        arrived = false
+    }
+
+    /** One frame of whatever [start] set off, at the clock's time now. True once it has arrived. */
+    internal fun advance(): Boolean {
+        if (arrived) return true
+        arrived = step(spec, clocks.time(clock) - began)
+        return arrived
+    }
+
     /** Puts the value there now, and stops. Use when a screen opens already in its end state. */
     fun snapTo(value: T) {
         vectoriser.toVector(value, current)
         vectoriser.toVector(value, destination)
         speed.fill(0f)
+        arrived = true
         this.value = value
         this.target = value
     }

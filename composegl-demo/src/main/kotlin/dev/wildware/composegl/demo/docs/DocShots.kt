@@ -14,6 +14,10 @@ import dev.wildware.composegl.ui.animation.Easings
 import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.animation.Spring
 import dev.wildware.composegl.ui.animation.Tween
+import dev.wildware.composegl.ui.animation.animateColour
+import dev.wildware.composegl.ui.animation.animateFloat
+import dev.wildware.composegl.ui.animation.animateSize
+import dev.wildware.composegl.ui.animation.updateTransition
 import dev.wildware.composegl.ui.animation.fadeOut
 import dev.wildware.composegl.ui.animation.animateFloatAsState
 import dev.wildware.composegl.ui.animation.scaleOut
@@ -800,6 +804,29 @@ private fun MutableList<DocShot>.widgets() {
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    })
+
+    // Three cards off the same transition: resting, a tenth of a second into being picked — grown,
+    // lifted and lit part way, all by the same amount — and picked.
+    add(DocShot("widget-transition", 460, 170, seconds = 0.1f) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(20f), verticalAlignment = VerticalAlignment.Bottom) {
+                listOf("RESTING" to null, "PICKING" to Tween(200, easing = Easings.Linear), "PICKED" to Tween(1)).forEach { (title, spec) ->
+                    var picked by remember { mutableStateOf(false) }
+                    LaunchedEffect(spec) { if (spec != null) picked = true }
+                    val t = updateTransition(picked)
+                    val lift by t.animateFloat({ spec ?: Tween() }) { if (it) -20f else 0f }
+                    val size by t.animateSize({ spec ?: Tween() }) { if (it) Size(130f, 110f) else Size(110f, 90f) }
+                    val colour by t.animateColour({ spec ?: Tween() }) { if (it) Colour.rgb(0xE8A33D) else Colour.rgb(0x2A2F3A) }
+                    Box(Modifier.size(130f, 130f), contentAlignment = Alignment.BottomCentre) {
+                        Box(
+                            Modifier.offset(y = lift).size(size.width, size.height).background(colour),
+                            contentAlignment = Alignment.Centre,
+                        ) { Text(title) }
                     }
                 }
             }

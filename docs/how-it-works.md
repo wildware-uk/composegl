@@ -61,7 +61,8 @@ movement, the system clipboard through whichever backend is running, and a field
 sideways so a long name never types itself off the edge.
 
 Animation is in too, and it names a clock. `animateFloatAsState`, `animateColourAsState` and an
-`Animatable` a game drives itself, over tweens, springs and the usual easings — but an animation
+`Animatable` a game drives itself, over tweens, springs and the usual easings, and `updateTransition`
+for several values that start, turn round and finish together off one state — but an animation
 belongs to `Clock.Ui` or `Clock.World`, and the game decides which clocks advance. Freezing the
 world does not freeze the pause menu sitting on top of it, and a world animation resumes from where
 it stopped rather than jumping to where it would have been. An animation that has arrived
