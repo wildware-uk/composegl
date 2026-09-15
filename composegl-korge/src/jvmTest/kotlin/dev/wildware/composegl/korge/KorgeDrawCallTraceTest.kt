@@ -8,6 +8,8 @@ import dev.wildware.composegl.ui.debug.BatchBreak
 import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.debug.FrameBudgetOverlay
+import dev.wildware.composegl.ui.effect.ShaderEffect
+import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.BlendMode
@@ -37,9 +39,13 @@ import org.junit.jupiter.api.Test
 /**
  * Draw calls blamed on nodes by the KorGE canvas, on a real GPU: the batch reports each call it makes,
  * for the reason it made it, so the numbers in the overlay add up to the draw call count beside them.
- * The LibGDX backend's `DrawCallTraceGlTest`, less the layer and shader parts KorGE does not draw yet.
+ * The LibGDX backend's `DrawCallTraceGlTest`, for KorGE.
  */
 class KorgeDrawCallTraceTest {
+
+    private val passThrough = ShaderEffect(
+        ShaderSource("pass-through", "void main() { gl_FragColor = texture2D(u_texture, v_texCoord) * u_alpha; }"),
+    )
 
     private val size = KorgeGl.size.toFloat()
     private val viewport = Viewport(design = Size(size, size), physical = Size(size, size), policy = ScalePolicy.Fit)
@@ -167,6 +173,21 @@ class KorgeDrawCallTraceTest {
                 trace.node = UiNode("hatch")
                 canvas.raw { }
 
+                trace.node = UiNode("card")
+                canvas.rect(Rect.of(0f, 0f, 10f, 10f), white)
+                val picture = canvas.layer(Rect.of(0f, 0f, 50f, 50f)) {
+                    canvas.rect(Rect.of(0f, 0f, 10f, 10f), white)
+                }!!
+                canvas.drawLayer(picture, Rect.of(0f, 0f, 50f, 50f))
+
+                trace.node = UiNode("blur")
+                canvas.rect(Rect.of(0f, 0f, 10f, 10f), white)
+                val blurred = canvas.layer(Rect.of(0f, 0f, 50f, 50f)) {
+                    canvas.rect(Rect.of(0f, 0f, 10f, 10f), white)
+                }!!
+                canvas.rect(Rect.of(0f, 0f, 10f, 10f), white)
+                canvas.drawLayer(blurred, Rect.of(0f, 0f, 50f, 50f), passThrough)
+
                 trace.node = null
                 canvas.rect(Rect.of(0f, 0f, 10f, 10f), white)
                 canvas.end()
@@ -177,6 +198,8 @@ class KorgeDrawCallTraceTest {
             assertTrue("panel Clip 2" in blamed, "$blamed")
             assertTrue("glow Blend 2" in blamed, "$blamed")
             assertTrue("icon Texture 1" in blamed, "$blamed")
+            assertTrue(blamed.any { it.startsWith("card Layer") }, "$blamed")
+            assertTrue("blur Shader 1" in blamed, "$blamed")
             assertTrue("hatch Raw 1" in blamed, "$blamed")
             assertTrue("outside the tree End 1" in blamed, "$blamed")
             assertTrue(canvas.tracesDrawCalls)

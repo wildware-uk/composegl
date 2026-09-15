@@ -66,7 +66,11 @@ class KorgeScreenshotTest {
                 scene.draw(canvas, art)
                 canvas.end()
             }
-            return imageOf(SceneSize, SceneSize) { x, y -> pixels[x, y].let { (it.r shl 16) or (it.g shl 8) or it.b } }
+            val hidden = DriverNoise[scene.name]
+            return imageOf(SceneSize, SceneSize) { x, y ->
+                if (hidden != null && x in hidden.first && y in hidden.second) 0xFF00FF
+                else pixels[x, y].let { (it.r shl 16) or (it.g shl 8) or it.b }
+            }
         } finally {
             canvas.close()
         }
@@ -103,6 +107,18 @@ class KorgeScreenshotTest {
 
         /** The raw OpenGL backend's goldens, which the text-free scenes are held to as well. */
         val Desktop = File("../composegl-lwjgl3/src/test/resources/goldens")
+
+        /**
+         * Parts of a scene painted over before comparing, because what is drawn there depends on the
+         * driver rather than on this backend. The dissolve tile in "effects" is value noise from the
+         * `fract(sin(…) * 43758.5)` hash, whose low bits Mesa and NVIDIA compute differently, so the
+         * same shader makes a different pattern on each — the tests run on both. The blur, outline and
+         * grade tiles beside it are still compared, and `KorgeShippedEffectsTest` checks what the
+         * dissolve does in terms no driver can disagree with.
+         */
+        val DriverNoise: Map<String, Pair<IntRange, IntRange>> = mapOf(
+            "effects" to ((124 until 228) to (132 until 228)),
+        )
 
         /** The same list the WebGL backend compares: the scenes that never call `text`. */
         val WithoutText = setOf(
