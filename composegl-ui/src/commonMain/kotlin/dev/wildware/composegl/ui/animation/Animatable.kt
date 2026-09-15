@@ -136,6 +136,7 @@ class Animatable<T>(
         clocks.register(clock)
         val began = clocks.time(clock)
         isRunning = true
+        clocks.began(clock)
         try {
             while (true) {
                 // The one subscription an animation has. It is dropped the moment it arrives, which
@@ -146,6 +147,7 @@ class Animatable<T>(
             }
         } finally {
             isRunning = false
+            clocks.ended(clock)
         }
     }
 

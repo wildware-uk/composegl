@@ -103,6 +103,78 @@ still screen stays free.
 
 ---
 
+## Driving a screen like a player
+
+`uiTest` composes a screen and hands back something to poke it with. You click, type and
+press pad buttons by tag, and check what the screen shows:
+
+```kotlin
+uiTest { NewGame() }.use { ui ->
+    ui.click("name")
+    ui.type("Ada")
+    ui.assertText("name", "Ada")
+
+    ui.pad(GamepadButton.DpadDown)
+    ui.pad(GamepadButton.South)
+    ui.assertFocused("options")
+}
+```
+
+It is wired the way a game wires input: the pointer router, then the key router before
+key navigation (so a field keeps the arrow keys it needs), then the pad navigator. The
+content gets the backend's fonts, clipboard and soft keyboard, the input source, and a
+back stack, so `OnBack` and prompts work as they do in a game.
+
+| Call | What it does |
+|---|---|
+| `click(tag)` · `press(tag)` · `release()` · `moveTo(tag)` · `scroll(tag, delta)` | the mouse, at the middle of the node |
+| `key(Key.Tab)` · `key(Key.Tab, Modifiers.Shift)` · `keyDown` · `keyUp` | a key, to the focused widget first |
+| `type("Ada")` | text to the focused widget, one character at a time |
+| `pad(GamepadButton.South)` · `padDown` · `padUp` · `stick(x, y)` | a pad |
+| `advanceBy(millis)` | game time passing, a frame at a time |
+| `assertFocused` · `assertText` · `assertExists` · `assertDoesNotExist` | what the screen shows |
+| `node(tag)` · `texts(tag)` · `text(tag)` | the same, to read rather than assert |
+| `render()` | one whole frame into the backend's canvas |
+
+**Every action settles the screen afterwards.** It runs frames until nothing has changed
+for three in a row and no animation is playing. So a click that moves a button is
+followed by a layout, and the next click lands where the button is now. An animation a
+click starts has finished by the time the next line runs.
+
+**Time only passes when the test says.** Each settling frame is 1/60 of a second. A wait
+that changes nothing until it ends, like a countdown or a held stick's repeat, needs
+`advanceBy`. A screen still changing after five seconds of frames fails, with the tree
+printed, instead of hanging the build. That includes an animation that never ends, like
+a pulsing low-health bar: put it on a clock and stop that clock
+(`ui.host.clocks.stop(clock)`), since an animation on a stopped clock is not waited for.
+
+**Text is read off the drawing.** `assertText` draws the node and what is inside it into
+a recording and joins the text, one run per line. That is what a player reads: the label
+on a button, the lines in a field, or the field's placeholder while it is empty. Text
+under a parent faded to nothing reads as empty.
+
+**Mistakes fail loudly.** A misspelt tag prints the tree. Clicking a node with no area,
+or one off the screen, fails, because a real click there would do nothing and a test
+checking "nothing happened" would pass for the wrong reason. Typing with nothing
+focused fails too.
+
+`type` returns whether every character was taken, so a full field refusing the rest is
+something a test can check. Clicks, keys and pad buttons return whether anything used
+them.
+
+Headless by default. Pass a real backend and the same test reads pixels back:
+
+```kotlin
+val ui = uiTest(Size(400f, 400f), GdxBackend(fonts)) { Switch() }
+ui.click("switch")
+ui.render()          // then read the framebuffer
+```
+
+`UiTestTest` in `composegl-ui` and `UiTestGlTest` in `composegl-gdx` are the worked
+examples.
+
+---
+
 ## One call instead of three
 
 A test that only wants to *read* the tree — what is on the screen, where it is,
