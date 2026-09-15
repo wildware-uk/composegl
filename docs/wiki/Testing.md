@@ -121,7 +121,7 @@ uiTest { NewGame() }.use { ui ->
 ```
 
 It is wired the way a game wires input: the pointer router, then the key router before
-key navigation (so a field keeps the arrow keys it needs), then the pad navigator. The
+key navigation (so a field keeps the arrow keys it needs), then the pad's cursor before the pad navigator. The
 content gets the backend's fonts, clipboard and soft keyboard, the input source, and a
 back stack, so `OnBack` and prompts work as they do in a game.
 
@@ -131,6 +131,7 @@ back stack, so `OnBack` and prompts work as they do in a game.
 | `key(Key.Tab)` · `key(Key.Tab, Modifiers.Shift)` · `keyDown` · `keyUp` | a key, to the focused widget first |
 | `type("Ada")` | text to the focused widget, one character at a time |
 | `pad(GamepadButton.South)` · `padDown` · `padUp` · `stick(x, y)` | a pad; `stick(x, y, horizontal = RightX, vertical = RightY)` for the right stick |
+| `holdStick(x, y, millis)` · `cursor` | a pad driving a `VirtualCursor`: push, wait, let go |
 | `advanceBy(millis)` | game time passing, a frame at a time |
 | `assertFocused` · `assertText` · `assertExists` · `assertDoesNotExist` | what the screen shows |
 | `node(tag)` · `texts(tag)` · `text(tag)` | the same, to read rather than assert |

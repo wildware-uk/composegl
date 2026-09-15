@@ -11,6 +11,9 @@ import dev.wildware.composegl.ui.graphics.ArtAtlas
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.host.UiHost
 import dev.wildware.composegl.ui.host.UiRenderer
+import dev.wildware.composegl.ui.input.GamepadCursor
+import dev.wildware.composegl.ui.input.InputSource
+import dev.wildware.composegl.ui.input.InputSourceTracker
 import dev.wildware.composegl.ui.input.PointerButton
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerId
@@ -21,6 +24,8 @@ import dev.wildware.composegl.ui.skin.Skin
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.scaledTextSizes
 import dev.wildware.composegl.ui.widget.LocalFonts
+import dev.wildware.composegl.ui.widget.ProvideGamepadCursor
+import dev.wildware.composegl.ui.widget.ProvideInputSource
 import dev.wildware.composegl.ui.skin.ProvideSkin
 import java.awt.image.BufferedImage
 import java.io.File
@@ -147,16 +152,29 @@ private const val FrameNanos = 16_666_666L
 
 private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Skin): BufferedImage {
     val host = UiHost()
-    host.setContent {
-        CompositionLocalProvider(LocalFonts provides fonts) {
-            ProvideSkin(skin) { shot.content() }
-        }
-    }
 
     // Real input rather than a widget told to look hovered: a picture of a hover is only worth
     // having if it is the state the toolkit actually reaches when a mouse is there.
     val focus = FocusManager(host.root)
     val router = PointerRouter(host.root, focus)
+
+    // The same for a pad's cursor: a real one, moved and framed as a game would, on a player who is
+    // on a pad — which is the only time the arrow is drawn.
+    val cursor = GamepadCursor(host.root, router)
+
+    host.setContent {
+        CompositionLocalProvider(LocalFonts provides fonts) {
+            ProvideSkin(skin) {
+                if (shot.padCursor == null) {
+                    shot.content()
+                } else {
+                    ProvideInputSource(InputSourceTracker(InputSource.Gamepad)) {
+                        ProvideGamepadCursor(cursor) { shot.content() }
+                    }
+                }
+            }
+        }
+    }
 
     val viewport = Viewport(
         design = Size(shot.width.toFloat(), shot.height.toFloat()),
@@ -169,7 +187,11 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
     // the tree has been measured.
     var dragged = false
     var clicked = false
-    ui.onLaidOut = {
+    ui.onLaidOut = { nanos ->
+        shot.padCursor?.let { at ->
+            cursor.moveTo(at)
+            cursor.frame(nanos / 1_000_000L)
+        }
         val to = shot.dragTo
         shot.pointer?.let { at ->
             if (to == null) {

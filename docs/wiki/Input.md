@@ -262,6 +262,50 @@ uiTest(backend = HeadlessBackend(haptics = felt)) { Shop() }.use { ui ->
 
 ---
 
+## A cursor for the pad
+
+Focus hopping is right for a menu and wrong for a world map, a drag and drop inventory
+or a skill tree. There is nothing to hop between on a map. For those screens, wrap the
+screen in `VirtualCursor` and the pad drives a pointer instead:
+
+```kotlin
+VirtualCursor(enabled = onMapScreen, speed = 900f, snapToTargets = true) { MapScreen() }
+```
+
+![A pad cursor resting on a map node](images/input-virtual-cursor.png)
+
+- The left stick (or the d-pad) moves a drawn arrow. A small push is slow aim; a full
+  push crosses the screen in about a second and a half.
+- South is the mouse's left button. Hover, press, drag and click all work, because the
+  screen hears ordinary pointer events. A screen written for a mouse works as it is.
+- The right stick turns the wheel under the cursor.
+- With `snapToTargets`, the cursor slows over anything clickable, and a stick let go
+  near a button glides onto its middle.
+- The arrow only shows while the player is on the pad, so picking up the mouse never
+  leaves two cursors. While it is on, `source.isPointing` is true, so focus rings hide.
+- Leaving the screen, or pulling the pad out, cancels a drag instead of dropping it.
+
+The cursor itself is made once, next to the navigator, and asked first:
+
+```kotlin
+private val cursor = GamepadCursor(root, pointer)   // the router itself, not the SourceAware sink
+
+override fun onGamepad(event: GamepadEvent) = cursor.onGamepad(event) || pad.onGamepad(event)
+
+fun frame(timeMillis: Long) {
+    focus.refresh()
+    cursor.frame(timeMillis)   // where the cursor actually moves
+    pad.frame(timeMillis)
+}
+```
+
+and provided to the interface with `ProvideGamepadCursor(cursor) { ... }`. While no
+`VirtualCursor` is on, the cursor takes nothing and the navigator gets every event.
+`cursor.area` keeps it over part of the screen, and `cursor.moveTo(point)` puts it
+somewhere to begin with, like the player's marker when the map opens.
+
+---
+
 ## Back
 
 Escape, the pad's B button and Android's back gesture are the same question: *what
