@@ -25,8 +25,13 @@ import kotlin.math.abs
  * the window, turns gold over a button, snaps to it when the stick is let go, and South clicks it.
  *
  * Nothing here calls the cursor or the routers directly. Every event is a KorGE `GamePadUpdateEvent`
- * dispatched into the stage, the way KorGE's own pad poller sends them, and the answers are read back
+ * snapshot handed to the view's own KorGE pad translator once a frame, and the answers are read back
  * from the cursor's state and from the window's pixels.
+ *
+ * The view does not listen to the stage. Once KorGE's window is awake its pad poller dispatches a
+ * snapshot of the real pads — none — into the stage every frame, and in a shared game that stream
+ * reaches every listening view: the test's pad would be disconnected between South going down and
+ * coming up, the press cancelled, and the click lost, depending on which test woke the window first.
  */
 class KorgeVirtualCursorTest {
 
@@ -56,11 +61,8 @@ class KorgeVirtualCursorTest {
     private var held: GamePadUpdateEvent? = null
 
     /**
-     * Holds [snapshot] until [check] holds, or fails saying [what].
-     *
-     * Sent every frame, just before the stage renders, the way a pad poller sends them. Under Xvfb KorGE's
-     * own window polls for real pads at the start of each frame and reports none, which reads as our pad
-     * leaving; sending ours after that poll and before the render is what a plugged-in pad looks like.
+     * Holds [snapshot] until [check] holds, or fails saying [what]. Handed to the translator every frame
+     * just before the stage renders, the way a poller reports a pad that is still plugged in.
      */
     private fun holdUntil(view: ComposeGlView, what: String, snapshot: GamePadUpdateEvent, frames: Int = 240, check: (ComposeGlView) -> Boolean) {
         held = snapshot
@@ -82,7 +84,8 @@ class KorgeVirtualCursorTest {
         val backend = KorgeBackend(
             KorgeFonts().also { it.registerTrueType("default", TestFonts.dejaVu(), listOf(12, 13, 14, 16, 18, 22, 26)) },
         )
-        val view = ComposeGlView(backend, Size(side.toFloat(), side.toFloat()))
+        // Not listening to the stage: this test's pad is the only pad the view hears. See the class note.
+        val view = ComposeGlView(backend, Size(side.toFloat(), side.toFloat()), listens = false)
         view.setContent {
             VirtualCursor(enabled = true) {
                 Box(Modifier.size(side.toFloat(), side.toFloat()).background(grey)) {
@@ -93,7 +96,7 @@ class KorgeVirtualCursorTest {
         var sending: AutoCloseable? = null
         try {
             KorgeGl.render {
-                sending = KorgeGl.stage.views.onBeforeRender { held?.let { KorgeGl.stage.views.dispatch(it) } }
+                sending = KorgeGl.stage.views.onBeforeRender { held?.let { view.translators.gamepads.onUpdate(it) } }
                 KorgeGl.stage.addChild(view)
             }
             KorgeGl.frames(3)
@@ -138,8 +141,7 @@ class KorgeVirtualCursorTest {
         } finally {
             KorgeGl.render {
                 sending?.close()
-                // A last empty snapshot, so no pad is left connected for the next test.
-                KorgeGl.stage.views.dispatch(GamePadUpdateEvent())
+                view.translators.gamepads.stop()
                 view.removeFromParent()
             }
             held = null
