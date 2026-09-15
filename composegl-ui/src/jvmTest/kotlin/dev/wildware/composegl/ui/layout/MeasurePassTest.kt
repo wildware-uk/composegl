@@ -4,6 +4,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
+import dev.wildware.composegl.ui.modifier.layoutId
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
@@ -241,6 +242,43 @@ class MeasurePassTest {
         run(parent)
 
         assertEquals(listOf(3f, null), weights)
+    }
+
+    @Test
+    fun `a layout can find a child by the name it was given rather than by where it is`() {
+        val slots = MeasurePolicy { measurables, constraints ->
+            val placeables = measurables.map { it.measure(constraints.loosen()) }
+            val icon = placeables[measurables.indexOfFirst { it.layoutId == "icon" }]
+            layout(100f, 10f) {
+                placeables.forEach { it.at(0f, 0f) }
+                icon.at(60f, 0f)
+            }
+        }
+        val icon = node("icon", Modifier.size(10f).layoutId("icon"))
+        val parent = node("parent", policy = slots) {
+            child(node("unnamed", Modifier.size(10f)))
+            child(icon)
+        }
+        run(parent)
+
+        assertEquals(60f, icon.x)
+    }
+
+    @Test
+    fun `a child given no name has none`() {
+        val ids = mutableListOf<Any?>()
+        val policy = MeasurePolicy { measurables, constraints ->
+            measurables.forEach { ids += it.layoutId }
+            measurables.forEach { it.measure(constraints) }
+            layout(0f, 0f) {}
+        }
+        val parent = node("parent", policy = policy) {
+            child(node("named", Modifier.layoutId("icon")))
+            child(node("plain"))
+        }
+        run(parent)
+
+        assertEquals(listOf("icon", null), ids)
     }
 
     @Test

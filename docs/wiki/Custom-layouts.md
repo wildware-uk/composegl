@@ -97,6 +97,51 @@ That is how `Modifier.weight(1f)` and `Modifier.align(...)` reach the layout tha
 has to honour them. Nothing else about a child is visible, which is what stops
 layouts reaching into each other.
 
+### Telling children apart
+
+A layout with named parts — a list item with an icon, a label and a badge; a HUD
+with a centre slot and four corners — should not find them by position. The
+moment one of them is only there sometimes, "the first child" is a different
+child. Give each one a name instead:
+
+```kotlin
+val ListItem = MeasurePolicy { measurables, constraints ->
+    val placeables = measurables.map { it.measure(constraints.loosen()) }
+    fun slot(id: String) =
+        measurables.indexOfFirst { it.layoutId == id }.takeIf { it >= 0 }?.let { placeables[it] }
+
+    val icon = slot("icon")
+    val label = slot("label")
+    val badge = slot("badge")
+    val width = constraints.maxWidth
+
+    layout(width, placeables.maxOfOrNull { it.height } ?: 0f) {
+        icon?.at(0f, 0f)
+        label?.at((icon?.width ?: 0f) + 10f, 0f)
+        badge?.at(width - badge.width, 0f)
+    }
+}
+
+Layout(measurePolicy = ListItem, content = {
+    if (unread > 0) Badge(unread, Modifier.layoutId("badge"))   // only sometimes, and first
+    Icon(mail, Modifier.layoutId("icon"))
+    Text("Inbox", Modifier.layoutId("label"))
+})
+```
+
+![two list items from the same layout, one with a badge written before its icon](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-slots.png)
+
+- A name is anything with an `equals`: a string, an enum, an object.
+- Named twice, the later name wins.
+- It changes on a later frame like anything else — rename a child and it moves
+  slot.
+- `Row`, `Column` and `Box` ignore it. It means something only to a layout that
+  reads it.
+- A layout sees only its own children's names. A name on something inside a
+  child — an icon wrapped in a `Box` — is not seen; put it on the `Box`.
+- Every child still has to be measured once, named or not, including ones your
+  layout has no slot for.
+
 ---
 
 ## Leaves

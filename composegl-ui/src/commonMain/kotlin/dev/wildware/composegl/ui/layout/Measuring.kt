@@ -34,15 +34,25 @@ interface Measurable {
     val layoutData: LayoutData
 }
 
-/** The parts of a child's modifier that only its parent can act on. */
+/**
+ * The parts of a child's modifier that only its parent can act on.
+ *
+ * @property layoutId the name the child was given with `Modifier.layoutId`, so a layout with
+ *   named slots can find "the icon" rather than "the first child" — which stops being the icon the
+ *   moment something before it is only there sometimes.
+ */
 data class LayoutData(
     val weight: Float? = null,
     val alignment: Alignment? = null,
+    val layoutId: Any? = null,
 ) {
     companion object {
         val None = LayoutData()
     }
 }
+
+/** The name this child was given with `Modifier.layoutId`, or null when it was given none. */
+val Measurable.layoutId: Any? get() = layoutData.layoutId
 
 /** The size a layout chose, and how to place its children once it has been given that size. */
 interface MeasureResult {

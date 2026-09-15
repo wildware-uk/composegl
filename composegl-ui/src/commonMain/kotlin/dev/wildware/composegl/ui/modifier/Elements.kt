@@ -46,6 +46,9 @@ data class WeightElement(val weight: Float) : Modifier.Element {
 /** Where this child sits inside the space its parent gave it. */
 data class AlignElement(val alignment: Alignment) : Modifier.Element
 
+/** A name the parent's layout can find this child by, in place of where it comes in the list. */
+data class LayoutIdElement(val layoutId: Any) : Modifier.Element
+
 // --- how a node looks ----------------------------------------------------------------------
 
 data class BackgroundElement(val colour: Colour, val corner: Float = 0f) : Modifier.Element
@@ -248,6 +251,25 @@ fun Modifier.effect(effect: ShaderEffect) = then(EffectElement(effect))
 fun Modifier.weight(weight: Float) = then(WeightElement(weight))
 
 fun Modifier.align(alignment: Alignment) = then(AlignElement(alignment))
+
+/**
+ * Names this child for the layout it sits in, so a layout with slots can ask for "the icon" rather
+ * than "the first child".
+ *
+ * ```kotlin
+ * Icon(Modifier.layoutId("icon"))
+ * // in the policy:
+ * val icon = measurables.first { it.layoutId == "icon" }
+ * ```
+ *
+ * Child order stops meaning anything the moment a child is only there sometimes: a badge that
+ * appears in front of the icon makes the icon second. A name does not move. Anything with a sensible
+ * `equals` will do — a string, an enum, an object. Named twice, the later name is the one.
+ *
+ * It does nothing on its own. `Row`, `Column` and `Box` ignore it; only a layout that reads
+ * [dev.wildware.composegl.ui.layout.layoutId] acts on it.
+ */
+fun Modifier.layoutId(layoutId: Any) = then(LayoutIdElement(layoutId))
 
 fun Modifier.background(colour: Colour, corner: Float = 0f) = then(BackgroundElement(colour, corner))
 

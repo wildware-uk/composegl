@@ -20,8 +20,11 @@ import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
+import dev.wildware.composegl.ui.layout.Layout
+import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.layout.VerticalAlignment
+import dev.wildware.composegl.ui.layout.layoutId
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.alpha
@@ -31,6 +34,7 @@ import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
+import dev.wildware.composegl.ui.modifier.layoutId
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.shadow
@@ -200,6 +204,49 @@ private fun MutableList<DocShot>.layout() {
             }
         }
     })
+
+    // Custom-layouts: the same slot layout twice, the second with a badge written before the icon.
+    // The icon staying put is the whole picture.
+    add(DocShot("layout-slots", 420, 130) {
+        Frame {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
+                SlotItem("no badge", badge = false)
+                SlotItem("badge written first", badge = true)
+            }
+        }
+    })
+}
+
+/** A list item's three named parts, found by name, so a badge that comes and goes moves nothing. */
+private val ListItemSlots = MeasurePolicy { measurables, constraints ->
+    val placeables = measurables.map { it.measure(constraints.loosen()) }
+    fun slot(id: String) =
+        measurables.indexOfFirst { it.layoutId == id }.takeIf { it >= 0 }?.let { placeables[it] }
+
+    val icon = slot("icon")
+    val label = slot("label")
+    val badge = slot("badge")
+    val width = constraints.maxWidth
+    val height = placeables.maxOfOrNull { it.height } ?: 0f
+
+    layout(width, height) {
+        icon?.at(0f, (height - icon.height) / 2f)
+        label?.at((icon?.width ?: 0f) + 10f, (height - label.height) / 2f)
+        badge?.at(width - badge.width, (height - badge.height) / 2f)
+    }
+}
+
+@Composable
+private fun SlotItem(text: String, badge: Boolean) {
+    Layout(
+        Modifier.fillMaxWidth().background(Ink, corner = 6f).padding(6f),
+        measurePolicy = ListItemSlots,
+        content = {
+            if (badge) Slab("badge", Modifier.width(70f).layoutId("badge"), Deep)
+            Slab("icon", Modifier.width(48f).layoutId("icon"), Steel)
+            Text(text, Modifier.layoutId("label"))
+        },
+    )
 }
 
 // ---------------------------------------------------------------- widgets
