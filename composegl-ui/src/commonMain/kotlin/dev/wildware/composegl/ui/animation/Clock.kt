@@ -116,6 +116,29 @@ class Clocks {
         elapsed.getOrPut(clock) { 0L }
     }
 
+    /** How many animations are playing on each clock, started and not yet arrived or cancelled. */
+    private val playing = HashMap<Clock, Int>()
+
+    /**
+     * Whether an animation is playing on a clock that is moving.
+     *
+     * What a test harness waits on: a fade whose last few frames change nothing a player can see
+     * is still a fade, and looking before it lands reads a value it was only passing through. An
+     * animation on a stopped clock is not counted, because it will not arrive until a game starts
+     * that clock again and waiting for it would be waiting forever.
+     */
+    val isAnimating: Boolean
+        get() = playing.any { (clock, count) -> count > 0 && clock !in stopped }
+
+    internal fun began(clock: Clock) {
+        playing[clock] = (playing[clock] ?: 0) + 1
+    }
+
+    internal fun ended(clock: Clock) {
+        val left = (playing[clock] ?: 0) - 1
+        if (left > 0) playing[clock] = left else playing.remove(clock)
+    }
+
     private companion object {
         /** Not zero: a game may well hand us zero as its first frame time. */
         const val NoFrameYet = Long.MIN_VALUE

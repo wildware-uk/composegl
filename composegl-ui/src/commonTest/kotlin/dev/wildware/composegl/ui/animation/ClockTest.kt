@@ -133,6 +133,32 @@ class ClockTest {
     }
 
     @Test
+    fun `an animation playing is counted until the last one ends`() {
+        assertFalse(clocks.isAnimating, "nothing has started")
+
+        clocks.began(Clock.Ui)
+        clocks.began(Clock.Ui)
+        assertTrue(clocks.isAnimating)
+
+        clocks.ended(Clock.Ui)
+        assertTrue(clocks.isAnimating, "one of the two is still going")
+
+        clocks.ended(Clock.Ui)
+        assertFalse(clocks.isAnimating)
+    }
+
+    @Test
+    fun `an animation on a stopped clock is not waited for`() {
+        clocks.began(Clock.World)
+        clocks.stop(Clock.World)
+
+        assertFalse(clocks.isAnimating, "it cannot arrive until the world starts again")
+
+        clocks.start(Clock.World)
+        assertTrue(clocks.isAnimating)
+    }
+
+    @Test
     fun `two sets of clocks know nothing about each other`() {
         start()
         advance(1)
