@@ -1,12 +1,15 @@
 package dev.wildware.composegl.ui.widget
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.focus.RevealHandler
+import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
@@ -23,6 +26,7 @@ import dev.wildware.composegl.ui.modifier.PlacementFrameElement
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onReveal
+import dev.wildware.composegl.ui.modifier.zIndex
 import dev.wildware.composegl.ui.saveable.rememberSaveable
 import dev.wildware.composegl.ui.saveable.rememberSaveableStateHolder
 
@@ -59,6 +63,34 @@ class LazyListState(initialPosition: Float = 0f) {
     fun scrollBy(delta: Float): Boolean = lines.axis.scrollBy(delta)
 
     fun stopFling() = lines.axis.stop()
+
+    /**
+     * The item a sticky header is pinned for now, or null when none is. Written by layout, and
+     * snapshot state, so a "you are in: Armour" label that reads it follows the list.
+     */
+    var pinnedHeader: Int? by mutableStateOf(null)
+        internal set
+
+    /** Where the pinned header was placed along the list, and where it ends. Written by layout. */
+    internal var pinnedStart = 0f
+    internal var pinnedEnd = 0f
+
+    /**
+     * [area] as focus should see it: a row under the pinned header is not in view, so the window is
+     * treated as starting where the header ends. The header itself is left alone, or focusing it
+     * would scroll the list away from it.
+     */
+    internal fun clearOfHeader(area: Rect, vertical: Boolean): Rect {
+        if (pinnedHeader == null || pinnedEnd <= 0f) return area
+        val start = if (vertical) area.top else area.left
+        val end = if (vertical) area.bottom else area.right
+        if (start >= pinnedStart - Slack && end <= pinnedEnd + Slack) return area
+        return if (vertical) area.copy(top = area.top - pinnedEnd) else area.copy(left = area.left - pinnedEnd)
+    }
+
+    private companion object {
+        const val Slack = 0.5f
+    }
 }
 
 /**
@@ -250,7 +282,47 @@ fun LazyColumn(
     style: String = "scrollbar",
     barThickness: Float = 8f,
     item: @Composable (Int) -> Unit,
-) = LazyList(true, count, modifier, state, key, spacing, overscan, bars, style, barThickness, item)
+) = LazyList(true, Counted(count, key, item), modifier, state, spacing, overscan, bars, style, barThickness)
+
+/**
+ * A list made of sections, whose headers stay at the top while their items scroll under them.
+ *
+ * ```kotlin
+ * LazyColumn(Modifier.fillMaxSize()) {
+ *     stickyHeader { Header("Weapons") }
+ *     items(weapons, key = { it.id }) { WeaponRow(it) }
+ *     stickyHeader { Header("Armour") }
+ *     items(armour, key = { it.id }) { ArmourRow(it) }
+ * }
+ * ```
+ *
+ * A header scrolls in like any row, and stops at the top edge once it gets there. The next header
+ * pushes it off as it arrives rather than sliding over it, so there is only ever one at the top and
+ * always the one for the section being read.
+ *
+ * While pinned it is on top of the rows under it, for the pointer as well as the eye: a click on
+ * the header does not fall through to a row nobody can see, and a drag on it still scrolls the
+ * list. Focus moving up onto a row hidden by it scrolls far enough for the row to come out from
+ * under it.
+ *
+ * Everything else — only building what can be seen, keys, scrolling, focus — is exactly the
+ * count-and-index [LazyColumn]'s.
+ *
+ * @param content the list, in order: [LazyListScope.item], [LazyListScope.items] and
+ *   [LazyListScope.stickyHeader] as many times as it takes. It may read state; the list is rebuilt
+ *   when that state changes.
+ */
+@Composable
+fun LazyColumn(
+    modifier: Modifier = Modifier,
+    state: LazyListState = rememberLazyListState(),
+    spacing: Float = 0f,
+    overscan: Int = 2,
+    bars: Boolean = true,
+    style: String = "scrollbar",
+    barThickness: Float = 8f,
+    content: LazyListScope.() -> Unit,
+) = LazyList(true, rememberSections(content), modifier, state, spacing, overscan, bars, style, barThickness)
 
 /** The same thing lying down: a hotbar, a row of cards, a filmstrip of save games. */
 @Composable
@@ -265,30 +337,204 @@ fun LazyRow(
     style: String = "scrollbar",
     barThickness: Float = 8f,
     item: @Composable (Int) -> Unit,
-) = LazyList(false, count, modifier, state, key, spacing, overscan, bars, style, barThickness, item)
+) = LazyList(false, Counted(count, key, item), modifier, state, spacing, overscan, bars, style, barThickness)
+
+/** The same sections lying down, each header held at the left edge while its items pass under it. */
+@Composable
+fun LazyRow(
+    modifier: Modifier = Modifier,
+    state: LazyListState = rememberLazyListState(),
+    spacing: Float = 0f,
+    overscan: Int = 2,
+    bars: Boolean = true,
+    style: String = "scrollbar",
+    barThickness: Float = 8f,
+    content: LazyListScope.() -> Unit,
+) = LazyList(false, rememberSections(content), modifier, state, spacing, overscan, bars, style, barThickness)
+
+/** What goes into a sectioned [LazyColumn] or [LazyRow], in the order it is shown. */
+interface LazyListScope {
+
+    /** One row. [key] does what a key does anywhere in a lazy list; without one it is its position. */
+    fun item(key: Any? = null, content: @Composable () -> Unit)
+
+    /** [count] rows, each called with its index within this run — the first of them is 0. */
+    fun items(count: Int, key: ((Int) -> Any)? = null, item: @Composable (Int) -> Unit)
+
+    /**
+     * A header that stays at the top while the rows after it scroll, until the next header comes up
+     * and pushes it off.
+     */
+    fun stickyHeader(key: Any? = null, content: @Composable () -> Unit)
+}
+
+/** A row for each of [items], called with the item rather than its index. */
+fun <T> LazyListScope.items(
+    items: List<T>,
+    key: ((T) -> Any)? = null,
+    item: @Composable (T) -> Unit,
+) = items(items.size, if (key == null) null else { index -> key(items[index]) }) { index -> item(items[index]) }
+
+/** Everything the list needs to know about what is in it, however it was described. */
+internal interface LazyListContent {
+    val count: Int
+
+    /** The indices that are sticky headers, in order. */
+    val headers: List<Int>
+
+    fun keyOf(index: Int): Any
+
+    @Composable
+    fun Item(index: Int)
+
+    /** The header [index] is under: the last one at or before it, or -1 when it comes before them all. */
+    fun headerFor(index: Int): Int {
+        val all = headers
+        var low = 0
+        var high = all.size - 1
+        var found = -1
+        while (low <= high) {
+            val middle = (low + high) ushr 1
+            if (all[middle] <= index) {
+                found = all[middle]
+                low = middle + 1
+            } else {
+                high = middle - 1
+            }
+        }
+        return found
+    }
+
+    /** Whether [index] is a sticky header. */
+    fun isHeader(index: Int): Boolean = headers.isNotEmpty() && headerFor(index) == index
+
+    /** The first header after [header], or -1. */
+    fun headerAfter(header: Int): Int {
+        // Searched rather than scanned: an A to Z of names, or a log by day, can have a lot of them.
+        val all = headers
+        var low = 0
+        var high = all.size
+        while (low < high) {
+            val middle = (low + high) ushr 1
+            if (all[middle] <= header) low = middle + 1 else high = middle
+        }
+        return if (low < all.size) all[low] else -1
+    }
+}
+
+/** A count and an index: the plain [LazyColumn], with no headers. */
+private class Counted(
+    override val count: Int,
+    private val key: ((Int) -> Any)?,
+    private val item: @Composable (Int) -> Unit,
+) : LazyListContent {
+    override val headers: List<Int> get() = emptyList()
+
+    override fun keyOf(index: Int): Any = key?.invoke(index) ?: index
+
+    @Composable
+    override fun Item(index: Int) = LazyItem(index, item)
+}
+
+/**
+ * The block, run into [LazyListSections] only when something it reads changes.
+ *
+ * Not on every composition: the block is run again whenever the list scrolls, and running it makes
+ * new row lambdas, and a row handed a new lambda cannot be skipped. A derived state reruns it when
+ * the block itself is new or a piece of state it reads has moved, and hands back the same sections
+ * otherwise.
+ */
+@Composable
+private fun rememberSections(content: LazyListScope.() -> Unit): LazyListContent {
+    val latest = rememberUpdatedState(content)
+    val sections by remember { derivedStateOf { LazyListSections().apply(latest.value) } }
+    return sections
+}
+
+/** Runs of rows and the headers between them, laid end to end. */
+internal class LazyListSections : LazyListScope, LazyListContent {
+
+    private class Run(
+        val start: Int,
+        val count: Int,
+        val key: ((Int) -> Any)?,
+        val single: (@Composable () -> Unit)?,
+        val many: (@Composable (Int) -> Unit)?,
+    )
+
+    private val runs = ArrayList<Run>()
+    private val stuck = ArrayList<Int>()
+
+    override var count = 0
+        private set
+
+    override val headers: List<Int> get() = stuck
+
+    override fun item(key: Any?, content: @Composable () -> Unit) {
+        runs += Run(count, 1, key?.let { fixed -> { _: Int -> fixed } }, content, null)
+        count++
+    }
+
+    override fun items(count: Int, key: ((Int) -> Any)?, item: @Composable (Int) -> Unit) {
+        require(count >= 0) { "a run of items cannot have a negative count, was $count" }
+        if (count == 0) return
+        runs += Run(this.count, count, key, null, item)
+        this.count += count
+    }
+
+    override fun stickyHeader(key: Any?, content: @Composable () -> Unit) {
+        stuck += count
+        item(key, content)
+    }
+
+    override fun keyOf(index: Int): Any {
+        val run = runAt(index)
+        // Wrapped, so a row with no key at position 3 is not the same row as one keyed 3.
+        return run.key?.invoke(index - run.start) ?: Position(index)
+    }
+
+    @Composable
+    override fun Item(index: Int) {
+        val run = runAt(index)
+        val single = run.single
+        if (single != null) LazySingle(single) else LazyItem(index - run.start, run.many!!)
+    }
+
+    private fun runAt(index: Int): Run {
+        var low = 0
+        var high = runs.size - 1
+        while (low < high) {
+            val middle = (low + high + 1) ushr 1
+            if (runs[middle].start <= index) low = middle else high = middle - 1
+        }
+        return runs[low]
+    }
+
+    private data class Position(val index: Int)
+}
 
 @Composable
 private fun LazyList(
     vertical: Boolean,
-    count: Int,
+    content: LazyListContent,
     modifier: Modifier,
     state: LazyListState,
-    key: ((Int) -> Any)?,
     spacing: Float,
     overscan: Int,
     bars: Boolean,
     style: String,
     barThickness: Float,
-    item: @Composable (Int) -> Unit,
 ) {
-    state.lines.describe(count, spacing)
+    state.lines.describe(content.count, spacing)
 
     val gestures = remember { ScrollGestures() }
     gestures.horizontal = if (vertical) null else state.axis
     gestures.vertical = if (vertical) state.axis else null
 
     val drag = remember(gestures) { PointerHandler { gestures.onPointer(it) } }
-    val reveal = remember(gestures) { RevealHandler { gestures.reveal(it) } }
+    val reveal = remember(gestures, state, vertical) {
+        RevealHandler { gestures.reveal(state.clearOfHeader(it, vertical)) }
+    }
     // An item that slides is measured against the list with the scroll taken out, so scrolling is
     // not every row moving.
     val frame = remember(state, vertical) {
@@ -304,6 +550,12 @@ private fun LazyList(
     state.lines.revision
     val window = state.lines.window(overscan)
 
+    // The header for the section at the top has to exist even when its own place is long gone above
+    // the window, or there would be nothing to pin. It goes first, in the same loop as the rest, so
+    // it keeps its node and its state as it scrolls out of the window and back.
+    val pinned = if (window.isEmpty()) -1 else content.headerFor(state.firstVisibleItem)
+    val composed = if (pinned in 0 until window.first) listOf(pinned) + window else window.toList()
+
     // A row scrolled out of the window leaves the tree, and without this its rememberSaveable state
     // would go with it. Each row is a screen of its own here, kept under its key until it is back.
     val rows = rememberSaveableStateHolder()
@@ -312,19 +564,33 @@ private fun LazyList(
         modifier = modifier.onReveal(reveal).onPointer(drag).clip().then(PlacementFrameElement(frame)),
         name = if (vertical) "lazyColumn" else "lazyRow",
         content = {
-            for (index in window) {
+            for (index in composed) {
                 // One node per item whatever the item emits, so layout can match children to
                 // indices by counting. The key is what keeps an item's state with the item when
                 // the list is reordered rather than with the slot it happened to be in.
-                val itemKey = key?.invoke(index) ?: index
+                val itemKey = content.keyOf(index)
                 key(itemKey) {
-                    Box { rows.SaveableStateProvider(itemKey) { LazyItem(index, item) } }
+                    // A header is drawn over the rows and asked about the pointer before them, so
+                    // pinned it hides them for the mouse too. It scrolls the list rather than
+                    // swallowing a drag, and lets through what the list does not want.
+                    val header = if (content.isHeader(index)) {
+                        Modifier.zIndex(1f).onPointer(drag)
+                    } else {
+                        Modifier
+                    }
+                    Box(header) { rows.SaveableStateProvider(itemKey) { content.Item(index) } }
                 }
             }
             if (bars) ScrollBar(state.axis, vertical = vertical, style = style, gestures = gestures)
         },
-        measurePolicy = LazyPolicy(state, window, state.position, vertical, spacing, bars, barThickness),
+        measurePolicy = LazyPolicy(state, content, composed, window, vertical, spacing, bars, barThickness),
     )
+}
+
+/** One single item, in its own restartable group, for the same reason as [LazyItem]. */
+@Composable
+private fun LazySingle(content: @Composable () -> Unit) {
+    content()
 }
 
 /**
@@ -349,8 +615,9 @@ internal fun LazyItem(index: Int, item: @Composable (Int) -> Unit) {
  */
 private class LazyPolicy(
     private val state: LazyListState,
+    private val content: LazyListContent,
+    private val composed: List<Int>,
     private val window: IntRange,
-    private val position: Float,
     private val vertical: Boolean,
     private val spacing: Float,
     private val bars: Boolean,
@@ -372,7 +639,7 @@ private class LazyPolicy(
         for (slot in 0 until itemCount) {
             val placeable = measurables[slot].measure(room)
             placeables += placeable
-            state.lines.measuredLine(window.first + slot, if (vertical) placeable.height else placeable.width)
+            state.lines.measuredLine(composed[slot], if (vertical) placeable.height else placeable.width)
         }
 
         // A lazy list fills the room it was given. With no room at all — a column that did not say
@@ -398,14 +665,62 @@ private class LazyPolicy(
             null
         }
 
+        // The window runs end to end from where the estimate puts its first item. A header pulled in
+        // from above the window is not part of that run and goes where its own index belongs.
+        val starts = FloatArray(itemCount)
+        var at = if (window.isEmpty()) 0f else state.lines.startOf(window.first) - scrolled
+        for (slot in 0 until itemCount) {
+            val index = composed[slot]
+            val size = if (vertical) placeables[slot].height else placeables[slot].width
+            if (window.isEmpty() || index < window.first) {
+                starts[slot] = state.lines.startOf(index) - scrolled
+            } else {
+                starts[slot] = at
+                at += size + spacing
+            }
+        }
+
+        pin(starts, placeables, scrolled)
+
         return layout(width, height) {
-            var at = state.lines.startOf(window.first) - scrolled
-            placeables.forEach { placeable ->
-                if (vertical) placeable.at(0f, at) else placeable.at(at, 0f)
-                at += (if (vertical) placeable.height else placeable.width) + spacing
+            placeables.forEachIndexed { slot, placeable ->
+                if (vertical) placeable.at(0f, starts[slot]) else placeable.at(starts[slot], 0f)
             }
             if (vertical) bar?.at(width - thickness, 0f) else bar?.at(0f, height - thickness)
         }
+    }
+
+    /**
+     * Holds the header for the section at the top against the top edge, and lets the next header
+     * push it up and off as it arrives.
+     *
+     * Worked out from where the list is now rather than trusted from composition, which picked the
+     * header a frame ago. When the one it should be was not composed — a jump far down a list — none
+     * is pinned for that frame, and the next frame composes it.
+     */
+    private fun pin(starts: FloatArray, placeables: List<Placeable>, scrolled: Float) {
+        // Worked out first and written once: pinnedHeader is snapshot state, and clearing it to
+        // write the same header straight back would count as a change and recompose its readers
+        // on every frame of a list that is standing still.
+        val header = if (content.headers.isEmpty() || content.count <= 0) -1
+        else content.headerFor(state.lines.indexAt(scrolled))
+        val slot = if (header < 0) -1 else composed.indexOf(header)
+        if (slot < 0) {
+            state.pinnedHeader = null
+            state.pinnedStart = 0f
+            state.pinnedEnd = 0f
+            return
+        }
+
+        val size = if (vertical) placeables[slot].height else placeables[slot].width
+        var place = maxOf(starts[slot], 0f)
+        val next = composed.indexOf(content.headerAfter(header))
+        if (next >= 0) place = minOf(place, starts[next] - spacing - size)
+        starts[slot] = place
+
+        state.pinnedHeader = header
+        state.pinnedStart = place
+        state.pinnedEnd = place + size
     }
 
     // Written out rather than left to the default, which runs measure: measuring records each

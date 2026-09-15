@@ -133,7 +133,9 @@ import dev.wildware.composegl.ui.widget.DragAndDropHost
 import dev.wildware.composegl.ui.widget.DropTargetState
 import dev.wildware.composegl.ui.widget.Image
 import dev.wildware.composegl.ui.widget.NumberStepper
+import dev.wildware.composegl.ui.widget.LazyColumn
 import dev.wildware.composegl.ui.widget.LazyGridState
+import dev.wildware.composegl.ui.widget.LazyListState
 import dev.wildware.composegl.ui.widget.LazyVerticalGrid
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.ProvideTextScale
@@ -339,6 +341,36 @@ private fun MutableList<DocShot>.layout() {
                     state = state,
                     spacing = 4f,
                 ) { index -> GridTile(index, if (index % 7 == 0) Deep else Steel) }
+            }
+        }
+    })
+
+    add(DocShot("layout-sticky-headers", 420, 260) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(6f)) {
+                Text("LazyColumn { stickyHeader { } items(…) { } }", style = "label.dim")
+                // Caught as Armour arrives, so the picture shows one header pushing the other off.
+                val state = remember { LazyListState(initialPosition = 186f) }
+                LazyColumn(Modifier.fillMaxWidth().height(210f), state = state, spacing = 4f) {
+                    listOf(
+                        "WEAPONS" to listOf("Iron sword", "Longbow", "War hammer", "Dagger", "Crossbow"),
+                        "ARMOUR" to listOf("Leather cap", "Chain mail", "Tower shield", "Greaves", "Gauntlets"),
+                        "POTIONS" to listOf("Healing", "Stamina", "Night eye", "Fire ward", "Swiftness"),
+                    ).forEach { (section, names) ->
+                        stickyHeader(key = section) {
+                            Box(
+                                Modifier.fillMaxWidth().height(26f).background(Accent, corner = 4f).padding(left = 10f),
+                                contentAlignment = Alignment.CentreStart,
+                            ) { Text(section, colour = Ink) }
+                        }
+                        items(names.size, key = { "$section$it" }) { index ->
+                            Box(
+                                Modifier.fillMaxWidth().height(30f).background(Steel, corner = 4f).padding(left = 14f),
+                                contentAlignment = Alignment.CentreStart,
+                            ) { Text(names[index], style = "label.dim") }
+                        }
+                    }
+                }
             }
         }
     })
