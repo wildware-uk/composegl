@@ -43,12 +43,21 @@ object KorgeGl {
     @Volatile
     private var started = false
 
+    /**
+     * Why the game cannot be used, once that is known: it never came up, or it stopped drawing.
+     * Every later test fails with this straight away. Without it each one would wait its own full
+     * minute, and a suite of a few hundred pixel tests on a machine with no context becomes hours.
+     */
+    @Volatile
+    private var broken: Throwable? = null
+
     /** The stage of the one game. Touch it only from inside [render]. */
     lateinit var stage: Stage
         private set
 
     @Synchronized
     private fun start() {
+        broken?.let { throw IllegalStateException("the KorGE game is not usable; see the first failure", it) }
         if (started) return
         started = true
         val ready = CountDownLatch(1)
@@ -74,8 +83,10 @@ object KorgeGl {
                 ready.countDown()
             }
         }, "korge").apply { isDaemon = true }.start()
-        check(ready.await(60, TimeUnit.SECONDS)) { "the KorGE game never came up" }
-        failure[0]?.let { throw IllegalStateException("the KorGE game failed to start", it) }
+        if (!ready.await(60, TimeUnit.SECONDS)) {
+            throw IllegalStateException("the KorGE game never came up").also { broken = it }
+        }
+        failure[0]?.let { throw IllegalStateException("the KorGE game failed to start", it).also { broken = it } }
     }
 
     /**
@@ -87,7 +98,8 @@ object KorgeGl {
         start()
         val answer = ArrayBlockingQueue<Result<T>>(1)
         work += { ctx -> answer.put(runCatching { block(ctx) }) }
-        val result = answer.poll(60, TimeUnit.SECONDS) ?: error("the KorGE game stopped drawing frames")
+        val result = answer.poll(60, TimeUnit.SECONDS)
+            ?: throw IllegalStateException("the KorGE game stopped drawing frames").also { broken = it }
         return result.getOrThrow()
     }
 
