@@ -79,6 +79,14 @@ jobs:
           GALLIUM_DRIVER: llvmpipe
         run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-gdx:test --rerun-tasks --stacktrace
 
+      # The same suite on a GL 3.2 core context, which is what a game on OpenGL ES 3 or desktop GL 3
+      # gets. On GL 3 LibGDX takes other paths, and the interface once drew nothing there (#188).
+      - name: Renderer tests on GL 3.2 core
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GALLIUM_DRIVER: llvmpipe
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-gdx:testGl30 :composegl-lwjgl3:testGl30 --rerun-tasks --stacktrace
+
       # The second backend, which shares no code with the first. Its job is to disagree when the
       # toolkit has quietly assumed something about LibGDX.
       - name: The same scenes, drawn with no LibGDX anywhere

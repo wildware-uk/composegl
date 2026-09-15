@@ -44,7 +44,7 @@ class UiShapeBatch(
 ) : Disposable {
 
     private val mesh = Mesh(
-        Mesh.VertexDataType.VertexArray,
+        streamedVertexType(),
         false,
         maxQuads * 4,
         maxQuads * 6,

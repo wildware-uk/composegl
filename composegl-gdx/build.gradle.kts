@@ -30,3 +30,15 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
+
+// The same GL suite on a GL 3.2 core context, which is what a game on OpenGL ES 3 or desktop GL 3
+// runs on. LibGDX asks for a core profile only on a Mac, so on Linux Mesa is told to hand out a
+// forward-compatible core one; `Gl` checks it got one rather than passing on a compatibility context.
+val testGl30 by tasks.registering(Test::class) {
+    description = "Runs the tests on a GL 3.2 core context instead of GL 2."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    systemProperty("composegl.gl", "gl30")
+    environment("MESA_GL_VERSION_OVERRIDE", "3.2FC")
+}

@@ -199,6 +199,10 @@ fun main() {
         setTitle("ComposeGL")
         setWindowedMode(1280, 720)
         useVsync(true)
+        // COMPOSEGL_DEMO_GL30=1 runs it on a GL 3.2 context, the way a game on OpenGL ES 3 runs.
+        if (System.getenv("COMPOSEGL_DEMO_GL30") == "1") {
+            setOpenGLEmulation(Lwjgl3ApplicationConfiguration.GLEmulation.GL30, 3, 2)
+        }
         setWindowListener(object : Lwjgl3WindowAdapter() {
             override fun focusLost() = demo.windowLostFocus()
         })

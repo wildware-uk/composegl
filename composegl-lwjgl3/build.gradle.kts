@@ -56,3 +56,14 @@ val noEngineTypes = tasks.register<BytecodeReferenceCheck>("checkNoEngineTypes")
 }
 
 tasks.named("check") { dependsOn(noEngineTypes) }
+
+// The same tests on a GL 3.2 core context. The window here asks for no version, so Mesa is told to
+// hand out a forward-compatible core one: what a game that brings its own GL 3 context would give
+// this backend. A core context draws nothing without a vertex array object bound.
+val testGl30 by tasks.registering(Test::class) {
+    description = "Runs the tests on a GL 3.2 core context (Mesa)."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    environment("MESA_GL_VERSION_OVERRIDE", "3.2FC")
+}
