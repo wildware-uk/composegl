@@ -230,7 +230,7 @@ ProvideSkin(skin) {
 }
 ```
 
-![The same options panel in the standard skin and in high contrast](images/skins-switch.png)
+![The same options panel in the standard skin and in high contrast](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/skins-switch.png)
 
 The frame after the player moves the stepper is drawn entirely in the new skin:
 every background, border and text colour, and text measured again if the new skin's

@@ -328,7 +328,7 @@ takes that minimum away: the child keeps its own size and sits inside the slot.
 
 ```kotlin
 Row(Modifier.width(300f)) {
-    Icon(Modifier.weight(1f).wrapContentSize(Alignment.Centre))   // a third of the row, icon centred
+    Image(icon, Modifier.weight(1f).wrapContentSize(Alignment.Centre))   // a third of the row, icon centred
 }
 ```
 

@@ -10,7 +10,7 @@ Four ship. None is required: the toolkit names no engine anywhere.
 | `composegl-gdx` | LibGDX. Desktop, Android, iOS. The one to ship a game on. |
 | `composegl-lwjgl3` | Raw OpenGL and stb_truetype. Desktop only. |
 | `composegl-webgl` | WebGL in a browser tab, from WebAssembly. The page's own fonts and input. |
-| `composegl-korge` | KorGE 6. A screen is a view on the stage (`Container.composeGl`), with KorGE's input. Desktop JVM for now; try `./gradlew :composegl-demo-korge:run`. |
+| `composegl-korge` | KorGE 6. A screen is a view on the stage (`Container.composeGl`), with KorGE's input. Desktop JVM for now; try `./gradlew :composegl-demo-korge:run`. See [[KorGE]]. |
 | `composegl-android` | Not a backend — the things about an Android phone LibGDX cannot answer. |
 | `composegl-robovm` | The same, for an iPhone, through UIKit. |
 
@@ -70,7 +70,7 @@ shader on a loading screen, where the player will not see a stutter.
 LWJGL3:
 
 ```kotlin
-val backend = Lwjgl3Backend(window, StbFonts().apply { registerTrueType(…) })
+val backend = Lwjgl3Backend(window, StbFonts().apply { register("default", ttfBytes, listOf(13, 16, 20)) })
 val canvas = backend.canvas
 ```
 
@@ -198,6 +198,7 @@ Four backends implement it, so the swap is real:
 | `GdxBackend(fonts, spriteBatch)` | LibGDX |
 | `Lwjgl3Backend(window, fonts)` | raw OpenGL |
 | `WebGlBackend(canvas, fonts)` | a browser tab |
+| `KorgeBackend(fonts)` | KorGE |
 | `HeadlessBackend()` | no window at all, in `composegl-ui` |
 
 `SnakeApp` in `composegl-demo-snake-core` is the shape to copy: it takes fonts and a
@@ -301,7 +302,7 @@ context can be lost (Android, the browser), call `canvas.contextLost()` when it 
 
 Then implement `UiBackend` round them — `canvas`, `fonts`, `clipboard`,
 `softKeyboard`, `textures`, and optionally `cursor` and `haptics` — and translate your
-platform's input into the four [[Input|`InputSink`]] calls.
+platform's input into the four [[`InputSink`|Input]] calls.
 
 `RendererConfinementCheck` keeps it thin. One line in your build file,
 `confineRenderer("MyGl.kt")`, fails the build if shader text appears anywhere in your
@@ -309,7 +310,7 @@ module, if a draw, shader, blend or framebuffer call appears outside the binding
 or if the binding grows past 400 lines.
 
 A graphics API that is not OpenGL implements `GpuDevice` instead of `Gl` — about
-sixteen members — and ships its own port of the shape shader. Nothing above the device
+twenty members — and ships its own port of the shape shader. Nothing above the device
 knows OpenGL exists.
 
 ### If you really must draw yourself
@@ -334,7 +335,8 @@ approximate a block it knows nothing about. So it is a question instead.
 - `rawX(x)` / `rawY(y)` — a coordinate this interface would take, as the one your
   drawing object wants. Once the object is handed over the block is writing your
   coordinates, so only you can convert them. Both default to the identity; override
-  `rawY` if you measure y upwards, as every backend here does.
+  `rawY` if you measure y upwards, as `RenderCanvas` does. (`KorgeCanvas` measures down,
+  like KorGE, so it keeps the identity.)
 - `raw(destination) { }` — the same hatch with the origin moved to the node, so a
   block that draws at `0, 0, width, height` fills it. Say so in `movesRawOrigin`.
   Override both or neither: an unmoved origin is not a lesser picture, it is the same
@@ -382,5 +384,6 @@ handed back another. The ES runs need `libgles2` and `libegl-mesa0` and a displa
 ## What next
 
 - **[[Your first screen]]** — the whole of a LibGDX integration in one file
+- **[[KorGE]]** — the whole of a KorGE integration, and its limits
 - **[[Input]]** — the four calls your translator has to make
 - **[[Testing]]** — including how to test without a backend at all

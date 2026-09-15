@@ -1,5 +1,7 @@
 # ComposeGL
 
+These docs are for **ComposeGL 0.5.0**.
+
 [![Maven Central](https://img.shields.io/maven-central/v/dev.wildware.composegl/composegl-ui?label=Maven%20Central)](https://central.sonatype.com/artifact/dev.wildware.composegl/composegl-ui)
 [![CI](https://github.com/wildware-uk/composegl/actions/workflows/ci.yml/badge.svg)](https://github.com/wildware-uk/composegl/actions/workflows/ci.yml)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
@@ -30,8 +32,8 @@ repositories {
 }
 
 dependencies {
-    implementation("dev.wildware.composegl:composegl-ui:0.1.0")
-    implementation("dev.wildware.composegl:composegl-gdx:0.1.0")   // a backend — pick one
+    implementation("dev.wildware.composegl:composegl-ui:0.5.0")
+    implementation("dev.wildware.composegl:composegl-gdx:0.5.0")   // a backend — pick one
 }
 ```
 
@@ -106,17 +108,19 @@ You need `composegl-ui` and exactly one backend. The library draws the interface
 | [Your first screen](docs/wiki/Your-first-screen.md) | a window with a button in it, start to finish |
 | [Widgets](docs/wiki/Widgets.md) · [Layout](docs/wiki/Layout.md) · [Modifiers](docs/wiki/Modifiers.md) | what there is — buttons, fields, sliders, dropdowns, steppers, dialogs — and how it fits together, down to lists and grids that build only what is on screen, lists in sections whose headers stay at the top, a panel that shakes on a wrong password, parallax layers that follow the mouse, stick or scroll, panels that animate out before they go, panels that grow to new contents instead of jumping, a long name that scrolls round inside its slot, screens that crossfade into each other, pages that slide or scale into the next with a transition picked per change, a small thing kept small in a big slot, and borders that are one-sided, dashed or dotted, text lined up by its baseline, Chinese, Japanese, Korean and colour emoji in text through font fallbacks, sprite-sheet animation, labels players can select and copy, an on-screen keyboard for players with only a pad, a key rebinding button for the controls screen, rows that slide when a list is sorted, cards that flip over in 3D and a row of them tilting under one shared camera, several values moving as one off a single state, `Modifier.debugBounds()` to see where a widget landed, `LayoutOverlay` to see boxes, padding and gaps across the whole screen, `Inspector` to point at one widget and read its size, constraints and modifiers, `OverdrawOverlay` to see which pixels are painted over and over, a frame budget overlay that names the nodes costing extra draw calls and why, `FocusOverlay` to see where the pad will move focus and where clicks really land, `RedrawOverlay` to see which nodes keep redrawing, and `TextMetricsOverlay` to see every label's baseline and cap height |
 | [Skins](docs/wiki/Skins.md) | every colour, gradient and corner — one radius, or one per corner — comes out of a JSON file; a high-contrast skin ships too, and the player can switch skins live from an options screen |
-| [Input](docs/wiki/Input.md) · [Backends](docs/wiki/Backends.md) · [Shaders](docs/wiki/Shaders.md) | mouse, keyboard, gamepad, the cursor's shape; a pad-driven cursor for maps and inventories; UI sounds; long press, double click, hold to repeat; drag and drop between slots, with a pad too; and writing your own |
+| [Animation](docs/wiki/Animation.md) | clocks, springs and tweens, panels that animate in and out, screens that crossfade or slide, sizes and places that move, shakes, marquees, parallax and sprite strips, and pausing or stepping it all a frame at a time |
+| [Input](docs/wiki/Input.md) · [Backends](docs/wiki/Backends.md) · [KorGE](docs/wiki/KorGE.md) · [Shaders](docs/wiki/Shaders.md) | mouse, keyboard, gamepad, the cursor's shape; a pad-driven cursor for maps and inventories; UI sounds; long press, double click, hold to repeat; drag and drop between slots, with a pad too; and writing your own |
 | [Split-screen](docs/wiki/Split-screen.md) | local co-op: a viewport and a HUD per player, and each pad, the keyboard and the mouse routed to the right one |
 | [Saving state](docs/wiki/Saving-state.md) | `rememberSaveable`: the tab, the scroll and the half-typed name survive leaving a screen |
 | [Localisation](docs/wiki/Localisation.md) | strings looked up by the player's language with fallbacks and plurals; rows, alignment and padding that mirror for Arabic and Hebrew; Hebrew and English on one line drawn in reading order, with a caret that moves the way the arrows point |
 | [Testing](docs/wiki/Testing.md) | screens tested with no window: tag a widget, then click, type and press pad buttons on it with `uiTest`; and `@Preview` composables drawn to PNGs with `renderPreviews`; print the tree with `dump`; animations paused and stepped a frame at a time |
+| [What's new in 0.5.0](docs/wiki/Whats-new-0.5.0.md) | everything since 0.4.0, and the breaking changes |
 | [How it works](docs/how-it-works.md) | the long version: what is built, and why |
 | [Releasing](docs/releasing.md) | how a version gets to Maven Central |
 
 ## What this has actually run on
 
-0.1.0 is a first release and the interfaces will move.
+0.5.0 is still early, and the interfaces will move. [What's new in 0.5.0](docs/wiki/Whats-new-0.5.0.md) lists what changed since 0.4.0, including what was removed.
 
 Everything here has only ever run on Mesa's software OpenGL. **No real GPU, no macOS, no Windows,
 and no actual phone.** The Android launcher ran on an x86_64 emulator with no hardware

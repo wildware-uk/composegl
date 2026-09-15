@@ -5,7 +5,7 @@ Material 3 on Compose for Skia, and once with this toolkit. This is the honest c
 rewrite is supposed to earn, so it records what got worse as well as what got better.
 
 Both versions are in the repository's history — the old one at the `skia-final` tag, the new one in
-`composegl-demo-snake`.
+`composegl-demo-snake-core`, with its desktop launcher in `composegl-demo-snake`.
 
 ## What did not change at all
 

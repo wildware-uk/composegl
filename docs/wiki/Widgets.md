@@ -4,7 +4,7 @@ Everything that ships. Two sets: the ordinary interface controls, and a tier of
 things only games need.
 
 None of it is Material. There is no theme to fight, and every widget takes its
-look from a [[Skins|skin]] file rather than from code.
+look from a [[skin|Skins]] file rather than from code.
 
 ---
 
@@ -19,7 +19,7 @@ Text(trackName, Modifier.width(160f).marquee())   // too long? it scrolls round
 ```
 
 A name too long for a fixed slot can scroll instead of wrapping or ellipsising: see
-**Marquee** in [[Modifiers]].
+[Marquee](Animation.md#marquee) in [[Animation]].
 
 What was measured is what is drawn — the layout object the font produced at
 measure time is the object handed to the canvas, so text never wraps differently
@@ -257,7 +257,7 @@ error message for a bug report — wrap them:
 SelectionContainer { Text("Seed: 8F3A-22C1") }
 ```
 
-![A seed code with its code dragged over and highlighted](images/widget-selection.png)
+![A seed code with its code dragged over and highlighted](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-selection.png)
 
 Inside, every `Text` takes the same gestures a `TextField` does, from the same
 code: press and drag to select, double-click a word, triple-click a line,
@@ -316,7 +316,7 @@ A disabled button still swallows the click, so it cannot fall through to whateve
 is behind it.
 
 A click also asks for a light tap on a phone or a pad, if the game provided one —
-see [[Input#haptics|haptics]].
+see [[haptics|Input#haptics]].
 
 Same widget, a different style name, and it is a chip:
 
@@ -332,7 +332,7 @@ Panel(style = "panel.raised") { … }
 
 Dialog(onDismiss = { open = false }) {      // a panel over a dimmed screen
     Text("Abandon the run?")
-    Row { Button("YES", ::abandon); Button("NO") { open = false } }
+    Row { Button("YES", onClick = ::abandon); Button("NO", onClick = { open = false }) }
 }
 
 Tabs(selected, onSelect = { selected = it }, titles = listOf("GEAR", "SKILLS")) { page ->
@@ -464,7 +464,7 @@ NumberStepper(fov, range = 60..110, step = 5, format = { "$it°" }, onValueChang
 - **The arrows stay put.** The value is as wide as the widest option. Give the
   stepper a width and the extra goes to the value.
 - **Each step ticks.** On a phone or a pad every change asks for a
-  [[Input#haptics|haptic]] `Tick`. A press at an end that only moves focus
+  [[haptic|Input#haptics]] `Tick`. A press at an end that only moves focus
   gives nothing.
 
 Styles: `stepper` behind it, `stepper.arrow` for the two arrows (pressed while
@@ -552,37 +552,7 @@ nothing — because nothing looks exactly like a widget somebody has not written
 
 ### Sprite-sheet animation
 
-```kotlin
-val coin = rememberSpriteAnimation(atlas, prefix = "coin_", fps = 12f)   // coin_0, coin_1 … coin_11
-AnimatedImage(coin, Modifier.size(32f))
-
-val torch = rememberSpriteAnimation("torch_", fps = 8f, clock = Clock.World)  // the skin's atlas
-val boom = rememberSpriteAnimation(explosion, fps = 24f, loop = false)       // a list of frames
-AnimatedImage(boom, onFinished = { exploding = false })
-boom.restart()
-```
-
-![eight frames of a coin cut from one sheet, and the coin playing](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-animated.png)
-
-Frames are every region called the prefix followed by a number, played in number
-order, so `coin_10` comes after `coin_9`. A prefix that matches nothing stops and
-lists what the atlas does hold.
-
-- **It runs on a `Clock`.** On `Clock.World` it freezes when the game is paused and
-  carries on from the same frame; the default `Clock.Ui` keeps a pause menu's
-  spinner turning.
-- **It only redraws when the frame changes.** A 12 fps coin costs twelve redraws a
-  second, not sixty, and a finished one-shot costs nothing.
-- **The box is the largest frame**, so frames a packer trimmed to different sizes do
-  not make the layout jump. `fit` and `alignment` place that box, and every frame is
-  scaled by the same amount inside it, so a trimmed frame does not grow or shrink.
-
-LibGDX's packer strips a trailing `_0` into a region's `index`, so name those
-regions back when you build the atlas:
-`atlas.regions.associate { (if (it.index >= 0) "${it.name}_${it.index}" else it.name) to GdxTexture(it) }`.
-
-In a `uiTest`, a loop that changes frame more often than one frame in three never
-lets the screen settle. Test it on a clock the test stops, or at a lower rate.
+Moved to [Animation](Animation.md#sprite-sheet-animation).
 
 ---
 
@@ -607,35 +577,7 @@ reloaded.
 
 ## Showing and hiding: AnimatedVisibility
 
-`if (open) Menu()` takes the menu away the frame `open` goes false, so there is
-nothing left to animate. `AnimatedVisibility` keeps it on screen until its exit
-has played, then takes it away.
-
-```kotlin
-AnimatedVisibility(
-    visible = open,
-    enter = fadeIn() + scaleIn(from = 0.9f),
-    exit = fadeOut() + slideOut(Offset(0f, 30f)),
-) {
-    Panel { … }
-}
-```
-
-![a menu half way through fading and shrinking out](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-animated-visibility.png)
-
-- **Parts:** `fadeIn`/`fadeOut`, `scaleIn`/`scaleOut`, `slideIn`/`slideOut`, and `slideInRelative`/`slideOutRelative` for a slide measured in
-  the panel's own size (`Offset(1f, 0f)` is one whole width to the right). Join
-  them with `+`. Each takes its own spec, so a fade can be quick while a scale
-  settles on a spring.
-- **Changing your mind** turns round from where it is. Reopen a menu half way out
-  and it comes back without ever leaving the tree.
-- **Clocks:** `clock = Clock.World` freezes a leaving panel while the game is paused.
-- **Starting hidden:** it opens at rest when `visible` is already true. Pass
-  `initiallyVisible = false` for a toast that should animate in when it is added.
-- **Cost:** open and still, or closed, it asks for no frames.
-- A leaving panel can still be clicked until it is gone. Pass `enabled = open` to
-  its buttons if that matters.
-- Slides are in pixels, not a fraction of the panel's own size.
+Moved to [Animation](Animation.md#entering-and-leaving-animatedvisibility).
 
 ---
 
@@ -681,102 +623,19 @@ line under the list — or to call `listen()` yourself.
 
 ## Switching screens: Crossfade
 
-`when (page) { … }` swaps one screen for the next in a single frame: an instant
-cut. `Crossfade` fades the old screen out while the new one fades in over it.
-
-```kotlin
-Crossfade(targetState = page) { page ->
-    when (page) {
-        Page.Main -> MainMenu()
-        Page.Options -> Options()
-    }
-}
-```
-
-![a main menu half way through fading into the options page](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-crossfade.png)
-
-- **Each page keeps its own state.** A leaving page is handed the value it was
-  showing, so a portrait fading between expressions shows the old face on the way out.
-- **What counts as a new page:** `contentKey`. Key a portrait on its expression and a
-  change to its health redraws it with no fade.
-- **Changing your mind** turns round. Go back to a page still fading out and it fades
-  back in, with its state (a counter, a scroll position) intact. Once a page has faded
-  all the way out it is forgotten, so coming back later starts it fresh.
-- **Timing:** `spec = Tween(300)`, or a spring. `clock = Clock.World` holds the fade
-  still while the game is paused.
-- **Layout:** pages sit on top of each other, newest on top (a page you go back to
-  keeps its place underneath). While both are there the
-  box is as big as the bigger one; `contentAlignment` places the smaller one.
-- **Focus** stays on a button in the old page until that page is gone, then moves into
-  the new page, to its `initialFocus` button if it has one.
-- **Cost:** settled, it is one page at full opacity and asks for no frames.
-- A leaving page can still be clicked until it is gone.
-- Only a fade. For a slide or a scale, use `AnimatedContent` below.
+Moved to [Animation](Animation.md#crossfade).
 
 ---
 
 ## Sliding between pages: AnimatedContent
 
-`Crossfade` always fades. `AnimatedContent` asks you how to get from one page to the
-next, each time the page changes, given the page it is leaving and the one it is going to.
-Slide left going deeper into a menu and right coming back:
-
-```kotlin
-AnimatedContent(
-    targetState = page,
-    transition = { from, to -> if (to > from) slideLeft() else slideRight() },
-) { page -> PageContent(page) }
-```
-
-![a card carousel at rest, and the same carousel half way through sliding to the next card](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-animated-content.png)
-
-- **Ready-made:** `slideLeft()`, `slideRight()`, `slideUp()` (a score rolling up) and
-  `slideDown()`. Each slides by the page's own size, so it looks the same on any screen.
-- **Your own:** an enter and an exit, joined with `togetherWith`:
-  `scaleIn(from = 0.8f) + fadeIn() togetherWith fadeOut()`. Any of `fadeIn`, `scaleIn`,
-  `slideIn`, and `slideInRelative` (a slide measured in the page's own size) works here.
-- **Size:** the space is the size of the page being shown. When the new page is bigger or
-  smaller, the space grows or shrinks to it on a spring, and what is under it moves with it.
-  `.using(Tween(200))` picks the timing; `.using(null)` turns it off, so the space is as big
-  as the biggest page while they change, the way `Crossfade` does it.
-- **Cut off at the edge:** while pages change, a page is cut off at the edge of the space,
-  so a card sliding out does not draw over its neighbours. Settled, nothing is cut.
-  `ContentTransform(enter, exit, clip = false)` turns that off.
-- **Changing your mind** turns round from wherever the slide had got to, with the page's
-  state intact. The transition is asked again for the new change.
-- **Everything else is as `Crossfade`:** `contentKey`, `contentAlignment`,
-  `clock = Clock.World`, focus moving into the new page, clicks reaching a leaving page,
-  and no frames once settled.
+Moved to [Animation](Animation.md#animatedcontent).
 
 ---
 
 ## Several values off one state: updateTransition
 
-A pressed button shrinks and darkens at once. Written as two `animate…AsState`
-calls, those are two separate animations. `updateTransition` makes them one
-movement: they set off on the same frame, turn round together, and the transition
-knows when the whole thing is over.
-
-```kotlin
-val pressed = updateTransition(interaction.isPressed)
-val scale by pressed.animateFloat { if (it) 0.95f else 1f }
-val colour by pressed.animateColour { if (it) dark else light }
-```
-
-![three cards, resting, half way through being picked, and picked](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-transition.png)
-
-- **Values:** `animateFloat`, `animateColour`, `animateOffset`, `animateSize`, or
-  `animateValue` with your own `Vectoriser`.
-- **Specs per direction:** the spec block is told the move being made, so a press
-  can be quick and the release slow:
-  `animateFloat({ if (false isTransitioningTo true) Tween(60) else Tween(300) }) { … }`
-- **When it is over:** `currentState` stays the old state until the slowest value
-  arrives. `isRunning` is true for the whole movement.
-- **Late values:** a value composed part way through starts from the old state's
-  value, and the transition waits for it too.
-- **Clocks:** `updateTransition(state, clock = Clock.World)` freezes every value
-  while the game is paused.
-- **Cost:** settled, it asks for no frames.
+Moved to [Animation](Animation.md#several-values-off-one-state-updatetransition).
 
 ---
 
@@ -887,3 +746,4 @@ seed gives the same burst — which is what makes it testable against a golden i
 - **[[Skins]]** — how all of these get their look
 - **[[Input]]** — focus, pads, and keyboard
 - **[[Shaders]]** — blurring, outlining or dissolving any of the above
+- **[[Animation]]** — clocks, animated values, and panels that come and go

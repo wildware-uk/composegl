@@ -147,11 +147,8 @@ click starts has finished by the time the next line runs.
 that changes nothing until it ends, like a countdown or a held stick's repeat, needs
 `advanceBy`. A screen still changing after five seconds of frames fails, with the tree
 printed, instead of hanging the build. That includes an animation that never ends, like
-a pulsing low-health bar: put it on a clock and stop that clock
-(`ui.host.clocks.stop(clock)`), since an animation on a stopped clock is not waited for.
-A `marquee` is the exception that needs nothing: it only moves the drawing, never a box,
-a text or focus, so a frame where it slid along counts as quiet. `advanceBy` moves it.
-`assertText` reads a scrolling title once, even while its copy is coming round behind it.
+a pulsing low-health bar: stop its clock. [Testing animations](Animation.md#testing-animations)
+has the details, marquees and sprite sheets included.
 
 **Text is read off the drawing.** `assertText` draws the node and what is inside it into
 a recording and joins the text, one run per line. That is what a player reads: the label
@@ -399,8 +396,8 @@ uiTest(budget = budget) { Hud() }.use { ui ->
 }
 ```
 
-All three built-in canvases trace: LibGDX, raw OpenGL and WebGL. The headless one does not
-batch, so it lists nothing.
+Every built-in canvas traces: LibGDX, raw OpenGL, WebGL and KorGE all draw through the same
+shared renderer. The headless one does not batch, so it lists nothing.
 
 ---
 
@@ -532,46 +529,8 @@ letters are not marked yet.
 
 ## Animations a frame at a time
 
-A spring that overshoots for three frames is over before you can see it. Freeze the
-clocks and step them instead:
-
-```kotlin
-host.clocks.debug.pause()            // every animation holds where it is
-host.clocks.debug.step(frames = 1)   // the next frame moves them one frame, then they hold again
-host.clocks.debug.speed = 0.25f      // or run everything at a quarter speed
-host.clocks.debug.resume()
-```
-
-![A bouncy spring stepped frame by frame, every frame left behind](images/clock-debug.png)
-
-Every call takes a clock too, so the world can be stepped while the pause menu over it
-keeps animating: `pause(Clock.World)`, `step(frames = 1, clock = Clock.World)`,
-`setSpeed(Clock.World, 0.5f)`. Paused with no clock means every clock, including ones
-made later.
-
-**It is not the game's pause.** `clocks.stop(Clock.World)` is the game pausing; `debug`
-is you looking. The game starting its world again does not undo a debug pause, and a
-step does not move a clock the game has stopped.
-
-**A step is taken on the next frame**, because an animation only moves when a frame
-arrives. It is as long as that frame, at the clock's speed. Stepping a running clock
-pauses it first. A clock you let go with `resume(Clock.Ui)` stays let go when you step
-everything else. Resuming throws away steps not yet taken.
-
-**On keys**, for a game running in front of you. `ClockDebugKeys` is a key handler: F5
-freezes and lets go, F6 steps (and keeps stepping while held), F7 and F8 halve and
-double the speed between an eighth and real time. Ask it first in your sink:
-
-```kotlin
-val debugKeys = ClockDebugKeys(host.clocks)                  // or ClockDebugKeys(host.clocks, Clock.World)
-override fun onKey(event: KeyEvent) = debugKeys.onKey(event) || router.onKey(event)
-```
-
-The example has them on: run `:composegl-demo:run` and press F5.
-
-**In a test** it is the same calls on `ui.host.clocks`. A frozen clock is not waited for,
-so `settle` does not hang on it, and a step waiting to be taken is, so the next line sees
-the frame it moved. `ClockDebugUiTest` walks a spring's overshoot one F6 at a time.
+Moved to [Animation](Animation.md#pausing-and-stepping-while-you-debug). How a test waits
+for animations is in [Testing animations](Animation.md#testing-animations).
 
 ---
 
@@ -711,8 +670,8 @@ interface, input and the order of a frame, with nothing in it that knows whether
 is running on a desktop, in LibGDX or on a phone. Its launchers make the canvas; it
 only ever sees a `UiCanvas`.
 
-Both backend canvases build their GPU resources the first time they draw rather than
-when they are constructed, so even `GdxCanvas()` itself no longer needs a live
+Every backend canvas builds its GPU resources the first time it draws rather than
+when it is constructed, so even `GdxCanvas()` itself no longer needs a live
 context to exist. That is a safety net, not the design: a class that *names*
 `GdxCanvas` still drags LibGDX into every test of your focus, your input routing and
 your lifecycle. Name the interface.
@@ -720,7 +679,7 @@ your lifecycle. Name the interface.
 (A game that would rather not pay for a mesh and a shader in its first frame calls
 `canvas.warmUp()` on a loading screen, on the thread that holds the context. It is on
 `UiCanvas`, so the call compiles against the interface you were told to hold; a canvas
-with nothing to build — the recording one — does nothing and says so.)
+with nothing to build — the recording one — does nothing.)
 
 ---
 
@@ -838,7 +797,7 @@ fun PauseMenuPreview() {
 xvfb-run -a ./gradlew :composegl-demo:renderPreviews   # one PNG per preview, in build/previews
 ```
 
-![A preview drawn by renderPreviews](images/preview-pause-menu.png)
+![A preview drawn by renderPreviews](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/preview-pause-menu.png)
 
 It is drawn by the real renderer (the raw OpenGL backend), through the real skin
 and fonts. Each preview is drawn off the window into a texture exactly its size, so
@@ -926,3 +885,4 @@ Beyond the tests, two checks run as part of `check`:
 - **[[Backends]]** — adding your backend to the golden scenes
 - **[[Input]]** — the events to hand a widget
 - **[[Widgets]]** — what each one draws, which is what you will be asserting on
+- **[[Animation]]** — clocks, and pausing and stepping them
