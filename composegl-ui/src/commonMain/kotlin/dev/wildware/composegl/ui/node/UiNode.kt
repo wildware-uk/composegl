@@ -3,6 +3,7 @@ package dev.wildware.composegl.ui.node
 import dev.wildware.composegl.ui.draw.RectCache
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.layout.ConstraintsCache
 import dev.wildware.composegl.ui.layout.Inset
@@ -12,7 +13,8 @@ import dev.wildware.composegl.ui.layout.NodeMeasureScope
 import dev.wildware.composegl.ui.layout.NodePlaceable
 import dev.wildware.composegl.ui.layout.OnceMeasurable
 import dev.wildware.composegl.ui.layout.Padding
-import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.layout.PlacedHandler
+import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.modifier.resolve
@@ -160,6 +162,81 @@ class UiNode(var name: String = "node") {
      */
     internal var everMeasured = false
 
+    // --- what `onSizeChanged` and `onPlaced` were last told ---
+    //
+    // NaN and null mean "nothing yet", so the first pass that reaches a watching node is a change.
+    // Floats and a cache rather than a Size and a Rect: a watching node is compared every frame,
+    // and on a still screen the comparison has to allocate nothing.
+
+    /**
+     * On a node a pass was run from: the watching nodes that pass found, kept so the next pass can
+     * refill it rather than make one. Null on every other node, and on a tree with no watchers.
+     */
+    internal var layoutWatchers: MutableList<UiNode>? = null
+
+    private var reportedWidth = Float.NaN
+    private var reportedHeight = Float.NaN
+    private val placedCache = RectCache()
+    private var reportedPlace: Rect? = null
+
+    // Who was told. A different handler has heard nothing yet — a recomposition that swaps in one
+    // aimed at a new state would otherwise wait for the node to move before that state is written.
+    // The same list object comes back while the modifier is unchanged, so a still screen stops at
+    // the identity check.
+    private var toldSize: List<SizeChangedHandler> = emptyList()
+    private var toldPlace: List<PlacedHandler> = emptyList()
+
+    /**
+     * Tells this node's `onSizeChanged` and `onPlaced` handlers what changed since they were last
+     * told, if anything. The layout pass calls it once it has finished, so every rectangle in the
+     * tree — parents included — is this frame's.
+     */
+    internal fun reportLayout() {
+        val resolved = this.resolved
+        val sizeHandlers = resolved.sizeChanged
+        if (sizeHandlers !== toldSize) {
+            if (sizeHandlers != toldSize) reportedWidth = Float.NaN
+            toldSize = sizeHandlers
+        }
+        val placeHandlers = resolved.placed
+        if (placeHandlers !== toldPlace) {
+            if (placeHandlers != toldPlace) reportedPlace = null
+            toldPlace = placeHandlers
+        }
+
+        if (sizeHandlers.isEmpty()) {
+            reportedWidth = Float.NaN
+        } else if (width != reportedWidth || height != reportedHeight) {
+            reportedWidth = width
+            reportedHeight = height
+            val size = Size(width, height)
+            for (index in sizeHandlers.indices) sizeHandlers[index].onSizeChanged(size)
+        }
+
+        if (placeHandlers.isEmpty()) {
+            reportedPlace = null
+        } else {
+            // The cache hands back the very same Rect while nothing moved, so identity is the test.
+            val now = inRoot(0f, 0f, width, height, placedCache)
+            if (now !== reportedPlace) {
+                reportedPlace = now
+                for (index in placeHandlers.indices) placeHandlers[index].onPlaced(this)
+            }
+        }
+    }
+
+    /**
+     * Forgets what the handlers were told, so they hear about this node afresh — for a node leaving
+     * the tree, which may come back somewhere else, or losing its handlers, which may come back.
+     */
+    internal fun forgetReportedLayout() {
+        reportedWidth = Float.NaN
+        reportedHeight = Float.NaN
+        reportedPlace = null
+        toldSize = emptyList()
+        toldPlace = emptyList()
+    }
+
     // --- what the layout pass uses again every frame ---
     //
     // A pass runs over the whole tree every frame in most games, whether anything changed or not,
@@ -279,7 +356,13 @@ class UiNode(var name: String = "node") {
      * level of the tree, and hit testing and focus ask this of a lot of nodes. `DrawPassTest`'s
      * `where a scaled node is drawn is where it says it is` is what keeps the copies honest.
      */
-    private fun inRoot(startLeft: Float, startTop: Float, startRight: Float, startBottom: Float): Rect {
+    private fun inRoot(
+        startLeft: Float,
+        startTop: Float,
+        startRight: Float,
+        startBottom: Float,
+        into: RectCache? = null,
+    ): Rect {
         var left = startLeft
         var top = startTop
         var right = startRight
@@ -303,7 +386,7 @@ class UiNode(var name: String = "node") {
             bottom += node.y
             node = node.parent
         }
-        return Rect(left, top, right, bottom)
+        return into?.of(left, top, right, bottom) ?: Rect(left, top, right, bottom)
     }
 
     /**
@@ -463,6 +546,7 @@ class UiNode(var name: String = "node") {
     private fun attachTo(tree: UiTree?) {
         if (this.tree === tree) return
         this.tree = tree
+        if (tree == null) forgetReportedLayout()
         mutableChildren.forEach { it.attachTo(tree) }
     }
 

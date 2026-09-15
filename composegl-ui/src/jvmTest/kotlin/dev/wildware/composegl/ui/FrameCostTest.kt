@@ -19,12 +19,18 @@ import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.MeasurePass
+import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.Row
+import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
+import dev.wildware.composegl.ui.modifier.offset
+import dev.wildware.composegl.ui.modifier.onPlaced
+import dev.wildware.composegl.ui.modifier.onSizeChanged
 import dev.wildware.composegl.ui.modifier.padding
+import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Panel
@@ -145,6 +151,46 @@ class FrameCostTest {
         // being asked for a frame it has nothing to do in, plus the throwaway passes this loop
         // makes itself. A ratchet rather than a target.
         assertTrue(perFrame < 1_536, "a still frame of a whole HUD allocated $perFrame bytes")
+    }
+
+    @Test
+    fun `watching where things are costs a still screen nothing`() {
+        var told = 0
+        val onSize = SizeChangedHandler { told++ }
+        val onPlace = PlacedHandler { told++ }
+        host.setContent {
+            Box(Modifier.fillMaxSize()) {
+                repeat(40) { index ->
+                    Box(
+                        Modifier.offset(index * 30f, index * 15f).size(24f)
+                            .onSizeChanged(onSize).onPlaced(onPlace),
+                    )
+                }
+            }
+        }
+        repeat(3) { frame() }
+
+        val silent = Silent()
+        // Warmed the same way as the HUD above, so what is counted is the steady state.
+        repeat(5) {
+            MeasurePass().run(host.root, Constraints.atMost(1280f, 720f))
+            DrawPass(silent).draw(host.root)
+        }
+        assertTrue(told == 80, "forty nodes, two handlers each, told once: $told")
+
+        val before = allocatedBytes()
+        repeat(20) {
+            wall += 16_000_000L
+            host.frame(wall)
+            MeasurePass().run(host.root, Constraints.atMost(1280f, 720f))
+            DrawPass(silent).draw(host.root)
+        }
+        val perFrame = (allocatedBytes() - before) / 20
+
+        assertTrue(told == 80, "a still screen told its watchers something: $told")
+        // The same ratchet as a still HUD: forty watchers add one small list to the pass, not an
+        // object each.
+        assertTrue(perFrame < 1_536, "a still frame with forty watchers allocated $perFrame bytes")
     }
 
     @Test

@@ -2,7 +2,14 @@ package dev.wildware.composegl.demo.docs
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.layout.PlacedHandler
+import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.game.Bar
 import dev.wildware.composegl.ui.game.BarThreshold
 import dev.wildware.composegl.ui.game.Hotbar
@@ -38,6 +45,8 @@ import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.layoutId
 import dev.wildware.composegl.ui.modifier.offset
+import dev.wildware.composegl.ui.modifier.onPlaced
+import dev.wildware.composegl.ui.modifier.onSizeChanged
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.shadow
 import dev.wildware.composegl.ui.modifier.size
@@ -579,6 +588,33 @@ private fun MutableList<DocShot>.modifiers() {
             Row(horizontalArrangement = Arrangement.spacedBy(40f)) {
                 Labelled("as written") { Hand(lifted = -1) }
                 Labelled("zIndex(1f) on the middle") { Hand(lifted = 1) }
+            }
+        }
+    })
+
+    // A popup hung under a button by the button's own onPlaced, and a panel reading out the size
+    // its onSizeChanged was last handed. Nothing in it polls.
+    add(DocShot("modifier-on-placed", 420, 200, seconds = 0.2f) {
+        var anchor by remember { mutableStateOf<Rect?>(null) }
+        var size by remember { mutableStateOf<Size?>(null) }
+        val placed = remember { PlacedHandler { node -> anchor = node.boundsInRoot } }
+        val sized = remember { SizeChangedHandler { size = it } }
+        Box(Modifier.fillMaxSize().background(Ink)) {
+            Box(Modifier.offset(24f, 20f).size(372f, 44f).background(Steel, corner = 6f).onSizeChanged(sized)) {
+                Row(Modifier.padding(6f), horizontalArrangement = Arrangement.spacedBy(8f)) {
+                    Button("File", onClick = {})
+                    Button("Options", onClick = {}, modifier = Modifier.onPlaced(placed))
+                }
+            }
+            size?.let { Text("toolbar ${it.width.toInt()} x ${it.height.toInt()}", Modifier.offset(24f, 168f), style = "label.dim") }
+            anchor?.let { under ->
+                Box(Modifier.offset(under.left, under.bottom + 6f).size(150f, 86f).background(Deep, corner = 6f).border(Accent, width = 1f, corner = 6f)) {
+                    Column(Modifier.padding(10f), verticalArrangement = Arrangement.spacedBy(6f)) {
+                        Text("Sound")
+                        Text("Controls")
+                        Text("Video")
+                    }
+                }
             }
         }
     })

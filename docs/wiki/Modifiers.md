@@ -221,6 +221,33 @@ Modifier.testTag("play")                  // host.root.find("play") from a test
 
 Changes nothing about how the node looks or behaves. See [[Testing]].
 
+**Being told where it ended up**
+
+```kotlin
+Modifier.onPlaced { node -> anchor = node.boundsInRoot }   // it moved on screen
+Modifier.onSizeChanged { size -> emitter.resize(size) }    // it got bigger or smaller
+```
+
+A popup under a button, a particle emitter the size of a panel, a tutorial arrow
+pointing at something: all of them need to know where a widget is, and none of
+them should ask every frame.
+
+Both are called after layout has finished, so every rectangle in the tree is this
+frame's, parents first. Both are called only when the answer changed — the first
+layout counts — so a still screen calls nothing. `onPlaced` is about where the
+widget is *drawn*: a parent moving it or scaling it counts, even though the widget
+itself did not change. `onSizeChanged` is only its size, so moving is not resizing.
+
+`onPlaced` hands you the node rather than a rectangle, because you usually want one
+of three: `boundsInRoot` for the pixels, `layoutBoundsInRoot` for the slot, or
+`paintedInRoot` for the ink. Read what you need during the call; do not keep the node.
+
+State written in either lands on the next frame, the same as in Compose:
+
+![a menu hanging under the Options button, placed by the button's onPlaced](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-on-placed.png)
+
+Rule 2 below applies: `remember` the handler on a widget that recomposes often.
+
 ---
 
 The decoration ones, on the same box:

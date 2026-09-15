@@ -17,6 +17,8 @@ import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Padding
+import dev.wildware.composegl.ui.layout.PlacedHandler
+import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.skin.ResolvedStyle
 import dev.wildware.composegl.ui.skin.SkinDrawable
 import dev.wildware.composegl.ui.graphics.BlendMode
@@ -292,6 +294,12 @@ data class FocusWithinElement(val handler: FocusWithinHandler) : Modifier.Elemen
 
 /** Focus cannot leave this node's subtree while it is in the tree. */
 data class FocusTrapElement(val enabled: Boolean) : Modifier.Element
+
+/** Told after layout when this node's size changes. See [SizeChangedHandler]. */
+data class OnSizeChangedElement(val handler: SizeChangedHandler) : Modifier.Element
+
+/** Told after layout when where this node is drawn changes. See [PlacedHandler]. */
+data class OnPlacedElement(val handler: PlacedHandler) : Modifier.Element
 
 data class FocusRequesterElement(val requester: FocusRequester) : Modifier.Element
 
@@ -788,6 +796,31 @@ fun Modifier.onFocusWithin(handler: FocusWithinHandler) = then(FocusWithinElemen
  * had it before — the button that opened the dialogue, rather than the top of the screen.
  */
 fun Modifier.focusTrap(enabled: Boolean = true) = then(FocusTrapElement(enabled))
+
+/**
+ * Called after layout with this node's new size, whenever it has one.
+ *
+ * ```kotlin
+ * Panel(Modifier.onSizeChanged { size -> emitter.resize(size) }) { … }
+ * ```
+ *
+ * Once for the first layout, then only when the size really changes: a still screen calls
+ * nothing, and a node that only moves is not a size change. See [SizeChangedHandler].
+ */
+fun Modifier.onSizeChanged(handler: SizeChangedHandler) = then(OnSizeChangedElement(handler))
+
+/**
+ * Called after layout whenever where this node is drawn changes, with the node to ask.
+ *
+ * ```kotlin
+ * Button("Options", Modifier.onPlaced { node -> anchor = node.boundsInRoot }) { … }
+ * ```
+ *
+ * The way to put a popup under a button, or point a tutorial arrow at something, without asking
+ * every frame. A parent moving or scaling it counts, because that moves it on screen. See
+ * [PlacedHandler].
+ */
+fun Modifier.onPlaced(handler: PlacedHandler) = then(OnPlacedElement(handler))
 
 fun Modifier.focusRequester(requester: FocusRequester) = then(FocusRequesterElement(requester))
 

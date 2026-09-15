@@ -27,11 +27,12 @@ import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.LeafLayout
+import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.modifier.Modifier
-import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.onFocusWithin
+import dev.wildware.composegl.ui.modifier.onPlaced
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.skin.ResolvedStyle
 import dev.wildware.composegl.ui.skin.rememberStyle
@@ -83,6 +84,7 @@ internal class TooltipAnchor {
     var text: String = ""
     var follow: Boolean = false
     var bounds: Rect = Rect.Zero
+    var scale: Float = 1f
     var pointer: Offset = Offset.Zero
 }
 
@@ -146,19 +148,24 @@ fun Tooltip(
     anchor.text = text
     anchor.follow = follow
 
-    // Written while drawing, because that is where a node's place on screen is actually known.
-    //
-    // Known limitation: this is the rectangle the draw pass hands over, which inside a
-    // `Modifier.scale` is the subtree's own unscaled one — everything in a capture draws at the
-    // size it was laid out. So a tooltip on something inside a scaled panel points at where that
-    // thing was laid out rather than at where it ended up. Nothing in composition can reach its
-    // own node to ask `boundsInRoot` instead; when something can, this is the first caller for it.
-    val capture: UiCanvas.(Rect) -> Unit = remember(anchor) { { bounds -> anchor.bounds = bounds } }
+    // Written after layout, and only when the thing actually moved. `boundsInRoot` is where it is
+    // drawn, so a tooltip on something inside a scaled panel points at where that thing ended up
+    // rather than where it was laid out.
+    val placed = remember(anchor) {
+        PlacedHandler { node ->
+            anchor.bounds = node.boundsInRoot
+            anchor.scale = node.scaleInRoot
+        }
+    }
 
     val handler = remember(anchor) {
         PointerHandler { event ->
             if (event is PointerEvent.Move) {
-                anchor.pointer = Offset(anchor.bounds.left + event.position.x, anchor.bounds.top + event.position.y)
+                // The position arrives in the node's own units, so a scale is put back to reach the screen.
+                anchor.pointer = Offset(
+                    anchor.bounds.left + event.position.x * anchor.scale,
+                    anchor.bounds.top + event.position.y * anchor.scale,
+                )
             }
             false
         }
@@ -181,7 +188,7 @@ fun Tooltip(
         modifier.interaction(interaction)
             .onFocusWithin(within)
             .onPointer(handler)
-            .drawBehind(capture),
+            .onPlaced(placed),
     ) { content() }
 }
 
