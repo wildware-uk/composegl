@@ -105,7 +105,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         val caps = caps()
         shapeProgram = link(
             vertex = caps.dialect.vertex(GlslSources.ShapeVertex),
-            fragment = caps.dialect.fragment(GlslSources.ShapeFragment),
+            fragment = caps.dialect.fragment(GlslSources.ShapeFragment, highPrecision = true),
             attributes = ShapeVertex.Attributes.map { it.name },
             what = "the interface",
         ) { message -> throw IllegalStateException(message) }
@@ -115,18 +115,22 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         shapeBuffer = gl.createBuffer()
         effectBuffer = gl.createBuffer()
         indexBuffer = gl.createBuffer()
-        uploadIndices(maxOf(indexQuads, 1))
         if (caps.vertexArrays) {
             shapeArray = gl.createVertexArray()
             effectArray = gl.createVertexArray()
         }
+        uploadIndices(maxOf(indexQuads, 1))
         if (effectFloats == null) effectFloats = gl.floats(4 * ShapeVertex.EffectFloats)
         built = true
     }
 
     /**
-     * Two triangles per quad, 0-1-2 then 2-3-0, for [quads] quads. Uploaded through the array slot:
-     * the element slot belongs to a vertex array object, which is not bound yet.
+     * Two triangles per quad, 0-1-2 then 2-3-0, for [quads] quads.
+     *
+     * Uploaded through the element slot, because WebGL refuses a buffer that has ever been bound to
+     * the array slot as an index buffer. The element slot belongs to whichever vertex array object is
+     * bound, so where there are vertex arrays the device binds its own first rather than writing into
+     * the engine's.
      */
     private fun uploadIndices(quads: Int) {
         val indices = gl.shorts(quads * 6)
@@ -140,9 +144,12 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
             indices[at + 4] = (vertex + 3).toShort()
             indices[at + 5] = vertex.toShort()
         }
-        gl.bindBuffer(GlConst.ARRAY_BUFFER, indexBuffer)
-        gl.bufferData(GlConst.ARRAY_BUFFER, indices, quads * 6, GlConst.STATIC_DRAW)
-        gl.bindBuffer(GlConst.ARRAY_BUFFER, 0)
+        val vertexArrays = caps().vertexArrays
+        if (vertexArrays) gl.bindVertexArray(shapeArray)
+        gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, indexBuffer)
+        gl.bufferData(GlConst.ELEMENT_ARRAY_BUFFER, indices, quads * 6, GlConst.STATIC_DRAW)
+        gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, 0)
+        if (vertexArrays) gl.bindVertexArray(0)
         indexQuads = quads
     }
 

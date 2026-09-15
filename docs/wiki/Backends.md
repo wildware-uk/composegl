@@ -27,10 +27,10 @@ renderer, `composegl-render`, and adds only what raw OpenGL needs: a `Gl` bindin
 glyph rasteriser and a window. The LibGDX backend is a thin wrapper too: `GdxGl` over
 `Gdx.gl` and `Gdx.gl30`, FreeType glyphs, and LibGDX's input. So is the KorGE backend:
 it binds the `KmlGl` of the frame KorGE is drawing, rasterises glyphs with KorGE's
-TrueType reader, and hands KorGE its cached GL state back after every frame. The other
-backends move onto the same renderer one at a time (see
-`docs/superpowers/specs/2026-09-15-shared-gl-renderer.md`), and until they do they carry
-renderers of their own.
+TrueType reader, and hands KorGE its cached GL state back after every frame. And so is
+the WebGL backend: `WebGl` over the page's WebGL 2 or WebGL 1 context, glyphs from the
+browser's 2D canvas, and the DOM's input. How they got there is
+`docs/superpowers/specs/2026-09-15-shared-gl-renderer.md`.
 
 Each backend has its own golden images, and CI checks each backend against its own.
 The LibGDX, WebGL and KorGE backends go one step further: besides their own goldens,
@@ -126,11 +126,17 @@ What the page gives you, translated:
 | **haptics** | `navigator.vibrate` on a phone, the pad's rumble where it has one |
 | **size** | the canvas follows its size on the page times the device pixel ratio, and the viewport letterboxes the design into it |
 
-**Fonts** are drawn by the browser. Each glyph is drawn once with the 2D canvas onto
-an atlas page and is a quad from then on, so a screen of panels and labels is still
-one draw call. A character outside ASCII and Latin-1 is drawn on demand the first
-time a label needs it — including from the system's fallback fonts — rather than
-coming out as `?`.
+**Drawing** is `composegl-render`'s, like every thin wrapper's: the backend is `WebGl`
+(the `Gl` binding over the page's WebGL 2 or WebGL 1 context), a 2D-canvas glyph
+rasteriser, and `WebGlTexture`. When the browser takes the GPU away and gives it back
+(`webglcontextlost` / `webglcontextrestored`), the canvas forgets its WebGL objects and
+builds them again on the next frame.
+
+**Fonts** are drawn by the browser. Each glyph is drawn once with the 2D canvas into the
+shared glyph atlas and is a quad from then on, so a screen of panels and labels is still
+one draw call. Every glyph is drawn on demand the first time a label needs it —
+including from `fallBackTo` fonts and the system's own fallback fonts, which the browser
+picks per character from a CSS font list — rather than coming out as `?`.
 
 **Try it: [the showcase](https://wildware-uk.github.io/composegl/)**, a tour of every
 widget, layout, animation, effect and debug tool, published to GitHub Pages from
@@ -146,9 +152,8 @@ Chromium and clicks, taps and pages through every section.
 
 What differs in a browser, today:
 
-- **Emoji** come from the visitor's system fonts, drawn once into the glyph atlas. A
-  machine with no emoji font shows boxes, and colour emoji are tinted by the label's
-  colour like any glyph.
+- **Emoji** come from the visitor's system fonts, drawn once into the glyph atlas in their
+  own colours. A machine with no emoji font shows boxes.
 - **Joined scripts** such as Arabic are drawn a character at a time, so letters do not
   join. Hebrew and other scripts without joining forms are fine.
 - **Pads** appear only after a button is pressed while the page has focus — a browser
@@ -159,7 +164,8 @@ The backend is held to the same scenes as the other two. Its own goldens are dra
 in headless Chromium with WebGL in software, and the scenes with no text in them are
 also compared with the raw OpenGL backend's goldens by the same rule — shapes, clips,
 layers and effects have no reason to differ between OpenGL and WebGL. The tests are
-`./gradlew :composegl-webgl:wasmJsBrowserTest`; set `CHROME_BIN`, or have Playwright's
+`./gradlew :composegl-webgl:wasmJsBrowserTest`, and `wasmJsBrowserWebGl1Test` runs them
+again with WebGL 2 switched off in the browser; set `CHROME_BIN`, or have Playwright's
 Chromium installed.
 
 ---
@@ -263,12 +269,12 @@ renderer: the canvas, the batch, the shape shader, layers, render targets, shade
 effects, the glyph atlas, fallback fonts, emoji and draw-call tracing. On OpenGL a
 backend supplies four small things and nothing that draws:
 
-| piece | what it is | lwjgl3's |
-|---|---|---|
-| a `Gl` binding | about seventy calls, each a one-liner onto your GL (`glDrawElements`, `glUniform4f`, …) | `LwjglGl.kt` |
-| a `GlyphRasteriser` | one font at one size, one glyph at a time: metrics, advance, a coverage or colour bitmap | `StbRasteriser` in `StbFonts.kt` |
-| a `TextureResolver` | your texture type as a GL name and texture coordinates | `GlTexture.Resolver` |
-| the engine handoff | what `raw { }` hands a game, and `HostState.Leave` or `Restore` | `GlCanvas` |
+| piece | what it is | lwjgl3's | webgl's |
+|---|---|---|---|
+| a `Gl` binding | about seventy calls, each a one-liner onto your GL (`glDrawElements`, `glUniform4f`, …) | `LwjglGl.kt` | `WebGl.kt` |
+| a `GlyphRasteriser` | one font at one size, one glyph at a time: metrics, advance, a coverage or colour bitmap | `StbRasteriser` in `StbFonts.kt` | `CanvasRasteriser` in `WebFonts.kt` |
+| a `TextureResolver` | your texture type as a GL name and texture coordinates | `GlTexture.Resolver` | `WebGlTexture.Resolver` |
+| the engine handoff | what `raw { }` hands a game, and `HostState.Leave` or `Restore` | `GlCanvas` | `WebGlCanvas` |
 
 LibGDX's are `GdxGl.kt`, `FreeTypeRasteriser` in `GdxFonts.kt`, `GdxTexture.Resolver` and
 `GdxCanvas`, whose `raw { }` opens the game's `SpriteBatch` on the frame's projection. On

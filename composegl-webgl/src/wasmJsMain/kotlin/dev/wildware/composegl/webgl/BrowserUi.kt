@@ -29,7 +29,6 @@ import dev.wildware.composegl.ui.widget.ProvideSoftKeyboard
 import dev.wildware.composegl.ui.widget.ProvideTextInput
 import kotlinx.browser.document
 import kotlinx.browser.window
-import org.khronos.webgl.WebGLRenderingContext as GL
 import kotlin.math.roundToInt
 
 /**
@@ -164,12 +163,7 @@ class BrowserUi(
         viewport = viewportFor()
         gamepads.poll()
 
-        val gl = backend.gl
-        gl.bindFramebuffer(GL.FRAMEBUFFER, null)
-        gl.disable(GL.SCISSOR_TEST)
-        gl.viewport(0, 0, backend.element.width, backend.element.height)
-        gl.clearColor(background.red / 255f, background.green / 255f, background.blue / 255f, 1f)
-        gl.clear(GL.COLOR_BUFFER_BIT)
+        clearPage(backend.gl, backend.element.width, backend.element.height, background.red / 255f, background.green / 255f, background.blue / 255f)
         return renderer.render(viewport, nanos)
     }
 

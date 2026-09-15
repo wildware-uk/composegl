@@ -41,11 +41,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       # The runner's Chrome, headless, with WebGL drawn by SwiftShader: no GPU needed. The toolkit's
-      # common tests run in it too, which is what keeps "it compiles for the browser" honest.
+      # common tests run in it too, which is what keeps "it compiles for the browser" honest. The WebGL
+      # backend runs twice: on WebGL 2, and with WebGL 2 switched off so the renderer's WebGL 1 path draws.
       - name: The toolkit and the WebGL backend, in a real browser
         run: |
           export CHROME_BIN="$(command -v google-chrome || command -v chromium)"
-          ./gradlew :composegl-ui:wasmJsBrowserTest :composegl-render:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserTest :composegl-demo-web:wasmJsBrowserTest :composegl-demo-web:wasmJsBrowserDistribution --stacktrace
+          ./gradlew :composegl-ui:wasmJsBrowserTest :composegl-render:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserWebGl1Test :composegl-demo-web:wasmJsBrowserTest :composegl-demo-web:wasmJsBrowserDistribution --stacktrace
 
       - name: Keep what went wrong
         if: failure()

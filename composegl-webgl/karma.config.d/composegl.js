@@ -1,12 +1,17 @@
 // Headless Chromium with WebGL drawn in software, so a machine with no GPU and no display still has
 // a real browser — and a real WebGL — to run these in. CHROME_BIN says which Chromium; see the
 // module's build file.
+//
+// COMPOSEGL_WEBGL=1 (the wasmJsBrowserWebGl1Test task) switches WebGL 2 off, so a page asking for
+// "webgl2" gets nothing and falls back to WebGL 1. The page is told which it should have got.
+const webGl1 = process.env.COMPOSEGL_WEBGL === "1";
 config.set({
     browsers: ["ChromiumNoGpu"],
     customLaunchers: {
         ChromiumNoGpu: {
             base: "ChromeHeadless",
-            flags: ["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-device-scale-factor=1"],
+            flags: ["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--force-device-scale-factor=1"]
+                .concat(webGl1 ? ["--disable-webgl2", "--disable-es3-apis"] : []),
         },
     },
     browserNoActivityTimeout: 300000,
@@ -17,6 +22,7 @@ config.set({
 // software rasteriser.
 config.client = config.client || {};
 config.client.mocha = Object.assign({}, config.client.mocha, { timeout: 120000 });
+config.client.composeglWebGl = webGl1 ? 1 : 2;
 
 // A page cannot open a file, and cannot write one. So the tests ask the Karma server instead:
 //
