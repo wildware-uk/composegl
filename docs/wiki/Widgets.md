@@ -794,10 +794,14 @@ Table(rows = players, key = { it.id }, selected = picked, onSelect = { picked = 
 }
 ```
 
+![a deathmatch scoreboard sorted by kills, highest first: the Kills title is lit with a down arrow beside it, and Mirela's row is the selected one, in blue](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-table-scoreboard.png)
+
 A column is either `width` wide or shares out what the fixed ones leave by
 `weight` (1 when it says neither), and never goes under `minWidth`. The header
 stays put while the rows scroll under it, and the body is a `LazyColumn`, so only
 the rows on screen are built.
+
+![a server browser scrolled halfway down its list with the titles still at the top, Server widened into Map and the divider between them held, lit blue](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-table-resize.png)
 
 - **Sorting.** Click a title with a `sortBy` to sort by it, lowest first; click
   again to turn it round. Enter or the pad's South on a focused title does the
@@ -817,6 +821,8 @@ the rows on screen are built.
   screen keeps the answer and hands it back as `selected`.
 - **Right to left**, the first column is on the right and a divider drags left
   to widen.
+
+![a backpack right to left in the high-contrast skin: Item on the right, sorted by Value lowest first with an up arrow, and a yellow focus ring on the Rope row where the pad stepped down to](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-table-rtl.png)
 
 The sort, the dragged widths and the scroll live in a `TableState`. The one
 `rememberTableState()` makes is kept by a `SaveableStateHolder` like a list's
