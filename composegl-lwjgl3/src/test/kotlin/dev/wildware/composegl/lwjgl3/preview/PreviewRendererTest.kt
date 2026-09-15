@@ -116,10 +116,14 @@ class PreviewRendererTest {
             log = {},
         )
 
-        assertEquals(setOf("Broken", "Unfinished"), report.failed.keys)
+        assertEquals(setOf("Broken", "Forever", "Unfinished"), report.failed.keys)
         assertEquals("this screen is broken", report.failed.getValue("Broken").message)
+        assertTrue("still changing" in report.failed.getValue("Forever").message!!)
         assertTrue("the shop screen" in report.failed.getValue("Unfinished").message!!)
-        assertEquals(listOf("Working.png"), out.list()!!.toList())
+        // Drawn after all three, and its name puts it in a folder the run makes.
+        assertEquals(listOf("menus"), out.list()!!.toList())
+        val working = ImageIO.read(File(out, "menus/working.png"))
+        assertPixel(0xFFFFFFFF.toInt(), working, 5, 5, "the working preview, drawn after the broken ones")
     }
 
     @Test

@@ -125,6 +125,7 @@ object Previews {
         }
         return methods
             .filter { !it.isSynthetic && it.isAnnotationPresent(Preview::class.java) }
+            .filterNot { isCompanionCopyOfStatic(type, it) }
             .sortedBy { it.name }
             .map { preview(type, it) }
     }
@@ -152,13 +153,12 @@ object Previews {
         val receiver: Any? = if (JavaModifier.isStatic(method.modifiers)) {
             null
         } else {
-            // An object's members are called on its one instance. Anything else would need an
-            // instance this cannot make.
-            val instance = runCatching { type.getDeclaredField("INSTANCE") }.getOrNull()
-                ?.takeIf { JavaModifier.isStatic(it.modifiers) && it.type == type }
+            // An object's members are called on its one instance, and a companion's on the one its
+            // class holds. Anything else would need an instance this cannot make.
+            val instance = singleInstance(type)
             requireNotNull(instance) {
-                "$function is marked @Preview inside a class; put it at the top level of a file or " +
-                    "in an object, so there is no instance to make"
+                "$function is marked @Preview inside a class; put it at the top level of a file, " +
+                    "in an object or in a companion object, so there is no instance to make"
             }
             instance.isAccessible = true
             instance.get(null)
@@ -174,6 +174,32 @@ object Previews {
             method = method,
             receiver = receiver,
         )
+    }
+
+    /**
+     * The static field holding [type]'s one instance: `INSTANCE` on an object, or the field on the
+     * enclosing class that a companion object is kept in. Null for an ordinary class.
+     */
+    private fun singleInstance(type: Class<*>): java.lang.reflect.Field? {
+        fun java.lang.reflect.Field.holds() = JavaModifier.isStatic(modifiers) && this.type == type
+        runCatching { type.getDeclaredField("INSTANCE") }.getOrNull()?.takeIf { it.holds() }?.let { return it }
+        val outer = runCatching { type.declaringClass }.getOrNull() ?: return null
+        return runCatching { outer.declaredFields }.getOrDefault(emptyArray()).firstOrNull { it.holds() }
+    }
+
+    /**
+     * Whether [method] is a companion's own copy of a `@JvmStatic` preview.
+     *
+     * Kotlin writes a `@JvmStatic` companion function twice, both carrying the annotation: once on
+     * the companion and once, static, on the class around it. The static one is kept, so the pair
+     * is one preview rather than two that clash over one file name.
+     */
+    private fun isCompanionCopyOfStatic(type: Class<*>, method: Method): Boolean {
+        if (JavaModifier.isStatic(method.modifiers)) return false
+        val outer = runCatching { type.declaringClass }.getOrNull() ?: return false
+        if (singleInstance(type)?.declaringClass != outer) return false
+        val static = runCatching { outer.getDeclaredMethod(method.name, *method.parameterTypes) }.getOrNull()
+        return static != null && JavaModifier.isStatic(static.modifiers) && static.isAnnotationPresent(Preview::class.java)
     }
 
     /** The binary names of every class in a directory or a jar. */

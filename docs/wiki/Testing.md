@@ -550,11 +550,11 @@ picture is taken.
 | `@Preview(…)` | |
 |---|---|
 | `width`, `height` | the picture, and the screen the content is laid out in. 400 by 200 if left out |
-| `name` | the file, `<name>.png`. The function's name if left out |
+| `name` | the file, `<name>.png`. The function's name if left out. `menus/pause` writes into a `menus` folder |
 | `background` | `0xAARRGGBB` behind the content. Opaque black if left out; zero alpha keeps the PNG transparent |
 
-A preview takes no arguments. It can be a top-level function or sit in an `object`,
-and it can be private. Anything else — parameters, not `@Composable`, inside a
+A preview takes no arguments. It can be a top-level function or sit in an `object`
+or a `companion object` (`@JvmStatic` or not), and it can be private. Anything else — parameters, not `@Composable`, inside a
 class, two previews with the same name — fails the task with the function named,
 rather than quietly leaving a picture out. One preview that throws — a `TODO()`, or
 a screen that never stops animating — is reported and the rest are still drawn,
