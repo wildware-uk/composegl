@@ -20,6 +20,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onReveal
+import dev.wildware.composegl.ui.saveable.rememberSaveable
 
 /**
  * Where a lazy list is, and what it has learned about its own contents.
@@ -165,9 +166,13 @@ class LazyListState(initialPosition: Float = 0f) {
     }
 }
 
+/**
+ * A [LazyListState] that is still where the player left it when its screen comes back, under a
+ * [dev.wildware.composegl.ui.saveable.SaveableStateHolder]. Outside one it is plain `remember`.
+ */
 @Composable
 fun rememberLazyListState(initialPosition: Float = 0f): LazyListState =
-    remember { LazyListState(initialPosition) }
+    rememberSaveable { LazyListState(initialPosition) }
 
 /**
  * A list that only builds what can be seen.

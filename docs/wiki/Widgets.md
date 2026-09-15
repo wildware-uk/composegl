@@ -319,6 +319,10 @@ ScrollArea(Modifier.fillMaxSize()) { LongPatchNotes() }
 `LazyColumn` measures only what is on screen. `ScrollArea` is for content that is
 one piece and simply too tall.
 
+Both remember how far they were scrolled when their screen is left and come
+back to, as long as a `SaveableStateHolder` is above them — see
+[[Saving state]].
+
 ---
 
 ## Pictures

@@ -11,6 +11,7 @@ import dev.wildware.composegl.ui.animation.Easings
 import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.fadeOut
 import dev.wildware.composegl.ui.animation.scaleOut
+import androidx.compose.runtime.withFrameNanos
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.layout.PlacedHandler
@@ -83,6 +84,8 @@ import dev.wildware.composegl.ui.modifier.widthIn
 import dev.wildware.composegl.ui.modifier.zIndex
 import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.wrapContentWidth
+import dev.wildware.composegl.ui.saveable.SaveableStateHolder
+import dev.wildware.composegl.ui.saveable.rememberSaveable
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.Divider
@@ -100,6 +103,7 @@ import dev.wildware.composegl.ui.widget.TooltipHost
 import dev.wildware.composegl.ui.layout.Baseline
 import dev.wildware.composegl.ui.modifier.paddingFrom
 import dev.wildware.composegl.ui.text.TextStyle
+import dev.wildware.composegl.ui.widget.rememberScrollState
 
 /**
  * Every picture in the wiki, and the interface each one is a photograph of.
@@ -548,6 +552,31 @@ private fun MutableList<DocShot>.widgets() {
                 ScrollArea {
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
                         repeat(12) { Text("Save ${it + 1} — Sector ${it + 3}") }
+                    }
+                }
+            }
+        }
+    })
+
+    // Left and come back to. The script inside picks an entry and scrolls, goes to the map, and
+    // comes back, so what is photographed is the state the holder really kept rather than a screen
+    // that was never left.
+    add(DocShot("widget-saveable", 320, 230, seconds = 0.6f) {
+        var screen by remember { mutableStateOf("codex") }
+        var returned by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            repeat(10) { withFrameNanos {} }
+            screen = "map"
+            repeat(5) { withFrameNanos {} }
+            screen = "codex"
+            returned = true
+        }
+        Frame {
+            Panel(Modifier.width(280f).height(190f)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                    Text(if (returned) "CODEX, BACK FROM THE MAP" else "CODEX")
+                    SaveableStateHolder(screen) { key ->
+                        if (key == "codex") CodexPage() else Text("MAP")
                     }
                 }
             }
@@ -1194,5 +1223,28 @@ private fun Tile(name: String, modifier: @Composable () -> Modifier) {
     Column(horizontalAlignment = HorizontalAlignment.Centre, verticalArrangement = Arrangement.spacedBy(6f)) {
         Box(modifier().size(80f, 44f)) {}
         Text(name, style = "label.dim")
+    }
+}
+
+
+/** An entry picked and a list scrolled, once, on the first visit only. */
+@Composable
+private fun CodexPage() {
+    var entry by rememberSaveable { mutableStateOf(0) }
+    val scroll = rememberScrollState()
+    LaunchedEffect(Unit) {
+        if (entry != 0) return@LaunchedEffect
+        // A frame or two first: a list that has not been measured has nowhere to scroll to.
+        repeat(3) { withFrameNanos {} }
+        entry = 4
+        scroll.scrollTo(y = 72f)
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6f)) {
+        Text("Entry $entry of 12", style = "label.dim")
+        ScrollArea(Modifier.fillMaxWidth().height(110f), scroll) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6f)) {
+                repeat(12) { Text(if (it + 1 == entry) "> Wraith ${it + 1}" else "Wraith ${it + 1}") }
+            }
+        }
     }
 }

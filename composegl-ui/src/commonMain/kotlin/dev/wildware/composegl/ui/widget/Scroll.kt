@@ -16,6 +16,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onReveal
+import dev.wildware.composegl.ui.saveable.rememberSaveable
 
 /**
  * How far a [ScrollArea] has been scrolled, and everything that can move it.
@@ -77,9 +78,13 @@ class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
     }
 }
 
+/**
+ * A [ScrollState] that is still scrolled where the player left it when its screen comes back, under
+ * a [dev.wildware.composegl.ui.saveable.SaveableStateHolder]. Outside one it is plain `remember`.
+ */
 @Composable
 fun rememberScrollState(initialX: Float = 0f, initialY: Float = 0f): ScrollState =
-    remember { ScrollState(initialX, initialY) }
+    rememberSaveable { ScrollState(initialX, initialY) }
 
 /**
  * A window onto something bigger than itself.
