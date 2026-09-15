@@ -116,6 +116,9 @@ jobs:
           KORGE_HEADLESS: 'true'
           LIBGL_ALWAYS_SOFTWARE: '1'
           GALLIUM_DRIVER: llvmpipe
+          # With no display Mesa's EGL picks GBM, which needs a /dev/dri render node a runner does
+          # not have, so eglInitialize fails. Surfaceless needs no device and draws with llvmpipe.
+          EGL_PLATFORM: surfaceless
         run: env -u DISPLAY ./gradlew :composegl-korge:jvmTest --rerun-tasks --stacktrace
 
       # The KorGE demo booted for real with no display, driven from its menu into settings and the game.
@@ -125,6 +128,9 @@ jobs:
           KORGE_HEADLESS: 'true'
           LIBGL_ALWAYS_SOFTWARE: '1'
           GALLIUM_DRIVER: llvmpipe
+          # With no display Mesa's EGL picks GBM, which needs a /dev/dri render node a runner does
+          # not have, so eglInitialize fails. Surfaceless needs no device and draws with llvmpipe.
+          EGL_PLATFORM: surfaceless
         run: env -u DISPLAY ./gradlew :composegl-demo-korge:check --rerun-tasks --stacktrace
 
       - name: Prove the runtime redraws only when something changed
