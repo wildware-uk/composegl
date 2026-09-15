@@ -12,6 +12,8 @@ import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Matrix4 as Transform
 import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.debug.DrawCallTrace
+import dev.wildware.composegl.ui.debug.BatchBreak
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.CanvasState
@@ -60,7 +62,10 @@ class GdxCanvas(
      */
     private var batch: UiShapeBatch? = null
 
-    private fun batch() = batch ?: UiShapeBatch(white = atlas?.white).also { batch = it }
+    private fun batch() = batch ?: UiShapeBatch(white = atlas?.white).also {
+        batch = it
+        it.trace = trace
+    }
 
     private var state = CanvasState(Rect.Zero)
     private var viewport: Viewport = Viewport.oneToOne(dev.wildware.composegl.ui.geometry.Size(1f, 1f))
@@ -108,6 +113,17 @@ class GdxCanvas(
 
     /** How many times the frame so far has talked to the driver. Nothing drawn yet is none. */
     override val drawCalls: Int get() = batch?.renderCalls ?: 0
+
+    private var trace: DrawCallTrace? = null
+
+    /** Handed to the batch, which is the one place that knows when a call really happened. */
+    override fun traceDrawCalls(trace: DrawCallTrace?) {
+        this.trace = trace
+        batch?.trace = trace
+    }
+
+    /** Every flush that drew something, with the reason it had to. */
+    override val tracesDrawCalls: Boolean get() = true
 
     /**
      * Builds the GPU resources now, instead of when something is first drawn.
@@ -576,7 +592,7 @@ class GdxCanvas(
      * first: whatever is queued was queued under the old clip.
      */
     private fun applyScissor() {
-        batch().flush()
+        batch().flush(BatchBreak.Clip)
         val clip = state.clip
         val into = layer
         if (into != null) {
@@ -655,7 +671,7 @@ class GdxCanvas(
         // Flushed before a picture is taken from the pool, not after. Making a new FrameBuffer binds
         // the screen when it is done, so whatever an enclosing layer had batched but not yet drawn
         // would otherwise land on the screen instead of in that layer's picture.
-        batch().flush()
+        batch().flush(BatchBreak.Layer)
         val target = layers.acquire(pixelWidth, pixelHeight)
         // And put back what was bound, since the pool may just have moved it.
         bindFramebuffer(framebuffer)
@@ -689,7 +705,7 @@ class GdxCanvas(
 
         try {
             block()
-            batch().flush()
+            batch().flush(BatchBreak.Layer)
             check(state.isBalanced) { "a clip, an alpha, a blend or a tint was pushed inside a layer and never popped" }
         } finally {
             layer = previousLayer
@@ -734,7 +750,7 @@ class GdxCanvas(
     private fun composite(region: TextureRegion, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
         // The mode in force applies to the composite, so pushing Additive round a drawLayer makes
         // a whole group glow. Premultiplied because that is what the layer's own drawing produced.
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         // The opacity goes into all four channels, because a premultiplied colour that faded only
         // its alpha would get brighter as it disappeared.
         val fade = state.alpha.coerceIn(0f, 1f)
@@ -752,7 +768,7 @@ class GdxCanvas(
             v2 = if (mirrorY) region.v else region.v2,
             colour = Color.toFloatBits(fade, fade, fade, fade),
         )
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     override fun drawLayer(
@@ -773,7 +789,7 @@ class GdxCanvas(
 
         // Premultiplied and faded in all four channels for the same reasons the upright composite
         // is; the turn changes where the quad's corners go and nothing else.
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         val fade = state.alpha.coerceIn(0f, 1f)
         batch().textured(
             texture = region.texture,
@@ -792,7 +808,7 @@ class GdxCanvas(
             v2 = region.v2,
             colour = Color.toFloatBits(fade, fade, fade, fade),
         )
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     /** It really turns one, on the same quad the upright composite uses. */
@@ -810,7 +826,7 @@ class GdxCanvas(
 
         // Premultiplied and faded in all four channels for the same reasons the upright composite
         // is; four corners change where the quad goes and nothing else.
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         val fade = state.alpha.coerceIn(0f, 1f)
         batch().textured(
             texture = region.texture,
@@ -821,7 +837,7 @@ class GdxCanvas(
             v2 = region.v2,
             colour = Color.toFloatBits(fade, fade, fade, fade),
         )
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     /** It really does, on the same quad the upright composite uses. */
@@ -844,7 +860,7 @@ class GdxCanvas(
         for (at in 0 until 12 step 3) corners[at + 1] = base * corners[at + 2] - corners[at + 1]
 
         // Premultiplied and faded in all four channels for the same reasons the upright composite is.
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         val fade = state.alpha.coerceIn(0f, 1f)
         batch().projected(
             texture = region.texture,
@@ -855,7 +871,7 @@ class GdxCanvas(
             v2 = region.v2,
             colour = Color.toFloatBits(fade, fade, fade, fade),
         )
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     /** It really does, dividing by depth for every pixel in the same shader as everything else. */
@@ -878,7 +894,7 @@ class GdxCanvas(
         val texture = region.texture
 
         // Premultiplied and faded in all four channels, for the reasons drawLayer gives.
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         val fade = state.alpha.coerceIn(0f, 1f)
         val solid = Color.toFloatBits(fade, fade, fade, fade)
         val clear = Color.toFloatBits(0f, 0f, 0f, 0f)
@@ -910,7 +926,7 @@ class GdxCanvas(
                 if (dCover > 0f) solid else clear,
             )
         }
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     /** It really cuts one, with a soft edge, in the same batch as everything else. */
@@ -925,7 +941,7 @@ class GdxCanvas(
      */
     private fun drawThrough(effect: ShaderEffect, picture: GdxTexture, destination: Rect) {
         // Whatever is queued was queued to land under this, so it goes first.
-        batch().flush()
+        batch().flush(BatchBreak.Shader)
 
         val region = picture.region
         val values = projection.values
@@ -953,7 +969,7 @@ class GdxCanvas(
         // The effect set the blending and the program it wanted, behind the batch's back. Put back
         // whatever the canvas's blend stack says, unconditionally — a batch that remembered what it
         // had last set would believe this was already true and skip it.
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     /** A design x, through the frame's projection, as the clip cube sees it. */
@@ -1016,7 +1032,7 @@ class GdxCanvas(
             ?: error("this canvas was made without a SpriteBatch, so raw() has nothing to hand over")
 
         // Our own quads first, so the game's drawing lands on top of what came before it.
-        batch().flush()
+        batch().flush(BatchBreak.Raw)
         val savedProjection = Matrix4(sprites.projectionMatrix)
         val savedColour = Color(sprites.color)
         sprites.projectionMatrix = matrix

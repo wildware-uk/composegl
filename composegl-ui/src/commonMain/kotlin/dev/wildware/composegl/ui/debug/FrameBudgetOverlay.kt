@@ -30,15 +30,21 @@ import dev.wildware.composegl.ui.widget.Text
  * four times a second rather than every frame, so the overlay is not itself the reason the screen
  * is being redrawn — which would make the thing it measures a lie.
  *
+ * Under the draw calls, on a canvas that traces them, are the nodes that cut the batch most, and
+ * why: `icon#sword  texture 2`. A HUD that costs twelve calls where it should cost two says which
+ * two nodes to look at.
+ *
  * @param budget where the numbers come from.
  * @param overMillis the frame time above which the total is drawn in red. The default is a sixty
  *   hertz frame, and a game running at thirty or ninety says so.
+ * @param culprits how many of those nodes to list. Zero lists none.
  */
 @Composable
 fun FrameBudgetOverlay(
     budget: FrameBudget,
     modifier: Modifier = Modifier,
     overMillis: Float = 16.6f,
+    culprits: Int = 3,
 ) {
     val reading = budget.reading
 
@@ -57,8 +63,20 @@ fun FrameBudgetOverlay(
         Line("worst", millis(reading.worstMillis), if (reading.worstMillis > overMillis) Over else Bright)
         Line("redraws", "${reading.redraws} / ${reading.frames}", Bright)
         if (reading.drawCalls >= 0) Line("draw calls", "${reading.drawCalls}", Bright)
+        val blamed = reading.culprits
+        for (index in 0 until minOf(culprits, blamed.size)) {
+            val culprit = blamed[index]
+            Line("  " + shortened(culprit.name), "${culprit.reason.name.lowercase()} ${culprit.calls}", Over)
+        }
     }
 }
+
+/** A node's name cut to what fits beside its reason, keeping the end, where the tag is. */
+private fun shortened(name: String): String =
+    // Two plain dots rather than an ellipsis, which a game's own font may not have.
+    if (name.length <= NameRoom) name else ".." + name.takeLast(NameRoom - 2)
+
+private const val NameRoom = 18
 
 @Composable
 private fun Line(name: String, value: String, ink: Colour) {

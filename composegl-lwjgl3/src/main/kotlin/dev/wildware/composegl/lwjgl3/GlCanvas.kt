@@ -6,6 +6,8 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.effect.ShaderEffect
+import dev.wildware.composegl.ui.debug.DrawCallTrace
+import dev.wildware.composegl.ui.debug.BatchBreak
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.CanvasState
@@ -67,7 +69,10 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
      */
     private var batch: GlShapeBatch? = null
 
-    private fun batch() = batch ?: GlShapeBatch().also { batch = it }
+    private fun batch() = batch ?: GlShapeBatch().also {
+        batch = it
+        it.trace = trace
+    }
 
     private var state = CanvasState(Rect.Zero)
     private var viewport: Viewport = Viewport.oneToOne(Size(1f, 1f))
@@ -114,6 +119,17 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
     /** How many times the frame so far has talked to the driver. Nothing drawn yet is none. */
     override val drawCalls: Int get() = batch?.renderCalls ?: 0
+
+    private var trace: DrawCallTrace? = null
+
+    /** Handed to the batch, which is the one place that knows when a call really happened. */
+    override fun traceDrawCalls(trace: DrawCallTrace?) {
+        this.trace = trace
+        batch?.trace = trace
+    }
+
+    /** Every flush that drew something, with the reason it had to. */
+    override val tracesDrawCalls: Boolean get() = true
 
     /**
      * Builds the GPU resources now, instead of when something is first drawn.
@@ -555,7 +571,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
      * first: whatever is queued was queued under the old clip.
      */
     private fun applyScissor() {
-        batch().flush()
+        batch().flush(BatchBreak.Clip)
         val clip = state.clip
         val into = layer
         if (into != null) {
@@ -639,7 +655,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         val previousLayer = layer
         val previousProjection = projection.copyOf()
 
-        batch().flush()
+        batch().flush(BatchBreak.Layer)
         layer = LayerFrame(bounds, pixelWidth, pixelHeight)
         // Full opacity and a clip of exactly the layer. The opacity out here is applied when the
         // picture is drawn back, which is what makes a group fade as one object.
@@ -660,7 +676,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
         try {
             block()
-            batch().flush()
+            batch().flush(BatchBreak.Layer)
             check(state.isBalanced) { "a clip, an alpha, a blend or a tint was pushed inside a layer and never popped" }
         } finally {
             layer = previousLayer
@@ -706,7 +722,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     private fun composite(picture: GlTexture, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
         // The mode in force applies to the composite, so pushing Additive round a drawLayer makes
         // a whole group glow. Premultiplied because that is what the layer's own drawing produced.
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         // The opacity goes into all four channels, because a premultiplied colour that faded only
         // its alpha would get brighter as it disappeared.
         val fade = state.alpha.coerceIn(0f, 1f)
@@ -725,7 +741,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             v2 = if (mirrorY) picture.v else picture.v2,
             tint = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey),
         )
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     override fun drawLayer(
@@ -745,7 +761,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
         // Premultiplied and faded in all four channels for the same reasons the upright composite
         // is; the turn changes where the quad's corners go and nothing else.
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         val fade = state.alpha.coerceIn(0f, 1f)
         val grey = (fade * 255f).roundToInt().coerceIn(0, 255)
         batch().textured(
@@ -765,7 +781,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             v2 = picture.v2,
             tint = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey),
         )
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     /** It really turns one, on the same quad the upright composite uses. */
@@ -785,7 +801,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             ?: error("this canvas can only draw layers it made, not ${layer::class}")
 
         // Premultiplied and faded in all four channels, for the reasons drawLayer gives.
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         val fade = state.alpha.coerceIn(0f, 1f)
         val grey = (fade * 255f).roundToInt().coerceIn(0, 255)
         val solid = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey)
@@ -818,7 +834,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
                 if (dCover > 0f) solid else clear,
             )
         }
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     /** It really cuts one, with a soft edge, in the same batch as everything else. */
@@ -835,7 +851,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
         // Premultiplied and faded in all four channels for the same reasons the upright composite
         // is; four corners change where the quad goes and nothing else.
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         val fade = state.alpha.coerceIn(0f, 1f)
         val grey = (fade * 255f).roundToInt().coerceIn(0, 255)
         batch().textured(
@@ -847,7 +863,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             v2 = picture.v2,
             tint = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey),
         )
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     /** It really does, on the same quad the upright composite uses. */
@@ -869,7 +885,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         for (at in 0 until 12 step 3) corners[at + 1] = base * corners[at + 2] - corners[at + 1]
 
         // Premultiplied and faded in all four channels for the same reasons the upright composite is.
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         val fade = state.alpha.coerceIn(0f, 1f)
         val grey = (fade * 255f).roundToInt().coerceIn(0, 255)
         batch().projected(
@@ -881,7 +897,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             v2 = picture.v2,
             tint = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey),
         )
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     /** It really does, dividing by depth for every pixel in the same shader as everything else. */
@@ -913,7 +929,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
      */
     private fun drawThrough(effect: ShaderEffect, picture: GlTexture, destination: Rect) {
         // Whatever is queued was queued to land under this, so it goes first.
-        batch().flush()
+        batch().flush(BatchBreak.Shader)
 
         val bottom = flip(destination.bottom)
         val top = flip(destination.top)
@@ -942,7 +958,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         // whatever the canvas's blend stack says, unconditionally — a batch that remembered what it
         // had last set would believe this was already true and skip it.
         GL20.glUseProgram(0)
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     /** A design x, through the frame's projection, as the clip cube sees it. */
@@ -981,13 +997,13 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
      * `0, 0, w, h` fills the node rather than sitting above it.
      */
     override fun raw(destination: Rect, block: (Any) -> Unit) {
-        batch().flush()
+        batch().flush(BatchBreak.Raw)
         block(GlFrame(projection.translated(rawX(destination.left), rawY(destination.bottom)), viewport))
     }
 
     override fun raw(block: (Any) -> Unit) {
         // Our own quads first, so the game's drawing lands on top of what came before it.
-        batch().flush()
+        batch().flush(BatchBreak.Raw)
         block(GlFrame(projection.copyOf(), viewport))
     }
 

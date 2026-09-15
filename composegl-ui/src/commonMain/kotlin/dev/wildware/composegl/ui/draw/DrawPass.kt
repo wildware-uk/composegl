@@ -1,6 +1,7 @@
 package dev.wildware.composegl.ui.draw
 
 import dev.wildware.composegl.ui.debug.DebugBounds
+import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
@@ -66,6 +67,13 @@ class DrawPass(val canvas: UiCanvas) {
     private var cameraY = 0f
     private var cameraDistance = 0f
 
+    /**
+     * Where to say which node is being drawn, so a backend's draw calls can be blamed on one.
+     *
+     * Null by default, which costs a null check a node. See [DrawCallTrace].
+     */
+    var trace: DrawCallTrace? = null
+
     /** Draws [node] and everything under it. [origin] is where its parent's content box starts. */
     fun draw(node: UiNode, origin: Offset = Offset.Zero) = draw(node, origin.x, origin.y)
 
@@ -98,6 +106,12 @@ class DrawPass(val canvas: UiCanvas) {
             originX + node.x + node.width,
             originY + node.y + node.height,
         )
+        // This node until it is done, then whoever was being drawn around it, so a batch cut by a
+        // parent's clip coming off after its children is the parent's.
+        val trace = trace
+        val outer = trace?.node
+        trace?.node = node
+
         val faded = resolved.alpha < 1f
         if (faded) canvas.pushAlpha(resolved.alpha)
 
@@ -152,6 +166,7 @@ class DrawPass(val canvas: UiCanvas) {
         if (tinted) canvas.popTint()
         if (blended) canvas.popBlend()
         if (faded) canvas.popAlpha()
+        trace?.node = outer
     }
 
     /**

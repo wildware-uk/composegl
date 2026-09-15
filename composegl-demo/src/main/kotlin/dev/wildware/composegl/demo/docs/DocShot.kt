@@ -2,6 +2,7 @@ package dev.wildware.composegl.demo.docs
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
+import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.GamepadId
@@ -36,6 +37,8 @@ import dev.wildware.composegl.ui.input.GamepadId
  *   which player it is, and their own pad through one `InputRouter`: pad 0 is player one's.
  * @param pads buttons pressed before the shutter, through that router, so a picture of two players
  *   in two different places is the routing really putting them there.
+ * @param budget what the picture's frames are timed and traced with, for a picture of the frame
+ *   budget overlay. Null gives the renderer its own.
  */
 internal class DocShot(
     val name: String,
@@ -51,6 +54,7 @@ internal class DocShot(
     val stock: Boolean = false,
     val players: Int = 1,
     val pads: List<Pair<GamepadId, GamepadButton>> = emptyList(),
+    val budget: FrameBudget? = null,
     val content: @Composable () -> Unit,
 )
 

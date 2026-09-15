@@ -357,6 +357,53 @@ Worth knowing:
 
 ---
 
+## Where the draw calls go
+
+`FrameBudgetOverlay` counts the draw calls. Under the count it lists the nodes that caused
+the most of them, and why:
+
+```kotlin
+if (budget.isOn) FrameBudgetOverlay(budget, Modifier.align(Alignment.BottomEnd))
+```
+
+A batch is one trip to the GPU. It breaks — one more draw call — whenever the next thing
+needs something the queue does not share:
+
+| Reason | What cut the batch |
+|---|---|
+| `texture` | a picture from a different texture than the one before it |
+| `blend` | `Modifier.blend`, going in and coming out |
+| `clip` | `Modifier.clip`, going in and coming out |
+| `layer` | an offscreen picture: a scale, a turn, a shaped clip, an effect |
+| `shader` | a picture drawn through an effect's shader |
+| `raw` | your own drawing inside `raw { }` |
+| `full` | nothing changed; the queue was full |
+
+The blame goes to the node that asked for the change. A glowing icon is blamed twice, for
+the batch it cut going in and for its own glow coming out. A picture from its own texture
+is blamed going in, and the next node that draws from the font atlas is blamed for going
+back — so those two usually turn up as a pair. The frame's last call is nobody's fault and
+is never listed, which is why the list adds up to one less than the count.
+
+![a HUD with a glowing slot and a clipped panel, the frame budget overlay naming both as the nodes that cut the batch](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/frame-budget-culprits.png)
+
+`UiRenderer` does all of this while the budget is on. A game writing its frame out itself
+wires the two halves by hand: `drawPass.trace = budget.trace` and
+`canvas.traceDrawCalls(budget.trace)`. In a test, read it off the reading:
+
+```kotlin
+val budget = FrameBudget(publishEveryMillis = 0)
+uiTest(budget = budget) { Hud() }.use { ui ->
+    ui.render()
+    val worst = budget.reading.culprits.first()   // node, name, reason, calls
+}
+```
+
+All three built-in canvases trace: LibGDX, raw OpenGL and WebGL. The headless one does not
+batch, so it lists nothing.
+
+---
+
 ## Animations a frame at a time
 
 A spring that overshoots for three frames is over before you can see it. Freeze the

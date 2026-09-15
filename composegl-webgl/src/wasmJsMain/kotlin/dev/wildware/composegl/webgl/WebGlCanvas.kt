@@ -1,5 +1,7 @@
 package dev.wildware.composegl.webgl
 
+import dev.wildware.composegl.ui.debug.BatchBreak
+import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Matrix4
@@ -50,7 +52,10 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
 
     private var batch: WebGlShapeBatch? = null
 
-    private fun batch() = batch ?: WebGlShapeBatch(gl).also { batch = it }
+    private fun batch() = batch ?: WebGlShapeBatch(gl).also {
+        batch = it
+        it.trace = trace
+    }
 
     private var state = CanvasState(Rect.Zero)
     private var viewport: Viewport = Viewport.oneToOne(Size(1f, 1f))
@@ -80,6 +85,17 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
     private var scissorOn = false
 
     override val drawCalls: Int get() = batch?.renderCalls ?: 0
+
+    private var trace: DrawCallTrace? = null
+
+    /** Handed to the batch, which is the one place that knows when a call really happened. */
+    override fun traceDrawCalls(trace: DrawCallTrace?) {
+        this.trace = trace
+        batch?.trace = trace
+    }
+
+    /** Every flush that drew something, with the reason it had to. */
+    override val tracesDrawCalls: Boolean get() = true
 
     override fun warmUp() {
         batch()
@@ -371,7 +387,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
     }
 
     private fun applyScissor() {
-        batch().flush()
+        batch().flush(BatchBreak.Clip)
         val clip = state.clip
         val into = layer
         if (into != null) {
@@ -431,7 +447,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
         val previousLayer = layer
         val previousProjection = projection.copyOf()
 
-        batch().flush()
+        batch().flush(BatchBreak.Layer)
         layer = LayerFrame(bounds, pixelWidth, pixelHeight)
         state = previousState.forLayer(bounds)
 
@@ -446,7 +462,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
 
         try {
             block()
-            batch().flush()
+            batch().flush(BatchBreak.Layer)
             check(state.isBalanced) { "a clip, an alpha, a blend or a tint was pushed inside a layer and never popped" }
         } finally {
             layer = previousLayer
@@ -488,7 +504,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
     }
 
     private fun composite(picture: WebGlTexture, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         batch().textured(
             name = picture.name,
             left = destination.left,
@@ -501,7 +517,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
             v2 = if (mirrorY) picture.v else picture.v2,
             tint = fade(),
         )
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     override fun drawLayer(layer: TextureHandle, destination: Rect, degrees: Float, pivotX: Float, pivotY: Float) {
@@ -511,7 +527,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
         }
         if (state.isHidden || destination.isEmpty) return
         val picture = ownLayer(layer)
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         batch().textured(
             name = picture.name,
             left = destination.left,
@@ -527,7 +543,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
             v2 = picture.v2,
             tint = fade(),
         )
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     override val turnsLayers: Boolean get() = true
@@ -535,7 +551,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
     override fun cutLayer(layer: TextureHandle, destination: Rect, outline: FloatArray) {
         if (state.isHidden || destination.isEmpty || outline.size < 6) return
         val picture = ownLayer(layer)
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         val solid = fade()
         val clear = Colour.Transparent
         val left = destination.left
@@ -566,7 +582,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
                 if (dCover > 0f) solid else clear,
             )
         }
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     override val cutsLayers: Boolean get() = true
@@ -576,9 +592,9 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
         if (state.isHidden || destination.isEmpty) return
         val picture = ownLayer(layer)
         val flipped = FloatArray(8) { if (it % 2 == 0) corners[it] else flip(corners[it]) }
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         batch().textured(picture.name, flipped, picture.u, picture.v, picture.u2, picture.v2, fade())
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     override val drawsLayersOnto: Boolean get() = true
@@ -597,9 +613,9 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
         transform.project(destination.left, destination.bottom, corners, 9)
         for (at in 0 until 12 step 3) corners[at + 1] = base * corners[at + 2] - corners[at + 1]
 
-        batch().blend(state.blend, premultiplied = true)
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         batch().projected(picture.name, corners, picture.u, picture.v, picture.u2, picture.v2, fade())
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     /** It really does, dividing by depth for every pixel in the same shader as everything else. */
@@ -627,7 +643,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
     }
 
     private fun drawThrough(effect: ShaderEffect, picture: WebGlTexture, destination: Rect) {
-        batch().flush()
+        batch().flush(BatchBreak.Shader)
         effects().draw(
             effect = effect,
             texture = picture.name,
@@ -647,7 +663,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
             mode = state.blend,
         )
         // The effect set its own blending and program behind the batch's back; put ours back.
-        batch().blend(state.blend, premultiplied = false)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
     private fun clipX(x: Float) = x * projection[0] + projection[12]
@@ -664,7 +680,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
     override val movesRawOrigin: Boolean get() = true
 
     override fun raw(destination: Rect, block: (Any) -> Unit) {
-        batch().flush()
+        batch().flush(BatchBreak.Raw)
         val moved = projection.copyOf().also {
             it[12] += rawX(destination.left) * it[0]
             it[13] += rawY(destination.bottom) * it[5]
@@ -673,7 +689,7 @@ class WebGlCanvas(val gl: GL, private val fonts: WebFonts? = null) : UiCanvas, A
     }
 
     override fun raw(block: (Any) -> Unit) {
-        batch().flush()
+        batch().flush(BatchBreak.Raw)
         block(WebGlFrame(gl, projection.copyOf(), viewport))
     }
 

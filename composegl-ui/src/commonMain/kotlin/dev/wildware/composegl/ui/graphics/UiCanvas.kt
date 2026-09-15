@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.graphics
 
+import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.geometry.Corners
@@ -788,6 +789,19 @@ interface UiCanvas {
      * toolkit genuinely cannot work out for itself.
      */
     val drawCalls: Int get() = -1
+
+    /**
+     * Where to say why each draw call happened, or null to stop saying.
+     *
+     * A backend that batches calls [DrawCallTrace.record] each time it hands queued work to the GPU,
+     * with the reason it had to: a new texture, a blend, a clip, a layer. The trace already knows
+     * which node is being drawn, so the backend only has to know why. Called before [begin], and
+     * kept until it is called again. The default ignores it, and says so in [tracesDrawCalls].
+     */
+    fun traceDrawCalls(trace: DrawCallTrace?) = Unit
+
+    /** Whether [traceDrawCalls] records anything. */
+    val tracesDrawCalls: Boolean get() = false
 }
 
 /**

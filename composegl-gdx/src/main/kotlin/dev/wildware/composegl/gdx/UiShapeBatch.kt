@@ -11,6 +11,8 @@ import com.badlogic.gdx.graphics.VertexAttributes
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.utils.Disposable
+import dev.wildware.composegl.ui.debug.DrawCallTrace
+import dev.wildware.composegl.ui.debug.BatchBreak
 import dev.wildware.composegl.ui.graphics.BlendMode
 import kotlin.math.PI
 import kotlin.math.cos
@@ -72,6 +74,9 @@ class UiShapeBatch(
     var renderCalls = 0
         private set
 
+    /** Told why, each time [renderCalls] goes up. Null tells nobody. */
+    var trace: DrawCallTrace? = null
+
     fun begin(projection: Matrix4) {
         check(!drawing) { "begin() was called twice without an end()" }
         drawing = true
@@ -82,7 +87,7 @@ class UiShapeBatch(
 
     fun end() {
         check(drawing) { "end() without a begin()" }
-        flush()
+        flush(BatchBreak.End)
         drawing = false
     }
 
@@ -93,7 +98,7 @@ class UiShapeBatch(
      * drawn into the new one at the wrong size and in the wrong place.
      */
     fun projection(projection: Matrix4) {
-        flush()
+        flush(BatchBreak.Layer)
         this.projection.set(projection)
     }
 
@@ -114,9 +119,11 @@ class UiShapeBatch(
      * @param premultiplied true for a layer being drawn back onto the screen, since that is what
      *   the blending above produced when the layer was drawn. Blending it the ordinary way would
      *   multiply by the opacity a second time and edge every soft thing in black.
+     * @param reason what the flush this makes is blamed on: a layer's composite switching to
+     *   premultiplied is the layer's cost, not a blend anybody asked for.
      */
-    fun blend(mode: BlendMode, premultiplied: Boolean) {
-        flush()
+    fun blend(mode: BlendMode, premultiplied: Boolean, reason: BatchBreak = BatchBreak.Blend) {
+        flush(reason)
         setBlend(mode, premultiplied)
     }
 
@@ -141,7 +148,11 @@ class UiShapeBatch(
         )
     }
 
-    fun flush() {
+    /**
+     * Hands what is queued to the GPU, blaming [reason] on the trace — but only when something was
+     * queued, since an empty flush costs no draw call.
+     */
+    fun flush(reason: BatchBreak) {
         if (used == 0) return
         val quads = used / (4 * FLOATS_PER_VERTEX)
 
@@ -153,6 +164,7 @@ class UiShapeBatch(
         mesh.render(shader, GL20.GL_TRIANGLES, 0, quads * 6)
 
         renderCalls++
+        trace?.record(reason)
         used = 0
     }
 
@@ -595,10 +607,10 @@ class UiShapeBatch(
 
     private fun use(next: Texture) {
         if (texture !== next) {
-            flush()
+            flush(BatchBreak.Texture)
             texture = next
         } else if (used + 4 * FLOATS_PER_VERTEX > vertices.size) {
-            flush()
+            flush(BatchBreak.Full)
         }
     }
 

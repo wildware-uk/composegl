@@ -267,6 +267,11 @@ The optional extras, each of which degrades rather than fails:
   or the ring is eight emoji smeared round the real one.
 - `drawCalls` — how many times you handed work to the GPU this frame. Return -1 and
   the frame budget shows nothing for it.
+- `traceDrawCalls(trace)` — keep the trace, and each time you hand work to the GPU call
+  `trace.record(BatchBreak.Texture)` (or `Blend`, `Clip`, `Layer`, `Shader`, `Raw`,
+  `Full`, and `End` for the frame's last). Only when something was queued: an empty flush
+  is not a draw call. The trace already knows which node is drawing. Leave it and the
+  overlay lists no culprits; say so in `tracesDrawCalls`.
 - `image(texture, destination, degrees, …)` — a turned picture. Leave it and the
   default draws it upright; say so in `rotatesImages`.
 - `drawLayer(layer, destination, mirrorX, mirrorY)` — a flipped picture, for
