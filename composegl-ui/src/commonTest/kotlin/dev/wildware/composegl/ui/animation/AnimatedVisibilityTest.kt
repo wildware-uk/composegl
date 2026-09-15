@@ -145,6 +145,39 @@ class AnimatedVisibilityTest {
     }
 
     @Test
+    fun `no exit takes it away the frame it is hidden even part way through arriving`() {
+        var open by mutableStateOf(false)
+        show {
+            Column {
+                Button("TOGGLE", onClick = { open = !open }, modifier = Modifier.testTag("toggle"))
+                AnimatedVisibility(
+                    open,
+                    enter = fadeIn(spec = Tween(300, easing = Easings.Linear)),
+                    exit = ExitTransition.None,
+                ) {
+                    Box(Modifier.size(40f).testTag("panel").background(PanelColour))
+                }
+            }
+        }
+
+        click("toggle")
+        play(100)
+        assertTrue(panelAlpha in 0.1f..0.9f, "part way in, at $panelAlpha")
+
+        click("toggle")
+        frame()
+        assertNull(host.root.findOrNull("panel"), "gone on the frame it was hidden, not played back to rest first")
+        assertNull(panelDrawn(), "and not drawn on that frame")
+        frames(2)
+        assertFalse(frame(), "and nothing is left playing")
+
+        // Opened again, it starts its enter from the beginning rather than from where it was cut off.
+        click("toggle")
+        frames(3)
+        assertTrue(panelAlpha < 0.2f, "arrives from nothing again, at $panelAlpha")
+    }
+
+    @Test
     fun `a panel opened by a click is on screen where its enter starts on the very next frame`() {
         var open by mutableStateOf(false)
         show {

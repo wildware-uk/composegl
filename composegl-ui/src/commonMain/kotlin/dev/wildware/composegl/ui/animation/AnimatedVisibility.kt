@@ -156,7 +156,9 @@ fun AnimatedVisibility(
     // Shown from nothing, the content is drawn where the enter starts the same frame an `if` would
     // add it; hidden with nothing left to play, it goes the same frame an `if` would take it away.
     val arriving = visible && !state.isPresent
-    if (!visible && (!state.isPresent || state.hasArrivedAt(exit.parts))) return
+    // No exit at all goes at once even part way through arriving, rather than playing back to rest
+    // first only to vanish there.
+    if (!visible && (!state.isPresent || exit.parts.isEmpty || state.hasArrivedAt(exit.parts))) return
 
     val parts = enter.parts
     val shift = if (arriving) parts.slide?.offset ?: Offset.Zero else state.offset.value
@@ -180,6 +182,9 @@ internal data class TransitionParts(
     val scale: Grow? = null,
     val slide: Slide? = null,
 ) {
+    /** Nothing named, as with [EnterTransition.None] and [ExitTransition.None]. */
+    val isEmpty get() = fade == null && scale == null && slide == null
+
     operator fun plus(other: TransitionParts) = TransitionParts(
         fade = other.fade ?: fade,
         scale = other.scale ?: scale,
@@ -237,6 +242,12 @@ internal class VisibilityState(initiallyVisible: Boolean, clocks: Clocks, clock:
 
     suspend fun hide(exit: TransitionParts) {
         if (!isPresent) return
+        if (exit.isEmpty) {
+            // Taken away at once. Nothing is played back to rest: shown again, it starts from the
+            // enter's beginning anyway.
+            isPresent = false
+            return
+        }
         exit.scale?.let { origin = it.origin }
         playTo(exit.fade?.alpha ?: 1f, exit.scale?.factor ?: 1f, exit.slide?.offset ?: Offset.Zero, exit)
         // Only reached when every part arrived. Shown again part-way, this coroutine is cancelled
