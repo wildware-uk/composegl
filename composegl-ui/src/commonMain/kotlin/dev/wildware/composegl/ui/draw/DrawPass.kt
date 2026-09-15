@@ -414,7 +414,8 @@ class DrawPass(val canvas: UiCanvas) {
             )
         }
 
-        val children = node.children
+        // By zIndex, as in the plain path: the pointer does not know the children went into a picture.
+        val children = node.drawOrder
         for (index in children.indices) draw(children[index], bounds.left, bounds.top)
 
         val inFront = resolved.inFront
