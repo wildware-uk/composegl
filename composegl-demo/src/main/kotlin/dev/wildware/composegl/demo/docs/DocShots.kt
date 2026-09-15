@@ -96,6 +96,11 @@ import dev.wildware.composegl.ui.modifier.debugBounds
 import dev.wildware.composegl.ui.debug.Inspector
 import dev.wildware.composegl.ui.debug.LayoutOverlay
 import dev.wildware.composegl.ui.debug.OverdrawOverlay
+import dev.wildware.composegl.ui.debug.FocusOverlay
+import dev.wildware.composegl.ui.focus.FocusRequester
+import dev.wildware.composegl.ui.modifier.focusOrder
+import dev.wildware.composegl.ui.modifier.focusRequester
+import dev.wildware.composegl.ui.modifier.hitShape
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -1489,6 +1494,34 @@ private fun MutableList<DocShot>.modifiers() {
                 }
                 FrameBudgetOverlay(culpritBudget)
             }
+        }
+    })
+
+    add(DocShot("focus-overlay", 420, 200, focus = true) {
+        Box(Modifier.fillMaxSize()) {
+            Frame {
+                // A two by two menu with PLAY focused, a focus order that sends Down from PLAY past
+                // CREDITS to QUIT, and a round button, so the picture has both kinds of arrow, the
+                // focused edge, green outlines, tints and the corners of a hit shape.
+                val quit = remember { FocusRequester() }
+                Row(horizontalArrangement = Arrangement.spacedBy(24f)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12f)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12f)) {
+                            Button("PLAY", onClick = {}, initialFocus = true, modifier = Modifier.focusOrder(down = quit))
+                            Button("OPTIONS", onClick = {})
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(12f)) {
+                            Button("CREDITS", onClick = {})
+                            Button("QUIT", onClick = {}, modifier = Modifier.focusRequester(quit))
+                        }
+                    }
+                    Box(
+                        Modifier.size(72f, 72f).clipShape(Shapes.Circle).background(Ink)
+                            .hitShape(Shapes.Circle).clickable { },
+                    )
+                }
+            }
+            FocusOverlay(enabled = true)
         }
     })
 

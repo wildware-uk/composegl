@@ -238,8 +238,8 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
     val renderers = hosts.indices.map { player ->
         // Focus is drawn only where a pad moved it: the split-screen picture is about whose focus
         // is where, and every other picture shows its widgets the way they look before anyone
-        // reaches for a pad.
-        UiRenderer(hosts[player], canvas, shot.budget?.takeIf { player == 0 } ?: FrameBudget()).also { if (shot.players > 1) it.focus = focuses[player] }
+        // reaches for a pad, except a picture that asks for focus to be kept, as a game's renderer does.
+        UiRenderer(hosts[player], canvas, shot.budget?.takeIf { player == 0 } ?: FrameBudget()).also { if (shot.players > 1 || shot.focus) it.focus = focuses[player] }
     }
     // After layout, because a pointer lands on whatever is under it and nothing is anywhere until
     // the tree has been measured.

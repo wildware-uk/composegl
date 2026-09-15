@@ -125,7 +125,7 @@ internal object LayoutOverlayColours {
  * Shading first, for every node, and outlines after, for every node, so a child's padding never
  * covers its parent's edge. Parents before children in each, in the order the tree is drawn.
  */
-internal class LayoutOverlayPainter(private val show: Set<Show>) : (UiCanvas, Rect) -> Unit {
+internal class LayoutOverlayPainter(private val show: Set<Show>) : DebugOverlayPainter {
 
     /** The node this draws for. Set when it is handed over, and how it finds the tree. */
     var node: UiNode? = null
@@ -177,7 +177,7 @@ internal class LayoutOverlayPainter(private val show: Set<Show>) : (UiCanvas, Re
      * a second one on the same screen has no size and would otherwise be marked as a one-unit dot.
      */
     private fun walk(node: UiNode, self: UiNode, visit: (UiNode) -> Unit) {
-        if (node === self || node.content is LayoutOverlayPainter || node.content is OverdrawPainter || !node.everMeasured) return
+        if (node === self || node.content is DebugOverlayPainter || !node.everMeasured) return
         val resolved = node.resolved
         if (resolved.alpha <= 0f || resolved.scale <= 0f) return
         visit(node)

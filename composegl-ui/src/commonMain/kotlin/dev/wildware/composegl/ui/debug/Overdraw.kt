@@ -259,7 +259,7 @@ internal object OverdrawColours {
  * of same-shaded cells per row, so a screen covered twice is one rectangle a row rather than one a
  * cell.
  */
-internal class OverdrawPainter(private val cell: Float) : (UiCanvas, Rect) -> Unit {
+internal class OverdrawPainter(private val cell: Float) : DebugOverlayPainter {
 
     /** The node this draws for. Set when it is handed over, and how it finds the tree. */
     var node: UiNode? = null

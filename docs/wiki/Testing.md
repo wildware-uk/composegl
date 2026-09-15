@@ -327,7 +327,7 @@ Put it last, like `LayoutOverlay`. Each frame it draws the whole tree a second t
 a counter instead of the screen, then shades the counts. So it counts the calls the
 frame really made — a background, a border, a shadow's whole spread, each run of text,
 each picture — it follows every change, and a still screen with it on stays still. Its
-own shading is not counted, nor `LayoutOverlay`'s or `Inspector`'s outlines. Take it off
+own shading is not counted, nor `LayoutOverlay`'s, `Inspector`'s or `FocusOverlay`'s marks. Take it off
 before shipping.
 
 ![a panel with a card, a button and a translucent scrim over half of it, shaded blue, green and pink where they stack](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/overdraw-overlay.png)
@@ -401,6 +401,46 @@ uiTest(budget = budget) { Hud() }.use { ui ->
 
 All three built-in canvases trace: LibGDX, raw OpenGL and WebGL. The headless one does not
 batch, so it lists nothing.
+
+---
+
+## Focus and clicks, on the screen
+
+Pad focus is worked out from geometry, so when Down goes to the wrong button there is
+nothing to look at. `FocusOverlay` draws the answer before anybody presses anything:
+
+```kotlin
+Box(Modifier.fillMaxSize()) {
+    Game()
+    FocusOverlay(enabled = debug)                                   // everything
+    FocusOverlay(enabled = debug, show = setOf(FocusShow.HitAreas)) // or just some of it
+}
+```
+
+| `FocusShow` | Drawn as | What it is |
+|---|---|---|
+| `Arrows` | cyan arrow | where Up, Down, Left and Right take focus from the focused node, worked out from geometry |
+| | orange arrow | the same, where a `focusOrder` names the answer |
+| `Focusable` | green edge | every node focus can reach; the focused one gets a thick white edge |
+| | grey edge | a focusable node a `focusTrap` shuts out |
+| `Traps` | violet wash | each `focusTrap` |
+| `HitAreas` | yellow wash | where a press lands: a click, a drag or a pointer handler, cut to the clips above it |
+| | red wash | a hole a `hitShape`, or a shaped clip on it or above it, cuts in that rectangle |
+
+It finds the `FocusManager` built over its tree by itself; pass `focus =` when a game has
+two over one tree. A test can ask the same question without drawing anything:
+`focus.targetOf(FocusDirection.Down)` is where Down would go, and nothing moves.
+
+An arrow is where focus goes when the focused widget lets the press through. A slider keeps
+Left and Right for itself until it reaches an end, and that is not drawn.
+
+Like `LayoutOverlay` it has no size, takes no clicks and moves nothing. Focus moving is the
+one change that can leave a screen looking the same, so while it is on a focus move marks
+the frame changed. Take it off before shipping.
+
+![a menu of four buttons with arrows from the focused one, and a round button tinted with red corners](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/focus-overlay.png)
+
+Holes are found by asking the shape in 4-unit squares, so their edges are steps.
 
 ---
 
