@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-description = "The KorGE backend: renderer, fonts, clipboard and cursor, drawn inside a KorGE game's own stage."
+description = "The KorGE backend: a KmlGl binding for the shared renderer, KorGE's TrueType glyphs, clipboard and cursor, inside a KorGE game's own stage."
 
 /**
  * Multiplatform in shape, JVM only for now.
@@ -20,6 +20,8 @@ kotlin {
     sourceSets {
         jvmMain.dependencies {
             api(project(":composegl-ui"))
+            // The renderer. This module is its binding: KorGE's OpenGL, KorGE's glyphs, and the stage.
+            api(project(":composegl-render"))
             // A plain dependency. The KorGE Gradle plugin is not applied: it wants to own the whole
             // build, and a library only needs the engine on its classpath.
             api(libs.korge)
@@ -54,3 +56,34 @@ tasks.withType<Test>().configureEach {
     // Where a test that renders a whole screen leaves the picture, for a person to look at.
     System.getenv("COMPOSEGL_KORGE_SHOTS")?.let { environment("COMPOSEGL_KORGE_SHOTS", it) }
 }
+
+/**
+ * None of the renderer this module used to carry: no KorGE shader program and no vertex layout of its
+ * own. It draws through composegl-render, over KorGE's OpenGL.
+ */
+val noRendererOfItsOwn = tasks.register<BytecodeReferenceCheck>("checkNoRendererOfItsOwn") {
+    description = "Fails if the KorGE backend builds KorGE shader programs or vertex data of its own."
+    group = "verification"
+    classDirectories.from(layout.buildDirectory.dir("classes/kotlin/jvm/main"))
+    // Not all of korlibs/graphics/shader: KorgeRenderTargetView draws through KorGE's own batch, whose
+    // default program it names. What a renderer of its own would need is attributes and a layout.
+    forbiddenPackages.set(
+        listOf(
+            "korlibs/graphics/shader/Attribute",
+            "korlibs/graphics/shader/Varying",
+            "korlibs/graphics/shader/VertexLayout",
+            "korlibs/graphics/AGVertexData",
+            "korlibs/graphics/AGVertexArrayObject",
+        ),
+    )
+    reason.set(
+        "The interface is drawn by composegl-render through KorGE's KmlGl. A KorGE Program or vertex " +
+            "layout here would be a second renderer.",
+    )
+    dependsOn(tasks.named("jvmMainClasses"))
+}
+
+tasks.named("check") { dependsOn(noRendererOfItsOwn) }
+
+// The renderer lives in composegl-render. Shaders and draw calls here would be a second one.
+confineRenderer("KorgeKmlGl.kt")

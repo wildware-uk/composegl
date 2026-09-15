@@ -5,6 +5,7 @@ import korlibs.image.font.Font
 import korlibs.image.font.TtfFont
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -105,7 +106,7 @@ class KorgeFontsTest {
         val uncut = fonts.measure("one two three four five six seven eight", body, maxWidth = 60f)
         assertTrue(uncut.lineCount > 2)
         // The ellipsis is a glyph of its own: the cut layout draws one more picture than its words have.
-        val lastLine = layout.glyphs.filter { it.top > body.lineHeight / 2f }
+        val lastLine = layout.placed.filter { it.top > body.lineHeight / 2f }
         assertTrue(lastLine.isNotEmpty(), "the second line has glyphs")
     }
 
@@ -119,33 +120,33 @@ class KorgeFontsTest {
     @Test
     fun `glyphs are packed into the shared atlas, beside the white block`() {
         val layout = fonts.measure("Ab", large) as KorgeTextLayout
-        assertEquals(2, layout.glyphs.size)
-        layout.glyphs.forEach { glyph ->
-            assertEquals(0, glyph.region.page, "every glyph on page zero, with the white block")
+        assertEquals(2, layout.placed.size)
+        layout.placed.forEach { glyph ->
+            assertSame(fonts.atlas.page(0), glyph.glyph.page, "every glyph on page zero, with the white block")
             assertTrue(glyph.width > 0f && glyph.height > 0f)
         }
-        assertNotEquals(layout.glyphs[0].region.x, layout.glyphs[1].region.x)
+        assertNotEquals(layout.placed[0].glyph.x to layout.placed[0].glyph.y, layout.placed[1].glyph.x to layout.placed[1].glyph.y)
         assertEquals(1, fonts.atlas.pageCount)
     }
 
     @Test
     fun `a glyph is rasterised once however often it is measured`() {
-        val first = (fonts.measure("A", large) as KorgeTextLayout).glyphs.single().region
-        val again = (fonts.measure("AAA", large) as KorgeTextLayout).glyphs.map { it.region }
+        val first = (fonts.measure("A", large) as KorgeTextLayout).placed.single().glyph
+        val again = (fonts.measure("AAA", large) as KorgeTextLayout).placed.map { it.glyph }
         again.forEach { assertTrue(it === first, "the same region every time") }
     }
 
     @Test
     fun `a space takes room but draws nothing`() {
         val layout = fonts.measure("A B", large) as KorgeTextLayout
-        assertEquals(2, layout.glyphs.size)
+        assertEquals(2, layout.placed.size)
         assertTrue(layout.size.width > (fonts.measure("AB", large)).size.width)
     }
 
     @Test
     fun `glyphs sit on the baseline, capitals above it and descenders below`() {
-        val h = (fonts.measure("H", large) as KorgeTextLayout).glyphs.single()
-        val g = (fonts.measure("g", large) as KorgeTextLayout).glyphs.single()
+        val h = (fonts.measure("H", large) as KorgeTextLayout).placed.single()
+        val g = (fonts.measure("g", large) as KorgeTextLayout).placed.single()
         val baseline = fonts.metrics(large).ascent
         // A glyph's picture has a pixel of empty border each way, which is why these allow two.
         assertTrue(abs((h.top + h.height) - baseline) <= 2f, "H should end on the baseline: ${h.top + h.height} vs $baseline")
@@ -202,8 +203,8 @@ class KorgeFontsTest {
         val tight = KorgeFonts().also { it.register("body", kerned, listOf(48)) }
         assertEquals(-10.0, tight.fontFor(large).getKerning(48.0, 'A'.code, 'V'.code))
 
-        val apart = (plain.measure("AVA", large) as KorgeTextLayout).glyphs.map { it.left }
-        val together = (tight.measure("AVA", large) as KorgeTextLayout).glyphs.map { it.left }
+        val apart = (plain.measure("AVA", large) as KorgeTextLayout).placed.map { it.left }
+        val together = (tight.measure("AVA", large) as KorgeTextLayout).placed.map { it.left }
         assertEquals(apart, together, "a font's kerning does not move its glyphs")
         assertEquals(plain.measure("AVA", large).size, tight.measure("AVA", large).size, "or change the width")
     }

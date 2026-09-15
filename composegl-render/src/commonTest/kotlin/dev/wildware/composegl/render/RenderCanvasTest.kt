@@ -105,6 +105,38 @@ class RenderCanvasTest {
     }
 
     @Test
+    fun `a target that keeps its top row first has its viewport and scissor and projection turned over`() {
+        val canvas = canvas()
+        val tall = Viewport(Size(400f, 300f), Size(800f, 800f), ScalePolicy.Fit)
+        canvas.begin(tall, FrameTarget.Host, clear = null, topRowFirst = true)
+        canvas.pushClip(Rect.of(10f, 20f, 100f, 50f))
+        canvas.rect(Rect.of(10f, 20f, 100f, 40f), Colour.Red)
+        canvas.popClip()
+        canvas.end()
+
+        // Twice the size with 100 pixels of bar above: the design starts 100 rows down, and the
+        // clip's top at 20 is 140 rows down, counted from the first row rather than the last.
+        assertTrue("target(host, 0, 100, 800, 600)" in device.calls, device.calls.toString())
+        assertTrue("scissor(20, 140, 200, 100)" in device.calls, device.calls.toString())
+        val draw = device.draws.single()
+        assertEquals(-2f / 300f, draw.projection[5])
+        assertEquals(1f, draw.projection[13])
+        // The vertices are the same as ever, grown by half a design unit of soft edge at twice the
+        // size: only the projection knows which way up the target is.
+        assertEquals(239.5f, draw.at(0, 1))
+    }
+
+    @Test
+    fun `the next ordinary frame counts from the bottom again`() {
+        val canvas = canvas()
+        canvas.begin(design, FrameTarget.Host, clear = null, topRowFirst = true)
+        canvas.end()
+        frame(canvas) { rect(Rect.of(10f, 20f, 100f, 40f), Colour.Red) }
+
+        assertEquals(2f / 300f, device.draws.single().projection[5])
+    }
+
+    @Test
     fun `nested clips intersect`() {
         frame {
             pushClip(Rect.of(0f, 0f, 100f, 100f))

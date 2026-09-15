@@ -25,8 +25,10 @@ of them.
 The LWJGL3 backend is the reference thin wrapper. It draws with the library's own
 renderer, `composegl-render`, and adds only what raw OpenGL needs: a `Gl` binding, a
 glyph rasteriser and a window. The LibGDX backend is a thin wrapper too: `GdxGl` over
-`Gdx.gl` and `Gdx.gl30`, FreeType glyphs, and LibGDX's input. The other backends move
-onto the same renderer one at a time (see
+`Gdx.gl` and `Gdx.gl30`, FreeType glyphs, and LibGDX's input. So is the KorGE backend:
+it binds the `KmlGl` of the frame KorGE is drawing, rasterises glyphs with KorGE's
+TrueType reader, and hands KorGE its cached GL state back after every frame. The other
+backends move onto the same renderer one at a time (see
 `docs/superpowers/specs/2026-09-15-shared-gl-renderer.md`), and until they do they carry
 renderers of their own.
 
@@ -278,6 +280,11 @@ class MyCanvas(fonts: MyFonts) : RenderCanvas(GlDevice(MyGl, HostState.Leave), f
 }
 class MyFonts : AtlasFonts(MyRasteriser, MyImageDecoder)
 ```
+
+KorGE's pieces are `KorgeKmlGl.kt`, `KorgeRasteriser` in `KorgeFonts.kt`,
+`KorgeTexture.bind` (which binds through KorGE, so KorGE uploads a changed bitmap), and
+`KorgeCanvas`. A render texture KorGE reads back top row first is drawn with
+`begin(viewport, target, clear, topRowFirst = true)`.
 
 Pick `HostState.Leave` when your engine sets the GL state it needs before it draws;
 `Restore` when it caches GL state and believes the cache (KorGE, three.js). If your

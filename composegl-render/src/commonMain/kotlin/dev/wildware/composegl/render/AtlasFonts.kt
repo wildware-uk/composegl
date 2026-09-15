@@ -5,6 +5,8 @@ import dev.wildware.composegl.ui.text.FontMetrics
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.text.TextStyle
+import dev.wildware.composegl.ui.text.paragraph
+import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
@@ -61,6 +63,9 @@ class AtlasTextLayout(
  * — so that nothing is rasterised mid-frame — overrides [prepare].
  *
  * @param decoder turns the encoded pictures [registerPictures] takes into pixels.
+ * @param lineBreaking how text given a width is broken into lines and cut to a line limit.
+ * @param wholePixelWidths whether a layout's width is rounded up to a whole pixel.
+ * @param smoothPages whether the atlas's pages are sampled smoothly; see [GlyphAtlas].
  */
 open class AtlasFonts(
     private val rasteriser: GlyphRasteriser,
@@ -69,10 +74,25 @@ open class AtlasFonts(
     maxPageSize: Int = 4096,
     maxPages: Int = 8,
     atlasOwner: String = "AtlasFonts",
+    private val lineBreaking: LineBreaking = LineBreaking.Words,
+    private val wholePixelWidths: Boolean = false,
+    smoothPages: Boolean = true,
 ) : FontProvider, AutoCloseable {
 
+    /** How measured text is broken into lines. */
+    enum class LineBreaking {
+        /** Greedy, at spaces, a long word broken where it has to be; the ellipsis on the last kept line. */
+        Words,
+
+        /**
+         * The toolkit's own `paragraph()`: the breaking rules styled text uses, including between
+         * Chinese and Japanese characters, with a word too long for the width left to overflow.
+         */
+        Paragraph,
+    }
+
     /** Every glyph and picture drawn with these fonts, and the white block solid colour comes from. */
-    val atlas = GlyphAtlas(pageSize, maxPageSize, maxPages, atlasOwner)
+    val atlas = GlyphAtlas(pageSize, maxPageSize, maxPages, atlasOwner, smoothPages)
 
     private data class Key(val family: String, val size: Int)
 
@@ -182,13 +202,18 @@ open class AtlasFonts(
     override fun measure(text: String, style: TextStyle, maxWidth: Float): TextLayout {
         val chain = chainFor(style)
         val face = chain.primary
-        val wrapped = wrap(chain, text, maxWidth)
-        val lines = if (style.maxLines in 1 until wrapped.size) {
-            wrapped.take(style.maxLines).toMutableList().also { kept ->
-                kept[kept.lastIndex] = withEllipsis(chain, kept.last(), style.ellipsis, maxWidth)
+        val lines = when (lineBreaking) {
+            LineBreaking.Words -> {
+                val wrapped = wrap(chain, text, maxWidth)
+                if (style.maxLines in 1 until wrapped.size) {
+                    wrapped.take(style.maxLines).toMutableList().also { kept ->
+                        kept[kept.lastIndex] = withEllipsis(chain, kept.last(), style.ellipsis, maxWidth)
+                    }
+                } else {
+                    wrapped
+                }
             }
-        } else {
-            wrapped
+            LineBreaking.Paragraph -> paragraphLines(text, style, maxWidth)
         }
 
         val placed = mutableListOf<PlacedGlyph>()
@@ -201,7 +226,7 @@ open class AtlasFonts(
         return AtlasTextLayout(
             text = text,
             // The style's line spacing rather than the font's own, so two labels in one style line up.
-            size = Size(widest, lines.size * style.lineHeight),
+            size = Size(if (wholePixelWidths) ceil(widest) else widest, lines.size * style.lineHeight),
             lineCount = lines.size,
             firstBaseline = face.ascent,
             placed = placed,
@@ -245,6 +270,19 @@ open class AtlasFonts(
             pen += glyph.advance
         }
         return pen
+    }
+
+    /**
+     * The toolkit's paragraph breaking. It measures single lines with no width through [measure]
+     * again, which comes straight back here as one line.
+     */
+    private fun paragraphLines(text: String, style: TextStyle, maxWidth: Float): List<String> {
+        val wraps = maxWidth.isFinite() && maxWidth > 0f
+        if (!wraps && '\n' !in text && style.maxLines <= 0) return listOf(text)
+        return paragraph(text, style, if (wraps) maxWidth else Float.POSITIVE_INFINITY).lines.map { line ->
+            val body = text.substring(line.range.min, line.range.max)
+            if (line.ellipsised) body + style.ellipsis else body
+        }
     }
 
     private fun widthOf(chain: Chain, text: String): Float {

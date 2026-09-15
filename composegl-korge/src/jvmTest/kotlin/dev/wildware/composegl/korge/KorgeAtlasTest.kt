@@ -1,76 +1,72 @@
 package dev.wildware.composegl.korge
 
-import korlibs.image.bitmap.Bitmap32
-import korlibs.image.color.RGBA
+import dev.wildware.composegl.render.GlyphAtlas
+import dev.wildware.composegl.ui.text.TextStyle
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
-/** The atlas is bitmaps in memory, so all of it is asked here with no GPU. */
+/**
+ * KorGE's glyphs on the shared renderer's atlas, which is pixels in memory, so all of it is asked
+ * here with no GPU. How the atlas packs is composegl-render's `GlyphAtlasTest`; this is what
+ * [KorgeFonts] puts on it.
+ */
 class KorgeAtlasTest {
 
+    private fun fonts(pageSize: Int = 1024) = KorgeFonts(pageSize).also { it.registerTrueType("body", TestFonts.dejaVu(), listOf(12, 48)) }
+
     @Test
-    fun `the white block is on page zero, opaque white, sampled a pixel in from its edge`() {
-        val atlas = KorgeAtlas(64)
-        val white = atlas.white
-        assertEquals(0, white.page)
-        val page = atlas.pages[0]
-        for (y in white.y - 1..white.y + white.height) {
-            for (x in white.x - 1..white.x + white.width) {
-                assertEquals(RGBA(255, 255, 255, 255), page.getRgbaRaw(x, y), "white at $x, $y, including the pixel round the sampled part")
+    fun `the white block is on page zero and opaque white`() {
+        val fonts = fonts()
+        val white = fonts.atlas.white
+        assertSame(fonts.atlas.page(0), white.page)
+        for (y in white.y until white.y + GlyphAtlas.WhiteBlock) {
+            for (x in white.x until white.x + GlyphAtlas.WhiteBlock) {
+                assertEquals(0xFFFFFFFF.toInt(), white.page.rgbaAt(x, y), "white at $x, $y")
             }
         }
     }
 
     @Test
-    fun `regions do not overlap, and there are empty pixels between them`() {
-        val atlas = KorgeAtlas(64)
-        val regions = List(20) { atlas.pack(7, 5) } + atlas.white
-        for (a in regions) for (b in regions) {
-            if (a === b || a.page != b.page) continue
-            val apart = a.x + a.width < b.x || b.x + b.width < a.x || a.y + a.height < b.y || b.y + b.height < a.y
-            assertTrue(apart, "(${a.x}, ${a.y}) and (${b.x}, ${b.y}) touch")
+    fun `glyphs do not overlap each other or the white block`() {
+        val fonts = fonts()
+        val glyphs = (fonts.measure("abcdefghijklmnopqrstuvwxyz", TextStyle(family = "body", size = 12f)) as KorgeTextLayout).placed.map { it.glyph }
+        val boxes = glyphs.map { listOf(it.x, it.y, it.width.toInt(), it.height.toInt()) } +
+            listOf(listOf(fonts.atlas.white.x, fonts.atlas.white.y, GlyphAtlas.WhiteBlock, GlyphAtlas.WhiteBlock))
+        for (a in boxes.indices) for (b in boxes.indices) {
+            if (a == b) continue
+            val (ax, ay, aw, ah) = boxes[a]
+            val (bx, by, bw, bh) = boxes[b]
+            val apart = ax + aw <= bx || bx + bw <= ax || ay + ah <= by || by + bh <= ay
+            assertTrue(apart, "(${ax}, ${ay}) and (${bx}, ${by}) overlap")
         }
     }
 
     @Test
     fun `a full page starts another`() {
-        val atlas = KorgeAtlas(32)
-        repeat(10) { atlas.pack(12, 12) }
-        assertTrue(atlas.pageCount > 1, "ten 12 by 12 pictures cannot fit on one 32 page")
+        val fonts = fonts(pageSize = 64)
+        fonts.measure("ABCDEFGH", TextStyle(family = "body", size = 48f))
+        assertTrue(fonts.atlas.pageCount > 1, "eight glyphs at 48 cannot fit on one 64 page")
     }
 
     @Test
-    fun `a picture bigger than a page is refused, saying so`() {
-        val failure = assertThrows<IllegalArgumentException> { KorgeAtlas(32).pack(40, 4) }
-        assertTrue("does not fit" in failure.message.orEmpty(), failure.message)
+    fun `a glyph bigger than a page is refused, saying so`() {
+        val failure = assertThrows<IllegalStateException> { fonts(pageSize = 32).measure("W", TextStyle(family = "body", size = 48f)) }
+        assertTrue("not big enough" in failure.message.orEmpty(), failure.message)
+        assertTrue("KorgeFonts" in failure.message.orEmpty(), failure.message)
     }
 
     @Test
-    fun `texture coordinates are the region's edges over the page`() {
-        val atlas = KorgeAtlas(100)
-        val region = atlas.pack(10, 20)
-        assertEquals(region.x / 100f, region.u)
-        assertEquals((region.y + 20) / 100f, region.v2)
-    }
+    fun `coverage is written as white, with the ink in its alpha`() {
+        val fonts = fonts()
+        val glyph = (fonts.measure("H", TextStyle(family = "body", size = 48f)) as KorgeTextLayout).placed.single().glyph
+        val page = checkNotNull(glyph.page)
+        val pixels = (0 until glyph.height.toInt()).flatMap { y -> (0 until glyph.width.toInt()).map { x -> page.rgbaAt(glyph.x + x, glyph.y + y) } }
 
-    @Test
-    fun `coverage is written as premultiplied white, and the page says it changed`() {
-        val atlas = KorgeAtlas(64)
-        val region = atlas.pack(2, 1)
-        val page = atlas.pages[region.page]
-        val before = page.contentVersion
-        val coverage = Bitmap32(2, 1, premultiplied = true).also {
-            it.setRgbaRaw(0, 0, RGBA(0, 0, 0, 0))
-            it.setRgbaRaw(1, 0, RGBA(100, 100, 100, 100))
-        }
-        atlas.putCoverage(region, coverage)
-
-        assertTrue(page.premultiplied, "KorGE uploads only premultiplied pages without complaint")
-        // Premultiplied white is the coverage in every channel: nothing at all where there is no ink.
-        assertEquals(RGBA(0, 0, 0, 0), page.getRgbaRaw(region.x, region.y))
-        assertEquals(RGBA(100, 100, 100, 100), page.getRgbaRaw(region.x + 1, region.y))
-        assertTrue(page.contentVersion > before, "KorGE uploads a page again only when its version moves")
+        assertTrue(pixels.all { it ushr 8 == 0xFFFFFF }, "every pixel white, so the text's colour multiplies it")
+        assertTrue(pixels.any { it and 0xFF == 0xFF }, "solid ink in the stems")
+        assertTrue(pixels.any { it and 0xFF == 0 }, "and none in the border round the glyph")
     }
 }

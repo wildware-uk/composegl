@@ -1,5 +1,6 @@
 package dev.wildware.composegl.korge
 
+import dev.wildware.composegl.render.GlyphAtlas
 import dev.wildware.composegl.ui.backend.FakeTexture
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
@@ -46,7 +47,7 @@ class KorgeCanvasTest {
     /** Draws [content] through a fresh canvas into an offscreen picture over black, and reads it back. */
     private fun draw(
         on: Viewport = viewport,
-        atlas: KorgeAtlas? = null,
+        atlas: GlyphAtlas? = null,
         content: KorgeCanvas.(RenderContext) -> Unit,
     ): Frame {
         var calls = -1

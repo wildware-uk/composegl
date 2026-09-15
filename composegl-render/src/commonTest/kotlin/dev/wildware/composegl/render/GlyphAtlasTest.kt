@@ -120,6 +120,37 @@ class GlyphAtlasTest {
     }
 
     @Test
+    fun `releasing one device gives back only its own pages`() {
+        val atlas = GlyphAtlas(pageSize = 64)
+        val other = RecordingDevice()
+        val mine = atlas.page(0).texture(device)
+        val theirs = atlas.page(0).texture(other)
+        atlas.release(device)
+
+        assertEquals(listOf<DeviceResource>(mine), device.deleted)
+        assertEquals(0, other.deleted.size)
+        assertSame(theirs, atlas.page(0).texture(other))
+        assertNotSame(mine, atlas.page(0).texture(device), "a released device is uploaded to afresh")
+    }
+
+    @Test
+    fun `a page says what colour it holds at a pixel`() {
+        val atlas = GlyphAtlas(pageSize = 64)
+        val spot = atlas.place(2, 1)
+        atlas.page(0).writeCoverage(spot.x, spot.y, 2, 1, byteArrayOf(0x40, 0x7F))
+        assertEquals(0xFFFFFF7F.toInt(), atlas.page(0).rgbaAt(spot.x + 1, spot.y))
+        assertEquals(0xFFFFFFFF.toInt(), atlas.page(0).rgbaAt(0, 0), "the white block")
+        assertFailsWith<IllegalArgumentException> { atlas.page(0).rgbaAt(64, 0) }
+    }
+
+    @Test
+    fun `pages are smooth unless the atlas says otherwise`() {
+        GlyphAtlas(pageSize = 64).page(0).texture(device)
+        GlyphAtlas(pageSize = 64, smooth = false).page(0).texture(device)
+        assertEquals(listOf(true, false), device.smoothness)
+    }
+
+    @Test
     fun `closing gives each uploaded page back`() {
         val atlas = GlyphAtlas(pageSize = 64)
         val texture = atlas.page(0).texture(device)
