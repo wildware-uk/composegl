@@ -173,6 +173,41 @@ clicked or focused, which is what lets a panel arrive from nothing. A negative f
 throws rather than mirroring, so hand an anticipate easing over as
 `scale(t.coerceAtLeast(0f))`.
 
+**Shake**
+
+```kotlin
+val shake = rememberShake()
+Panel(Modifier.shake(shake)) { … }
+shake.trigger()                     // wrong password: it jolts and settles on its own
+shake.trigger(intensity = 0.3f)     // a lighter knock
+```
+
+![five panels knocked at once, from full strength to not at all, each moved off its outlined slot by a little less](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-shake.png)
+
+A shake is **trauma**, the way game cameras do it. Each knock adds to `trauma`, which
+stops at one and drains by itself (`decayPerSecond`, 1.5 by default, so a full knock is
+still in about two thirds of a second). The widget is moved by trauma *squared* times a
+smooth noise, up to `maxOffset` each way — so half a knock is a quarter of the movement,
+and a big shake eases out instead of stopping dead. Mashing a locked door cannot shake
+the panel off the screen, because full is full.
+
+It is an `offset`, so layout does not move: the neighbours stay put and the parent does
+not grow. Clicks move with it, as they do with any offset. Put `shake` before
+`background` to move the whole widget, or after it to rattle the contents inside a frame
+that stays still.
+
+It runs on a clock. The default is `Clock.Ui`, which keeps going under a pause menu; a hit
+on the player belongs to `Clock.World` and freezes with the game:
+
+```kotlin
+val hurt = rememberShake(clock = Clock.World, maxOffset = 6f)
+```
+
+The wobble comes from the time and a `seed`, not from randomness, so a shake is the same
+every run and a test can say exactly where the widget was. Give two widgets shaking side
+by side different seeds, or they move in step. A still shake costs no frames; `stop()`
+puts it straight back.
+
 **Your own drawing**
 
 ```kotlin
@@ -387,9 +422,9 @@ makes one skin file change the look of a whole game. See [[Skins]].
 A modifier is an element plus an extension function:
 
 ```kotlin
-data class ShakeElement(val amount: Float) : Modifier.Element
+data class GlowElement(val amount: Float) : Modifier.Element
 
-fun Modifier.shake(amount: Float) = then(ShakeElement(amount))
+fun Modifier.glow(amount: Float) = then(GlowElement(amount))
 ```
 
 A data class, so the chain still compares by value. Then read it wherever it is
