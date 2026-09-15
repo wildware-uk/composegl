@@ -11,6 +11,7 @@ import dev.wildware.composegl.ui.input.DirectionHandler
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.KeyHandler
 import dev.wildware.composegl.ui.input.PointerHandler
+import dev.wildware.composegl.ui.input.PointerIcon
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Padding
@@ -105,6 +106,11 @@ class ResolvedModifier private constructor(
      * See [dev.wildware.composegl.ui.modifier.hitShape].
      */
     val hitShape: ((Offset, Size) -> Boolean)?,
+    /**
+     * The cursor shape asked for while the pointer is over this node, or null to show whatever its
+     * nearest ancestor asks for. See [dev.wildware.composegl.ui.modifier.pointerHoverIcon].
+     */
+    val hoverIcon: PointerIcon?,
     /** The shaders this node is drawn through, in the order the chain wrote them. */
     val effects: List<ShaderEffect>,
     /** Backgrounds, borders, shadows and `drawBehind`, in chain order, under the node's content. */
@@ -162,7 +168,7 @@ class ResolvedModifier private constructor(
      */
     val isInteractive: Boolean
         get() = interactions.isNotEmpty() || handlers.isNotEmpty() || click != null || drag != null ||
-            focusable?.enabled == true
+            focusable?.enabled == true || hoverIcon != null
 
     companion object {
 
@@ -190,6 +196,7 @@ class ResolvedModifier private constructor(
             var clipBehind = 0
             var clipInFront = 0
             var hitShape: ((Offset, Size) -> Boolean)? = null
+            var hoverIcon: PointerIcon? = null
             val effects = mutableListOf<ShaderEffect>()
             val behind = mutableListOf<PaintOp>()
             val inFront = mutableListOf<PaintOp>()
@@ -271,6 +278,8 @@ class ResolvedModifier private constructor(
                         hitShape = { point, _ -> contains(point) }
                     }
                     is ShapedHitElement -> hitShape = element.shape::contains
+                    // A choice as well: the pointer is one shape at a time, so later wins.
+                    is PointerHoverIconElement -> hoverIcon = element.icon
                     is EffectElement -> effects += element.effect
                     is BackgroundElement, is BorderElement, is ShadowElement,
                     is NinePatchElement, is SkinBackgroundElement, is DrawBehindElement ->
@@ -302,7 +311,7 @@ class ResolvedModifier private constructor(
                 size, fill, aspectRatio, sizeIn, defaultMinSize, padding, offset, weight, alignment, layoutId, alpha,
                 scale, scaleOrigin,
                 rotation, rotationOrigin,
-                blend, zIndex, clip, clipBehind, clipInFront, hitShape, effects.toList(),
+                blend, zIndex, clip, clipBehind, clipInFront, hitShape, hoverIcon, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click, drag,

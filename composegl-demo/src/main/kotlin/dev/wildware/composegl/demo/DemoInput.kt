@@ -1,5 +1,6 @@
 package dev.wildware.composegl.demo
 
+import dev.wildware.composegl.ui.backend.SystemCursor
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.input.GamepadButton
@@ -30,7 +31,12 @@ import dev.wildware.composegl.ui.node.UiNode
  * A game would put its own handling after the router and act on what came back false — the
  * interface gets first refusal, the world gets the rest.
  */
-internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink {
+internal class DemoInput(
+    private val state: DemoState,
+    root: UiNode,
+    /** The backend's mouse cursor, so the callsign field shows an I-beam. */
+    cursor: SystemCursor = SystemCursor.None,
+) : InputSink {
 
     /**
      * Focus, which on a console is the cursor.
@@ -40,7 +46,7 @@ internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink
      */
     val focus = FocusManager(root)
 
-    private val router = PointerRouter(root, focus)
+    private val router = PointerRouter(root, focus, cursor)
 
     /**
      * The pad's end of the same thing: a direction moves focus, South presses what it is on.
@@ -81,7 +87,11 @@ internal class DemoInput(private val state: DemoState, root: UiNode) : InputSink
             is PointerEvent.Exit -> null
             else -> event.position
         }
-        return tracked.onPointer(event)
+        val used = tracked.onPointer(event)
+        // Read back rather than worked out here, so the cross the demo draws is the same shape the
+        // real cursor was just asked for — which is what makes it show up in a screenshot.
+        state.pointerIcon = router.pointerIcon
+        return used
     }
 
     override fun onKey(event: KeyEvent): Boolean {

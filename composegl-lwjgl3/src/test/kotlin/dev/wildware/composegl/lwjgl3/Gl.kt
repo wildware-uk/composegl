@@ -34,6 +34,9 @@ object Gl {
         return block()
     }
 
+    /** Runs [block] with the shared window itself, for the calls that take a window. */
+    fun <T> window(block: (GlfwWindow) -> T): T = render { block(checkNotNull(window)) }
+
     /**
      * The bottom-left [width] by [height] of the framebuffer, as `0xRRGGBB`, y down from the top.
      *

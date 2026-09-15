@@ -49,8 +49,12 @@ class Lwjgl3Backend(
     /** Desktop has a keyboard already, so asking for one changes nothing but is not an error. */
     override val softKeyboard: SoftKeyboard = RecordingSoftKeyboard()
 
-    /** Lets go of the canvas and the glyph atlas. The window is the caller's to close. */
+    /** GLFW's standard cursors, on this window. */
+    override val cursor = GlfwSystemCursor(window)
+
+    /** Lets go of the canvas, the glyph atlas and any cursors made. The window is the caller's to close. */
     override fun close() {
+        cursor.close()
         canvas.close()
         fonts.close()
     }

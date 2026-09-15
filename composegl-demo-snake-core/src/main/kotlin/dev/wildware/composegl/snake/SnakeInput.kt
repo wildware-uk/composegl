@@ -3,6 +3,7 @@ package dev.wildware.composegl.snake
 import dev.wildware.composegl.snake.game.Direction
 import dev.wildware.composegl.snake.game.Screen
 import dev.wildware.composegl.snake.game.SnakeSession
+import dev.wildware.composegl.ui.backend.SystemCursor
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.input.GamepadButton
@@ -37,6 +38,8 @@ class SnakeInput(
     root: UiNode,
     private val budget: FrameBudget,
     initialSource: InputSource = InputSource.Mouse,
+    /** The backend's mouse cursor, so the name field on the menu shows an I-beam. */
+    cursor: SystemCursor = SystemCursor.None,
 ) : InputSink {
 
     val focus = FocusManager(root)
@@ -49,7 +52,7 @@ class SnakeInput(
      */
     val source = InputSourceTracker(initialSource)
 
-    private val pointer = PointerRouter(root, focus)
+    private val pointer = PointerRouter(root, focus, cursor)
     private val keys = KeyRouter(focus, root)
     private val navigator = KeyNavigator(focus, onBack = ::back)
     private val swipe = SwipeSteering()

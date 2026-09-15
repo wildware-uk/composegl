@@ -10,6 +10,7 @@ import dev.wildware.composegl.lwjgl3.GlCanvas
 import dev.wildware.composegl.lwjgl3.GlfwClipboard
 import dev.wildware.composegl.lwjgl3.GlfwKeyboardInput
 import dev.wildware.composegl.lwjgl3.GlfwPointerInput
+import dev.wildware.composegl.lwjgl3.GlfwSystemCursor
 import dev.wildware.composegl.lwjgl3.GlfwTextInput
 import dev.wildware.composegl.lwjgl3.GlfwWindow
 import dev.wildware.composegl.lwjgl3.StbFonts
@@ -49,7 +50,14 @@ fun main() {
     val canvas = GlCanvas(fonts)
     // The desktop's own input method, so the name field can be typed in Japanese, Chinese or
     // Korean rather than only in the languages one key press can express.
-    val app = SnakeApp(fonts, FileHighScores(), GlfwClipboard(window), textInput = GlfwTextInput(window))
+    val cursor = GlfwSystemCursor(window)
+    val app = SnakeApp(
+        fonts,
+        FileHighScores(),
+        GlfwClipboard(window),
+        textInput = GlfwTextInput(window),
+        cursor = cursor,
+    )
 
     var viewport = window.viewport(SnakeApp.Design, ScalePolicy.Fit)
     GlfwPointerInput(sink = app.input, viewport = { viewport }, pixelScale = { window.pixelScale }).attachTo(window)
@@ -88,6 +96,8 @@ fun main() {
         }
     } finally {
         app.close()
+        // Before the window, which takes GLFW and every cursor with it when it goes.
+        cursor.close()
         canvas.close()
         fonts.close()
         window.close()

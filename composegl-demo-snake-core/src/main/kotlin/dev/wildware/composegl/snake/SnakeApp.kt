@@ -7,6 +7,7 @@ import dev.wildware.composegl.snake.render.BoardRenderer
 import dev.wildware.composegl.snake.ui.SnakeUi
 import dev.wildware.composegl.ui.backend.Clipboard
 import dev.wildware.composegl.ui.backend.SoftKeyboard
+import dev.wildware.composegl.ui.backend.SystemCursor
 import dev.wildware.composegl.ui.backend.TextInput
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.input.InputSource
@@ -39,6 +40,7 @@ import dev.wildware.composegl.ui.text.FontProvider
  *   ever sees a character per key, which is enough for English and nothing else.
  * @param initialSource what to assume the player is holding before they touch anything: a phone
  *   launcher says touch, so the HUD says "swipe" from the first frame rather than after it.
+ * @param cursor the backend's mouse cursor, so the name field shows an I-beam. A phone has none.
  */
 class SnakeApp(
     fonts: FontProvider,
@@ -47,6 +49,7 @@ class SnakeApp(
     softKeyboard: SoftKeyboard = SoftKeyboard.None,
     textInput: TextInput = TextInput.None,
     initialSource: InputSource = InputSource.Mouse,
+    cursor: SystemCursor = SystemCursor.None,
 ) : AutoCloseable {
 
     val session = SnakeSession(scores)
@@ -58,7 +61,7 @@ class SnakeApp(
     private val host = UiHost()
     private val skin = snakeSkin(fonts)
 
-    val input = SnakeInput(session, host.root, budget, initialSource)
+    val input = SnakeInput(session, host.root, budget, initialSource, cursor)
 
     init {
         host.setContent {

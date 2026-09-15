@@ -5,14 +5,15 @@ import com.badlogic.gdx.utils.Disposable
 import dev.wildware.composegl.ui.backend.Clipboard
 import dev.wildware.composegl.ui.backend.MapTextureSource
 import dev.wildware.composegl.ui.backend.SoftKeyboard
+import dev.wildware.composegl.ui.backend.SystemCursor
 import dev.wildware.composegl.ui.backend.TextureSource
 import dev.wildware.composegl.ui.backend.UiBackend
 
 /**
  * Everything the toolkit needs from the outside world, as LibGDX provides it.
  *
- * The four pieces a game would otherwise wire up one at a time — the canvas, the fonts, the
- * clipboard and the soft keyboard — behind the one interface, so that a game object can hold a
+ * The pieces a game would otherwise wire up one at a time — the canvas, the fonts, the clipboard,
+ * the soft keyboard and the mouse cursor — behind the one interface, so that a game object can hold a
  * [UiBackend] rather than a [GdxCanvas]. That swap is the whole point: hold the interface and the
  * same object can be given a
  * [dev.wildware.composegl.ui.backend.HeadlessBackend] in a test, with no window, no OpenGL and no
@@ -41,6 +42,9 @@ class GdxBackend(
     override val clipboard: Clipboard = GdxClipboard()
 
     override val softKeyboard: SoftKeyboard = GdxSoftKeyboard()
+
+    /** Reads `Gdx.graphics` when a shape is asked for, like the two above. A no-op on a phone. */
+    override val cursor: SystemCursor = GdxSystemCursor()
 
     /** Lets go of the canvas and the glyph atlas. The sprite batch stays the game's to dispose. */
     override fun dispose() {

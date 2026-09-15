@@ -324,6 +324,55 @@ asks the same question, so a panel is hovered only where it would have been clic
 any `scale` divided back out, so the shape survives the widget growing. It speaks for
 its own widget only; a child that wants the same shape asks for it itself.
 
+## The cursor's shape
+
+An I-beam over somewhere to type, a hand over a link, an arrow over an edge that drags:
+
+```kotlin
+Modifier.pointerHoverIcon(PointerIcon.Hand)
+```
+
+The router shows the icon of the topmost thing under the mouse. Something that asks for
+nothing shows its nearest ancestor's, so an icon on a panel covers every button inside
+it — and something drawn on top of the panel hides it, the same way it would take the
+click. `TextField` asks for `PointerIcon.Text` already; put your own on its modifier and
+yours wins.
+
+Hand the router the backend's cursor and it keeps the shape right:
+
+```kotlin
+val pointer = PointerRouter(host.root, focus, backend.cursor)
+```
+
+| icon | |
+|---|---|
+| `Default` | the arrow |
+| `Text` | an I-beam |
+| `Hand` | a pointing hand |
+| `Crosshair` | a thin cross |
+| `ResizeHorizontal`, `ResizeVertical` | two-way arrows |
+| `ResizeTopLeftBottomRight`, `ResizeTopRightBottomLeft` | the corners |
+| `Move` | four-way arrows |
+| `NotAllowed` | a circle with a line through it |
+
+The rules, all of them things you would otherwise find out by accident:
+
+- **A drag keeps its shape.** While a press is held the icon stays whatever it was when
+  the press began, so a resize arrow does not flick back to the arrow when a fast drag
+  outruns its edge.
+- **An icon takes no clicks.** It makes a node findable, not pressable: a crosshair laid
+  over a map still lets the press through to the map.
+- **Only a mouse or a stylus changes it.** A finger has no cursor and a ray in the world
+  is not the one on the desktop.
+- **The backend is asked when the shape changes**, never per mouse move.
+- **The shape is read when the mouse moves.** A field switched off under a still mouse
+  keeps its I-beam until the mouse next twitches.
+
+`pointer.pointerIcon` says what the shape should be, for a game that draws its own
+cursor. `GdxBackend` and `Lwjgl3Backend` change the real one; on Android and iOS there
+is nothing to change and the call does nothing. A backend that cannot show a shape
+shows the arrow.
+
 ---
 
 ## Text

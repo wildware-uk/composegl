@@ -2,6 +2,7 @@ package dev.wildware.composegl.showcase
 
 import com.badlogic.gdx.math.Vector3
 import dev.wildware.composegl.showcase.world.HoloStand
+import dev.wildware.composegl.ui.backend.SystemCursor
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.input.GamepadEvent
@@ -37,6 +38,8 @@ internal class ShowcaseInput(
     private val budget: FrameBudget,
     /** Where the camera is and where a screen point is pointing, from the game. */
     private val ray: (Float, Float) -> Pair<Vector3, Vector3>,
+    /** The desktop's mouse cursor. Only the HUD's router changes it: a ray has no cursor. */
+    cursor: SystemCursor = SystemCursor.None,
 ) : InputSink {
 
     val focus = FocusManager(root)
@@ -44,7 +47,7 @@ internal class ShowcaseInput(
     /** The panel in the world has focus of its own: a pad could walk its buttons too. */
     val holoFocus = FocusManager(holo.panel.root)
 
-    private val screen = PointerRouter(root, focus)
+    private val screen = PointerRouter(root, focus, cursor)
     private val inWorld = PointerRouter(holo.panel.root, holoFocus)
     private val pointer = WorldPointer(inWorld)
 

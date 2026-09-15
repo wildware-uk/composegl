@@ -135,6 +135,7 @@ back stack, so `OnBack` and prompts work as they do in a game.
 | `assertFocused` · `assertText` · `assertExists` · `assertDoesNotExist` | what the screen shows |
 | `node(tag)` · `texts(tag)` · `text(tag)` | the same, to read rather than assert |
 | `render()` | one whole frame into the backend's canvas |
+| `pointerIcon` | the shape the mouse cursor was given, like `PointerIcon.Text` over a field |
 
 **Every action settles the screen afterwards.** It runs frames until nothing has changed
 for three in a row and no animation is playing. So a click that moves a button is

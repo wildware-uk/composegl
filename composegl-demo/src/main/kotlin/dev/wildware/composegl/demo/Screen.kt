@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.input.PointerIcon
 import dev.wildware.composegl.ui.input.BackStack
 import dev.wildware.composegl.ui.input.Action
 import dev.wildware.composegl.ui.input.InputSourceTracker
@@ -185,7 +186,7 @@ fun Screen(
                         // Proof that a window coordinate made it all the way to a design coordinate,
                         // through the HDPI scale and the letterbox — and that the same coordinate found the
                         // right node underneath it.
-                        state.pointer?.let { PointerCross(it) }
+                        state.pointer?.let { PointerCross(it, state.pointerIcon) }
 
                         // F3, in the corner every game puts it in. Off by default, because it is
                         // a debug tool and this screen is also the picture in the README.
@@ -643,17 +644,27 @@ private fun DemoHotbar(state: DemoState, hotbar: HotbarState) {
     }
 }
 
-/** A cross where the pointer is, drawn straight onto the canvas. */
+/**
+ * A cross where the pointer is, drawn straight onto the canvas — or an I-beam, when the real cursor
+ * was asked for one. A screenshot has no system cursor in it, so this is the one that shows.
+ */
 @Composable
-private fun PointerCross(at: Offset) {
+private fun PointerCross(at: Offset, icon: PointerIcon) {
     val colour = rememberStyle("reticle").textColour
     LeafLayout(
         Modifier.offset(at.x - ReticleSize / 2f, at.y - ReticleSize / 2f).size(ReticleSize),
         name = "reticle",
         draw = { bounds ->
             val centre = bounds.centre
-            rect(Rect(bounds.left, centre.y - 0.5f, bounds.right, centre.y + 0.5f), colour)
-            rect(Rect(centre.x - 0.5f, bounds.top, centre.x + 0.5f, bounds.bottom), colour)
+            if (icon == PointerIcon.Text) {
+                // Two serifs and a stem, the shape every desktop draws for "somewhere to type".
+                rect(Rect(centre.x - 4f, bounds.top, centre.x + 4f, bounds.top + 1f), colour)
+                rect(Rect(centre.x - 0.5f, bounds.top, centre.x + 0.5f, bounds.bottom), colour)
+                rect(Rect(centre.x - 4f, bounds.bottom - 1f, centre.x + 4f, bounds.bottom), colour)
+            } else {
+                rect(Rect(bounds.left, centre.y - 0.5f, bounds.right, centre.y + 0.5f), colour)
+                rect(Rect(centre.x - 0.5f, bounds.top, centre.x + 0.5f, bounds.bottom), colour)
+            }
         },
     )
 }
@@ -808,6 +819,9 @@ class DemoState {
 
     /** Where the pointer is, in design units. Null until it has moved at least once. */
     var pointer: Offset? by mutableStateOf(null)
+
+    /** The shape the pointer router last asked the cursor for. */
+    var pointerIcon by mutableStateOf(PointerIcon.Default)
 
     /** The demo cycles the hotbar until somebody picks a slot, and then stops interfering. */
     var autoCycle by mutableStateOf(true)
