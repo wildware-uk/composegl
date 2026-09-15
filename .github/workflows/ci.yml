@@ -110,6 +110,14 @@ jobs:
           GALLIUM_DRIVER: llvmpipe
         run: env -u DISPLAY ./gradlew :composegl-korge:jvmTest --rerun-tasks --stacktrace
 
+      # The KorGE demo booted for real with no display, driven from its menu into settings and the game.
+      - name: The KorGE demo, booted and played with no display
+        env:
+          KORGE_HEADLESS: 'true'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GALLIUM_DRIVER: llvmpipe
+        run: env -u DISPLAY ./gradlew :composegl-demo-korge:check --rerun-tasks --stacktrace
+
       - name: Prove the runtime redraws only when something changed
         env:
           SPIKE_S6_HEADLESS: '1'

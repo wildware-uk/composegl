@@ -9,17 +9,19 @@ already set up.
 
 ## What is published
 
-Seven modules, under `dev.wildware.composegl`:
+Nine modules, under `dev.wildware.composegl`:
 
 | | |
 |---|---|
-| `composegl-ui` | the toolkit. JVM and Linux x64 |
-| `composegl-effects` | the shipped shader effects. JVM and Linux x64 |
+| `composegl-ui` | the toolkit. JVM, Linux x64, iOS (arm64 and simulator arm64) and WebAssembly (`wasmJs`) |
+| `composegl-effects` | the shipped shader effects. The same four as the toolkit |
 | `composegl-gdx` | the LibGDX backend. JVM |
+| `composegl-korge` | the KorGE backend. JVM |
 | `composegl-lwjgl3` | the raw OpenGL backend. JVM |
+| `composegl-webgl` | the browser backend. WebAssembly (`wasmJs`) |
 | `composegl-android` | the Android half of a backend. An `.aar` |
 | `composegl-robovm` | the iOS half of a backend. JVM |
-| `composegl-testing` | the shared scenes and golden comparison. JVM |
+| `composegl-testing` | the shared scenes and golden comparison. JVM and WebAssembly (`wasmJs`) |
 
 The demos and the spikes are not published, and the list that decides is in the
 root `build.gradle.kts`. It is opt-in: a new module stays unpublished, silently,
@@ -179,7 +181,7 @@ wrong key fails the run with nothing uploaded and no tag to go and delete.
 `composegl-android` ships an **empty** javadoc jar. Central refuses a release
 with no javadoc jar at all, and the Android plugin's generator is a version of
 Dokka old enough to fail on a modern JDK's version string. Everything in that
-module is documented in the source and here. The other six generate theirs
+module is documented in the source and here. The others generate theirs
 normally.
 
 ---
