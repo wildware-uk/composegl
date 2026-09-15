@@ -2,6 +2,9 @@
 
 A UI toolkit for games, built on `androidx.compose.runtime` and nothing else.
 
+**Try it in your browser: [the showcase](https://wildware-uk.github.io/composegl/)** — click, type or
+pick up a pad and go round every widget, layout, animation and effect, live.
+
 You write `Text("Score: $score")`. It is drawn with OpenGL, through your engine,
 inside your game loop — no separate window, no web view, no second thread, no
 Android dependency.

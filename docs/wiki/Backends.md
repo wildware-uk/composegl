@@ -119,10 +119,28 @@ one draw call. A character outside ASCII and Latin-1 is drawn on demand the firs
 time a label needs it — including from the system's fallback fonts — rather than
 coming out as `?`.
 
-Try it: `./gradlew :composegl-demo-web:wasmJsBrowserDevelopmentRun`. The same demo
-is what the Pages workflow publishes.
+**Try it: [the showcase](https://wildware-uk.github.io/composegl/)**, a tour of every
+widget, layout, animation, effect and debug tool, published to GitHub Pages from
+`composegl-demo-web` on every push to master. It works with a mouse, a keyboard, a pad and
+a phone's touch screen. To run it locally:
+`./gradlew :composegl-demo-web:wasmJsBrowserDevelopmentRun`.
 
-![the web demo in Chromium: a card with a callsign field, a volume slider and bar, a toggle, a checkbox and two buttons](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/web-demo.png)
+![the showcase in Chromium: the section list down the side, and the landing page with a live HUD and a tile for every section](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/web-demo.png)
+
+The showcase's screens are common code, so their logic is tested on the JVM with
+`uiTest`; `:composegl-demo-web:wasmJsBrowserTest` loads the whole thing in headless
+Chromium and clicks, taps and pages through every section.
+
+What differs in a browser, today:
+
+- **Emoji** come from the visitor's system fonts, drawn once into the glyph atlas. A
+  machine with no emoji font shows boxes, and colour emoji are tinted by the label's
+  colour like any glyph.
+- **Joined scripts** such as Arabic are drawn a character at a time, so letters do not
+  join. Hebrew and other scripts without joining forms are fine.
+- **Pads** appear only after a button is pressed while the page has focus — a browser
+  rule, not the toolkit's.
+- **Frame times** are coarse, because browsers blunt their clocks on purpose.
 
 The backend is held to the same scenes as the other two. Its own goldens are drawn
 in headless Chromium with WebGL in software, and the scenes with no text in them are

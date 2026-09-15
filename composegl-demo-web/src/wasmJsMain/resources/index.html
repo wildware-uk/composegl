@@ -3,18 +3,69 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>ComposeGL in a browser</title>
+    <title>ComposeGL showcase: game UI in Compose, drawn with WebGL</title>
+    <meta name="description" content="ComposeGL is Compose-style game UI drawn inside your game's own OpenGL or WebGL frame. Click round every widget, layout, animation and effect, live in your browser.">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230B0E13'/%3E%3Crect x='12' y='14' width='40' height='36' rx='7' fill='none' stroke='%234CC2FF' stroke-width='5'/%3E%3Crect x='20' y='36' width='24' height='6' rx='3' fill='%234CC2FF'/%3E%3C/svg%3E">
     <style>
         html, body { margin: 0; height: 100%; background: #0b0e13; overflow: hidden; }
-        #game { display: block; width: 100vw; height: 100vh; }
-        #loading { position: absolute; inset: 0; display: grid; place-items: center; color: #8a98a8;
-                   font: 15px system-ui, sans-serif; pointer-events: none; }
+        #game { display: block; width: 100vw; height: 100vh; height: 100dvh; touch-action: none; }
+        .notice { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px; align-items: center;
+                  justify-content: center; padding: 24px; box-sizing: border-box; color: #9aa4b2; text-align: center;
+                  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+        .notice h1 { margin: 0; font-size: 22px; color: #e6eaf2; font-weight: 600; }
+        .notice a { color: #4cc2ff; }
+        #loading { pointer-events: none; }
+        .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #223040; border-top-color: #4cc2ff;
+                   animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
         body[data-ready] #loading { display: none; }
+        body[data-error] .spinner { display: none; }
+        #unsupported { display: none; }
+        body[data-unsupported] #unsupported { display: flex; }
+        body[data-unsupported] #loading, body[data-unsupported] #game { display: none; }
     </style>
 </head>
 <body>
-<canvas id="game"></canvas>
-<div id="loading">Loading ComposeGL…</div>
-<script src="composegl-demo-web.js"></script>
+<canvas id="game" aria-label="The ComposeGL showcase, drawn with WebGL"></canvas>
+
+<div id="loading" class="notice" role="status">
+    <div class="spinner"></div>
+    <div id="loading-text">Loading ComposeGL…</div>
+</div>
+
+<div id="unsupported" class="notice">
+    <h1>This browser can't run the showcase</h1>
+    <div>It needs WebGL and WebAssembly with garbage collection: a recent Chrome, Edge, Firefox or Safari (18.2 or newer).</div>
+    <div><a href="https://github.com/wildware-uk/composegl">ComposeGL on GitHub</a> · <a href="https://github.com/wildware-uk/composegl/wiki">the wiki, with pictures of every widget</a></div>
+</div>
+
+<noscript>
+    <div class="notice" style="display:flex">
+        <h1>The showcase needs JavaScript</h1>
+        <div>ComposeGL runs here as WebAssembly, which a page can only start with JavaScript switched on.</div>
+        <div><a href="https://github.com/wildware-uk/composegl">ComposeGL on GitHub</a></div>
+    </div>
+</noscript>
+
+<script>
+    (function () {
+        // WebAssembly with garbage collection: a struct type is only valid where the proposal is in.
+        var gc = typeof WebAssembly === "object" &&
+            WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 127, 0]));
+        var probe = document.createElement("canvas");
+        var gl = !!(probe.getContext("webgl2") || probe.getContext("webgl"));
+        if (!gc || !gl) {
+            document.body.setAttribute("data-unsupported", "true");
+            return;
+        }
+        var script = document.createElement("script");
+        script.src = "composegl-demo-web.js";
+        script.onerror = function () {
+            document.body.setAttribute("data-error", "true");
+            document.getElementById("loading-text").textContent = "The showcase could not be downloaded. Check your connection and reload.";
+        };
+        document.body.appendChild(script);
+    })();
+</script>
 </body>
 </html>

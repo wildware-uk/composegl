@@ -7,6 +7,9 @@
 
 **Write your game's interface in Compose. Draw it with OpenGL, inside your own frame.**
 
+**Try it in your browser: https://wildware-uk.github.io/composegl/** — every widget, layout, animation
+and effect, running live in one WebGL canvas.
+
 The Compose runtime you already know — `@Composable`, `remember`, recomposition — with everything
 above it replaced. Our own layout, widgets, renderer and input, built for games rather than apps.
 No Android, no Compose UI, no second window.
