@@ -95,9 +95,14 @@ fun PromptGlyph(
     // off the line of the sentence. Inherited from whatever text style is around it, and from the
     // skin's ordinary label when there is nothing around it.
     val inherited = LocalContentStyle.current
-    val line = lineStyle ?: inherited?.textStyle ?: rememberStyle("label").textStyle
+    // Both scaled, the sentence's line and the letter on the key: a prompt that stayed small in a
+    // sentence the player made bigger would sit off its line and be the one thing they cannot read.
+    // The inherited style is the one the widget round this resolved, not one it already scaled.
+    val line = rememberScaled(lineStyle ?: inherited?.textStyle ?: rememberStyle("label").textStyle)
+    val letter = rememberScaled(resolved.textStyle)
+    val cap = remember(resolved, letter) { if (letter === resolved.textStyle) resolved else resolved.copy(textStyle = letter) }
 
-    val painter = remember(prompt, resolved, line, fonts) { PromptPainter(prompt.label, resolved, line, fonts) }
+    val painter = remember(prompt, cap, line, fonts) { PromptPainter(prompt.label, cap, line, fonts) }
 
     LeafLayout(modifier, name = "prompt", measurePolicy = painter, draw = painter.draw)
 }

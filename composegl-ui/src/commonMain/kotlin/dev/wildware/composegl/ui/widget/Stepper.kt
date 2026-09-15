@@ -203,7 +203,9 @@ private fun StepperControl(
 
     val valueStyle = rememberStyle("$style.value", states)
     val fonts = rememberFonts()
-    val face = valueStyle.textStyle
+    // At the text scale, because the value's Text is drawn at it: room kept for the unscaled widest
+    // option is too narrow for the scaled one, and the arrows would move as the words change.
+    val face = rememberScaled(valueStyle.textStyle)
     val widest = remember(sizing, face, fonts) { sizing.maxOfOrNull { fonts.measure(it, face).size.width } ?: 0f }
 
     Layout(

@@ -96,6 +96,45 @@ Two things change underneath, and both are worth knowing:
   once. Everything is cached on the text, the style and the width, so a paragraph
   standing still measures nothing — but a plain label should stay plain.
 
+### Text size, separate from the interface scale
+
+The `Viewport` scales the whole interface. A player who cannot read the words
+does not want bigger panels, bigger icons and bigger gaps too — that spends the
+screen on what was already big enough. So text has its own setting:
+
+```kotlin
+ProvideTextScale(settings.textScale) { Game() }
+```
+
+Everything inside draws its text that many times the size its style says, and
+everything sized by its contents grows to fit: a button round its label, a
+tooltip, a row, a field's height. Anything you gave a fixed size keeps it, and
+text in it wraps sooner. Icons, bars and padding do not move.
+
+![text at 100%, 125% and 150%: the labels and the button grow, the panel and the icon do not](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-text-scale.png)
+
+- **Every text widget follows it**: `Text`, `Typewriter`, `TextField`,
+  `Tooltip`, `PromptGlyph`, `DamageNumberLayer` and `Minimap`'s compass, and so
+  everything built from them, like `Button` and `Stepper`. A `textStyle` you pass by hand is scaled too.
+- **Nested, they multiply.** A dense panel that asks for `0.85f` inside a
+  player's `1.5f` draws at 1.275, so it still honours the setting.
+- **Changing it re-measures.** It is meant to move when a slider in a settings
+  menu does, not every frame.
+- **Sizes are rounded to whole numbers**, so 16 at 110% is 18, not 17.6. That is
+  what keeps it sharp: the text is measured and baked at the bigger size rather
+  than measured small and stretched.
+
+The one thing to do in return is register the sizes. A backend bakes fonts at
+startup and refuses a size it has never seen, so give it every size at every
+scale your setting offers:
+
+```kotlin
+val sizes = scaledTextSizes(listOf(13, 16, 20), listOf(1f, 1.25f, 1.5f))
+fonts.registerTrueType("body", Gdx.files.internal("fonts/body.ttf"), sizes)
+```
+
+Forget one and the error names the size it wanted and the sizes it has.
+
 ### Laying out text yourself
 
 If you are doing your own inline layout — an icon in the middle of a sentence,

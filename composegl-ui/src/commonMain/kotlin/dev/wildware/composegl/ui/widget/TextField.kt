@@ -161,8 +161,11 @@ fun TextField(
     // composition every time the caret moved.
     val view = remember { FieldView() }
 
-    val metrics = remember(value.text, resolved.textStyle, fonts, multiline) {
-        FieldMetrics(fonts, resolved.textStyle, value.text, multiline)
+    // Scaled once, here: the caret, the selection, a click's letter and the field's own height are
+    // all worked out from these metrics, so they grow with the text and stay on its letters.
+    val face = rememberScaled(resolved.textStyle)
+    val metrics = remember(value.text, face, fonts, multiline) {
+        FieldMetrics(fonts, face, value.text, multiline)
     }
 
     // A phone's keyboard comes up with the field and goes away with it. On a desktop this is two

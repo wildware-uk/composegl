@@ -23,6 +23,7 @@ import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.text.TextOutline
 import dev.wildware.composegl.ui.widget.LocalTextOutline
 import dev.wildware.composegl.ui.widget.rememberFonts
+import dev.wildware.composegl.ui.widget.rememberScaled
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -104,7 +105,13 @@ fun MinimapFrame(
     val fonts = rememberFonts()
     val skin = LocalSkin.current
     val frame = rememberStyle(style)
-    val letters = rememberStyle("$style.compass")
+    val compassStyle = rememberStyle("$style.compass")
+    // The painter keeps every letter it measured, so the scale has to be in the style it is built
+    // from: a new scale is a new painter, and the letters are measured again at the new size.
+    val compassFace = rememberScaled(compassStyle.textStyle)
+    val letters = remember(compassStyle, compassFace) {
+        if (compassFace === compassStyle.textStyle) compassStyle else compassStyle.copy(textStyle = compassFace)
+    }
 
     // The skin itself rather than a style, because a marker may name one of its own and how many
     // names there are is the game's business, not something the composition can hold a slot for.

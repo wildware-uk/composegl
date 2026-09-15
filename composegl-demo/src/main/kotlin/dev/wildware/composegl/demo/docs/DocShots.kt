@@ -99,6 +99,7 @@ import dev.wildware.composegl.ui.widget.Divider
 import dev.wildware.composegl.ui.widget.Image
 import dev.wildware.composegl.ui.widget.NumberStepper
 import dev.wildware.composegl.ui.widget.Panel
+import dev.wildware.composegl.ui.widget.ProvideTextScale
 import dev.wildware.composegl.ui.widget.ScrollArea
 import dev.wildware.composegl.ui.widget.Slider
 import dev.wildware.composegl.ui.widget.Stepper
@@ -479,6 +480,25 @@ private fun MutableList<DocShot>.widgets() {
                 Text("label — the default", style = "label")
                 Text("label.dim, for anything secondary", style = "label.dim")
                 Text("label.body wraps when it runs out of room, which is what a paragraph in a briefing does.", Modifier.width(320f), style = "label.body")
+            }
+        }
+    })
+
+    // The same row three times, only the text size changing: the words and the button round them
+    // grow, the crest beside them and the panel's padding do not.
+    add(DocShot("widget-text-scale", 420, 230) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(10f)) {
+                listOf(1f, 1.25f, 1.5f).forEach { scale ->
+                    ProvideTextScale(scale) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10f), verticalAlignment = VerticalAlignment.Centre) {
+                            Image("icon/crest", Modifier.size(24f))
+                            Text("${(scale * 100).toInt()}%", Modifier.width(56f), style = "label.dim")
+                            Text("HULL 148", style = "label")
+                            Button("ENGAGE", onClick = {})
+                        }
+                    }
+                }
             }
         }
     })
