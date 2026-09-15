@@ -187,8 +187,10 @@ internal class FreeTypeRasteriser : GlyphRasteriser, Disposable {
         registrations += Registration(family, face, sizes, parameter, characters)
     }
 
-    override fun face(family: String, size: Int): RasterFace? =
-        registrations.lastOrNull { it.family == family && size in it.sizes }?.let { Face(it, size) }
+    override fun face(family: String, size: Int): RasterFace? = face(family, size, size)
+
+    override fun face(family: String, size: Int, pixels: Int): RasterFace? =
+        registrations.lastOrNull { it.family == family && size in it.sizes }?.let { Face(it, pixels) }
 
     override fun dispose() {
         registrations.forEach { it.face.dispose() }

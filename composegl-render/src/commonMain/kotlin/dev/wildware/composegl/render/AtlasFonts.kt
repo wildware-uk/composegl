@@ -29,15 +29,49 @@ class Glyph internal constructor(
     val advance: Float,
     /** True for a picture with colours of its own — an emoji — rather than a letter. */
     val colour: Boolean = false,
-)
+    /** The face that made it and the character it draws, for a copy made at a scaled-up size. */
+    internal val face: AtlasFonts.Face? = null,
+    internal val codepoint: Int = 0,
+    /** How many of this glyph's pixels make one design unit: more than one for a copy made for a scaled-up screen. */
+    internal val pixelsPerUnit: Float = 1f,
+    /** A copy that is drawn into its original's box, as a picture is, rather than from its own offsets. */
+    internal val fillsBox: Boolean = false,
+) {
+    private var sharpQuarter = 0
+    private var sharpGeneration = -1
+    private var sharpCopy: Glyph? = null
 
-/** A glyph placed by measuring, in the layout's own coordinates with y downwards from its top. */
+    /**
+     * This glyph made again for a screen [quarter] quarters the design size, or null when it is drawn
+     * as it is: no face to ask, no room, or no gain. The last answer is kept, so a frame after frame at
+     * one scale asks nothing.
+     */
+    internal fun sharp(quarter: Int): Glyph? {
+        val face = face ?: return null
+        val generation = face.sharpGeneration
+        if (quarter == sharpQuarter && generation == sharpGeneration) return sharpCopy
+        val copy = face.sharp(codepoint, quarter)
+        sharpQuarter = quarter
+        sharpGeneration = face.sharpGeneration
+        sharpCopy = copy
+        return copy
+    }
+}
+
+/**
+ * A glyph placed by measuring, in the layout's own coordinates with y downwards from its top.
+ *
+ * [pen] and [baseline] are where it was placed from, before its box was snapped to whole units: a
+ * copy of the glyph made for a scaled-up screen has offsets of its own and is placed from them.
+ */
 class PlacedGlyph(
     val left: Float,
     val top: Float,
     val width: Float,
     val height: Float,
     val glyph: Glyph,
+    val pen: Float = left - glyph.xOffset,
+    val baseline: Float = top - glyph.yOffset,
 )
 
 /** Text measured by [AtlasFonts]. The toolkit sees the four properties; the canvas sees the rest. */
@@ -102,6 +136,12 @@ open class AtlasFonts(
     /** Picture families by name: size, then codepoint, then the picture scaled to that size. */
     private val pictureSets = LinkedHashMap<String, LinkedHashMap<Int, LinkedHashMap<Int, RgbaImage>>>()
 
+    /** Picture families by name, then codepoint: each picture as it was given, for a scaled-up screen. */
+    private val pictureSources = HashMap<String, HashMap<Int, RgbaImage>>()
+
+    /** Copies of glyphs made at a scaled-up screen's own size. */
+    private val sharp = SharpGlyphs(maxOf(pageSize, SharpPageSize), smoothPages, atlasOwner).also { atlas.sharp = it }
+
     private val faces = HashMap<Key, Face>()
     private val chains = HashMap<Key, Chain>()
 
@@ -146,6 +186,7 @@ open class AtlasFonts(
         val bySize = pictureSets.getOrPut(family) { LinkedHashMap() }
         pictures.forEach { (text, image) ->
             val codepoint = codepointOf(text)
+            pictureSources.getOrPut(family) { HashMap() }[codepoint] = image
             sizes.distinct().forEach { size ->
                 val scaledWidth = (image.width * size / image.height.toFloat()).roundToInt().coerceAtLeast(1)
                 bySize.getOrPut(size) { LinkedHashMap() }[codepoint] =
@@ -268,6 +309,8 @@ open class AtlasFonts(
                     width = glyph.width,
                     height = glyph.height,
                     glyph = glyph,
+                    pen = pen,
+                    baseline = baseline,
                 )
             }
             pen += glyph.advance
@@ -374,9 +417,9 @@ open class AtlasFonts(
     private fun faceFor(key: Key): Face? {
         faces[key]?.let { return it }
         val face = if (fontSizes[key.family]?.contains(key.size) == true) {
-            rasteriser.face(key.family, key.size)?.let { Face(it, null, key.size) }
+            rasteriser.face(key.family, key.size)?.let { Face(it, null, key.family, key.size) }
         } else {
-            pictureSets[key.family]?.get(key.size)?.let { Face(null, it, key.size) }
+            pictureSets[key.family]?.get(key.size)?.let { Face(null, it, key.family, key.size) }
         }
         if (face != null) faces[key] = face
         return face
@@ -409,9 +452,21 @@ open class AtlasFonts(
      * One family at one size: a font through the rasteriser, or a set of pictures. Glyphs are made
      * the first time they are asked for and kept.
      */
-    private inner class Face(private val raster: RasterFace?, private val pictures: Map<Int, RgbaImage>?, private val size: Int) {
+    internal inner class Face(
+        private val raster: RasterFace?,
+        private val pictures: Map<Int, RgbaImage>?,
+        private val family: String,
+        private val size: Int,
+    ) {
 
         private val glyphs = HashMap<Int, Glyph>()
+
+        /** Copies made for a scaled-up screen, by quarter and codepoint, and the faces they came from by pixel size. */
+        private val sharpGlyphs = HashMap<Long, Glyph>()
+        private val sharpFaces = HashMap<Int, RasterFace>()
+        private var madeIn = 0
+
+        val sharpGeneration: Int get() = sharp.generation
 
         val ascent: Float get() = raster?.ascent ?: 0f
         val descent: Float get() = raster?.descent ?: 0f
@@ -426,7 +481,7 @@ open class AtlasFonts(
         }
 
         private fun make(codepoint: Int): Glyph? {
-            if (pictures != null) return pictures[codepoint]?.let { picture(it) }
+            if (pictures != null) return pictures[codepoint]?.let { picture(it, codepoint) }
             val raster = raster ?: return null
             if (!raster.has(codepoint)) return null
             if (!raster.draw(codepoint, bitmap)) return null
@@ -446,10 +501,66 @@ open class AtlasFonts(
                 spot.page, spot.x, spot.y,
                 bitmap.width.toFloat(), bitmap.height.toFloat(),
                 bitmap.xOffset, bitmap.yOffset, advance, colour,
+                face = this, codepoint = codepoint,
             )
         }
 
-        private fun picture(picture: RgbaImage): Glyph {
+        /** [codepoint] made for a screen [quarter] quarters the design size, or null to draw it as it is. */
+        fun sharp(codepoint: Int, quarter: Int): Glyph? {
+            if (quarter <= SharpGlyphs.One) return null
+            if (madeIn != sharp.generation) {
+                sharpGlyphs.clear()
+                sharpFaces.clear()
+                madeIn = sharp.generation
+            }
+            val key = (quarter.toLong() shl 32) or codepoint.toLong()
+            sharpGlyphs[key]?.let { return if (it === Missing) null else it }
+            val made = makeSharp(codepoint, quarter)
+            // Whatever was made, a copy that was not made is not tried again this generation.
+            if (madeIn == sharp.generation) sharpGlyphs[key] = made ?: Missing
+            return made
+        }
+
+        private fun makeSharp(codepoint: Int, quarter: Int): Glyph? {
+            val pixels = SharpGlyphs.pixelsFor(size, quarter)
+            if (pixels <= size) return null
+            if (pictures != null) return sharpPicture(codepoint, pixels, quarter)
+            val raster = sharpFaces[pixels] ?: rasteriser.face(family, size, pixels)?.also { sharpFaces[pixels] = it } ?: return null
+            if (!raster.has(codepoint) || !raster.draw(codepoint, bitmap)) return null
+            if (bitmap.width <= 0 || bitmap.height <= 0) return null
+            val spot = sharp.place(quarter, bitmap.width, bitmap.height) ?: return null
+            val colour = bitmap.kind == GlyphKind.Colour
+            if (colour) {
+                spot.page.writeRgba(spot.x, spot.y, bitmap.width, bitmap.height, bitmap.pixels)
+            } else {
+                spot.page.writeCoverage(spot.x, spot.y, bitmap.width, bitmap.height, bitmap.pixels)
+            }
+            return Glyph(
+                spot.page, spot.x, spot.y,
+                bitmap.width.toFloat(), bitmap.height.toFloat(),
+                bitmap.xOffset, bitmap.yOffset, raster.advance(codepoint), colour,
+                codepoint = codepoint,
+                pixelsPerUnit = pixels / size.toFloat(),
+            )
+        }
+
+        /** A picture from its source, as tall as the screen wants it or as the source is, whichever is less. */
+        private fun sharpPicture(codepoint: Int, pixels: Int, quarter: Int): Glyph? {
+            val source = pictureSources[family]?.get(codepoint) ?: return null
+            val tall = minOf(pixels, source.height)
+            if (tall <= size) return null
+            val wide = (source.width * tall / source.height.toFloat()).roundToInt().coerceAtLeast(1)
+            val spot = sharp.place(quarter, wide, tall) ?: return null
+            spot.page.writeRgba(spot.x, spot.y, wide, tall, shrink(source.pixels, source.width, source.height, wide, tall))
+            return Glyph(
+                spot.page, spot.x, spot.y, wide.toFloat(), tall.toFloat(), 0f, 0f, 0f, colour = true,
+                codepoint = codepoint,
+                pixelsPerUnit = tall / size.toFloat(),
+                fillsBox = true,
+            )
+        }
+
+        private fun picture(picture: RgbaImage, codepoint: Int): Glyph {
             val spot = atlas.place(picture.width, picture.height)
             spot.page.writeRgba(spot.x, spot.y, picture.width, picture.height, picture.pixels)
             val gap = (size / 16f).roundToInt().coerceAtLeast(1)
@@ -464,12 +575,14 @@ open class AtlasFonts(
                 yOffset = -(picture.height - (size * PictureDrop).roundToInt()).toFloat(),
                 advance = (picture.width + gap * 2).toFloat(),
                 colour = true,
+                face = this,
+                codepoint = codepoint,
             )
         }
     }
 
     /** A face with its fallbacks behind it. Every metric is the primary's. */
-    private class Chain(val primary: AtlasFonts.Face, private val fallbacks: List<AtlasFonts.Face>) {
+    private class Chain(val primary: Face, private val fallbacks: List<Face>) {
 
         fun glyph(codepoint: Int): Glyph? {
             if (codepoint == 0xFE0E || codepoint == 0xFE0F) return null
@@ -485,8 +598,10 @@ open class AtlasFonts(
      */
     override fun close() {
         atlas.close()
+        sharp.close()
         fontSizes.clear()
         pictureSets.clear()
+        pictureSources.clear()
         faces.clear()
         chains.clear()
     }
@@ -495,6 +610,9 @@ open class AtlasFonts(
 
         /** How far below the baseline a picture's bottom edge sits, as a share of the text size. */
         const val PictureDrop = 0.12f
+
+        /** The smallest page glyphs made for a scaled-up screen go on. */
+        private const val SharpPageSize = 1024
 
         private val Missing = Glyph(null, 0, 0, 0f, 0f, 0f, 0f, 0f)
 

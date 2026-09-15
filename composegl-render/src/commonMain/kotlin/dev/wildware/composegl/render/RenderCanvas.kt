@@ -19,6 +19,7 @@ import dev.wildware.composegl.ui.graphics.featherOutline
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextLayout
 import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 /**
@@ -72,6 +73,9 @@ open class RenderCanvas protected constructor(
 
     /** How wide a softened edge is, in design units: one screen pixel, whatever the scale. */
     private var antialias = 1f
+
+    /** The frame's scale to the nearest quarter, as a count of quarters: what glyphs are made again at. */
+    private var quarter = SharpGlyphs.One
 
     private val projection = FloatArray(16)
 
@@ -147,6 +151,8 @@ open class RenderCanvas protected constructor(
         this.viewport = viewport
         state = CanvasState(Rect.of(0f, 0f, viewport.design.width, viewport.design.height))
         antialias = 1f / minOf(viewport.scaleX, viewport.scaleY).coerceAtLeast(0.0001f)
+        quarter = SharpGlyphs.quarterOf(maxOf(viewport.scaleX, viewport.scaleY))
+        atlas?.sharp?.beginFrame()
 
         // The letterbox and the scale live here, so nothing below has to think about them.
         setViewport(
@@ -328,6 +334,12 @@ open class RenderCanvas protected constructor(
             val glyph = placed.glyph
             if (ring && glyph.colour) continue
             val on = glyph.page ?: continue
+            val sharp = if (quarter > SharpGlyphs.One) glyph.sharp(quarter) else null
+            if (sharp != null) {
+                drawSharp(sharp, placed, x, y, if (sharp.colour) pictureTint else tint)
+                page = null
+                continue
+            }
             if (on !== page) {
                 page = on
                 texture = on.texture(device)
@@ -346,6 +358,49 @@ open class RenderCanvas protected constructor(
                 tint = if (glyph.colour) pictureTint else tint,
             )
         }
+    }
+
+    /**
+     * A glyph's copy made for this frame's scale, in the design-unit place its original was measured
+     * into. A letter is placed from its own offsets and snapped to the screen's pixels, so each of its
+     * pixels lands on one of the screen's; a picture fills its original's box.
+     */
+    private fun drawSharp(sharp: Glyph, placed: PlacedGlyph, x: Float, y: Float, tint: Colour) {
+        val on = checkNotNull(sharp.page)
+        // Every time: a copy made just now is on the page but not yet uploaded.
+        val texture = on.texture(device)
+        val left: Float
+        val top: Float
+        val width: Float
+        val height: Float
+        if (sharp.fillsBox) {
+            left = x + placed.left
+            top = y + placed.top
+            width = placed.width
+            height = placed.height
+        } else {
+            val scaleX = viewport.scaleX
+            val scaleY = viewport.scaleY
+            val originX = layer?.bounds?.left ?: 0f
+            val originY = layer?.bounds?.top ?: 0f
+            left = originX + floor((x + placed.pen + sharp.xOffset / sharp.pixelsPerUnit - originX) * scaleX + 0.5f) / scaleX
+            top = originY + floor((y + placed.baseline + sharp.yOffset / sharp.pixelsPerUnit - originY) * scaleY + 0.5f) / scaleY
+            width = sharp.width / sharp.pixelsPerUnit
+            height = sharp.height / sharp.pixelsPerUnit
+        }
+        val size = on.size.toFloat()
+        batch().textured(
+            texture = texture,
+            left = left,
+            bottom = flip(top + height),
+            width = width,
+            height = height,
+            u = sharp.x / size,
+            v = sharp.y / size,
+            u2 = (sharp.x + sharp.width) / size,
+            v2 = (sharp.y + sharp.height) / size,
+            tint = tint,
+        )
     }
 
     /** The picture being drawn, resolved once per call into fields rather than a fresh object. */
@@ -919,6 +974,7 @@ open class RenderCanvas protected constructor(
         ownWhite = null
         whiteSpot = null
         atlas?.forget(device)
+        atlas?.sharp?.atlas?.forget(device)
     }
 
     /**
@@ -928,6 +984,7 @@ open class RenderCanvas protected constructor(
     override fun close() {
         layers.close()
         atlas?.release(device)
+        atlas?.sharp?.atlas?.release(device)
         ownWhite?.let(device::delete)
         ownWhite = null
         whiteSpot = null
@@ -939,7 +996,10 @@ open class RenderCanvas protected constructor(
      * panel and its label are one draw call; a one-pixel texture of this canvas's own when not.
      */
     private fun white(): WhiteSpot {
-        val atlas = atlas
+        val fonts = atlas
+        // On a scaled-up frame, from the page the sharp glyphs are on, so a panel and its label are
+        // still one draw call.
+        val atlas = if (fonts != null && quarter > SharpGlyphs.One) fonts.sharp?.atlas ?: fonts else fonts
         val cached = whiteSpot
         if (atlas == null) {
             if (cached != null) return cached
