@@ -17,7 +17,7 @@ Gradle plugin. It is a multiplatform module with only the JVM target turned on f
 | `KorgeFonts.kt` | The `FontProvider`. It registers TTF fonts by family and size and makes glyphs the first time they are needed. It wraps lines with the toolkit's own `paragraph()`. It needs no OpenGL. |
 | `KorgeTexture.kt` | A KorGE `Bitmap` as a `TextureHandle`. |
 | `KorgeClipboard.kt`, `KorgeSoftKeyboard.kt`, `KorgeSystemCursor.kt` | Small wrappers round KorGE's `GameWindow`. |
-| `ComposeGlView.kt` | A KorGE `View` that hosts a screen. It fits the design into its box, drives the frame, and sends mouse events to the `PointerRouter`. `Container.composeGl(...)` is the one-line entry. |
+| `ComposeGlView.kt` | A KorGE `View` that hosts a screen. It fits the design into its box, drives the frame, and wires every kind of input (see Input below). `Container.composeGl(...)` is the one-line entry. |
 
 Tests live in `src/jvmTest`. `KorgeGl.kt` boots one shared KorGE game and runs work inside its frames.
 They run under `xvfb-run -a` and also with `KORGE_HEADLESS=true` and no display.
@@ -80,14 +80,28 @@ Each item names the files it should touch. Items that name different files can g
 have GPU tests like gdx's. One difference: KorGE's cap height is the font's own fraction, where
 FreeType rounds it to a whole pixel for gdx.
 
-### Input (new files only)
+### Input — done
 
-- `KorgePointerInput.kt`: take the translation out of `ComposeGlView.onMouse` and add touch, scroll,
-  cancel on focus loss, and a HiDPI check (does `MouseEvent.x` count window or framebuffer pixels?).
-- `KorgeKeyboardInput.kt`, `KorgeTextInput.kt`: KorGE `KeyEvent` into toolkit `KeyEvent`/`TextEvent`.
-- `KorgeGamepadInput.kt`: KorGE's `GamepadInfo` into `GamepadEvent`.
-- `KorgeHaptics.kt`: `GameWindow.hapticFeedbackGenerate`.
-- Soft-keyboard height for the safe area: `KorgeSoftKeyboard.kt`.
+- ~~`KorgePointerInput.kt`~~ Done: mouse, touch with several fingers, drag, scroll, cancel on focus
+  loss. HiDPI answer: a KorGE `MouseEvent` already counts framebuffer pixels (the AWT window scales
+  it before dispatching), so nothing scales it again. Touches arrive in stage units and are brought
+  back with `globalToWindowCoords`. KorGE's `emulated` copies (touch from mouse, mouse from touch)
+  are ignored.
+- ~~`KorgeKeyboardInput.kt`, `KorgeTextInput.kt`~~ Done: a full key table, repeat detection, and
+  typed text with control characters dropped. KorGE 6 exposes no input-method preedit, so there is
+  no underlined provisional text; committed text still arrives. `KorgeTextInput` is the fields'
+  `TextInput` and tracks the open field.
+- ~~`KorgeGamepadInput.kt`~~ Done: snapshots into button, stick and trigger events, lowest free
+  `GamepadId`, dead zone, y flipped (KorGE's +1 is up).
+- ~~`KorgeHaptics.kt`~~ Done: the window's haptic engine, then `NativeVibration`, chosen by
+  `InputSourceTracker`. KorGE has no pad rumble.
+- ~~Soft-keyboard height~~ Done as `KorgeSoftKeyboard.height`: KorGE cannot report it, so a game
+  that can ask its platform passes it in (`KorgeBackend(keyboardHeight = …)`).
+- `KorgeSystemCursor` has a shape for all ten icons; "not allowed" is a drawn custom cursor.
+- `KorgeInput.kt` listens to a stage and feeds one sink; `ComposeGlView` uses it and wires key
+  routing, key and pad navigation, the virtual cursor, the back stack, text input and the source
+  tracker. Split-screen: views with `listens = false` behind an `InputRouter`.
+  `KorgeInputScreenTest` drives all of it with real KorGE events.
 
 ### Everything else
 
