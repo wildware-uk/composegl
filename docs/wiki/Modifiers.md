@@ -41,7 +41,45 @@ Modifier.padding(12f)
 Modifier.padding(horizontal = 16f, vertical = 8f)
 Modifier.padding(left = 28f, bottom = 28f)
 Modifier.offset(x = 0f, y = 2f)    // move it, without moving anything else
+Modifier.parallax(pointer, factor = -0.02f) // …by how far the pointer is from the middle
 ```
+
+**Parallax is cheap depth.** Each layer is offset by a *factor* times how far a
+*source* has moved from rest — the far layer at a small factor, the near one at a
+bigger one:
+
+```kotlin
+val pointer = remember { PointerParallax(centre = Offset(640f, 360f)) }
+val stick = remember { StickParallax(reach = Offset(640f, 360f)) }
+val sink = ParallaxAware(toolkitSink, pointer = pointer, stick = stick)  // hand this to the backend
+
+Image(sky, Modifier.parallax(pointer, factor = -0.02f).parallax(stick, factor = -0.02f))
+Image(hills, Modifier.parallax(pointer, factor = -0.06f).parallax(stick, factor = -0.06f))
+```
+
+![the same three layers with the pointer in the middle and at the right edge](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-parallax.png)
+
+Three sources come with it:
+
+- `PointerParallax(centre)` — how far the pointer is from `centre`. Back to rest when
+  the mouse leaves the window or a finger lifts.
+- `StickParallax(reach)` — the right stick by default, since the left one is moving
+  focus. Full tilt is worth `reach`, so the same factor means the same thing for a
+  stick as for a mouse. Back to rest when the pad is unplugged.
+- `ScrollParallax(scrollState)` — how far a `ScrollArea`'s rows have moved. Factor
+  one travels with the rows; a half travels at half their speed.
+
+`ParallaxAware` wraps the sink a backend pushes into so the sources see every event,
+including the ones a button uses; the answers are the sink's, unchanged. Anything
+else that moves can be a source too: implement `ParallaxSource` with a
+state-backed `position`.
+
+It is an `offset` and nothing more, so layout does not move — neighbours keep their
+places — while clicks move with the picture. A positive factor follows the source;
+a negative one leans away from it. Two on one widget add up. The source is read while
+composing, so each move recomposes the composable that wrote the modifier: keep the
+layers in a small composable of their own. A still source costs nothing. Give a layer
+that fills the screen a margin, or `clip` its parent, or its edge shows as it drifts.
 
 **Where it goes**
 

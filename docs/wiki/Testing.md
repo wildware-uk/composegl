@@ -130,7 +130,7 @@ back stack, so `OnBack` and prompts work as they do in a game.
 | `click(tag)` · `press(tag)` · `release()` · `moveTo(tag)` · `scroll(tag, delta)` | the mouse, at the middle of the node |
 | `key(Key.Tab)` · `key(Key.Tab, Modifiers.Shift)` · `keyDown` · `keyUp` | a key, to the focused widget first |
 | `type("Ada")` | text to the focused widget, one character at a time |
-| `pad(GamepadButton.South)` · `padDown` · `padUp` · `stick(x, y)` | a pad |
+| `pad(GamepadButton.South)` · `padDown` · `padUp` · `stick(x, y)` | a pad; `stick(x, y, horizontal = RightX, vertical = RightY)` for the right stick |
 | `advanceBy(millis)` | game time passing, a frame at a time |
 | `assertFocused` · `assertText` · `assertExists` · `assertDoesNotExist` | what the screen shows |
 | `node(tag)` · `texts(tag)` · `text(tag)` | the same, to read rather than assert |
@@ -161,6 +161,13 @@ focused fails too.
 `type` returns whether every character was taken, so a full field refusing the rest is
 something a test can check. Clicks, keys and pad buttons return whether anything used
 them.
+
+A game that wraps its sink — `ParallaxAware` in front of the toolkit, say — wraps the
+test's the same way, so every event the test sends passes through it first:
+
+```kotlin
+uiTest(input = { ParallaxAware(it, pointer = pointer) }) { Menu(pointer) }
+```
 
 Headless by default. Pass a real backend and the same test reads pixels back:
 
