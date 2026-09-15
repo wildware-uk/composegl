@@ -3,6 +3,8 @@ package dev.wildware.composegl.ui.debug
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.node.UiTree
 import kotlin.time.TimeSource
 
 /**
@@ -44,11 +46,52 @@ import kotlin.time.TimeSource
  *
  * @param window how many frames the averages and the worst case are taken over.
  * @param publishEveryMillis how often [reading] is refreshed.
+ * @param busiest how many of the nodes that changed most to list in [FrameReading.busiest]. Zero
+ *   lists none, and leaves the tree not counting at all.
  */
 class FrameBudget(
     val window: Int = 120,
     val publishEveryMillis: Long = 250L,
+    busiest: Int = 0,
 ) {
+
+    /**
+     * How many of the tree's busiest nodes each [reading] names: the ones the most frames changed,
+     * most first, counted since the budget started listing them or was [reset].
+     *
+     * The answer to "what keeps redrawing?" A still screen lists nothing, and a node recomposed with
+     * a lambda written inline climbs every frame it recomposes, so it is at the top within a second.
+     * The tree it counts is the one [watch] was handed, which a [dev.wildware.composegl.ui.host.UiRenderer]
+     * does for itself. Counting costs an increment per change and runs only while this is above zero
+     * and the budget [isOn]; the list is made when the reading is published, not every frame.
+     */
+    var busiest: Int = busiest
+        set(value) {
+            field = value
+            syncWatching()
+        }
+
+    private var tree: UiTree? = null
+
+    /** The tree whose counts this budget is relying on right now, or null. */
+    private var watching: UiTree? = null
+
+    /**
+     * The tree [busiest] is counted on. A renderer calls this with its own; a game writing its frame
+     * out itself calls it once with `host.tree`.
+     */
+    fun watch(tree: UiTree) {
+        this.tree = tree
+        syncWatching()
+    }
+
+    private fun syncWatching() {
+        val wanted = if (measuring && busiest > 0) tree else null
+        if (wanted === watching) return
+        watching?.stopWatchingChanges()
+        wanted?.watchChanges()
+        watching = wanted
+    }
 
     /**
      * Whether to measure anything at all.
@@ -63,6 +106,7 @@ class FrameBudget(
             measuring = value
             shown = value
             if (!value) reading = FrameReading.Nothing
+            syncWatching()
         }
 
     private var shown: Boolean by mutableStateOf(true)
@@ -200,8 +244,27 @@ class FrameBudget(
             // The published frame's, like the draw call count beside it: a still screen cuts its
             // batch in the same places every frame, and an average of whole calls reads worse.
             culprits = trace.culprits(),
+            busiest = watching?.let { busiestIn(it.root, busiest) } ?: emptyList(),
         )
         trace.clear()
+    }
+
+    /** The [count] nodes the most frames changed, most first and in tree order where two are level. */
+    private fun busiestIn(root: UiNode, count: Int): List<BusyNode> {
+        val changed = mutableListOf<UiNode>()
+        collectChanged(root, changed)
+        return changed.sortedByDescending { it.changes }.take(count).map { BusyNode(it.name, it.testTag, it.changes) }
+    }
+
+    /**
+     * Every node that has changed, parents first, but the debug overlays and what is inside them: the
+     * budget's own numbers change four times a second by design and are not what anybody is looking for.
+     */
+    private fun collectChanged(node: UiNode, into: MutableList<UiNode>) {
+        if (isDebugOverlay(node)) return
+        if (node.changes > 0) into += node
+        val children = node.children
+        for (index in children.indices) collectChanged(children[index], into)
     }
 
     private fun mean(values: LongArray): Float {
@@ -233,7 +296,26 @@ class FrameBudget(
         lastPublishNanos = -publishEveryMillis * 1_000_000
         trace.clear()
         reading = FrameReading.Nothing
+        watching?.resetChangeCounts()
     }
+}
+
+/**
+ * One of the nodes that changed most, as a reading names it.
+ *
+ * Names rather than the node, so a reading stays a value: equal when nothing about it moved, and
+ * holding on to nothing a screen has since thrown away.
+ */
+data class BusyNode(
+    /** What the node is called: `text`, `box`, whatever the widget named it. */
+    val name: String,
+    /** Its test tag, when it has one. */
+    val tag: String?,
+    /** How many frames changed it. See [UiNode.changes]. */
+    val changes: Int,
+) {
+    /** The tag as `#tag` when there is one, the name otherwise. What the overlay prints. */
+    val label: String get() = tag?.let { "#$it" } ?: name
 }
 
 /**
@@ -261,6 +343,8 @@ data class FrameReading(
      * [dev.wildware.composegl.ui.graphics.UiCanvas.tracesDrawCalls].
      */
     val culprits: List<DrawCallCulprit> = emptyList(),
+    /** The nodes the most frames changed, most first. Empty unless [FrameBudget.busiest] asks. */
+    val busiest: List<BusyNode> = emptyList(),
 ) {
     companion object {
         val Nothing = FrameReading(0f, 0f, 0f, 0f, 0f, -1, 0L, 0L)

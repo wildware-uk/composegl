@@ -194,6 +194,31 @@ class UiNode(var name: String = "node") {
      */
     internal var everMeasured = false
 
+    /**
+     * How many frames changed this node while its tree was counting: a different chain, a new
+     * [content] or [ink], a child added, removed or moved, a size or place stepped by an animation.
+     *
+     * Frames rather than changes, so a recomposition that hands a node a new chain and a new content
+     * in one go counts once. A node recomposed with arguments equal to the last hears nothing and
+     * counts nothing — which is right, because it is not redrawn either. A still screen's counts
+     * stand still; one that climbs every frame is the lambda written inline.
+     *
+     * Zero until something turns counting on — [UiTree.countChanges], a
+     * [dev.wildware.composegl.ui.debug.RedrawOverlay], a budget listing its busiest nodes — and
+     * back to zero after [UiTree.resetChangeCounts].
+     */
+    var changes: Int = 0
+        internal set
+
+    /** The frame time [changes] last went up at, or [NeverChanged]. What a redraw overlay flashes by. */
+    internal var changedAtNanos: Long = NeverChanged
+
+    internal fun noteChange(frameNanos: Long) {
+        if (changes > 0 && changedAtNanos == frameNanos) return
+        changes++
+        changedAtNanos = frameNanos
+    }
+
     // --- what `onSizeChanged` and `onPlaced` were last told ---
     //
     // NaN and null mean "nothing yet", so the first pass that reaches a watching node is a change.
@@ -678,9 +703,9 @@ class UiNode(var name: String = "node") {
         return Offset(x / scale, y / scale)
     }
 
-    /** Tells the tree that this frame is not the same as the last one. */
+    /** Tells the tree that this frame is not the same as the last one, and that this node is why. */
     fun invalidate() {
-        tree?.invalidate()
+        tree?.invalidate(this)
     }
 
     // --- structure. Only the applier calls these; the tests call them directly too, because a
@@ -692,7 +717,9 @@ class UiNode(var name: String = "node") {
         child.parent = this
         child.attachTo(tree)
         cachedDrawOrder = null
-        invalidate()
+        // The child is what appeared, so the child is what changed. A removal or a move below is the
+        // parent's, because what is left to point at is the parent.
+        tree?.invalidate(child)
     }
 
     internal fun removeAt(index: Int, count: Int) {
@@ -849,12 +876,51 @@ class UiTree(val root: UiNode = UiNode("root")) {
         changed = true
     }
 
+    /** The same, naming the node that changed, so it is counted while the tree is counting. */
+    internal fun invalidate(node: UiNode) {
+        changed = true
+        if (counting) node.noteChange(clocks.frameNanos)
+    }
+
     /**
      * Asks for the next frame to be drawn, for something that moved only in the drawing — a
      * marquee sliding along. The tree still reports a change, because the picture is different.
      */
-    internal fun redraw() {
+    internal fun redraw(node: UiNode) {
         moved = true
+        if (counting) node.noteChange(clocks.frameNanos)
+    }
+
+    /**
+     * Whether every node keeps [UiNode.changes]: how many frames changed it.
+     *
+     * Off by default. On, a change costs an increment on the node that changed, and a frame where
+     * nothing changed costs nothing at all. A [dev.wildware.composegl.ui.debug.RedrawOverlay] and a
+     * budget listing its busiest nodes turn counting on for as long as they need it without touching
+     * this; this is for a test or a game that wants the numbers on their own.
+     */
+    var countChanges: Boolean = false
+
+    /** Overlays and budgets currently relying on the counts. See [watchChanges]. */
+    private var changeWatchers = 0
+
+    internal val counting: Boolean get() = countChanges || changeWatchers > 0
+
+    /** Counts changes until the matching [stopWatchingChanges], whatever [countChanges] says. */
+    internal fun watchChanges() {
+        changeWatchers++
+    }
+
+    internal fun stopWatchingChanges() {
+        if (changeWatchers > 0) changeWatchers--
+    }
+
+    /** Every node's [UiNode.changes] back to zero. What a game calls after loading a level. */
+    fun resetChangeCounts() {
+        root.forEach {
+            it.changes = 0
+            it.changedAtNanos = NeverChanged
+        }
     }
 
     /**
@@ -908,3 +974,6 @@ class UiTree(val root: UiNode = UiNode("root")) {
 
     override fun toString(): String = root.debugTree()
 }
+
+/** The frame time of a node that has not changed since counting began. */
+internal const val NeverChanged = Long.MIN_VALUE

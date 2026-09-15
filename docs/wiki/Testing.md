@@ -327,7 +327,7 @@ Put it last, like `LayoutOverlay`. Each frame it draws the whole tree a second t
 a counter instead of the screen, then shades the counts. So it counts the calls the
 frame really made — a background, a border, a shadow's whole spread, each run of text,
 each picture — it follows every change, and a still screen with it on stays still. Its
-own shading is not counted, nor `LayoutOverlay`'s, `Inspector`'s or `FocusOverlay`'s marks. Take it off
+own shading is not counted, nor `LayoutOverlay`'s, `Inspector`'s, `FocusOverlay`'s or `RedrawOverlay`'s marks. Take it off
 before shipping.
 
 ![a panel with a card, a button and a translucent scrim over half of it, shaded blue, green and pink where they stack](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/overdraw-overlay.png)
@@ -441,6 +441,51 @@ the frame changed. Take it off before shipping.
 ![a menu of four buttons with arrows from the focused one, and a round button tinted with red corners](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/focus-overlay.png)
 
 Holes are found by asking the shape in 4-unit squares, so their edges are steps.
+
+---
+
+## What keeps redrawing
+
+A still screen should cost almost nothing. When one does not, `RedrawOverlay` shows what
+is changing:
+
+```kotlin
+Box(Modifier.fillMaxSize()) {
+    Game()
+    RedrawOverlay(enabled = debug)                    // flashes fade over half a second
+    RedrawOverlay(enabled = debug, holdMillis = 2000) // or longer, for something that blinks
+}
+```
+
+Every node that changed gets a red border on the frame it changed, fading out. "Changed"
+means what makes a frame redraw: a new modifier chain, a new drawing lambda, a child added
+(the child flashes) or removed (the parent flashes), or a size or place an animation moved.
+A node recomposed with the same arguments as before does not flash, because it is not
+redrawn either. A menu standing still shows nothing; a label handed a lambda written inline
+flashes every time its parent recomposes.
+
+For numbers rather than flashes, ask the frame budget for its busiest nodes:
+
+```kotlin
+val ui = UiRenderer(host, canvas, FrameBudget(busiest = 5))
+// …or on a budget you already have
+ui.budget.busiest = 5
+```
+
+`FrameBudgetOverlay` then lists the five nodes the most frames changed, most first, by test
+tag (`#score`) or by name, with how many frames. The counts are also on every node as
+`node.changes`, and `tree.countChanges = true` turns them on for a test that wants them
+alone. `budget.reset()` and `tree.resetChangeCounts()` start them again.
+
+Neither overlay marks anything changed itself, so turning them on does not make a still
+screen redraw. The budget's own numbers refresh four times a second on purpose and are left
+out of both. Counting is off until one of them asks, and costs one increment per change
+while on.
+
+![a still menu and a score that ticks, with the score's border flashing red](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/redraw-overlay.png)
+
+A fade only moves while the game keeps drawing. A game that skips drawing unchanged frames
+holds the last flash until something changes.
 
 ---
 

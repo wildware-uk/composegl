@@ -40,6 +40,11 @@ class UiRenderer(
     /** Made once: a pass holds the canvas and nothing else. */
     private val draw = DrawPass(canvas)
 
+    init {
+        // So a budget asked for its busiest nodes knows which tree to ask.
+        budget.watch(host.tree)
+    }
+
     /**
      * Run after the tree is laid out and before it is drawn, with the frame's time in
      * milliseconds.
