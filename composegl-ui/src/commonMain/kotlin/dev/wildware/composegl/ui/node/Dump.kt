@@ -87,10 +87,10 @@ private fun UiNode.dumpInto(out: StringBuilder, indent: String, modifiers: Boole
     }
 
     val resolved = resolved
-    if (resolved.padding != Padding.None) out.append("  pad ").append(padding(resolved.padding))
+    if (resolved.padding != Padding.None) out.append("  pad ").append(describePadding(resolved.padding))
 
     val given = givenConstraints
-    if (given != null) out.append("  given ").append(constraints(given))
+    if (given != null) out.append("  given ").append(describeConstraints(given))
     if (resolved.zIndex != 0f) out.append("  z ").append(number(resolved.zIndex))
     if (resolved.alpha != 1f) out.append("  alpha ").append(number(resolved.alpha))
     if (this === focused) out.append("  focused")
@@ -154,7 +154,7 @@ internal fun describe(element: Modifier.Element): String = when (element) {
         )
         "defaultMinSize(${bounds.joinToString(" ")})"
     }
-    is PaddingElement -> "padding(${padding(element.padding)})"
+    is PaddingElement -> "padding(${describePadding(element.padding)})"
     is OffsetElement -> "offset(${number(element.x)},${number(element.y)})"
     is WeightElement -> "weight(${number(element.weight)})"
     is AlignElement -> "align(${alignment(element.alignment)})"
@@ -201,12 +201,12 @@ private val NamesByElement = mapOf(
     "SkinBackground" to "styled",
 )
 
-private fun constraints(given: Constraints) =
+internal fun describeConstraints(given: Constraints) =
     axis(given.minWidth, given.maxWidth) + " x " + axis(given.minHeight, given.maxHeight)
 
 private fun axis(min: Float, max: Float) = if (min == max) number(min) else "${number(min)}..${number(max)}"
 
-private fun padding(padding: Padding) = with(padding) {
+internal fun describePadding(padding: Padding) = with(padding) {
     if (left == top && top == right && right == bottom) number(left)
     else "${number(left)},${number(top)},${number(right)},${number(bottom)}"
 }

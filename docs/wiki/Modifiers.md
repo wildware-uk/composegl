@@ -538,6 +538,8 @@ font and look the same on every backend.
 
 For every widget on the screen at once — boxes, padding and the gaps between
 children — use `LayoutOverlay` instead ([Testing](Testing.md#the-layout-on-the-screen)).
+To point at one widget and read its size, the room it was given and its modifier
+chain, wrap the screen in `Inspector` ([Testing](Testing.md#pointing-at-one-widget)).
 
 ![a panel, its padding, a button and a zero-width box, each outlined with its size](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-debug-bounds.png)
 
