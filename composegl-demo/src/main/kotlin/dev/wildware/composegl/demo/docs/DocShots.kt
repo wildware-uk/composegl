@@ -30,6 +30,7 @@ import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
+import dev.wildware.composegl.ui.layout.FlowRow
 import dev.wildware.composegl.ui.layout.Grid
 import dev.wildware.composegl.ui.layout.GridCells
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
@@ -245,6 +246,30 @@ private fun MutableList<DocShot>.layout() {
                 Slab("Centre", Modifier.width(110f).height(24f), Steel)
                 Slab("Top", Modifier.width(110f).height(46f).align(Alignment.TopStart), Deep)
                 Slab("Bottom", Modifier.width(110f).height(34f).align(Alignment.BottomStart), Steel)
+            }
+        }
+    })
+
+    add(DocShot("layout-flow", 420, 310) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                Text("FlowRow", style = "label.dim")
+                FlowRow(
+                    Modifier.width(380f).background(Ink, corner = 6f).padding(6f),
+                    horizontalSpacing = 6f,
+                    verticalSpacing = 6f,
+                ) {
+                    Buffs.forEach { Buff(it) }
+                }
+                Text("horizontalArrangement = Arrangement.Centre", style = "label.dim")
+                FlowRow(
+                    Modifier.width(380f).background(Ink, corner = 6f).padding(6f),
+                    horizontalSpacing = 6f,
+                    verticalSpacing = 6f,
+                    horizontalArrangement = Arrangement.Centre,
+                ) {
+                    Buffs.forEach { Buff(it) }
+                }
             }
         }
     })
@@ -761,6 +786,16 @@ private fun Slab(label: String, modifier: Modifier, colour: Colour) {
 private fun Shaped(label: String, modifier: Modifier, colour: Colour) {
     Box(modifier.background(colour, corner = 6f), contentAlignment = Alignment.Centre) {
         Text(label, style = "label.dim")
+    }
+}
+
+private val Buffs = listOf("HASTE", "REGEN", "SHIELD", "BURNING", "FOCUS", "POISON", "WARD", "RAGE", "STEALTH", "BLESSED", "CHILL", "SLOWED")
+
+/** A status effect chip, as wide as its word, for showing a flow row wrap. */
+@Composable
+private fun Buff(name: String) {
+    Box(Modifier.height(26f).background(Deep, corner = 4f).padding(horizontal = 8f), contentAlignment = Alignment.Centre) {
+        Text(name, style = "label.dim")
     }
 }
 

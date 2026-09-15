@@ -13,9 +13,10 @@ This page is the differences and the things that are ours.
 
 ## The three layouts, and a grid
 
-`Column`, `Row`, `Box`. There is no `FlowRow` and no `ConstraintLayout` — these
-three plus `weight` have covered every HUD and menu we have built. For
-inventories and level selects there is [`Grid`](#grids).
+`Column`, `Row`, `Box`. There is no `ConstraintLayout` — these three plus
+`weight` have covered every HUD and menu we have built. For inventories and
+level selects there is [`Grid`](#grids). When a row has to wrap, there is
+[`FlowRow`](#when-a-row-has-to-wrap-flowrow).
 
 ```kotlin
 Column { Text("one"); Text("two") }   // downwards
@@ -238,6 +239,39 @@ A row lining its children up down the middle, with two of them overruling it:
 ![three slabs in a row: one centred, one at the top, one at the bottom](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-alignment-cross.png)
 
 That last example is a whole HUD's worth of positioning, and it is three lines.
+
+---
+
+## When a row has to wrap: `FlowRow`
+
+A `Row` never wraps. For things that come in a number you do not know in
+advance — tag chips, the buffs under a health bar, a hotbar on a phone held
+upright — use `FlowRow`. It puts children in a line until the line is full,
+then starts a new line underneath.
+
+```kotlin
+FlowRow(horizontalSpacing = 4f, verticalSpacing = 4f) {
+    buffs.forEach { BuffIcon(it) }
+}
+```
+
+![twelve buff chips wrapping onto three lines, and the same with each line centred](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-flow.png)
+
+| | what it does |
+|---|---|
+| `horizontalSpacing` | the gap between neighbours on a line |
+| `verticalSpacing` | the gap between one line and the next |
+| `horizontalArrangement` | how each line spreads out, line by line — `Centre` centres the short last line on its own |
+| `verticalAlignment` | where a child sits in a line taller than it; `Modifier.align` on a child still wins |
+| `maxItemsInEachRow` | wrap after this many even when there is room — four across, like a grid |
+
+`FlowColumn` is the same turned on its side: top to bottom, then a new column to
+the right. It only fills up when something limits its height, so give it one.
+
+Two things it does not do. `weight` means nothing inside a flow — there is no
+"what is left" until the line is decided. And a child wider than the whole flow
+gets a line to itself and is squeezed to the flow's width, rather than poking out
+of the side.
 
 ---
 
