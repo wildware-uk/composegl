@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.skin
 
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.ArtAtlas
 import dev.wildware.composegl.ui.graphics.Brush
@@ -176,6 +177,17 @@ class SkinFormatTest {
         assertTrue("\"linear\": [\"#FFFFFF\", \"#00FFFFFF\"]" in written, written)
         assertTrue("\"angle\": 45" in written, written)
         assertTrue("\"radial\": [\"#00000000\", \"#C0000000\"]" in written, written)
+    }
+
+    @Test
+    fun `a gradient takes a radius per corner as a fill does and writes it back`() {
+        val skin = read(
+            """{ "styles": { "tab": { "background": { "gradient": { "vertical": ["#FF0000", "#0000FF"] }, "corner": { "topLeft": 8, "topRight": 8 } } } } }""",
+        )
+        val expected = SkinDrawable.Gradient(Brush.vertical(Colour.rgb(0xFF0000), Colour.rgb(0x0000FF)), Corners.top(8f))
+
+        assertEquals(expected, skin.styles.getValue("tab").base.background)
+        assertEquals(expected, read(SkinFormat.write(skin)).styles.getValue("tab").base.background, "after a trip out and back")
     }
 
     @Test

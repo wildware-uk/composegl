@@ -367,6 +367,20 @@ class GlCanvasTest {
     }
 
     @Test
+    fun `a gradient is cut by each corner's own radius with top still the screen's top`() {
+        // Rounded along the top only. A gradient that took one radius would cut all four corners
+        // or none, and one whose corners flipped with the batch's y would round the bottom.
+        val brush = Brush.vertical(red, blue)
+        val frame = draw { rect(box, brush, Corners.top(40f)) }
+
+        assertColour(Colour.Black, frame.at(102, 102), "top-left cut")
+        assertColour(Colour.Black, frame.at(297, 102), "top-right cut")
+        assertColour(expected(brush, 102, 257), frame.at(102, 257), "bottom-left square, and still the gradient")
+        assertColour(expected(brush, 297, 257), frame.at(297, 257), "bottom-right square")
+        assertColour(red, frame.at(200, 101), "the flat top is filled")
+    }
+
+    @Test
     fun `a gradient fades with the opacity in force`() {
         val frame = draw {
             pushAlpha(0.5f)
