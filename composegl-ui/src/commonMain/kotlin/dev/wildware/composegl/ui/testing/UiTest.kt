@@ -71,15 +71,18 @@ import dev.wildware.composegl.ui.widget.ProvideSoftKeyboard
  * @param backend where fonts, clipboard, keyboard and the canvas [render] draws into come from.
  *   Headless by default; a GL test hands a real one in and reads the pixels back.
  * @param onBack what Escape, East and the pad's Back do once nothing on the [BackStack] took it.
+ * @param input wraps the sink every event goes into, the way a game wraps its own — a
+ *   `ParallaxAware`, say — so what sits in front of the toolkit in a game sits in front of it here.
  * @param content the screen.
  */
 fun uiTest(
     size: Size = Size(1280f, 720f),
     backend: UiBackend = HeadlessBackend(),
     onBack: () -> Unit = {},
+    input: (InputSink) -> InputSink = { it },
     content: @Composable () -> Unit,
 ): UiTest {
-    val test = UiTest(size, backend, onBack)
+    val test = UiTest(size, backend, onBack, input)
     try {
         test.setContent(content)
     } catch (failure: Throwable) {
@@ -96,6 +99,7 @@ class UiTest(
     val size: Size,
     val backend: UiBackend,
     private val onBack: () -> Unit,
+    wrapInput: (InputSink) -> InputSink = { it },
 ) : AutoCloseable {
 
     val host = UiHost()
@@ -126,7 +130,7 @@ class UiTest(
     private val renderer by lazy { UiRenderer(host, backend.canvas).also { it.focus = focus } }
 
     /** The same shape as a game's sink: the router first, the navigator for what nobody took. */
-    private val input: InputSink = SourceAware(
+    private val input: InputSink = wrapInput(SourceAware(
         source,
         object : InputSink {
             override fun onPointer(event: PointerEvent) = pointerRouter.onPointer(event)
@@ -134,7 +138,7 @@ class UiTest(
             override fun onText(event: TextEvent) = keyRouter.onText(event)
             override fun onGamepad(event: GamepadEvent) = padNavigator.onGamepad(event)
         },
-    )
+    ))
 
     internal fun setContent(content: @Composable () -> Unit) {
         host.setContent {
@@ -306,10 +310,20 @@ class UiTest(
     fun padUp(button: GamepadButton, gamepad: GamepadId = GamepadId.First): Boolean =
         send(GamepadEvent.ButtonUp(gamepad, button))
 
-    /** Pushes the left stick to [x], [y] and leaves it there; y is positive down. */
-    fun stick(x: Float, y: Float, gamepad: GamepadId = GamepadId.First): Boolean {
-        val sideways = send(GamepadEvent.Axis(gamepad, GamepadAxis.LeftX, x))
-        val upDown = send(GamepadEvent.Axis(gamepad, GamepadAxis.LeftY, y))
+    /**
+     * Pushes a stick to [x], [y] and leaves it there; y is positive down.
+     *
+     * The left stick unless [horizontal] and [vertical] name other axes, such as the right stick's.
+     */
+    fun stick(
+        x: Float,
+        y: Float,
+        gamepad: GamepadId = GamepadId.First,
+        horizontal: GamepadAxis = GamepadAxis.LeftX,
+        vertical: GamepadAxis = GamepadAxis.LeftY,
+    ): Boolean {
+        val sideways = send(GamepadEvent.Axis(gamepad, horizontal, x))
+        val upDown = send(GamepadEvent.Axis(gamepad, vertical, y))
         return sideways || upDown
     }
 

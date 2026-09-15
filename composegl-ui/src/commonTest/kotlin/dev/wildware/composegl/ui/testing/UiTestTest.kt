@@ -16,10 +16,14 @@ import dev.wildware.composegl.ui.animation.animateFloatAsState
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.RecordingCanvas
+import dev.wildware.composegl.ui.input.GamepadAxis
 import dev.wildware.composegl.ui.input.GamepadButton
+import dev.wildware.composegl.ui.input.GamepadEvent
+import dev.wildware.composegl.ui.input.InputSink
 import dev.wildware.composegl.ui.input.InputSource
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.Key
+import dev.wildware.composegl.ui.input.KeyEvent
 import dev.wildware.composegl.ui.input.Modifiers
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.layout.Box
@@ -378,6 +382,53 @@ class UiTestTest {
         ui.stick(0f, 0f)
         ui.advanceBy(1000)
         assertTrue(ui.focus.focused === afterRepeat, "let go of the stick and it stopped")
+    }
+
+    @Test
+    fun `a stick named by its axes moves those axes and not the left stick`() {
+        val seen = mutableListOf<GamepadEvent>()
+        val ui = uiTest(Size(400f, 300f), input = { sink ->
+            object : InputSink by sink {
+                override fun onGamepad(event: GamepadEvent) = seen.add(event).let { sink.onGamepad(event) }
+            }
+        }) {
+            Column {
+                Button("ONE", onClick = {}, initialFocus = true, modifier = Modifier.testTag("one"))
+                Button("TWO", onClick = {}, modifier = Modifier.testTag("two"))
+            }
+        }.also { opened += it }
+
+        ui.stick(0.5f, 1f, horizontal = GamepadAxis.RightX, vertical = GamepadAxis.RightY)
+
+        assertEquals(
+            listOf(GamepadAxis.RightX to 0.5f, GamepadAxis.RightY to 1f),
+            seen.map { (it as GamepadEvent.Axis).let { axis -> axis.axis to axis.value } },
+        )
+        ui.assertFocused("one")
+    }
+
+    @Test
+    fun `a wrapped sink sees every event before the screen does`() {
+        val seen = mutableListOf<String>()
+        val ui = uiTest(Size(400f, 300f), input = { sink ->
+            object : InputSink by sink {
+                override fun onPointer(event: PointerEvent) = seen.add("pointer").let { sink.onPointer(event) }
+                override fun onKey(event: KeyEvent) = seen.add("key").let { sink.onKey(event) }
+                override fun onGamepad(event: GamepadEvent) = seen.add("pad").let { sink.onGamepad(event) }
+            }
+        }) {
+            var clicked by remember { mutableStateOf(false) }
+            Column {
+                Button(if (clicked) "DONE" else "GO", onClick = { clicked = true }, modifier = Modifier.testTag("go"))
+            }
+        }.also { opened += it }
+
+        ui.click("go")
+        ui.key(Key.Tab)
+        ui.pad(GamepadButton.DpadDown)
+
+        ui.assertText("go", "DONE")
+        assertTrue(seen.containsAll(listOf("pointer", "key", "pad")), "it saw $seen")
     }
 
     @Test

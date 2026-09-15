@@ -26,6 +26,8 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Shape
 import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.input.PointerEvent
+import dev.wildware.composegl.ui.input.PointerId
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
@@ -40,6 +42,7 @@ import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.layout.VerticalAlignment
 import dev.wildware.composegl.ui.layout.layoutId
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.PointerParallax
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.modifier.aspectRatio
@@ -47,6 +50,8 @@ import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.border
 import dev.wildware.composegl.ui.modifier.clipShape
 import dev.wildware.composegl.ui.modifier.draggable
+import dev.wildware.composegl.ui.modifier.clip
+import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -57,6 +62,7 @@ import dev.wildware.composegl.ui.modifier.onPlaced
 import dev.wildware.composegl.ui.modifier.onSizeChanged
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.rememberShake
+import dev.wildware.composegl.ui.modifier.parallax
 import dev.wildware.composegl.ui.modifier.shadow
 import dev.wildware.composegl.ui.modifier.shake
 import dev.wildware.composegl.ui.modifier.size
@@ -733,6 +739,18 @@ private fun MutableList<DocShot>.modifiers() {
             }
         }
     })
+
+    // The same three layers twice: once with the pointer in the middle, once with it pushed to the
+    // right-hand edge. The source is fed a real pointer move, so the picture is what the modifier
+    // does with one rather than offsets typed in to look like it.
+    add(DocShot("modifier-parallax", 500, 190) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(20f)) {
+                Labelled("pointer in the middle") { ParallaxScene(pointerX = 0f) }
+                Labelled("pointer at the right edge") { ParallaxScene(pointerX = 96f) }
+            }
+        }
+    })
 }
 
 /** Three overlapping cards, fanned like a hand; [lifted] is the one given a zIndex. */
@@ -762,6 +780,37 @@ private fun Portrait(shape: Shape) {
             Box(Modifier.size(80f, 26f).background(Colour.rgb(0xE6EDF5))) {}
             Box(Modifier.size(80f, 27f).background(Deep)) {}
         }
+    }
+}
+
+/**
+ * A menu backdrop in three layers, each leaning away from the pointer at its own rate.
+ *
+ * [pointerX] is how far right of the scene's middle the pointer is.
+ */
+@Composable
+private fun ParallaxScene(pointerX: Float) {
+    val centre = Offset(110f, 60f)
+    val pointer = remember(pointerX) {
+        PointerParallax(centre).apply { saw(PointerEvent.Move(PointerId.Mouse, centre + Offset(pointerX, 0f))) }
+    }
+    Box(Modifier.size(220f, 120f).background(Ink, corner = 6f).clip(corner = 6f)) {
+        // The hills are painted well past the scene's edges on both sides: a layer that fills the
+        // screen needs a margin to drift into, and the clip above trims it.
+        // Far: pale hills that barely move.
+        Box(Modifier.fillMaxSize().parallax(pointer, factor = -0.1f).drawBehind { bounds ->
+            repeat(7) { i -> rect(Rect.of(bounds.left - 80f + i * 60f, bounds.top + 44f, 70f, 60f), Steel, corner = 30f) }
+        }) {}
+        // Middle: a band of deeper hills, three times as fast.
+        Box(Modifier.fillMaxSize().parallax(pointer, factor = -0.3f).drawBehind { bounds ->
+            repeat(9) { i -> rect(Rect.of(bounds.left - 110f + i * 54f, bounds.top + 74f, 64f, 50f), Deep, corner = 24f) }
+        }) {}
+        // Near: the title, which runs.
+        Box(Modifier.offset(x = 70f, y = 20f).parallax(pointer, factor = -0.6f).background(Accent, corner = 4f).padding(horizontal = 12f, vertical = 4f)) {
+            Text("PLAY", style = "label")
+        }
+        // Where the pointer is, so the picture says what the layers are reacting to.
+        Box(Modifier.offset(x = centre.x + pointerX - 4f, y = centre.y - 4f).size(8f).background(Colour.White, corner = 4f)) {}
     }
 }
 
