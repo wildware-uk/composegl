@@ -90,6 +90,7 @@ import dev.wildware.composegl.ui.modifier.tint
 import dev.wildware.composegl.ui.modifier.debugBounds
 import dev.wildware.composegl.ui.debug.Inspector
 import dev.wildware.composegl.ui.debug.LayoutOverlay
+import dev.wildware.composegl.ui.debug.OverdrawOverlay
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -1435,6 +1436,26 @@ private fun MutableList<DocShot>.modifiers() {
                     }
                 }
             }
+        }
+    })
+
+    // A panel, a card on it, a button on the card, and a translucent scrim over the right half:
+    // every depth of stack at once, so the picture has blue, green, pink and red on it.
+    add(DocShot("overdraw-overlay", 420, 190) {
+        Box(Modifier.fillMaxSize()) {
+            Frame {
+                Column(
+                    Modifier.background(Ink, corner = 6f).padding(18f),
+                    verticalArrangement = Arrangement.spacedBy(10f),
+                ) {
+                    Text("INVENTORY", style = "label.dim")
+                    Box(Modifier.background(Ink, corner = 4f).padding(12f)) {
+                        Button("EQUIP", onClick = {})
+                    }
+                }
+            }
+            Box(Modifier.offset(210f, 0f).size(210f, 190f).background(Colour.argb(0x60000000)))
+            OverdrawOverlay(enabled = true)
         }
     })
 

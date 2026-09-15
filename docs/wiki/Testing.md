@@ -302,6 +302,61 @@ off rebuilds nothing: the screen keeps its state and focus.
 
 ---
 
+## How many times each pixel is painted
+
+A panel on a panel on a background paints the same pixels three times, and a phone pays
+for every one. Nothing looks different for it. `OverdrawOverlay` shows it:
+
+```kotlin
+Box(Modifier.fillMaxSize()) {
+    Game()
+    OverdrawOverlay(enabled = debug)            // one shaded square per 2 units
+    OverdrawOverlay(enabled = debug, cell = 8f) // coarser, cheaper
+}
+```
+
+| Painted | Shaded |
+|---|---|
+| once, or not at all | left alone |
+| twice | blue |
+| three times | green |
+| four times | pink |
+| five times or more | red |
+
+Put it last, like `LayoutOverlay`. Each frame it draws the whole tree a second time into
+a counter instead of the screen, then shades the counts. So it counts the calls the
+frame really made — a background, a border, a shadow's whole spread, each run of text,
+each picture — it follows every change, and a still screen with it on stays still. Its
+own shading is not counted, nor `LayoutOverlay`'s or `Inspector`'s outlines. Take it off
+before shipping.
+
+![a panel with a card, a button and a translucent scrim over half of it, shaded blue, green and pink where they stack](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/overdraw-overlay.png)
+
+In a test, `ui.overdraw()` hands back the counts, so a screen can be held to a budget:
+
+```kotlin
+uiTest { PauseMenu() }.use { ui ->
+    val map = ui.overdraw()
+    assertTrue(map.deepest <= 3)          // no pixel painted more than three times
+    assertEquals(2, map.at(640f, 360f))   // the middle of the screen, exactly twice
+    println(map.average)                  // 1.4 is the fill rate of 1.4 screens
+}
+```
+
+Outside a test, `measureOverdraw(host.root, canvas)` does the same.
+
+Worth knowing:
+
+- A subtree drawn into a picture — a `scale`, a `rotate`, an effect, a shaped clip —
+  counts twice: once into the picture, once where the picture lands. That is what the
+  GPU fills.
+- A clipped-away or faded-out part counts nothing, as it paints nothing.
+- Only the interface is counted. A 3D world drawn behind it, or anything drawn through
+  `raw`, is not. A scrim over the world shows as painted once.
+- A rounded corner counts as its square box, and text as its box rather than its letters.
+
+---
+
 ## Animations a frame at a time
 
 A spring that overshoots for three frames is over before you can see it. Freeze the

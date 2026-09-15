@@ -131,6 +131,8 @@ internal class LayoutOverlayPainter(private val show: Set<Show>) : (UiCanvas, Re
     var node: UiNode? = null
 
     override fun invoke(canvas: UiCanvas, content: Rect) {
+        // Drawn into OverdrawOverlay's count: its outlines are not what the screen paints.
+        if (canvas is OverdrawCanvas) return
         val self = node ?: return
         var root = self
         while (true) root = root.parent ?: break
@@ -175,7 +177,7 @@ internal class LayoutOverlayPainter(private val show: Set<Show>) : (UiCanvas, Re
      * a second one on the same screen has no size and would otherwise be marked as a one-unit dot.
      */
     private fun walk(node: UiNode, self: UiNode, visit: (UiNode) -> Unit) {
-        if (node === self || node.content is LayoutOverlayPainter || !node.everMeasured) return
+        if (node === self || node.content is LayoutOverlayPainter || node.content is OverdrawPainter || !node.everMeasured) return
         val resolved = node.resolved
         if (resolved.alpha <= 0f || resolved.scale <= 0f) return
         visit(node)
