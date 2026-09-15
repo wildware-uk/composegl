@@ -66,10 +66,11 @@ Image(hills, Modifier.parallax(pointer, factor = -0.06f).parallax(stick, factor 
 Three sources come with it:
 
 - `PointerParallax(centre)` — how far the pointer is from `centre`. Back to rest when
-  the mouse leaves the window or a finger lifts.
+  the mouse leaves the window or the finger it is following lifts; lifting a second
+  finger leaves it with the first.
 - `StickParallax(reach)` — the right stick by default, since the left one is moving
   focus. Full tilt is worth `reach`, so the same factor means the same thing for a
-  stick as for a mouse. Back to rest when the pad is unplugged.
+  stick as for a mouse. Back to rest when the pad that pushed it is unplugged.
 - `ScrollParallax(scrollState)` — how far a `ScrollArea`'s rows have moved. Factor
   one travels with the rows; a half travels at half their speed.
 
