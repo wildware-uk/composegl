@@ -1,6 +1,8 @@
 package dev.wildware.composegl.korge
 
 import dev.wildware.composegl.ui.text.TextStyle
+import korlibs.image.font.Font
+import korlibs.image.font.TtfFont
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -165,6 +167,45 @@ class KorgeFontsTest {
     @Test
     fun `registering nothing is refused`() {
         assertThrows<IllegalArgumentException> { KorgeFonts().registerTrueType("x", TestFonts.dejaVu(), emptyList()) }
+    }
+
+    @Test
+    fun `text with nothing in it takes no width and one line`() {
+        val layout = fonts.measure("", body)
+        assertEquals(0f, layout.size.width)
+        assertEquals(1, layout.lineCount)
+    }
+
+    @Test
+    fun `height is the style's line spacing, not the font's`() {
+        val layout = fonts.measure("one\ntwo\nthree", body.copy(lineHeightRatio = 2f))
+        assertEquals(3, layout.lineCount)
+        assertEquals(96f, layout.size.height)
+    }
+
+    @Test
+    fun `a size is matched to the nearest whole number`() {
+        assertEquals(fonts.measure("hello", body).size.width, fonts.measure("hello", body.copy(size = 16.2f)).size.width)
+    }
+
+    @Test
+    fun `kerning is not applied, so a pair is placed at the sum of its advances`() {
+        // The toolkit measures words, prefixes and runs separately and adds them up, so this backend
+        // places glyphs by advance alone: see KorgeFonts' note. KorGE reads no kerning from DejaVu
+        // Sans, so the font here claims ten pixels between every pair — which a kerning backend would
+        // take, and this one must not.
+        val dejaVu = TtfFont(TestFonts.dejaVu())
+        val kerned = object : Font by dejaVu {
+            override fun getKerning(size: Double, leftCodePoint: Int, rightCodePoint: Int): Double = -10.0
+        }
+        val plain = KorgeFonts().also { it.register("body", dejaVu, listOf(48)) }
+        val tight = KorgeFonts().also { it.register("body", kerned, listOf(48)) }
+        assertEquals(-10.0, tight.fontFor(large).getKerning(48.0, 'A'.code, 'V'.code))
+
+        val apart = (plain.measure("AVA", large) as KorgeTextLayout).glyphs.map { it.left }
+        val together = (tight.measure("AVA", large) as KorgeTextLayout).glyphs.map { it.left }
+        assertEquals(apart, together, "a font's kerning does not move its glyphs")
+        assertEquals(plain.measure("AVA", large).size, tight.measure("AVA", large).size, "or change the width")
     }
 
     @Test

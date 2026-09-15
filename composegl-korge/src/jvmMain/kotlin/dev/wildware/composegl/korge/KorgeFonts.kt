@@ -6,10 +6,11 @@ import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.text.TextStyle
 import dev.wildware.composegl.ui.text.paragraph
-import korlibs.image.color.Colors
+import korlibs.image.bitmap.Bitmap
 import korlibs.image.font.Font
 import korlibs.image.font.TtfFont
-import korlibs.image.font.renderGlyphToBitmap
+import korlibs.image.format.PNG
+import korlibs.io.stream.openSync
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
@@ -24,6 +25,11 @@ class PlacedGlyph internal constructor(
     val width: Float,
     val height: Float,
     val region: KorgeAtlas.Region,
+    /**
+     * True for a picture with colours of its own — an emoji — rather than a letter. The canvas draws
+     * it in its own colours, and leaves it out of an outline's ring.
+     */
+    val picture: Boolean = false,
 )
 
 /**
@@ -66,8 +72,29 @@ class KorgeTextLayout internal constructor(
  *
  * Wrapping is the toolkit's own [paragraph] — the same breaking rules `Text` uses for styled text,
  * including breaking between Chinese and Japanese characters — so a label measured here breaks
- * where the toolkit would break it. Fallback fonts and emoji come next and will be packed into the
- * same atlas; see docs/superpowers/specs/2026-09-15-korge-backend.md.
+ * where the toolkit would break it.
+ *
+ * **Characters a font does not have** — a player called 玩家, a chat line with 😀 in it — come from
+ * the families named by [fallBackTo], tried in order, one character at a time. A fallback font is
+ * registered with [registerTrueType] like any other, and since glyphs are made when first asked for,
+ * a font with twenty thousand characters costs nothing until text uses some. Colour emoji are
+ * registered as pictures with [registerPictures], packed into the same atlas.
+ *
+ * **Text size.** `ProvideTextScale` asks for whole sizes — 16 at 125% is a style at 20 — and each is
+ * rasterised at that size, never stretched. `scaledTextSizes(listOf(16), listOf(1f, 1.25f, 1.5f))` is
+ * the list to hand [registerTrueType], and fallbacks need every one of those sizes too.
+ *
+ * **Kerning is deliberately not applied.** A width here is the sum of the glyphs' advances, so text
+ * measured in pieces adds up to text measured whole. The toolkit leans on that: `Paragraph` breaks a
+ * line by measuring words, `TextField` puts the caret by measuring a prefix, bidirectional text
+ * measures each run in its own order, and `Typewriter` draws a character at a time. Kerning would make
+ * every one of those disagree with the drawn line by a pixel or two. The LWJGL backend makes the same
+ * choice; LibGDX kerns within one font, and so draws `AV` a little tighter than a caret measures it.
+ *
+ * Metrics are KorGE's reading of the font's own: the ascent and descent from its horizontal header and
+ * the cap height from its `H`. The first baseline is an ascent down, so an accent on a capital stays
+ * inside the box, and `TextAnchor` and `TextMetricsOverlay` read the same numbers the glyphs are
+ * placed with.
  *
  * @param atlas where glyphs are packed. Share one with [KorgeCanvas] so text and boxes are one texture.
  */
@@ -75,64 +102,18 @@ class KorgeFonts(val atlas: KorgeAtlas = KorgeAtlas()) : FontProvider {
 
     private data class Key(val family: String, val size: Int)
 
-    /** A glyph at one size: how far it moves the pen and, if it draws anything, where its picture is. */
-    private class Glyph(
-        val advance: Float,
-        val left: Float,
-        val top: Float,
-        val region: KorgeAtlas.Region?,
-    )
-
-    /** One font at one size, and every glyph asked of it so far. */
-    private inner class Face(val font: Font, val size: Int) {
-
-        private val korge = font.getFontMetrics(size.toDouble())
-
-        /** Baseline up to the top of the tallest glyph, as the toolkit counts it: positive. */
-        val ascent = korge.ascent.toFloat()
-
-        /** Baseline down to the bottom of the lowest glyph, also positive. */
-        val descent = -korge.descent.toFloat()
-
-        private val glyphs = HashMap<Int, Glyph>()
-
-        fun glyph(codepoint: Int): Glyph = glyphs.getOrPut(codepoint) { make(codepoint) }
-
-        val capHeight: Float = font.getGlyphMetrics(size.toDouble(), 'H'.code).let { metrics ->
-            if (metrics.existing && metrics.height > 0.0) metrics.height.toFloat() else size * 0.7f
-        }
-
-        val spaceAdvance: Float get() = glyph(' '.code).advance
-
-        private fun make(codepoint: Int): Glyph {
-            if (codepoint in Invisible) return Glyph(0f, 0f, 0f, null)
-            val metrics = font.getGlyphMetrics(size.toDouble(), codepoint)
-            // A character the font does not have comes out as its `?`, which is at least readable,
-            // until fallback fonts exist to ask instead.
-            if (!metrics.existing && codepoint != '?'.code) return glyph('?'.code)
-            val advance = metrics.xadvance.toFloat()
-            if (metrics.width <= 0.0 || metrics.height <= 0.0) return Glyph(advance, 0f, 0f, null)
-
-            // KorGE draws the glyph into a bitmap a border's width larger than its bounds each way,
-            // with the baseline `height + top` down from the bounds' top edge. Copying the whole
-            // bitmap keeps the soft edge; the offsets below put it back where the pen is.
-            val rendered = font.renderGlyphToBitmap(
-                size.toDouble(), codepoint, paint = Colors.WHITE, fill = true, border = Border, nativeRendering = false,
-            ).bmp
-            val region = atlas.pack(rendered.width, rendered.height)
-            atlas.putCoverage(region, rendered)
-            return Glyph(
-                advance = advance,
-                left = metrics.left.toFloat() - Border,
-                top = -(metrics.height + metrics.top).toFloat() - Border,
-                region = region,
-            )
-        }
-    }
-
     private val fonts = LinkedHashMap<String, Font>()
     private val sizes = LinkedHashMap<String, List<Int>>()
     private val faces = HashMap<Key, Face>()
+
+    /** Families of pictures standing in for characters, which can only ever be fallbacks. */
+    private val pictures = LinkedHashMap<String, Map<Int, Map<Int, Glyph>>>()
+
+    private var everyFamilyFallsBackTo: List<String> = emptyList()
+    private val fallbacksByFamily = HashMap<String, List<String>>()
+
+    /** Each family with its fallbacks behind it, built the first time a style asks for it. */
+    private val chains = HashMap<Key, Chain>()
 
     /**
      * Registers [family] from the bytes of a `.ttf` or `.otf`, at each of [sizes].
@@ -150,46 +131,136 @@ class KorgeFonts(val atlas: KorgeAtlas = KorgeAtlas()) : FontProvider {
     fun register(family: String, font: Font, sizes: List<Int>) {
         require(sizes.isNotEmpty()) { "registering $family with no sizes would register nothing" }
         require(sizes.all { it > 0 }) { "a font size must be positive, got $sizes" }
+        require(family !in pictures) { "$family is already pictures; a font needs a name of its own" }
         fonts[family] = font
         this.sizes[family] = sizes.distinct().sorted()
         faces.keys.removeAll { it.family == family }
+        chains.clear()
     }
 
-    /** The families that were registered. */
-    fun families(): List<String> = fonts.keys.toList()
+    /**
+     * Registers pictures that stand in for characters under [family], at each of [sizes].
+     *
+     * This is how colour emoji get into text. Each picture is scaled to [sizes] tall — the text size,
+     * so an emoji is as tall as the type is big — keeping its shape, and packed into the shared
+     * [atlas], so a chat line with a smiley in it is still one texture. It sits a little below the
+     * baseline, the way an emoji font's glyphs do, and is drawn in its own colours whatever colour the
+     * text around it is.
+     *
+     * A family of pictures can only be a fallback: name it in [fallBackTo]. It has no letters of its
+     * own to be the main font with.
+     *
+     * @param pictures by the character each one draws: `"😀"`, `"❤️"`. One character each, with or
+     *   without the emoji variation selector after it. A sequence joined into one emoji — a family, a
+     *   flag, a skin tone — is refused, because it would need text shaping to find.
+     */
+    fun registerPictures(family: String, pictures: Map<String, Bitmap>, sizes: List<Int>) {
+        require(sizes.isNotEmpty()) { "registering $family with no sizes would register nothing" }
+        require(sizes.all { it > 0 }) { "a size must be positive, got $sizes" }
+        require(pictures.isNotEmpty()) { "registering $family with no pictures would register nothing" }
+        require(family !in fonts) { "$family is already a font; pictures need a name of their own" }
+        val codepoints = pictures.mapKeys { (text, _) -> Pictures.codepointOf(text) }
+
+        this.pictures[family] = sizes.distinct().sorted().associateWith { size ->
+            codepoints.mapValues { (_, picture) -> Pictures.pack(picture, size, atlas) }
+        }
+        chains.clear()
+    }
+
+    /** [registerPictures] from encoded files — a PNG, say — rather than bitmaps already decoded. */
+    @JvmName("registerEncodedPictures")
+    fun registerEncodedPictures(family: String, pictures: Map<String, ByteArray>, sizes: List<Int>) =
+        registerPictures(family, pictures.mapValues { (_, bytes) -> PNG.readImage(bytes.openSync()).mainBitmap }, sizes)
+
+    /**
+     * Where every family looks for a character its own font does not have: each of [families], in
+     * order.
+     *
+     * Checked one character at a time, so `"Ace 玩家 😀"` takes its letters from the main font, its
+     * Chinese from the first fallback that has it and its emoji from the pictures. The main font
+     * always wins for a character it does have, and a character nothing has comes out as the main
+     * font's `?`.
+     *
+     * A fallback must be registered at every size the families that name it are asked for, or
+     * measuring says which size it wanted — the same rule as a missing size of the font itself.
+     *
+     * Not followed any further: a fallback's own fallbacks are not tried. List everything here.
+     */
+    fun fallBackTo(families: List<String>) {
+        everyFamilyFallsBackTo = families.toList()
+        chains.clear()
+    }
+
+    /** Where [family] alone looks for a character it does not have, instead of the list for everyone. */
+    fun fallBackTo(family: String, families: List<String>) {
+        fallbacksByFamily[family] = families.toList()
+        chains.clear()
+    }
+
+    /** The families [family] falls back to, in the order they are tried. */
+    fun fallbacksOf(family: String): List<String> =
+        (fallbacksByFamily[family] ?: everyFamilyFallsBackTo).filter { it != family }
+
+    /** The families that were registered, fonts and pictures, in the order they were first registered. */
+    fun families(): List<String> = (fonts.keys + pictures.keys).distinct()
 
     /** The sizes [family] was registered at. Empty for a family nobody registered. */
-    fun sizesOf(family: String): List<Int> = sizes[family].orEmpty()
+    fun sizesOf(family: String): List<Int> = sizes[family] ?: pictures[family]?.keys?.toList().orEmpty()
 
-    private fun faceFor(style: TextStyle): Face {
-        val key = Key(style.family, style.size.roundToInt())
+    /** The KorGE font behind [style]. Throws, naming what is registered, when there is none. */
+    fun fontFor(style: TextStyle): Font {
+        // Through the face, so a size or family nobody registered fails with the same message.
+        faceFor(Key(style.family, style.size.roundToInt()), "")
+        return fonts.getValue(style.family)
+    }
+
+    private fun faceFor(key: Key, context: String): Face {
         faces[key]?.let { return it }
         val font = fonts[key.family]
-        val registered = sizes[key.family].orEmpty()
-        if (font == null) {
-            error(
-                "no font for ${key.family} at ${key.size}: no font is registered under that name. " +
-                    "Registered names: ${families().ifEmpty { "none" }}",
-            )
+        if (font == null || key.size !in sizes[key.family].orEmpty()) missing(key, context)
+        return Face(font, key.size, atlas).also { faces[key] = it }
+    }
+
+    private fun chainFor(style: TextStyle): Chain {
+        val key = Key(style.family, style.size.roundToInt())
+        chains[key]?.let { return it }
+        val primary = faceFor(key, "")
+        val sources = fallbacksOf(key.family).map { family ->
+            val fallback = Key(family, key.size)
+            pictures[family]?.let { bySize -> bySize[key.size]?.let { return@map GlyphSource.OfPictures(it) } }
+            GlyphSource.OfFace(faceFor(fallback, ", which ${key.family} falls back to"))
         }
-        if (key.size !in registered) error("no font for ${key.family} at ${key.size}: that name is registered at $registered")
-        return Face(font, key.size).also { faces[key] = it }
+        return Chain(primary, sources).also { chains[key] = it }
+    }
+
+    private fun missing(key: Key, context: String): Nothing {
+        val registered = sizesOf(key.family)
+        if (key.family in pictures && context.isEmpty()) {
+            error("no font for ${key.family} at ${key.size}: that name is pictures, which can only be a fallback")
+        }
+        val detail = if (registered.isEmpty()) {
+            "no font is registered under that name. Registered names: ${families().ifEmpty { "none" }}"
+        } else {
+            "that name is registered at $registered"
+        }
+        error("no font for ${key.family} at ${key.size}$context: $detail")
     }
 
     override fun metrics(style: TextStyle): FontMetrics {
-        val face = faceFor(style)
+        val face = chainFor(style).primary
         return FontMetrics(
             size = style.size,
             ascent = face.ascent,
             descent = face.descent,
             capHeight = face.capHeight,
             lineHeight = style.lineHeight,
-            spaceAdvance = face.spaceAdvance,
+            spaceAdvance = face.glyph(' '.code)?.advance ?: 0f,
         )
     }
 
     override fun measure(text: String, style: TextStyle, maxWidth: Float): TextLayout {
-        val face = faceFor(style)
+        val chain = chainFor(style)
+        val face = chain.primary
         val wrap = maxWidth.isFinite() && maxWidth > 0f
         val lines: List<String> = if (!wrap && '\n' !in text && style.maxLines <= 0) {
             listOf(text)
@@ -206,7 +277,7 @@ class KorgeFonts(val atlas: KorgeAtlas = KorgeAtlas()) : FontProvider {
         val placed = ArrayList<PlacedGlyph>()
         var widest = 0f
         lines.forEachIndexed { index, line ->
-            widest = maxOf(widest, place(face, line, face.ascent + index * style.lineHeight, placed))
+            widest = maxOf(widest, place(chain, line, face.ascent + index * style.lineHeight, placed))
         }
         return KorgeTextLayout(
             text = text,
@@ -222,35 +293,33 @@ class KorgeFonts(val atlas: KorgeAtlas = KorgeAtlas()) : FontProvider {
     }
 
     /** Lays one line out along [baseline], adding to [into], and answers how far the pen went. */
-    private fun place(face: Face, line: String, baseline: Float, into: MutableList<PlacedGlyph>): Float {
+    private fun place(chain: Chain, line: String, baseline: Float, into: MutableList<PlacedGlyph>): Float {
         var pen = 0f
         var at = 0
+        // The baseline to a whole pixel first and each glyph's offset from it after, so where one
+        // glyph sits against the next never depends on the fraction in the main font's ascent. A
+        // character borrowed from a fallback is then exactly the shape that font draws on its own.
+        val row = floor(baseline + 0.5f)
         while (at < line.length) {
             val codepoint = line.codePointAt(at)
             at += Character.charCount(codepoint)
-            val glyph = face.glyph(codepoint)
+            val glyph = chain.glyph(codepoint)
             val region = glyph.region
             if (region != null) {
                 // Whole pixels: a glyph rasterised at one position and drawn half a pixel off is a
                 // glyph with soft edges.
                 into += PlacedGlyph(
                     left = floor(pen + glyph.left + 0.5f),
-                    top = floor(baseline + glyph.top + 0.5f),
+                    top = row + floor(glyph.top + 0.5f),
                     width = region.width.toFloat(),
                     height = region.height.toFloat(),
                     region = region,
+                    picture = glyph.picture,
                 )
             }
+            // No kerning, on purpose: see the class note.
             pen += glyph.advance
         }
         return pen
-    }
-
-    private companion object {
-        /** Empty pixels KorGE leaves round a rendered glyph, so its antialiased edge is not cut off. */
-        const val Border = 1
-
-        /** The variation selectors: they choose how the character before them looks, and look like nothing. */
-        val Invisible = setOf(0xFE0E, 0xFE0F)
     }
 }
