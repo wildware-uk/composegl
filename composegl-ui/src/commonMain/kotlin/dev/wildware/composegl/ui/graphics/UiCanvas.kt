@@ -3,6 +3,7 @@ package dev.wildware.composegl.ui.graphics
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.geometry.Corners
+import dev.wildware.composegl.ui.geometry.Matrix4
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.layout.Viewport
@@ -621,6 +622,38 @@ interface UiCanvas {
      * not necessarily been taught to take four corners from somebody else.
      */
     val drawsLayersOnto: Boolean get() = false
+
+    /**
+     * The same picture, put down through a transform in depth: turned, tilted and seen by a camera.
+     *
+     * [transform] maps the toolkit's y-down coordinates to themselves, with a depth — see
+     * [dev.wildware.composegl.ui.geometry.Matrix4]. Each corner of [destination] goes through it,
+     * and the picture is stretched across the quad that makes *perspective-correctly*: divided by
+     * depth for every pixel, not only at the corners, so a tilted card's texture does not bend
+     * along the diagonal. That is the difference from [drawLayerOnto], and why a backend needs a
+     * shader that can take a w to do it. A corner at or behind the camera is clipped away rather
+     * than drawn inside out.
+     *
+     * What `Modifier.rotate3d` is composited with, and the skew and turn on the same node ride the
+     * same matrix.
+     *
+     * [destination] is also the rectangle a canvas that cannot do this draws the picture into
+     * instead, flat, which is what the default body does. Ask [tiltsLayers] first if that would be
+     * worse than not drawing it.
+     *
+     * Blending and opacity are [drawLayer]'s. No shader, for the reason the turned overload gives.
+     */
+    fun drawLayer(layer: TextureHandle, destination: Rect, transform: Matrix4) =
+        drawLayer(layer, destination)
+
+    /**
+     * Whether the transformed [drawLayer] really tilts the picture.
+     *
+     * False means it composites it flat into the destination instead. Same shape as
+     * [drawsLayersOnto], and separate from it because four corners are not a perspective: a backend
+     * that can place a quad has not necessarily been taught to divide by depth.
+     */
+    val tiltsLayers: Boolean get() = false
 
     /**
      * The backend's own drawing object, for whatever this interface does not cover — a shader, a

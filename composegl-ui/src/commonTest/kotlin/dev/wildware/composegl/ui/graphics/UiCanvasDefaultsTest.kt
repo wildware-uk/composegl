@@ -1,6 +1,7 @@
 package dev.wildware.composegl.ui.graphics
 
 import dev.wildware.composegl.ui.geometry.Corners
+import dev.wildware.composegl.ui.geometry.Matrix4
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.text.TextLayout
 import kotlin.test.Test
@@ -68,6 +69,19 @@ class UiCanvasDefaultsTest {
         assertFalse(canvas.drawsLayersOnto, "it says it cannot slant one")
         val drawn = canvas.images.single()
         assertEquals(box, drawn.first, "the box before the slant and drawn rather than skipped")
+    }
+
+    @Test
+    fun `a layer put down through a transform in depth is composited flat in the right place`() {
+        val canvas = OldBackend()
+        val picture = Pretend()
+        val box = Rect.of(10f, 20f, 40f, 8f)
+
+        canvas.drawLayer(picture, box, Matrix4.perspective(500f) * Matrix4.rotationY(60f))
+
+        assertFalse(canvas.tiltsLayers, "it says it cannot tilt one")
+        val drawn = canvas.images.single()
+        assertEquals(box, drawn.first, "the box before the tilt and drawn rather than skipped")
     }
 
     @Test

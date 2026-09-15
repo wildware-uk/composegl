@@ -409,6 +409,35 @@ fun scenes(): List<Scene> = listOf(
         popAlpha()
     },
 
+    Scene("tilt") { art ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+
+        // What `Modifier.rotate3d` is, with the tree taken away: the same tile captured flat and put
+        // down through a camera. Flat, swung about y so its right side recedes, tipped back about
+        // x, and turned all the way over so it reads backwards.
+        //
+        // A backend that ignores the transform draws four identical flat tiles; one that places
+        // the corners but does not divide by depth per pixel bends the label and the border along
+        // each quad's diagonal.
+        val flat = Rect.of(16f, 16f, 96f, 60f)
+        tile(art, flat, "Flat")
+
+        val swung = Rect.of(128f, 16f, 96f, 60f)
+        layer(swung) { tile(art, swung, "Swing") }
+            ?.let { drawLayer(it, swung, tilted(swung, x = 0f, y = 55f)) }
+            ?: tile(art, swung, "Swing")
+
+        val tipped = Rect.of(16f, 120f, 96f, 60f)
+        layer(tipped) { tile(art, tipped, "Tip") }
+            ?.let { drawLayer(it, tipped, tilted(tipped, x = 50f, y = 0f)) }
+            ?: tile(art, tipped, "Tip")
+
+        val over = Rect.of(128f, 120f, 96f, 60f)
+        layer(over) { tile(art, over, "Over") }
+            ?.let { drawLayer(it, over, tilted(over, x = 0f, y = 180f)) }
+            ?: tile(art, over, "Over")
+    },
+
     Scene("clip") { art ->
         rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
         rect(Rect.of(30f, 30f, 180f, 180f), Panel, corner = 8f)
@@ -524,6 +553,14 @@ private fun UiCanvas.through(effects: List<ShaderEffect>, bounds: Rect, body: ()
         return
     }
     drawLayer(picture, area, effect)
+}
+
+/** [box] turned about its middle by [x] then [y] degrees, seen by a camera 150 away. */
+private fun tilted(box: Rect, x: Float, y: Float): dev.wildware.composegl.ui.geometry.Matrix4 {
+    val m = dev.wildware.composegl.ui.geometry.Matrix4
+    val middle = box.centre
+    return m.translation(middle.x, middle.y) * m.perspective(150f) * m.rotationX(x) * m.rotationY(y) *
+        m.translation(-middle.x, -middle.y)
 }
 
 /** The four corners of [box] sheared about its middle, in the order `drawLayerOnto` takes them. */

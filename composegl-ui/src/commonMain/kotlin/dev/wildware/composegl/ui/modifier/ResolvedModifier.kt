@@ -117,6 +117,17 @@ class ResolvedModifier private constructor(
     /** The point a skew leaves where it is, as a place inside the node. */
     val skewOrigin: Alignment,
     /**
+     * How far this node is turned in depth about each axis as it is drawn, in degrees. Zero for
+     * almost every node there has ever been; see [dev.wildware.composegl.ui.modifier.rotate3d].
+     */
+    val rotation3dX: Float,
+    val rotation3dY: Float,
+    val rotation3dZ: Float,
+    /** How far away the camera looking at a 3D rotation is, in 72-pixel inches. */
+    val cameraDistance: Float,
+    /** The point a 3D rotation turns about and the camera looks at, as a place inside the node. */
+    val rotation3dOrigin: Alignment,
+    /**
      * The blend function this node and its subtree are drawn with. [BlendMode.SourceOver] for
      * almost every node there has ever been; see [dev.wildware.composegl.ui.modifier.blend].
      */
@@ -257,6 +268,11 @@ class ResolvedModifier private constructor(
             var skewSlopeX = 0f
             var skewSlopeY = 0f
             var skewOrigin = Alignment.Centre
+            var rotation3dX = 0f
+            var rotation3dY = 0f
+            var rotation3dZ = 0f
+            var cameraDistance = DefaultCameraDistance
+            var rotation3dOrigin = Alignment.Centre
             var clip: ClipElement? = null
             var clipBehind = 0
             var clipInFront = 0
@@ -370,6 +386,15 @@ class ResolvedModifier private constructor(
                         if (element.y != 0f) skewSlopeY += tan(element.y * DegreesToRadians)
                         skewOrigin = element.origin
                     }
+                    // Angles add per axis, as a flat turn's do, so a standing tilt and an animated
+                    // flip compose. The camera and the pivot are choices, so later wins.
+                    is Rotate3dElement -> {
+                        rotation3dX += element.x
+                        rotation3dY += element.y
+                        rotation3dZ += element.z
+                        cameraDistance = element.cameraDistance
+                        rotation3dOrigin = element.origin
+                    }
                     // A choice rather than a quantity, like an alignment: two shapes on one node
                     // are two answers to the same question, so the later one is the answer.
                     is HitShapeElement -> {
@@ -419,6 +444,7 @@ class ResolvedModifier private constructor(
                 if (skewSlopeX == 0f) 0f else atan(skewSlopeX) / DegreesToRadians,
                 if (skewSlopeY == 0f) 0f else atan(skewSlopeY) / DegreesToRadians,
                 skewOrigin,
+                rotation3dX, rotation3dY, rotation3dZ, cameraDistance, rotation3dOrigin,
                 blend, zIndex, tint, clip, clipBehind, clipInFront, hitShape, hoverIcon, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),

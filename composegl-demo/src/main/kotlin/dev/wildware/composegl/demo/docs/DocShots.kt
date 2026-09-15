@@ -90,6 +90,7 @@ import dev.wildware.composegl.ui.modifier.shadow
 import dev.wildware.composegl.ui.modifier.shake
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.skew
+import dev.wildware.composegl.ui.modifier.rotate3d
 import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.modifier.widthIn
@@ -1095,6 +1096,22 @@ private fun MutableList<DocShot>.modifiers() {
                 Row(horizontalArrangement = Arrangement.spacedBy(12f)) {
                     Button("APPLY", onClick = {}, modifier = Modifier.debugBounds(Colour.Cyan, label = true))
                     Box(Modifier.size(0f, 36f).debugBounds(Colour.Orange, label = true)) {}
+                }
+            }
+        }
+    })
+
+    // The same tile flat, swung about y, and tipped about x, with a close camera so the depth
+    // reads at this size: the near edge grows and the far edge shrinks, text and all.
+    add(DocShot("modifier-rotate3d", 560, 170) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(40f)) {
+                Labelled("no rotate3d") { SkewTile("CARD 1") { Modifier } }
+                Labelled("rotate3d(y = 50f)") {
+                    SkewTile("CARD 2") { Modifier.rotate3d(y = 50f, cameraDistance = 3f) }
+                }
+                Labelled("rotate3d(x = 45f)") {
+                    SkewTile("CARD 3") { Modifier.rotate3d(x = 45f, cameraDistance = 3f) }
                 }
             }
         }

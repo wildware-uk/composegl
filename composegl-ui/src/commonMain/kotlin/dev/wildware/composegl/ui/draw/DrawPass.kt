@@ -27,6 +27,8 @@ import dev.wildware.composegl.ui.modifier.ShadowElement
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.geometry.Matrix4
+import dev.wildware.composegl.ui.modifier.CameraDistanceUnit
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -103,10 +105,10 @@ class DrawPass(val canvas: UiCanvas) {
         val anchorX = if (scale == 1f) 0f else bounds.left + resolved.scaleOrigin.xIn(node.width, 0f)
         val anchorY = if (scale == 1f) 0f else bounds.top + resolved.scaleOrigin.yIn(node.height, 0f)
 
-        // A turn and a slant are the outermost things a node does, and the only ones that are not
-        // a rectangle, so they take a picture of their own rather than sharing one. A slant on a
-        // canvas that cannot put a picture on four corners is not worth a picture at all.
-        if (resolved.rotation == 0f && !slanted(resolved)) {
+        // A turn, a slant and a tilt are the outermost things a node does, and the only ones that
+        // are not a rectangle, so they take a picture of their own rather than sharing one. A slant
+        // or a tilt on a canvas that cannot draw it is not worth a picture at all.
+        if (resolved.rotation == 0f && !slanted(resolved) && !tilted(resolved)) {
             upright(node, resolved, bounds, scale, anchorX, anchorY)
         } else {
             turned(node, resolved, bounds, scale, anchorX, anchorY)
@@ -213,6 +215,12 @@ class DrawPass(val canvas: UiCanvas) {
             return
         }
 
+        // A tilt first: its matrix carries the slant and the flat turn too, so it is the one call.
+        if (tilted(resolved)) {
+            canvas.drawLayer(picture, area, transform(resolved, drawn))
+            return
+        }
+
         if (slanted(resolved)) {
             canvas.drawLayerOnto(picture, area, corners(resolved, area, drawn))
             return
@@ -272,6 +280,52 @@ class DrawPass(val canvas: UiCanvas) {
             corners[corner * 2 + 1] = turnPivotY + acrossX * turnSin + acrossY * turnCos
         }
         return corners
+    }
+
+    /** Whether this node turns in depth, on a canvas that can actually tilt a picture. */
+    private fun tilted(resolved: ResolvedModifier): Boolean =
+        (resolved.rotation3dX != 0f || resolved.rotation3dY != 0f || resolved.rotation3dZ != 0f) &&
+            canvas.tiltsLayers
+
+    /**
+     * Where the node's picture is seen once it is slanted, turned in depth, and turned flat.
+     *
+     * The same order [corners] uses with a tilt put in the middle: the slant happens to the flat
+     * picture about its own origin, the turn in depth about the point [rotate3d][dev.wildware.composegl.ui.modifier.rotate3d]
+     * names — seen by a camera straight in front of that point — and the flat turn on what that
+     * made, about its own. All three pivots are points of [drawn], so a bleed moves none of them.
+     *
+     * A handful of small matrices a frame while the node tilts, the same order of cost as the
+     * corners a slant makes; a node that tilts is being animated or was asked to look different.
+     */
+    private fun transform(resolved: ResolvedModifier, drawn: Rect): Matrix4 {
+        val pivotX = drawn.left + drawn.width * resolved.rotation3dOrigin.xIn(1f, 0f)
+        val pivotY = drawn.top + drawn.height * resolved.rotation3dOrigin.yIn(1f, 0f)
+        var transform = Matrix4.translation(pivotX, pivotY) *
+            Matrix4.perspective(resolved.cameraDistance * CameraDistanceUnit) *
+            Matrix4.rotationX(resolved.rotation3dX) *
+            Matrix4.rotationY(resolved.rotation3dY) *
+            Matrix4.rotationZ(resolved.rotation3dZ) *
+            Matrix4.translation(-pivotX, -pivotY)
+
+        if (resolved.skewX != 0f || resolved.skewY != 0f) {
+            val skewPivotX = drawn.left + drawn.width * resolved.skewOrigin.xIn(1f, 0f)
+            val skewPivotY = drawn.top + drawn.height * resolved.skewOrigin.yIn(1f, 0f)
+            transform = transform *
+                Matrix4.translation(skewPivotX, skewPivotY) *
+                Matrix4.shear(tan(resolved.skewX * DegreesToRadians), tan(resolved.skewY * DegreesToRadians)) *
+                Matrix4.translation(-skewPivotX, -skewPivotY)
+        }
+
+        if (resolved.rotation != 0f) {
+            val turnPivotX = drawn.left + drawn.width * resolved.rotationOrigin.xIn(1f, 0f)
+            val turnPivotY = drawn.top + drawn.height * resolved.rotationOrigin.yIn(1f, 0f)
+            transform = Matrix4.translation(turnPivotX, turnPivotY) *
+                Matrix4.rotationZ(resolved.rotation) *
+                Matrix4.translation(-turnPivotX, -turnPivotY) *
+                transform
+        }
+        return transform
     }
 
     /** Where [point] falls across a span, as the fraction a canvas takes a pivot as. */

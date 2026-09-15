@@ -46,7 +46,8 @@ class UiShapeBatch(
         false,
         maxQuads * 4,
         maxQuads * 6,
-        VertexAttribute(VertexAttributes.Usage.Position, 2, "a_position"),
+        // x, y and a w that is one for everything except a tilted picture — see `projected`.
+        VertexAttribute(VertexAttributes.Usage.Position, 3, "a_position"),
         VertexAttribute(VertexAttributes.Usage.ColorPacked, 4, GL20.GL_UNSIGNED_BYTE, true, "a_color"),
         VertexAttribute(VertexAttributes.Usage.ColorPacked, 4, GL20.GL_UNSIGNED_BYTE, true, "a_borderColor"),
         VertexAttribute(VertexAttributes.Usage.ColorPacked, 4, GL20.GL_UNSIGNED_BYTE, true, "a_shadowColor"),
@@ -484,6 +485,47 @@ class UiShapeBatch(
     }
 
     /**
+     * The same picture, on four corners that each carry a depth.
+     *
+     * What a tilted layer is written as. [corners] is twelve numbers — top-left, top-right,
+     * bottom-right, bottom-left — each an x, a y and a w *before* the divide, in this batch's y-up
+     * coordinates, so a corner seen at (x / w, y / w). Handing the GPU the undivided numbers is the
+     * whole trick: it divides per pixel, so the picture does not bend along the diagonal the way
+     * it would across two flat triangles. Still an ordinary quad, so it batches with the rest.
+     */
+    @Suppress("LongParameterList")
+    fun projected(
+        texture: Texture,
+        corners: FloatArray,
+        u: Float,
+        v: Float,
+        u2: Float,
+        v2: Float,
+        colour: Float,
+    ) {
+        use(texture)
+        // Anticlockwise from the bottom-left, exactly as `quad` winds it, so the indices fit.
+        deep(corners, 9, u, v2, colour)
+        deep(corners, 0, u, v, colour)
+        deep(corners, 3, u2, v, colour)
+        deep(corners, 6, u2, v2, colour)
+    }
+
+    /** One corner of a [projected] picture, read from [corners] at [at]. */
+    private fun deep(corners: FloatArray, at: Int, u: Float, v: Float, colour: Float) {
+        vertex(
+            x = corners[at], y = corners[at + 1], u = u, v = v,
+            colour = colour, border = 0f, shadow = 0f,
+            localX = 0f, localY = 0f,
+            halfWidth = 0f, halfHeight = 0f,
+            radii = noRadii, borderWidth = 0f, shadowSpread = 0f,
+            // Zero says "this is a picture": the shader skips the distance field entirely.
+            aa = 0f,
+            w = corners[at + 2],
+        )
+    }
+
+    /**
      * One corner of a turned picture.
      *
      * The minus on the sine is the y flip: this batch counts y upwards and the toolkit counts it
@@ -583,10 +625,12 @@ class UiShapeBatch(
         localX: Float, localY: Float, halfWidth: Float, halfHeight: Float,
         radii: FloatArray, borderWidth: Float, shadowSpread: Float, aa: Float,
         gradient: Float = 0f, gradientX: Float = 0f, gradientY: Float = 0f,
+        w: Float = 1f,
     ) {
         var at = used
         vertices[at++] = x
         vertices[at++] = y
+        vertices[at++] = w
         vertices[at++] = colour
         vertices[at++] = border
         vertices[at++] = shadow
@@ -623,7 +667,7 @@ class UiShapeBatch(
 
     private companion object {
 
-        const val FLOATS_PER_VERTEX = 21
+        const val FLOATS_PER_VERTEX = 22
 
         /** What the first gradient float says: a straight gradient, or one outwards from the middle. */
         const val LINEAR = 1f
@@ -643,7 +687,7 @@ class UiShapeBatch(
         }
 
         val VERTEX = """
-            attribute vec2 a_position;
+            attribute vec3 a_position;
             attribute vec4 a_color;
             attribute vec4 a_borderColor;
             attribute vec4 a_shadowColor;
@@ -676,7 +720,10 @@ class UiShapeBatch(
                 v_shape = a_shape;
                 v_radii = a_radii;
                 v_gradient = a_gradient;
-                gl_Position = u_projTrans * vec4(a_position, 0.0, 1.0);
+                // The third number is w. The projection is flat, so scaling a position by w moves
+                // nothing on the screen — but the GPU then interpolates everything across the
+                // triangle divided by w, which is what makes a tilted picture perspective-correct.
+                gl_Position = u_projTrans * vec4(a_position.xy, 0.0, a_position.z);
             }
         """.trimIndent()
 

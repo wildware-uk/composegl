@@ -1179,6 +1179,74 @@ class GdxCanvasTest {
         assertColour(Color.BLACK, drawn.pixels.at(170, 175), "leaving its bottom-right corner bare")
     }
 
+    // --- tilting a layer in depth ---
+
+    /**
+     * A card 160 square with its middle at (120, 120), turned [degrees] about y and seen by a camera
+     * [distance] away. At sixty degrees and 200 away its near left edge is seen at x = 58.8 and its
+     * far right edge at 149.7.
+     */
+    private fun turnedAboutY(degrees: Float, distance: Float = 200f) =
+        dev.wildware.composegl.ui.geometry.Matrix4.translation(120f, 120f) *
+            dev.wildware.composegl.ui.geometry.Matrix4.perspective(distance) *
+            dev.wildware.composegl.ui.geometry.Matrix4.rotationY(degrees) *
+            dev.wildware.composegl.ui.geometry.Matrix4.translation(-120f, -120f)
+
+    /** Red on the left half, blue on the right, captured and put down through [transform]. */
+    private fun halves(transform: dev.wildware.composegl.ui.geometry.Matrix4, alpha: Float = 1f): Frame {
+        val bounds = Rect.of(40f, 40f, 160f, 160f)
+        return draw {
+            val picture = layer(bounds) {
+                rect(Rect.of(40f, 40f, 80f, 160f), red)
+                rect(Rect.of(120f, 40f, 80f, 160f), blue)
+            }
+            pushAlpha(alpha)
+            drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds, transform)
+            popAlpha()
+        }
+    }
+
+    @Test
+    fun `a tilted layer is divided by depth per pixel so it does not bend along the diagonal`() {
+        // The line between red and blue is the card's middle, which the camera looks straight at,
+        // so perspective puts it exactly at x = 120. Stretched flat across two triangles it would
+        // land halfway between the edges on this row, at 104 — and x = 112 would be blue.
+        val frame = halves(turnedAboutY(60f))
+
+        assertColour(Color.RED, frame.pixels.at(112, 120), "the near half takes more of the screen")
+        assertColour(Color.RED, frame.pixels.at(117, 120), "right up to the middle")
+        assertColour(Color.BLUE, frame.pixels.at(124, 120), "and the far half starts there")
+        assertColour(Color.BLACK, frame.pixels.at(160, 120), "the far edge has swung in past 150")
+        assertColour(Color.RED, frame.pixels.at(64, 10), "the near edge grows past the box's top")
+        assertColour(Color.BLACK, frame.pixels.at(145, 55), "while the far edge shrinks below it")
+    }
+
+    @Test
+    fun `a layer turned all the way over shows its back mirrored`() {
+        val frame = halves(turnedAboutY(180f))
+
+        assertColour(Color.BLUE, frame.pixels.at(60, 120), "blue has come round to the left")
+        assertColour(Color.RED, frame.pixels.at(180, 120), "and red to the right")
+    }
+
+    @Test
+    fun `a tilted layer fades with the opacity in force`() {
+        val frame = halves(turnedAboutY(30f), alpha = 0.5f)
+
+        assertColour(Color(0.5f, 0f, 0f, 1f), frame.pixels.at(80, 120), "half red over black")
+    }
+
+    @Test
+    fun `a layer turned so a corner is behind the camera is clipped not drawn inside out`() {
+        // Eighty degrees with the camera only 60 away: the left edge swings to depth 79, behind
+        // the camera. What is in front is drawn, huge, on the left; the right edge is at x = 126.
+        // Drawn without clipping, the part behind the camera would come out mirrored on the right.
+        val frame = halves(turnedAboutY(80f, distance = 60f))
+
+        assertColour(Color.BLACK, frame.pixels.at(200, 120), "nothing inside out on the right")
+        assertColour(Color.BLACK, frame.pixels.at(240, 30), "nor in the far corner")
+    }
+
     // --- turning a picture, and blending it ---
 
     /** Draws [content] with a two-row picture to hand — red over blue — and reads the frame back. */
