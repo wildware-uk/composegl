@@ -113,7 +113,7 @@ open class RenderCanvas(
      *
      * @param clear what to fill the target with first, or null to draw over what is there.
      */
-    fun begin(viewport: Viewport, into: FrameTarget, clear: Colour? = null) {
+    open fun begin(viewport: Viewport, into: FrameTarget, clear: Colour? = null) {
         check(!drawing) { "begin() was called twice without an end()" }
         drawing = true
         begun = true
@@ -284,7 +284,6 @@ open class RenderCanvas(
         if (state.isHidden) return
         val measured = layout as? AtlasTextLayout
             ?: error("this canvas can only draw text measured by its own fonts, not ${layout::class}")
-        checkNotNull(fonts) { "this canvas was made without fonts, so it cannot draw text" }
 
         val tint = colour.inForce()
         // A picture keeps its own colours and takes only the text's fade.
@@ -330,6 +329,7 @@ open class RenderCanvas(
         var u2 = 0f
         var v2 = 0f
         var premultiplied = false
+        var rotated = false
 
         // The part of it a `source` rectangle asks for, texture coordinates with v the top edge.
         var left = 0f
@@ -345,6 +345,9 @@ open class RenderCanvas(
                 bottom = v2
                 return
             }
+            // A packer may lay a region down a quarter turn, and then a sub-rectangle's x and y
+            // mean the other two axes. Refused rather than drawn wrongly.
+            check(!rotated) { "part of a rotated atlas region cannot be drawn; pack this one without rotation" }
             val across = (u2 - u) / width
             val down = (v2 - v) / height
             left = u + source.left * across
@@ -364,6 +367,7 @@ open class RenderCanvas(
             into.u2 = handle.u2
             into.v2 = handle.v2
             into.premultiplied = true
+            into.rotated = false
         } else {
             val bound = textures.resolve(handle) ?: return false
             into.texture = bound.texture
@@ -372,6 +376,7 @@ open class RenderCanvas(
             into.u2 = bound.u2
             into.v2 = bound.v2
             into.premultiplied = bound.premultiplied
+            into.rotated = bound.rotated
         }
         into.width = handle.width
         into.height = handle.height
@@ -837,6 +842,12 @@ open class RenderCanvas(
      */
     protected open fun handOver(projection: FloatArray, viewport: Viewport): Any = RenderFrame(projection, viewport)
 
+    /**
+     * Runs [block] with [lent], with the engine's state already handed back. A backend whose drawing
+     * object must be opened and closed round a block — a sprite batch — does that here.
+     */
+    protected open fun lend(lent: Any, projection: FloatArray, block: (Any) -> Unit) = block(lent)
+
     /** The bottom-left corner, because the projection measures y upwards. */
     override fun raw(destination: Rect, block: (Any) -> Unit) {
         batch().flush(BatchBreak.Raw)
@@ -856,12 +867,12 @@ open class RenderCanvas(
     private fun runRaw(block: (Any) -> Unit, projection: FloatArray) {
         val lent = handOver(projection, viewport)
         if (!drawing) {
-            block(lent)
+            lend(lent, projection, block)
             return
         }
         device.suspend()
         try {
-            block(lent)
+            lend(lent, projection, block)
         } finally {
             device.resume()
         }

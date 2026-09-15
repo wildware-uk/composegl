@@ -3,9 +3,6 @@ package dev.wildware.composegl.gdx
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.backends.headless.HeadlessFiles
 import com.badlogic.gdx.graphics.Pixmap
-import com.badlogic.gdx.graphics.g2d.BitmapFont
-import com.badlogic.gdx.graphics.g2d.PixmapPacker
-import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator
 import com.badlogic.gdx.utils.GdxNativesLoader
 import java.io.File
@@ -13,11 +10,9 @@ import java.io.File
 /**
  * Real glyph shapes with no GPU.
  *
- * FreeType only needs a CPU to work out how wide a letter is; it needs a GPU to put that letter in
- * a texture. Handing it a packer of our own stops it reaching for the second, which lets every
- * question about *measurement* — the half the toolkit depends on — be answered on any machine.
- *
- * The font this produces cannot be drawn. Drawing is what the screenshot tests are for.
+ * FreeType only needs a CPU, and the glyph atlas is made in memory and uploaded when something is
+ * first drawn — so every question about *measurement*, the half the toolkit depends on, can be
+ * answered on any machine.
  */
 object HeadlessFonts {
 
@@ -31,7 +26,7 @@ object HeadlessFonts {
         Gdx.files = HeadlessFiles()
     }
 
-    /** A registry holding [family] at each of [sizes], measurable but not drawable. */
+    /** A registry holding [family] at each of [sizes], measurable with no GPU. */
     fun registry(family: String = "test", sizes: List<Int> = listOf(16)): GdxFonts =
         GdxFonts().also { add(it, family, sizes) }
 
@@ -46,16 +41,8 @@ object HeadlessFonts {
         file: String = "DejaVuSans.ttf",
         characters: String? = null,
     ) {
-        FreeTypeFontGenerator(Gdx.files.absolute(fontFile(file).absolutePath)).use { generator ->
-            sizes.forEach { size ->
-                val packer = PixmapPacker(512, 512, Pixmap.Format.RGBA8888, 1, false)
-                val parameter = FreeTypeFontGenerator.FreeTypeFontParameter().also {
-                    it.size = size
-                    it.packer = packer
-                    if (characters != null) it.characters = FreeTypeFontGenerator.DEFAULT_CHARS + characters
-                }
-                fonts.register(family, size.toFloat(), MeasuringFont(generator.generateData(parameter)))
-            }
+        fonts.registerTrueType(family, Gdx.files.absolute(fontFile(file).absolutePath), sizes) {
+            this.characters = FreeTypeFontGenerator.DEFAULT_CHARS + characters.orEmpty()
         }
     }
 
@@ -65,23 +52,5 @@ object HeadlessFonts {
             "the test emoji is missing"
         }.readBytes()
         return Pixmap(bytes, 0, bytes.size)
-    }
-
-    /**
-     * A font that knows every width and has no picture of anything.
-     *
-     * `load` is where LibGDX attaches each glyph to a place in a texture, and it is the only step
-     * that needs a GPU. Skipping it leaves the metrics — which is all that measurement reads —
-     * exactly as FreeType produced them.
-     */
-    private class MeasuringFont(data: BitmapFont.BitmapFontData) :
-        BitmapFont(data, TextureRegion(), false) {
-        override fun load(data: BitmapFontData) = Unit
-    }
-
-    private inline fun <T : FreeTypeFontGenerator, R> T.use(block: (T) -> R): R = try {
-        block(this)
-    } finally {
-        dispose()
     }
 }

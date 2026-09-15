@@ -1,11 +1,11 @@
 package dev.wildware.composegl.gdx
 
-import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.glutils.FrameBuffer
 import com.badlogic.gdx.utils.Disposable
+import dev.wildware.composegl.render.gl.GlDeviceTarget
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Viewport
@@ -63,34 +63,23 @@ class GdxRenderTarget(width: Int, height: Int) : Disposable {
     }
 
     /**
-     * Draws into it: binds the framebuffer, clears it, runs [block] and puts the viewport back.
+     * Draws into it: clears it, runs [block] in a frame of [canvas], and puts back whatever
+     * framebuffer and viewport were there before — so a game can call this in the middle of its own
+     * scene.
      *
      * @param clear what to fill it with first. Transparent by default, which is what a panel that
      *   is a shape rather than a rectangle wants.
      */
     fun <T> draw(canvas: GdxCanvas, clear: Colour = Transparent, block: () -> T): T {
-        buffer.begin()
+        canvas.begin(
+            Viewport.oneToOne(Size(width.toFloat(), height.toFloat())),
+            GlDeviceTarget.adopt(buffer.framebufferHandle, textureName, width, height),
+            clear,
+        )
         return try {
-            Gdx.gl.glClearColor(
-                clear.red / 255f * clear.alphaFraction,
-                clear.green / 255f * clear.alphaFraction,
-                clear.blue / 255f * clear.alphaFraction,
-                clear.alphaFraction,
-            )
-            Gdx.gl.glClear(com.badlogic.gdx.graphics.GL20.GL_COLOR_BUFFER_BIT)
-            canvas.begin(
-                Viewport.oneToOne(Size(width.toFloat(), height.toFloat())),
-                // Ours is bound, so anything inside that binds one of its own — a layer, an
-                // effect — knows what to put back when it is done.
-                framebuffer = buffer.framebufferHandle,
-            )
-            try {
-                block()
-            } finally {
-                canvas.end()
-            }
+            block()
         } finally {
-            buffer.end()
+            canvas.end()
         }
     }
 

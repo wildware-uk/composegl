@@ -24,9 +24,11 @@ of them.
 
 The LWJGL3 backend is the reference thin wrapper. It draws with the library's own
 renderer, `composegl-render`, and adds only what raw OpenGL needs: a `Gl` binding, a
-glyph rasteriser and a window. The other backends move onto the same renderer one at a
-time (see `docs/superpowers/specs/2026-09-15-shared-gl-renderer.md`), and until they do
-they carry renderers of their own.
+glyph rasteriser and a window. The LibGDX backend is a thin wrapper too: `GdxGl` over
+`Gdx.gl` and `Gdx.gl30`, FreeType glyphs, and LibGDX's input. The other backends move
+onto the same renderer one at a time (see
+`docs/superpowers/specs/2026-09-15-shared-gl-renderer.md`), and until they do they carry
+renderers of their own.
 
 Each backend has its own golden images, and CI checks each backend against its own.
 The LibGDX and LWJGL3 sets are never compared with each other by a test — FreeType
@@ -56,8 +58,9 @@ val host = UiHost()
 host.setContent { ProvideFonts(fonts) { ProvideSkin(skin.skin) { Hud(state) } } }
 ```
 
-`GdxCanvas(sprites, fonts.atlas)` on its own is still there for a game that wants
-only the canvas. Neither builds anything on the GPU until the first thing is drawn,
+`GdxCanvas(sprites, fonts)` on its own is still there for a game that wants only the
+canvas (`GdxCanvas(sprites, fonts.atlas)` means the same). Text does not kern: a width
+is the sum of the advances, as on every backend. Neither builds anything on the GPU until the first thing is drawn,
 so both can be constructed before the interface is ready; `canvas.warmUp()` — on
 `UiCanvas`, and a no-op on a canvas with nothing to build — pays for the mesh and the
 shader on a loading screen, where the player will not see a stutter.
@@ -264,6 +267,10 @@ backend supplies four small things and nothing that draws:
 | a `GlyphRasteriser` | one font at one size, one glyph at a time: metrics, advance, a coverage or colour bitmap | `StbRasteriser` in `StbFonts.kt` |
 | a `TextureResolver` | your texture type as a GL name and texture coordinates | `GlTexture.Resolver` |
 | the engine handoff | what `raw { }` hands a game, and `HostState.Leave` or `Restore` | `GlCanvas` |
+
+LibGDX's are `GdxGl.kt`, `FreeTypeRasteriser` in `GdxFonts.kt`, `GdxTexture.Resolver` and
+`GdxCanvas`, whose `raw { }` opens the game's `SpriteBatch` on the frame's projection. On
+Android, `GdxCanvas` notices a lost context by itself when the next frame begins.
 
 ```kotlin
 class MyCanvas(fonts: MyFonts) : RenderCanvas(GlDevice(MyGl, HostState.Leave), fonts, MyTextures) {

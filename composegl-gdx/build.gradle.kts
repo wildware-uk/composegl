@@ -3,10 +3,12 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-description = "The LibGDX backend: renderer, input translation, fonts, clipboard, keyboard."
+description = "The LibGDX backend: a Gdx.gl binding for the shared renderer, FreeType glyphs, input, clipboard, keyboard."
 
 dependencies {
     api(project(":composegl-ui"))
+    // The renderer. This module is its binding: Gdx.gl, FreeType glyphs, and LibGDX's input.
+    api(project(":composegl-render"))
     api(libs.gdx)
 
     // FreeType is how a game turns a .ttf into glyphs. It ships natives for desktop, Android and
@@ -30,6 +32,33 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
+
+/**
+ * None of the renderer this module used to carry: it draws through composegl-render, so LibGDX's
+ * meshes, shader programs and pixmap packer have no business here.
+ */
+val noOwnRenderer = tasks.register<BytecodeReferenceCheck>("checkNoOwnRenderer") {
+    description = "Fails if the LibGDX backend builds meshes, shaders or an atlas of its own."
+    group = "verification"
+    classDirectories.from(layout.buildDirectory.dir("classes/kotlin/main"))
+    forbiddenPackages.set(
+        listOf(
+            "com/badlogic/gdx/graphics/Mesh",
+            "com/badlogic/gdx/graphics/glutils/ShaderProgram",
+            "com/badlogic/gdx/graphics/g2d/PixmapPacker",
+        ),
+    )
+    reason.set(
+        "This backend is a thin wrapper round the shared renderer. It binds Gdx.gl, rasterises glyphs " +
+            "with FreeType and translates input; it does not batch, compile shaders or pack an atlas.",
+    )
+    dependsOn(tasks.named("classes"))
+}
+
+tasks.named("check") { dependsOn(noOwnRenderer) }
+
+// The renderer lives in composegl-render. Shaders and draw calls here would be a second one.
+confineRenderer("GdxGl.kt")
 
 // The same GL suite on a GL 3.2 core context, which is what a game on OpenGL ES 3 or desktop GL 3
 // runs on. LibGDX asks for a core profile only on a Mac, so on Linux Mesa is told to hand out a

@@ -1,7 +1,8 @@
 # One shared renderer; backends become thin wrappers
 
 Status: **step 1 built** — `composegl-render` exists and `composegl-lwjgl3` draws with it (steps 1, 2a
-and 2b of §8 landed together). gdx, webgl and korge still carry their own renderers. Supersedes the "engine-agnostic toolkit, engine-specific renderer" row of
+and 2b of §8 landed together). **gdx built** (step 3): `composegl-gdx` draws with it too. webgl and
+korge still carry their own renderers. Supersedes the "engine-agnostic toolkit, engine-specific renderer" row of
 `2026-09-09-runtime-ui-design.md` §4, and the "shares no code with the LibGDX backend" promise in
 `docs/wiki/Backends.md` and `GlShapeBatch`.
 
@@ -33,6 +34,16 @@ What the code does where this design said otherwise. The code is the reference.
 - **`RenderTarget.read()` runs a device frame** and so leaves the `Leave` end state behind it.
 - **Not in step 1:** the `testGles3` run in §8's matrix. lwjgl3's window and binding are desktop GL
   only; an ES run needs a GLES binding, and belongs with the first ES backend.
+- **gdx (step 3).** `src/main` went from 4,119 lines to 1,629. `GdxGl` reports version 2 whenever
+  `Gdx.gl30` is null, so the GL 2 / ES 2 path never asks for a vertex array object it has no call
+  for; on `testGl30` it compiles `#version 150`. `GdxFonts` keeps LibGDX's fixed page size (1,024,
+  up to 8 pages) and makes a font's `characters` when it is registered, so draw counts did not
+  change. Its `FreeTypeRasteriser` loads glyphs with LibGDX's hinting flags, gamma and whole-pixel
+  metrics. Ten goldens whose scenes have text were re-made once for the lost kerning. Context loss
+  is noticed in `begin` on Android, where LibGDX makes a new `GLVersion` with each new context,
+  rather than by a helper in `composegl-android`, which has no renderer dependency. Render gained
+  `BoundPicture.rotated`, an open `lend` round `raw` blocks, and text drawn by a canvas made
+  without fonts.
 - lwjgl3 `src/main` went from 4,574 lines to 1,782 (the estimate was 1,680). `composegl-render` is
   3,949 lines, plus 1,706 of common tests (93 tests on jvm, linuxX64 and wasmJs) using a recording
   `GpuDevice` and a recording `Gl`.

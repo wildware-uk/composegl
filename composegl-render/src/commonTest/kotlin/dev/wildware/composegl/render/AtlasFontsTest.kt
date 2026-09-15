@@ -191,4 +191,25 @@ class AtlasFontsTest {
         assertEquals(listOf(1f, 1f, 1f, 1f), draw.fill(8))
         assertEquals(listOf(1f, 0f, 0f, 1f), draw.fill(4))
     }
+    @Test
+    fun `a font registered late keeps the glyphs already made`() {
+        val fonts = TestFonts().apply { font("body", "AB", advance = 0.5f) }
+        val before = (fonts.measure("AB", style()) as AtlasTextLayout).placed.map { it.glyph }
+
+        fonts.font("late", "C", advance = 1f)
+        val after = (fonts.measure("AB", style()) as AtlasTextLayout).placed.map { it.glyph }
+
+        assertEquals(before.size, after.size)
+        before.indices.forEach { assertSame(before[it], after[it], "glyph $it was made a second time") }
+    }
+
+    @Test
+    fun `closed fonts refuse to measure and name no families`() {
+        val fonts = TestFonts().apply { font("body", "A", advance = 0.5f) }
+        fonts.close()
+
+        val thrown = assertFailsWith<IllegalStateException> { fonts.measure("A", style()) }
+        assertTrue("none" in thrown.message.orEmpty(), thrown.message)
+        assertTrue(fonts.families().isEmpty())
+    }
 }

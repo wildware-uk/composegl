@@ -166,7 +166,7 @@ class GdxAtlasTest {
             val fonts = GdxFonts()
             fonts.registerTrueType("body", Gdx.files.internal("fonts/DejaVuSans.ttf"), listOf(12, 16))
             try {
-                runCatching { fonts.fontFor(TextStyle(family = "body", size = 99f)) }
+                runCatching { fonts.measure("label", TextStyle(family = "body", size = 99f)) }
                     .exceptionOrNull()?.message.orEmpty()
             } finally {
                 fonts.dispose()
