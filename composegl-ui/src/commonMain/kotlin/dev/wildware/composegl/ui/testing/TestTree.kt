@@ -2,11 +2,13 @@ package dev.wildware.composegl.ui.testing
 
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.MeasurePass
+import dev.wildware.composegl.ui.modifier.DefaultMinSizeElement
 import dev.wildware.composegl.ui.modifier.FillElement
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.OffsetElement
 import dev.wildware.composegl.ui.modifier.PaddingElement
 import dev.wildware.composegl.ui.modifier.SizeElement
+import dev.wildware.composegl.ui.modifier.SizeInElement
 import dev.wildware.composegl.ui.modifier.elements
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.size
@@ -203,11 +205,13 @@ class TestTree {
 private fun Modifier.checkSaysNothingAboutTheRectangle(name: String) {
     check(
         !any {
-            it is OffsetElement || it is SizeElement || it is FillElement || it is PaddingElement
+            it is OffsetElement || it is SizeElement || it is FillElement || it is PaddingElement ||
+                it is SizeInElement || it is DefaultMinSizeElement
         },
     ) {
         val said = elements().first {
-            it is OffsetElement || it is SizeElement || it is FillElement || it is PaddingElement
+            it is OffsetElement || it is SizeElement || it is FillElement || it is PaddingElement ||
+                it is SizeInElement || it is DefaultMinSizeElement
         }
         "the modifier for $name says where it is or how big: $said. Where a box is and how big " +
             "is what x, y, width and height are for, and this fixture writes them into the " +

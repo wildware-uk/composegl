@@ -90,6 +90,51 @@ spilling over its neighbours. With nothing bounded at all, the content decides.
 
 ---
 
+## At least this, at most that: `widthIn` and `defaultMinSize`
+
+`width` says one number. Most panels want a range: a tooltip that grows with its
+text but wraps before it crosses the screen, a dialogue that is never cramped and
+never sprawls.
+
+```kotlin
+Panel(Modifier.widthIn(min = 200f, max = 400f)) { Text(briefing) }
+Box(Modifier.widthIn(max = 320f)) { Text(hint) }     // grows, then wraps
+Modifier.heightIn(min = 40f, max = 120f)
+Modifier.sizeIn(minWidth = 64f, minHeight = 64f)
+```
+
+Between the two ends the contents decide. Leave an end out and the parent's own
+stands. Both ends stay inside what the parent offers, the same as `width`: a
+parent with 300 to give gets 300 from `widthIn(min = 400f)`, not 400.
+
+![a short label lifted to its minimum, a longer one growing, and a long one wrapped at its maximum](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-size-in.png)
+
+Three things differ from Compose, where the order of the chain decides everything:
+
+- **A range holds wherever it is written.** `width` and `fillMaxWidth` are measured
+  inside it, so `widthIn(max = 400f).fillMaxWidth()` and
+  `fillMaxWidth().widthIn(max = 400f)` are the same panel: as wide as it can be, up
+  to 400. A fill is a share of the range's maximum, not the parent's.
+- **Written twice, the later bound wins, bound by bound.** A later minimum above an
+  earlier maximum carries the maximum up with it.
+- **A minimum above its own maximum throws**, at the call that wrote it. So does an
+  infinite minimum: under a scrolling parent it would make the node infinitely big.
+
+`defaultMinSize` is the one a widget puts on itself. It is a smallest size that
+only holds when nothing more definite has been said, which is what a touch target
+wants — a button labelled "A" is still thumb-sized, and the screen using it can
+still make it smaller:
+
+```kotlin
+Button(label, onClick, modifier.defaultMinSize(minWidth = 96f, minHeight = 48f))
+```
+
+It gives way, on its own axis, to a minimum from the parent, a `width`, a
+`fillMaxWidth`, or a `widthIn(min = …)`. It never goes past the parent's maximum or
+a `widthIn(max = …)`.
+
+---
+
 ## Sharing out the leftovers: `weight`
 
 Inside a `Row` or a `Column`, `weight` says "give me a share of whatever is left

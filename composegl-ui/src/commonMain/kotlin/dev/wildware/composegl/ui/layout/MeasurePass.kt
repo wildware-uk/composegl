@@ -169,9 +169,13 @@ internal class Inset : PlacementScope {
  *
  * When a chain says both, `fill` wins on the axis it names: `Modifier.size(50f).fillMaxWidth()`
  * is 50 tall and as wide as it can be.
+ *
+ * `widthIn`, `heightIn` and `sizeIn` narrow the offer first, wherever they sit in the chain, so a
+ * size or a fill is measured inside the range. `defaultMinSize` lifts the minimum only on an axis
+ * nothing else has said anything definite about.
  */
 internal fun ResolvedModifier.applyTo(incoming: Constraints, cache: ConstraintsCache): Constraints {
-    if (size == null && fill == null && aspectRatio == null) return incoming
+    if (size == null && fill == null && aspectRatio == null && sizeIn == null && defaultMinSize == null) return incoming
 
     // The four numbers first, one object at the end. Written out rather than with `let`, because
     // a lambda that assigns to a local puts that local in a heap box and makes a fresh lambda to
@@ -182,30 +186,69 @@ internal fun ResolvedModifier.applyTo(incoming: Constraints, cache: ConstraintsC
     var minHeight = incoming.minHeight
     var maxHeight = incoming.maxHeight
 
+    // A range first, whatever order the chain wrote it in, because it is a rule about the node and
+    // everything after this is measured inside it. Each end is kept inside the parent's offer, so
+    // the pair can only ever narrow it — and, the two ends being in order to begin with, they are
+    // still in order after both are pulled in.
+    val atLeastWide = sizeIn?.minWidth
+    if (atLeastWide != null) minWidth = incoming.constrainWidth(atLeastWide)
+    val atMostWide = sizeIn?.maxWidth
+    if (atMostWide != null) maxWidth = incoming.constrainWidth(atMostWide)
+    val atLeastTall = sizeIn?.minHeight
+    if (atLeastTall != null) minHeight = incoming.constrainHeight(atLeastTall)
+    val atMostTall = sizeIn?.maxHeight
+    if (atMostTall != null) maxHeight = incoming.constrainHeight(atMostTall)
+
     val width = size?.width
+    val widthFraction = fill?.widthFraction
+    val height = size?.height
+    val heightFraction = fill?.heightFraction
+
+    // A default gives way to anything that said something definite about its axis: the parent's
+    // own minimum, a size, a fill, or a range's minimum. What is left is the case it exists for —
+    // nobody asked, so the contents would have decided, and the contents are one letter.
+    val defaultMinWidth = defaultMinSize?.minWidth
+    if (defaultMinWidth != null && incoming.minWidth == 0f && width == null && widthFraction == null &&
+        sizeIn?.minWidth == null
+    ) {
+        minWidth = defaultMinWidth.coerceIn(minWidth, maxWidth)
+    }
+    val defaultMinHeight = defaultMinSize?.minHeight
+    if (defaultMinHeight != null && incoming.minHeight == 0f && height == null && heightFraction == null &&
+        sizeIn?.minHeight == null
+    ) {
+        minHeight = defaultMinHeight.coerceIn(minHeight, maxHeight)
+    }
+
+    // The range as it stands now, before a size narrows it to one number: a fill below takes its
+    // share of this, not of whatever a size on the same axis already said.
+    val rangeMinWidth = minWidth
+    val rangeMaxWidth = maxWidth
+    val rangeMinHeight = minHeight
+    val rangeMaxHeight = maxHeight
+
     if (width != null) {
-        val fixed = incoming.constrainWidth(width)
+        val fixed = width.coerceIn(rangeMinWidth, rangeMaxWidth)
         minWidth = fixed
         maxWidth = fixed
     }
-    val height = size?.height
     if (height != null) {
-        val fixed = incoming.constrainHeight(height)
+        val fixed = height.coerceIn(rangeMinHeight, rangeMaxHeight)
         minHeight = fixed
         maxHeight = fixed
     }
 
     // `fill` wins on the axis it names: Modifier.size(50f).fillMaxWidth() is 50 tall and as wide
-    // as it can be. There is no share of infinity, so an unbounded offer is left alone.
-    val widthFraction = fill?.widthFraction
-    if (widthFraction != null && incoming.hasBoundedWidth) {
-        val fixed = incoming.constrainWidth(incoming.maxWidth * widthFraction)
+    // as it can be. There is no share of infinity, so an unbounded offer is left alone. The share
+    // is of the range's maximum rather than the parent's, so `widthIn(max = 400f).fillMaxWidth()`
+    // is everything up to 400.
+    if (widthFraction != null && rangeMaxWidth.isFinite()) {
+        val fixed = (rangeMaxWidth * widthFraction).coerceIn(rangeMinWidth, rangeMaxWidth)
         minWidth = fixed
         maxWidth = fixed
     }
-    val heightFraction = fill?.heightFraction
-    if (heightFraction != null && incoming.hasBoundedHeight) {
-        val fixed = incoming.constrainHeight(incoming.maxHeight * heightFraction)
+    if (heightFraction != null && rangeMaxHeight.isFinite()) {
+        val fixed = (rangeMaxHeight * heightFraction).coerceIn(rangeMinHeight, rangeMaxHeight)
         minHeight = fixed
         maxHeight = fixed
     }

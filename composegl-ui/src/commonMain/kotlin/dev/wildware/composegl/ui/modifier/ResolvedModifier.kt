@@ -53,6 +53,10 @@ class ResolvedModifier private constructor(
     val fill: FillElement?,
     /** The shape this node keeps, or null for none. See [dev.wildware.composegl.ui.modifier.aspectRatio]. */
     val aspectRatio: AspectRatioElement?,
+    /** The range the node's size stays inside; see [dev.wildware.composegl.ui.modifier.sizeIn]. */
+    val sizeIn: SizeInElement?,
+    /** See [dev.wildware.composegl.ui.modifier.defaultMinSize]. */
+    val defaultMinSize: DefaultMinSizeElement?,
     val padding: Padding,
     val offset: Offset,
     val weight: Float?,
@@ -148,6 +152,8 @@ class ResolvedModifier private constructor(
             var size: SizeElement? = null
             var fill: FillElement? = null
             var aspectRatio: AspectRatioElement? = null
+            var sizeIn: SizeInElement? = null
+            var defaultMinSize: DefaultMinSizeElement? = null
             var padding = Padding.None
             var offset = Offset.Zero
             var weight: Float? = null
@@ -193,6 +199,11 @@ class ResolvedModifier private constructor(
                     )
                     // A choice: two shapes are two answers to one question, so the later one is it.
                     is AspectRatioElement -> aspectRatio = element
+                    is SizeInElement -> sizeIn = sizeIn.then(element)
+                    is DefaultMinSizeElement -> defaultMinSize = DefaultMinSizeElement(
+                        element.minWidth ?: defaultMinSize?.minWidth,
+                        element.minHeight ?: defaultMinSize?.minHeight,
+                    )
                     is PaddingElement -> padding += element.padding
                     is OffsetElement -> offset += Offset(element.x, element.y)
                     is WeightElement -> weight = element.weight
@@ -248,7 +259,8 @@ class ResolvedModifier private constructor(
             }
 
             return ResolvedModifier(
-                size, fill, aspectRatio, padding, offset, weight, alignment, layoutId, alpha, scale, scaleOrigin,
+                size, fill, aspectRatio, sizeIn, defaultMinSize, padding, offset, weight, alignment, layoutId, alpha,
+                scale, scaleOrigin,
                 rotation, rotationOrigin,
                 blend, zIndex, clip, hitShape, effects.toList(),
                 behind.toList(), inFront.toList(),
@@ -259,6 +271,28 @@ class ResolvedModifier private constructor(
             )
         }
     }
+}
+
+/**
+ * Two ranges on one node, settled bound by bound with the later one winning.
+ *
+ * A later bound can land on the wrong side of an earlier one — `widthIn(max = 100f)` then
+ * `widthIn(min = 150f)` — and a range with its minimum above its maximum fits nothing. The bound
+ * written later is the one that meant it, so the earlier one on the other side moves to meet it.
+ */
+private fun SizeInElement?.then(later: SizeInElement): SizeInElement {
+    if (this == null) return later
+    var minWidth = later.minWidth ?: this.minWidth
+    var maxWidth = later.maxWidth ?: this.maxWidth
+    if (minWidth != null && maxWidth != null && minWidth > maxWidth) {
+        if (later.minWidth != null) maxWidth = minWidth else minWidth = maxWidth
+    }
+    var minHeight = later.minHeight ?: this.minHeight
+    var maxHeight = later.maxHeight ?: this.maxHeight
+    if (minHeight != null && maxHeight != null && minHeight > maxHeight) {
+        if (later.minHeight != null) maxHeight = minHeight else minHeight = maxHeight
+    }
+    return SizeInElement(minWidth, maxWidth, minHeight, maxHeight)
 }
 
 /** Reads the chain into the answers layout and drawing want. */

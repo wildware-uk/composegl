@@ -42,6 +42,7 @@ import dev.wildware.composegl.ui.modifier.shadow
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
+import dev.wildware.composegl.ui.modifier.widthIn
 import dev.wildware.composegl.ui.modifier.zIndex
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Checkbox
@@ -163,6 +164,23 @@ private fun MutableList<DocShot>.layout() {
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8f)) {
                     repeat(4) { Shaped("1:1", Modifier.weight(1f).aspectRatio(1f), Steel) }
+                }
+            }
+        }
+    })
+
+    add(DocShot("layout-size-in", 420, 250) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                Text("widthIn(min = 160f, max = 300f)", style = "label.dim")
+                for (words in listOf(
+                    "Short",
+                    "A little longer than that",
+                    "Long enough that it would run straight off the side, so it wraps at 300 instead",
+                )) {
+                    Box(Modifier.widthIn(min = 160f, max = 300f).background(Steel, corner = 6f).padding(10f)) {
+                        Text(words)
+                    }
                 }
             }
         }

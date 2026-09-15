@@ -51,6 +51,56 @@ data class PaddingElement(val padding: Padding) : Modifier.Element
 /** Moved from where layout put it, without changing the space it takes up. */
 data class OffsetElement(val x: Float = 0f, val y: Float = 0f) : Modifier.Element
 
+/**
+ * A range the node's size has to stay inside. Null on a bound means "whatever the parent allows".
+ *
+ * @see dev.wildware.composegl.ui.modifier.sizeIn
+ */
+data class SizeInElement(
+    val minWidth: Float? = null,
+    val maxWidth: Float? = null,
+    val minHeight: Float? = null,
+    val maxHeight: Float? = null,
+) : Modifier.Element {
+    init {
+        requireMinimum("minWidth", minWidth)
+        requireBound("maxWidth", maxWidth)
+        requireMinimum("minHeight", minHeight)
+        requireBound("maxHeight", maxHeight)
+        require(minWidth == null || maxWidth == null || minWidth <= maxWidth) {
+            "minWidth $minWidth is more than maxWidth $maxWidth"
+        }
+        require(minHeight == null || maxHeight == null || minHeight <= maxHeight) {
+            "minHeight $minHeight is more than maxHeight $maxHeight"
+        }
+    }
+}
+
+/**
+ * A smallest size that holds only while nothing else has said one.
+ *
+ * @see dev.wildware.composegl.ui.modifier.defaultMinSize
+ */
+data class DefaultMinSizeElement(val minWidth: Float? = null, val minHeight: Float? = null) : Modifier.Element {
+    init {
+        requireMinimum("minWidth", minWidth)
+        requireMinimum("minHeight", minHeight)
+    }
+}
+
+private fun requireBound(name: String, value: Float?) {
+    if (value == null) return
+    require(!value.isNaN()) { "$name cannot be NaN" }
+    require(value >= 0f) { "$name cannot be negative, was $value" }
+}
+
+private fun requireMinimum(name: String, value: Float?) {
+    requireBound(name, value)
+    // Infinite would be a minimum nothing can meet, and under a parent that offers everything it
+    // makes a node infinitely big. Unlike a maximum, it is never meaningful.
+    require(value == null || value.isFinite()) { "$name cannot be infinite" }
+}
+
 /** A share of the space a row or column has left over after its fixed children. */
 data class WeightElement(val weight: Float) : Modifier.Element {
     init { require(weight > 0f) { "weight must be positive, was $weight" } }
@@ -224,6 +274,62 @@ fun Modifier.size(side: Float) = then(SizeElement(side, side))
 fun Modifier.width(width: Float) = then(SizeElement(width = width))
 
 fun Modifier.height(height: Float) = then(SizeElement(height = height))
+
+/**
+ * At least [min] wide and at most [max], and otherwise as wide as the contents want.
+ *
+ * ```kotlin
+ * Tooltip(Modifier.widthIn(max = 400f))       // grows with its text, then wraps
+ * Panel(Modifier.widthIn(min = 200f, max = 400f))
+ * ```
+ *
+ * Both ends stay inside what the parent allows, the same as [width] does: a parent that offers 300
+ * gets 300 from `widthIn(min = 400f)`, never 400. Leave a bound out and the parent's own stands.
+ *
+ * A range is a rule about the node rather than a wish, so it holds whichever order the chain puts
+ * it in: [width] and [fillMaxWidth] are both measured inside it. `widthIn(max = 400f).fillMaxWidth()`
+ * and `fillMaxWidth().widthIn(max = 400f)` are the same panel — as wide as it can be, up to 400.
+ *
+ * Written twice, each bound is a choice and the later one wins, bound by bound. A later minimum
+ * above an earlier maximum carries the maximum up with it rather than leaving a range nothing fits.
+ *
+ * @throws IllegalArgumentException if a bound is negative or NaN, [min] is infinite, or [min] is
+ *   more than [max].
+ */
+fun Modifier.widthIn(min: Float? = null, max: Float? = null) =
+    then(SizeInElement(minWidth = min, maxWidth = max))
+
+/** At least [min] tall and at most [max]. Everything [widthIn] says, on the other axis. */
+fun Modifier.heightIn(min: Float? = null, max: Float? = null) =
+    then(SizeInElement(minHeight = min, maxHeight = max))
+
+/** [widthIn] and [heightIn] in one call. Null leaves that bound to the parent. */
+fun Modifier.sizeIn(
+    minWidth: Float? = null,
+    minHeight: Float? = null,
+    maxWidth: Float? = null,
+    maxHeight: Float? = null,
+) = then(SizeInElement(minWidth, maxWidth, minHeight, maxHeight))
+
+/**
+ * A smallest size that only holds when nothing else has asked for one.
+ *
+ * What a widget puts on itself so it is never smaller than a thumb can hit, while leaving the
+ * screen that uses it free to say otherwise:
+ *
+ * ```kotlin
+ * Box(modifier.defaultMinSize(minWidth = 48f, minHeight = 48f)) { … }
+ * ```
+ *
+ * It gives way, on its own axis, to anything more definite: a parent that already offers a
+ * minimum, a [width] or a [fillMaxWidth], or a `widthIn(min = …)`. What it never gives way to is
+ * nothing at all — so a button whose label is one letter is still 48 wide. It still stays inside
+ * the parent's maximum and any [widthIn] maximum, like every other size here.
+ *
+ * @throws IllegalArgumentException if a minimum is negative, NaN or infinite.
+ */
+fun Modifier.defaultMinSize(minWidth: Float? = null, minHeight: Float? = null) =
+    then(DefaultMinSizeElement(minWidth, minHeight))
 
 fun Modifier.fillMaxWidth(fraction: Float = 1f) = then(FillElement(widthFraction = fraction))
 

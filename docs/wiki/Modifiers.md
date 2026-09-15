@@ -25,7 +25,14 @@ Modifier.fillMaxWidth()            // all of what the parent offers
 Modifier.fillMaxHeight(0.5f)       // half of it
 Modifier.fillMaxSize()
 Modifier.fillMaxWidth().aspectRatio(3f / 4f)  // as wide as the slot, height follows at 3:4
+Modifier.widthIn(min = 200f, max = 400f)   // as wide as the contents, inside that range
+Modifier.heightIn(min = 40f)
+Modifier.sizeIn(minWidth = 64f, minHeight = 64f)
+Modifier.defaultMinSize(minWidth = 48f)    // only when nothing else says a width
 ```
+
+A range is a rule rather than a wish, so it holds wherever it sits in the chain:
+`width` and `fillMaxWidth` are measured inside it. See [[Layout]] for the details.
 
 **Space**
 
