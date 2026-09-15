@@ -524,7 +524,8 @@ ScrollArea(Modifier.fillMaxSize()) { LongPatchNotes() }
 ![a panel of save slots with a scrollbar down the side](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-scroll.png)
 
 `LazyColumn` and `LazyVerticalGrid` measure only what is on screen; [[Layout]]
-covers grids. `ScrollArea` is for content that is
+covers grids, and lists in sections whose headers stay at the top
+(`LazyColumn { stickyHeader { … }; items(…) { … } }`). `ScrollArea` is for content that is
 one piece and simply too tall.
 
 Both remember how far they were scrolled when their screen is left and come

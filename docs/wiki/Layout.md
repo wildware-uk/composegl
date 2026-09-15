@@ -465,8 +465,7 @@ catalogue wants a [lazy grid](#long-grids). A cell cannot span several columns y
 
 ## Long lists
 
-`LazyColumn` and `LazyRow`, with a simpler signature than Compose's: a `count` and
-an item composable, rather than a `LazyListScope` DSL.
+`LazyColumn` and `LazyRow`. The plain form takes a `count` and an item composable:
 
 ```kotlin
 LazyColumn(count = saves.size, spacing = 6f) { index ->
@@ -479,6 +478,40 @@ LazyColumn(count = saves.size, spacing = 6f) { index ->
 
 It scrolls, draws its own scrollbars, and only measures what is on screen plus a
 couple either side. `key` and `spacing` do what you expect.
+
+### Sections and sticky headers
+
+A list in groups — an inventory by kind, a quest log by chapter, names under
+"A", "B", "C" — uses the block form. A `stickyHeader` stays at the top while the
+rows after it scroll under it:
+
+```kotlin
+LazyColumn(Modifier.fillMaxSize()) {
+    stickyHeader { Header("Weapons") }
+    items(weapons, key = { it.id }) { WeaponRow(it) }
+
+    stickyHeader { Header("Armour") }
+    items(armour, key = { it.id }) { ArmourRow(it) }
+
+    item { Text("That is everything.") }
+}
+```
+
+- **One header at the top at a time.** A header scrolls in like any row and
+  stops when it reaches the top. The next header pushes it off as it arrives,
+  rather than sliding over it.
+- **It is on top for the mouse too.** A click on a pinned header does not reach
+  the row hidden under it. A drag on it still scrolls the list.
+- **Focus is not hidden by it.** Moving up onto a row under the header scrolls
+  until the row is below the header.
+- **Everything else is the same.** Only what is on screen is built, keys keep
+  state with their rows, and `items(count) { index -> }` works too. The block may
+  read state; the list is rebuilt when that state changes.
+- `LazyListState.pinnedHeader` says which item is pinned, or `null` before the
+  first header. It is state, so a "you are in: Armour" label that reads it keeps
+  up by itself. `LazyRow { }` takes the same block and pins at the left edge.
+
+![an inventory in sections, the Armour header pushing the Weapons header off the top](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-sticky-headers.png)
 
 ### Long grids
 

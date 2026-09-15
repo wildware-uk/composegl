@@ -38,6 +38,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
+import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.focusable
 import dev.wildware.composegl.ui.modifier.height
@@ -590,15 +591,24 @@ private fun LorePanel(modifier: Modifier, state: DemoState) {
 
             // Five hundred lines of log, of which about a dozen exist. The wheel, a drag, the
             // scrollbar and the pad all move it, and it is clipped by one scissor rather than one
-            // per line.
+            // per line. Each shift's header stays at the top until the next shift pushes it off.
             LazyColumn(
-                count = transmissions.size,
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 state = log,
-                key = { it },
                 spacing = 6f,
-            ) { index ->
-                Text(transmissions[index], Modifier.padding(right = 14f), style = "label.dim")
+            ) {
+                shifts.forEachIndexed { shift, lines ->
+                    stickyHeader(key = "shift$shift") {
+                        Text(
+                            "SHIFT ${shift + 1}",
+                            Modifier.fillMaxWidth().background(Colour.rgb(0x1B1F2A)).padding(top = 2f, bottom = 2f),
+                            style = "label.body",
+                        )
+                    }
+                    items(lines.size, key = { "$shift-$it" }) { index ->
+                        Text(lines[index], Modifier.padding(right = 14f), style = "label.dim")
+                    }
+                }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(10f)) {
@@ -762,6 +772,9 @@ private val transmissions = List(500) { index ->
     val line = relayLog[index % relayLog.size]
     if (index < relayLog.size) line else "${index + 1}  ${line.substringAfter("  ")}"
 }
+
+/** The same log in shifts of fifty, each under a header that stays put while its lines scroll. */
+private val shifts = transmissions.chunked(50)
 
 /** The number row, in the order it is printed: 1 to 9 then 0, which is the tenth slot. */
 private val digits = listOf(
