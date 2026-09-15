@@ -95,6 +95,42 @@ If you want a child's size before deciding the constraints for it — the classi
 reason people measure twice — measure it loose once, keep the `Placeable`, and work
 from that.
 
+Or ask it first. Asking is not measuring, so it does not count:
+
+```kotlin
+val wanted = measurables[0].maxIntrinsicWidth(height = constraints.maxHeight)
+val placeable = measurables[0].measure(Constraints.fixed(wanted, 40f))
+```
+
+---
+
+## Intrinsic sizes
+
+`Modifier.width(IntrinsicSize.Max)` asks a layout how big it would like to be before
+measuring it (see [[Layout]]). Your policy already has an answer: by default the
+toolkit runs your `measure` over stand-ins that report each child's own intrinsic size,
+so a ring of icons reports the ring's size without you writing anything.
+
+Override the four when that is wrong or wasteful:
+
+```kotlin
+override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+    measurables.maxOfOrNull { it.maxIntrinsicWidth(height) } ?: 0f
+```
+
+Three cases where it is worth it. A leaf whose measure cannot tell its narrowest from its
+widest — `Text` answers `minIntrinsicWidth` with its longest word. A layout with
+weights, where measuring with unlimited room hands every weighted child a share of
+nothing — `Row` and `Column` write their own for that reason.
+
+And one where it is required: a `measure` that writes anything down. The default runs
+your `measure` with made-up room, so a scroll area that clamps its position there, or a
+lazy list that records its window size, would be scrolled back or recomposed by the
+question. `ScrollArea`, `LazyColumn`, `TextField` and `Typewriter` all answer directly
+for that reason.
+
+An answer asks children; it never measures them.
+
 ---
 
 ## What a child can tell you

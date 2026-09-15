@@ -78,7 +78,10 @@ class MeasurePass {
         // A node that wraps its content is not held to the parent's minimum: it measures at its
         // own size and is put inside the slot below, rather than being stretched across it.
         val offered = if (wrap == null) incoming else incoming.unforced(wrap, node.wrapConstraints)
-        val outer = resolved.applyTo(offered, node.outerConstraints)
+        // Intrinsics after size and fill, because they fix an axis inside whatever those allowed,
+        // and only on a node that asked: the question walks the subtree, and most nodes never ask.
+        val sized = resolved.applyTo(offered, node.outerConstraints)
+        val outer = if (resolved.intrinsicSize == null) sized else node.applyIntrinsics(resolved, sized)
         val padding = resolved.padding
         // Not loosened. A policy has to see the minimum it was given, or a row told to be 200
         // wide arranges its children inside the 40 they happen to add up to. Loosening for
@@ -251,7 +254,14 @@ internal class OnceMeasurable(private val node: UiNode) : Measurable {
     fun begin(pass: MeasurePass): OnceMeasurable {
         this.pass = pass
         measuredBy = null
+        return refresh()
+    }
 
+    /**
+     * Brings [layoutData] up to date without starting a measure. What an intrinsic question does
+     * first, since it can reach a child before the pass has.
+     */
+    fun refresh(): OnceMeasurable {
         // Rebuilt only when it actually differs, which for almost every node is never: a weight,
         // an alignment and an id are written in a modifier chain and then stay there.
         val resolved = node.resolved
@@ -266,6 +276,13 @@ internal class OnceMeasurable(private val node: UiNode) : Measurable {
         }
         return this
     }
+
+    // Asking is not measuring: none of these touch the pass, so a layout may ask about a child
+    // and then measure it once, as it always could.
+    override fun minIntrinsicWidth(height: Float) = node.intrinsic(Intrinsic.MinWidth, height)
+    override fun maxIntrinsicWidth(height: Float) = node.intrinsic(Intrinsic.MaxWidth, height)
+    override fun minIntrinsicHeight(width: Float) = node.intrinsic(Intrinsic.MinHeight, width)
+    override fun maxIntrinsicHeight(width: Float) = node.intrinsic(Intrinsic.MaxHeight, width)
 
     override fun measure(constraints: Constraints): Placeable {
         val pass = checkNotNull(pass) { "${node.name} was measured outside a pass" }
@@ -572,6 +589,38 @@ internal class NodeMeasureScope : MeasureScope {
     override fun offers(count: Int): Array<ConstraintsCache> {
         if (offers.size < count) offers = Array(count) { ConstraintsCache() }
         return offers
+    }
+
+    private var probes: ArrayList<IntrinsicProbe>? = null
+    private var probeOffer: ConstraintsCache? = null
+
+    /**
+     * Stand-ins for [measurables], one each, asking [kind]. Kept and pointed at new children
+     * rather than made again, so a screen that asks the same question every frame makes nothing.
+     */
+    internal fun probes(measurables: List<IntrinsicMeasurable>, kind: Intrinsic): List<Measurable> {
+        val probes = probes ?: ArrayList<IntrinsicProbe>().also { probes = it }
+        while (probes.size > measurables.size) probes.removeAt(probes.size - 1)
+        for (index in measurables.indices) {
+            if (index < probes.size) {
+                val probe = probes[index]
+                probe.target = measurables[index]
+                probe.kind = kind
+            } else {
+                probes.add(IntrinsicProbe(measurables[index], kind))
+            }
+        }
+        return probes
+    }
+
+    /** The room an intrinsic question is asked in: unbounded along it, [across] on the other axis. */
+    internal fun probeOffer(kind: Intrinsic, across: Float): Constraints {
+        val cache = probeOffer ?: ConstraintsCache().also { probeOffer = it }
+        return if (kind.width) {
+            cache.of(0f, Float.POSITIVE_INFINITY, 0f, across)
+        } else {
+            cache.of(0f, across, 0f, Float.POSITIVE_INFINITY)
+        }
     }
 
     /**

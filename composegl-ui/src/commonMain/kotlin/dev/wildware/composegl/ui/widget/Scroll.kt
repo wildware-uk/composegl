@@ -7,6 +7,7 @@ import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
 import dev.wildware.composegl.ui.layout.Layout
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
@@ -202,4 +203,20 @@ private class ScrollPolicy(
             barX?.at(0f, height - thickness)
         }
     }
+
+    // Written out rather than left to the default, which runs measure: measuring tells the state
+    // how big the window is and clamps the position to it, and a question must not scroll anything.
+    // The area would like to be as big as its contents; the bars sit on top and want nothing.
+
+    override fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        measurables[0].minIntrinsicWidth(if (vertical) Float.POSITIVE_INFINITY else height)
+
+    override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        measurables[0].maxIntrinsicWidth(if (vertical) Float.POSITIVE_INFINITY else height)
+
+    override fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        measurables[0].minIntrinsicHeight(if (horizontal) Float.POSITIVE_INFINITY else width)
+
+    override fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        measurables[0].maxIntrinsicHeight(if (horizontal) Float.POSITIVE_INFINITY else width)
 }

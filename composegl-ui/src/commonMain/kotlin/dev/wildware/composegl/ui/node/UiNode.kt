@@ -12,6 +12,7 @@ import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.ConstraintsCache
 import dev.wildware.composegl.ui.layout.Inset
 import dev.wildware.composegl.ui.layout.Measurable
+import dev.wildware.composegl.ui.layout.NodeIntrinsics
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.NodeMeasureScope
 import dev.wildware.composegl.ui.layout.NodePlaceable
@@ -285,6 +286,9 @@ class UiNode(var name: String = "node") {
 
     /** The parent's offer with its minimum taken away, for a node that wraps its content. */
     internal val wrapConstraints = ConstraintsCache()
+
+    /** Kept for intrinsic questions, made the first time this node is asked one. See Intrinsics. */
+    internal var intrinsics: NodeIntrinsics? = null
 
     /** Where this node sits on screen, and where its contents sit inside it. */
     internal val drawnBounds = RectCache()

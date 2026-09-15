@@ -10,6 +10,7 @@ import dev.wildware.composegl.ui.focus.RevealHandler
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
 import dev.wildware.composegl.ui.layout.Layout
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
@@ -349,5 +350,43 @@ private class LazyPolicy(
             }
             if (vertical) bar?.at(width - thickness, 0f) else bar?.at(0f, height - thickness)
         }
+    }
+
+    // Written out rather than left to the default, which runs measure: measuring records each
+    // item's size and the window's, and bumps the state's revision when they change. A question
+    // asked with made-up room would record made-up sizes, recompose, and ask again, every frame.
+    // The answer is about the items that exist now, end to end along the list and the widest across.
+
+    override fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        if (vertical) across(measurables) { minIntrinsicWidth(Float.POSITIVE_INFINITY) }
+        else along(measurables) { minIntrinsicWidth(height) }
+
+    override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        if (vertical) across(measurables) { maxIntrinsicWidth(Float.POSITIVE_INFINITY) }
+        else along(measurables) { maxIntrinsicWidth(height) }
+
+    override fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        if (vertical) along(measurables) { minIntrinsicHeight(width) }
+        else across(measurables) { minIntrinsicHeight(Float.POSITIVE_INFINITY) }
+
+    override fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        if (vertical) along(measurables) { maxIntrinsicHeight(width) }
+        else across(measurables) { maxIntrinsicHeight(Float.POSITIVE_INFINITY) }
+
+    private inline fun along(measurables: List<IntrinsicMeasurable>, size: IntrinsicMeasurable.() -> Float): Float {
+        val items = measurables.size - if (bars) 1 else 0
+        var total = spacing * (items - 1).coerceAtLeast(0)
+        for (index in 0 until items) total += measurables[index].size()
+        return total
+    }
+
+    private inline fun across(measurables: List<IntrinsicMeasurable>, size: IntrinsicMeasurable.() -> Float): Float {
+        val items = measurables.size - if (bars) 1 else 0
+        var widest = 0f
+        for (index in 0 until items) {
+            val each = measurables[index].size()
+            if (each > widest) widest = each
+        }
+        return widest
     }
 }

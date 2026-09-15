@@ -14,6 +14,7 @@ import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.graphics.textRun
 import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
@@ -322,6 +323,36 @@ private class TypewriterPainter(
         val height = lines.size * style.lineHeight
         return layout(constraints.constrainWidth(width), constraints.constrainHeight(height)) {}
     }
+
+    // Written out rather than left to the default, which runs measure: measuring replaces the lines
+    // this draws, and a question asked at a made-up width must not re-break what is on screen.
+    // Worked out on the side instead, and kept for as long as the text and the width stay the same.
+
+    private var askedText: String? = null
+    private var askedWidth = Float.NaN
+    private var askedLines: List<Line> = emptyList()
+
+    private fun linesAt(width: Float): List<Line> {
+        val text = state.text
+        if (text != askedText || width != askedWidth) {
+            askedLines = wrap(text, width)
+            askedText = text
+            askedWidth = width
+        }
+        return askedLines
+    }
+
+    override fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        linesAt(0f).maxOfOrNull { it.whole.size.width } ?: 0f
+
+    override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        linesAt(Float.POSITIVE_INFINITY).maxOfOrNull { it.whole.size.width } ?: 0f
+
+    override fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        linesAt(width).size * style.lineHeight
+
+    override fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        linesAt(width).size * style.lineHeight
 
     /**
      * The text, broken into lines that will never be broken again.

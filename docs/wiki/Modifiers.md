@@ -29,6 +29,8 @@ Modifier.widthIn(min = 200f, max = 400f)   // as wide as the contents, inside th
 Modifier.heightIn(min = 40f)
 Modifier.sizeIn(minWidth = 64f, minHeight = 64f)
 Modifier.defaultMinSize(minWidth = 48f)    // only when nothing else says a width
+Modifier.width(IntrinsicSize.Max)  // as wide as the contents would like, asked first
+Modifier.height(IntrinsicSize.Min) // as short as they can be squeezed to
 ```
 
 A range is a rule rather than a wish, so it holds wherever it sits in the chain:

@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.input.UiSounds
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
 import dev.wildware.composegl.ui.layout.Layout
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.layout.Measurable
@@ -125,6 +126,22 @@ private class SliderPolicy(
     private val knob: Float,
     private val length: Float,
 ) : MeasurePolicy {
+
+    // Written out rather than left to the default, which runs measure: measuring tells the slider
+    // how far its knob can travel, and a question asked with made-up room must not.
+    // A slider would like to be its length along and its knob or track across.
+
+    override fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        if (horizontal) length else maxOf(thickness, knob)
+
+    override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        if (horizontal) length else maxOf(thickness, knob)
+
+    override fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        if (horizontal) maxOf(thickness, knob) else length
+
+    override fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        if (horizontal) maxOf(thickness, knob) else length
 
     override fun MeasureScope.measure(
         measurables: List<Measurable>,

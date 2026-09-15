@@ -23,6 +23,7 @@ import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Baseline
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
+import dev.wildware.composegl.ui.layout.IntrinsicSize
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
@@ -58,6 +59,15 @@ data class AspectRatioElement(
         require(ratio > 0f && ratio.isFinite()) { "an aspect ratio must be positive and finite, was $ratio" }
     }
 }
+
+/**
+ * As big as the contents would like to be, asked before they are measured. Null on an axis means
+ * "leave it alone". See [IntrinsicSize].
+ */
+data class IntrinsicSizeElement(
+    val width: IntrinsicSize? = null,
+    val height: IntrinsicSize? = null,
+) : Modifier.Element
 
 data class PaddingElement(val padding: Padding) : Modifier.Element
 
@@ -524,6 +534,33 @@ fun Modifier.sizeIn(
  */
 fun Modifier.defaultMinSize(minWidth: Float? = null, minHeight: Float? = null) =
     then(DefaultMinSizeElement(minWidth, minHeight))
+
+/**
+ * As wide as the contents would like to be, found out before they are measured.
+ *
+ * A menu whose buttons are all as wide as the longest label:
+ *
+ * ```kotlin
+ * Column(Modifier.width(IntrinsicSize.Max)) {
+ *     Button("PLAY", onClick = { }, modifier = Modifier.fillMaxWidth())
+ *     Button("OPTIONS", onClick = { }, modifier = Modifier.fillMaxWidth())
+ * }
+ * ```
+ *
+ * The column asks each button how wide it would be if it could have any width, takes the widest,
+ * and is exactly that wide — so `fillMaxWidth` inside it fills to the longest label rather than to
+ * the screen. `IntrinsicSize.Min` asks for the narrowest instead, which for text is its longest
+ * word. A `width` or a `fill` on the same axis wins.
+ */
+fun Modifier.width(intrinsicSize: IntrinsicSize) = then(IntrinsicSizeElement(width = intrinsicSize))
+
+/**
+ * As tall as the contents would like to be, found out before they are measured.
+ *
+ * A row whose divider is as tall as its tallest cell: `Row(Modifier.height(IntrinsicSize.Min))`
+ * with the divider on `fillMaxHeight()`. See the `width` above.
+ */
+fun Modifier.height(intrinsicSize: IntrinsicSize) = then(IntrinsicSizeElement(height = intrinsicSize))
 
 fun Modifier.fillMaxWidth(fraction: Float = 1f) = then(FillElement(widthFraction = fraction))
 

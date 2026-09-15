@@ -28,6 +28,7 @@ import dev.wildware.composegl.ui.input.PointerIcon
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
@@ -604,6 +605,20 @@ private class FieldPainter(
         val shown = ((height / metrics.lineHeight).toInt() - 1).coerceIn(0, metrics.lines.lastIndex)
         return layout(width, height, first, first + shown * metrics.lineHeight) {}
     }
+
+    // Written out rather than left to the default, which runs measure: measuring scrolls the text to
+    // keep the caret in view, and a question asked at a made-up width would scroll it somewhere else.
+    // A field would like to be as wide as what is in it.
+
+    override fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) = metrics.width
+
+    override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) = metrics.width
+
+    override fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        if (multiline) metrics.height else metrics.lineHeight
+
+    override fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        if (multiline) metrics.height else metrics.lineHeight
 
     /**
      * Scrolls as far as it has to and no further.
