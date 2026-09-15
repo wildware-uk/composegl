@@ -168,6 +168,8 @@ import dev.wildware.composegl.ui.widget.LazyGridState
 import dev.wildware.composegl.ui.widget.LazyListState
 import dev.wildware.composegl.ui.widget.LazyVerticalGrid
 import dev.wildware.composegl.ui.widget.Panel
+import dev.wildware.composegl.ui.widget.Spinner
+import dev.wildware.composegl.ui.widget.IndeterminateBar
 import dev.wildware.composegl.ui.widget.ProvideTextScale
 import dev.wildware.composegl.ui.widget.ScrollArea
 import dev.wildware.composegl.ui.widget.SelectionContainer
@@ -945,6 +947,27 @@ private fun MutableList<DocShot>.widgets() {
             }
         }
     })
+
+    // Working, nobody knows how long: a loading card with a bar under its header, a "Connecting..."
+    // button with a spinner in it, a saving note, a few sizes and a vertical bar, and the same two in
+    // the high-contrast skin. Taken part way into a turn, so the arc is stretched and the blocks are
+    // mid-track.
+    add(DocShot("widget-spinner", SpinnerShotWidth, SpinnerShotHeight, stock = true, seconds = 0.3f) {
+        Frame { WorkingScene() }
+    })
+
+    // The same screen at evenly spaced moments across one second, for the animated picture. Only when
+    // asked for, because they are frames to be joined into a GIF, not pictures of their own:
+    // `COMPOSEGL_DOC_FRAMES=1`, then join `widget-spinner-frame-*.png` in order, 1/20 s each.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(SpinnerFrames) { i ->
+            val name = "widget-spinner-frame-${i.toString().padStart(2, '0')}"
+            // Three frames at sixty a second apart: 20 of them are exactly one second, a turn and a sweep.
+            add(DocShot(name, SpinnerShotWidth, SpinnerShotHeight, stock = true, seconds = i * 3 / 60f) {
+                Frame { WorkingScene() }
+            })
+        }
+    }
 
     // A level editor in nested splitters: the hierarchy beside a map stacked over a log. The divider
     // beside the hierarchy is really pressed and dragged right, and still held, so it is the pressed
@@ -2598,4 +2621,64 @@ private fun Bestiary() {
 			state = rememberTreeState("Undead"),
 		) { beast, _ -> Text(beast.name) }
 	}
+}
+
+private const val SpinnerShotWidth = 540
+private const val SpinnerShotHeight = 250
+private const val SpinnerFrames = 20
+
+/**
+ * Work of unknown length in the places a game shows it, for the spinner pictures. The bars sweep once a
+ * second, as the spinners turn, so the animated picture loops on one second. The arcs each start a
+ * turn somewhere new, so the loop's one jump is where they are shortest.
+ */
+@Composable
+private fun WorkingScene() {
+    Column(verticalArrangement = Arrangement.spacedBy(12f)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12f)) {
+            // A loading screen's card: the bar sits under the header while the world streams in.
+            Panel(Modifier.width(270f).height(116f)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10f)) {
+                    Text("LOADING WORLD", style = "label.heading")
+                    IndeterminateBar(Modifier.fillMaxWidth(), sweepMillis = 1000)
+                    Text("Tip: crouching steadies your aim.", style = "label.dim")
+                }
+            }
+            Panel(Modifier.width(222f).height(116f)) {
+                Column(verticalArrangement = Arrangement.spacedBy(14f)) {
+                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8f), verticalAlignment = VerticalAlignment.Centre) {
+                            Spinner(Modifier.size(16f))
+                            Text("Connecting...")
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8f), verticalAlignment = VerticalAlignment.Centre) {
+                        Spinner(Modifier.size(20f))
+                        Text("Saving", style = "label.dim")
+                    }
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12f)) {
+            // Sizes, a thin arc, and a bar standing up, in the stock skin.
+            Panel(Modifier.width(270f).height(84f)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(18f), verticalAlignment = VerticalAlignment.Centre) {
+                    Spinner(Modifier.size(16f))
+                    Spinner(Modifier.size(24f))
+                    Spinner(Modifier.size(40f))
+                    Spinner(Modifier.size(40f), thickness = 2f)
+                    IndeterminateBar(orientation = Orientation.Vertical, thickness = 8f, length = 56f, sweepMillis = 1000)
+                }
+            }
+            // The same pair in the high-contrast skin.
+            ProvideSkin(Skin.HighContrast) {
+                Panel(Modifier.width(222f).height(84f)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(14f), verticalAlignment = VerticalAlignment.Centre) {
+                        Spinner(Modifier.size(32f))
+                        IndeterminateBar(Modifier.width(130f), thickness = 8f, sweepMillis = 1000)
+                    }
+                }
+            }
+        }
+    }
 }

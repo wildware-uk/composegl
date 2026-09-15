@@ -974,6 +974,8 @@ Spinner(Modifier.size(32f), clock = Clock.World) // stops when the game is pause
 Spinner(rememberSpriteAnimation("spinner_", fps = 12f), Modifier.size(24f))  // frames from the atlas
 ```
 
+![spinners and bars moving: a bar sliding under a LOADING WORLD header, a small spinner inside a greyed-out Connecting... button and beside Saving, spinners at 16, 24 and 40 with a thin one and a bar standing up, and a yellow spinner and bar in the high-contrast skin](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-spinner.gif)
+
 A `Spinner` is an arc that chases its tail round a circle, once every
 `revolutionMillis` (1000 by default). It is 24 across unless you size it, and
 `thickness` sets how wide the arc is. An `IndeterminateBar` is `length` long (160) and
@@ -995,6 +997,8 @@ under the arc when the skin names it. The bar draws `"indeterminatebar.track"` u
 the whole bar (its padding insets the block) and `"indeterminatebar.fill"` as the block.
 Pass `style =` to use other names. For a picture instead, such as a turning disc or an
 hourglass, hand `Spinner` a looping `SpriteAnimation`; it plays it as an `AnimatedImage`.
+
+![the same screen held still part way through a turn: the arcs stretched most of the way round their faint rings, and each bar's block near the start of its track](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-spinner.png)
 
 ---
 
