@@ -122,6 +122,7 @@ Modifier.clip(corner = 6f)         // …with rounded corners
 Modifier.clipShape(Shapes.Circle)  // …or any convex shape: a round portrait
 Modifier.alpha(0.4f)               // the subtree fades as one thing
 Modifier.scale(1.2f)               // …drawn bigger, without re-laying it out
+Modifier.mirror()                  // …flipped to face the other way
 Modifier.effect(blur(radius = 8f)) // …through a shader
 ```
 
@@ -208,8 +209,36 @@ screen would rather pick a different animation.
 Two scales on one widget multiply, so an arrival animation and a fit correction
 compose. A scale of one takes no picture at all. Zero draws nothing and cannot be
 clicked or focused, which is what lets a panel arrive from nothing. A negative factor
-throws rather than mirroring, so hand an anticipate easing over as
-`scale(t.coerceAtLeast(0f))`.
+throws rather than mirroring — flipping is `mirror()`, below — so hand an anticipate
+easing over as `scale(t.coerceAtLeast(0f))`.
+
+**Mirror is for one piece of art facing either way.** The same offscreen picture,
+put down read from the other side, flipped in place about the widget's middle:
+
+```kotlin
+Portrait(Modifier.mirror(horizontal = speaker.isOnRight))   // a speaker on either side
+Arrow(Modifier.mirror(vertical = pointsDown))               // one arrow, up or down
+```
+
+![one portrait and arrow, then the same art with mirror() on it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-mirror.png)
+
+**Text inside flips too**, and reads backwards — nothing inside knows it is being
+mirrored. Mirror the art, and put the name label beside it rather than inside it.
+
+Layout does not move. What is inside does, and clicks, pad focus and `boundsInRoot`
+move with it: in a mirrored row the first child is drawn on the right, clicked on the
+right, and is where focus goes when the player presses right. A pointer handler
+inside gets its own coordinates mirrored too, so a drag to the right on screen is a
+drag to the left to it — which is what keeps a mirrored slider under the finger. The
+same goes for the arrows and the pad a focused widget claims: pressing right on a
+mirrored slider moves its knob right on screen, which is towards its own minimum.
+
+Two mirrors cancel, so a flipped portrait inside a flipped panel faces the way it was
+drawn. `mirror(horizontal = false)` takes no picture, so the flag can come straight
+from game state. It shares a picture with a `scale` on the same widget, and is
+flipped first and then turned under a `rotate`. The rest is scale's bargain: the
+capture is a clip, and a canvas that cannot flip a picture (`canvas.mirrorsLayers`)
+draws the widget the right way round and is clicked the right way round.
 
 **Shake**
 

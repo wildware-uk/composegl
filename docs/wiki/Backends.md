@@ -192,6 +192,9 @@ The optional extras, each of which degrades rather than fails:
   the frame budget shows nothing for it.
 - `image(texture, destination, degrees, …)` — a turned picture. Leave it and the
   default draws it upright; say so in `rotatesImages`.
+- `drawLayer(layer, destination, mirrorX, mirrorY)` — a flipped picture, for
+  `Modifier.mirror`. Leave it and the default draws it the right way round; say so
+  in `mirrorsLayers`, and the toolkit skips the picture and keeps clicks unflipped.
 - `pushBlend(mode)` / `popBlend()` — additive blending, for light. Leave them and
   everything paints the ordinary way; say so in `supports(mode)`.
 - Everything in `raw { }` — your business entirely.

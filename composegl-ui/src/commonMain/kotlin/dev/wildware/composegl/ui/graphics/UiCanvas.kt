@@ -505,6 +505,32 @@ interface UiCanvas {
     val cutsLayers: Boolean get() = false
 
     /**
+     * The same picture, filling [destination], with its left and right swapped when [mirrorX] is
+     * set and its top and bottom when [mirrorY] is.
+     *
+     * What `Modifier.mirror` is composited with. An overload with an honest default for the same
+     * reason the turned one is: a backend written before mirroring existed draws the picture the
+     * right way round, in the right place, rather than failing to compile or drawing nothing.
+     *
+     * [destination] is unchanged by the mirror — the pixels land exactly where the plain call puts
+     * them, reading the picture from the other side — so it is still a bound on what gets painted.
+     *
+     * Blending and opacity are the plain [drawLayer]'s. No shader: a mirrored effect is the shader
+     * working on a mirrored picture, which the draw pass takes as a picture of its own.
+     */
+    fun drawLayer(layer: TextureHandle, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) =
+        drawLayer(layer, destination)
+
+    /**
+     * Whether the [drawLayer] overload that takes a mirror really mirrors the picture.
+     *
+     * False means it composites it the right way round instead, and the draw pass does not bother
+     * taking a picture for a mirror alone — hit testing then stays unmirrored too, so a canvas that
+     * cannot flip is at least clicked where it draws. Same shape as [turnsLayers].
+     */
+    val mirrorsLayers: Boolean get() = false
+
+    /**
      * The backend's own drawing object, for whatever this interface does not cover — a shader, a
      * particle system, a mesh, a game's existing render code.
      *

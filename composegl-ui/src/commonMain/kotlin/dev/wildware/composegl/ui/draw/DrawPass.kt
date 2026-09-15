@@ -97,7 +97,10 @@ class DrawPass(val canvas: UiCanvas) {
         if (faded) canvas.popAlpha()
     }
 
-    /** Everything this node draws, the right way up: its scale and its effects, sharing one picture. */
+    /**
+     * Everything this node draws, the right way up: its mirror, its scale and its effects, sharing
+     * one picture where they can.
+     */
     private fun upright(
         node: UiNode,
         resolved: ResolvedModifier,
@@ -106,12 +109,31 @@ class DrawPass(val canvas: UiCanvas) {
         anchorX: Float,
         anchorY: Float,
     ) {
+        // Asked of the canvas before any picture is taken for it: one that cannot flip a picture
+        // would be handed a capture it then puts down the right way round, which is a picture for
+        // nothing. Said on the node either way, so hit testing mirrors exactly when drawing does.
+        val wantsMirror = resolved.mirrorX || resolved.mirrorY
+        val mirrored = wantsMirror && canvas.mirrorsLayers
+        if (wantsMirror && !mirrored) node.mirrorApplied = false
+
         if (resolved.effects.isEmpty()) {
-            if (scale == 1f) {
+            if (scale == 1f && !mirrored) {
                 contents(node, resolved, bounds)
             } else {
-                node.scaleApplied = scaled(node, bounds, bounds.scaledAbout(anchorX, anchorY, scale))
+                // A mirror and a scale are one composite: the same picture, put down somewhere else
+                // and read from the other side.
+                val applied = scaled(node, bounds, bounds.scaledAbout(anchorX, anchorY, scale), mirrored)
+                if (scale != 1f) node.scaleApplied = applied
+                if (mirrored) node.mirrorApplied = applied
             }
+        } else if (mirrored) {
+            // An effect's composite takes a shader rather than a mirror, so the mirror is the
+            // innermost picture and the shaders work on what it made — a glow round a flipped
+            // sprite, which is the answer a chain written either way round would want.
+            val applied = through(resolved.effects.asReversed(), 0, bounds, scale, anchorX, anchorY) {
+                node.mirrorApplied = scaled(node, bounds, bounds, mirrored = true)
+            }
+            if (scale != 1f) node.scaleApplied = applied
         } else {
             // Reversed, so the first effect in the chain is the innermost picture: written twice,
             // the second one works on the first one's answer, which is how a chain reads.
@@ -210,14 +232,18 @@ class DrawPass(val canvas: UiCanvas) {
      * is drawn straight, at its ordinary size. That is the bargain a layer already makes, and
      * saying so out loud is what lets hit testing degrade along with it.
      */
-    private fun scaled(node: UiNode, bounds: Rect, destination: Rect): Boolean {
+    private fun scaled(node: UiNode, bounds: Rect, destination: Rect, mirrored: Boolean): Boolean {
         val resolved = node.resolved
         val picture = canvas.layer(bounds) { contents(node, resolved, bounds) }
         if (picture == null) {
             contents(node, resolved, bounds)
             return false
         }
-        canvas.drawLayer(picture, destination)
+        if (mirrored) {
+            canvas.drawLayer(picture, destination, resolved.mirrorX, resolved.mirrorY)
+        } else {
+            canvas.drawLayer(picture, destination)
+        }
         return true
     }
 

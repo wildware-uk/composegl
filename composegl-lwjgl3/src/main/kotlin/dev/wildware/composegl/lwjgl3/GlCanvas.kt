@@ -612,7 +612,21 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             drawThrough(effect, picture, destination)
             return
         }
+        composite(picture, destination, mirrorX = false, mirrorY = false)
+    }
 
+    override fun drawLayer(layer: TextureHandle, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layer as? GlTexture
+            ?: error("this canvas can only draw layers it made, not ${layer::class}")
+        composite(picture, destination, mirrorX, mirrorY)
+    }
+
+    /** It really mirrors one: the texture coordinates are swapped on the same quad. */
+    override val mirrorsLayers: Boolean get() = true
+
+    /** A layer put down upright, the plain way or with either axis of its picture swapped. */
+    private fun composite(picture: GlTexture, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
         // The mode in force applies to the composite, so pushing Additive round a drawLayer makes
         // a whole group glow. Premultiplied because that is what the layer's own drawing produced.
         batch().blend(state.blend, premultiplied = true)
@@ -620,16 +634,18 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         // its alpha would get brighter as it disappeared.
         val fade = state.alpha.coerceIn(0f, 1f)
         val grey = (fade * 255f).roundToInt().coerceIn(0, 255)
+        // A mirror is the same quad reading its picture from the other side, so it costs nothing a
+        // plain composite does not and batches with it.
         batch().textured(
             name = picture.name,
             left = destination.left,
             bottom = flip(destination.bottom),
             width = destination.width,
             height = destination.height,
-            u = picture.u,
-            v = picture.v,
-            u2 = picture.u2,
-            v2 = picture.v2,
+            u = if (mirrorX) picture.u2 else picture.u,
+            v = if (mirrorY) picture.v2 else picture.v,
+            u2 = if (mirrorX) picture.u else picture.u2,
+            v2 = if (mirrorY) picture.v else picture.v2,
             tint = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey),
         )
         batch().blend(state.blend, premultiplied = false)

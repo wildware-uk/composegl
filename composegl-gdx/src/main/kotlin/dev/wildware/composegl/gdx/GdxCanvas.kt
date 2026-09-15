@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.g2d.Batch
+import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.math.Matrix4
 import com.badlogic.gdx.utils.Disposable
 import dev.wildware.composegl.ui.effect.ShaderEffect
@@ -627,23 +628,39 @@ class GdxCanvas(
             drawThrough(effect, picture, destination)
             return
         }
+        composite(region, destination, mirrorX = false, mirrorY = false)
+    }
 
+    override fun drawLayer(layer: TextureHandle, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layer as? GdxTexture
+            ?: error("this canvas can only draw layers it made, not ${layer::class}")
+        composite(picture.region, destination, mirrorX, mirrorY)
+    }
+
+    /** It really mirrors one: the texture coordinates are swapped on the same quad. */
+    override val mirrorsLayers: Boolean get() = true
+
+    /** A layer put down upright, the plain way or with either axis of its picture swapped. */
+    private fun composite(region: TextureRegion, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
         // The mode in force applies to the composite, so pushing Additive round a drawLayer makes
         // a whole group glow. Premultiplied because that is what the layer's own drawing produced.
         batch().blend(state.blend, premultiplied = true)
         // The opacity goes into all four channels, because a premultiplied colour that faded only
         // its alpha would get brighter as it disappeared.
         val fade = state.alpha.coerceIn(0f, 1f)
+        // A mirror is the same quad reading its picture from the other side, so it costs nothing a
+        // plain composite does not and batches with it.
         batch().textured(
             texture = region.texture,
             left = destination.left,
             bottom = flip(destination.bottom),
             width = destination.width,
             height = destination.height,
-            u = region.u,
-            v = region.v,
-            u2 = region.u2,
-            v2 = region.v2,
+            u = if (mirrorX) region.u2 else region.u,
+            v = if (mirrorY) region.v2 else region.v,
+            u2 = if (mirrorX) region.u else region.u2,
+            v2 = if (mirrorY) region.v else region.v2,
             colour = Color.toFloatBits(fade, fade, fade, fade),
         )
         batch().blend(state.blend, premultiplied = false)
