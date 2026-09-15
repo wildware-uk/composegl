@@ -170,6 +170,27 @@
       "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#5B8DEF", "borderWidth": 2 } }
     },
 
+    // A stepper is picked with left and right, so its arrows are what say it is one. An arrow at an
+    // end it cannot pass is dimmed rather than hidden, so the value does not jump sideways.
+
+    "stepper": {
+      "background": { "fill": "#10131A", "corner": 5, "border": "#39445A", "padding": [2, 4] },
+      "hovered": { "background": { "fill": "#1A1F28", "corner": 5, "border": "#5B8DEF" } },
+      "focused": { "background": { "fill": "#10131A", "corner": 5, "border": "#5B8DEF", "borderWidth": 2 } },
+      "disabled": { "tint": "#A0FFFFFF" }
+    },
+
+    "stepper.arrow": {
+      "textColour": "#9BA6B6",
+      "padding": [10, 2],
+      "hovered": { "textColour": "#E8ECF2" },
+      "focused": { "textColour": "#5B8DEF" },
+      "pressed": { "textColour": "#FFFFFF", "contentOffset": [0, 1] },
+      "disabled": { "textColour": "#39445A" }
+    },
+
+    "stepper.value": { "textColour": "#E8ECF2", "padding": [8, 2] },
+
     // A game's bar, which is a progress bar with a memory: the trail is the ghost of what was
     // there a moment ago, drawn behind the fill, and the segment is the notch between two blocks.
 

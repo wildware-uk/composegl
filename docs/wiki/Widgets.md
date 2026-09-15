@@ -274,6 +274,35 @@ Slider(volume, onValueChange = { volume = it }, range = 0f..1f, step = 0.05f)
 `onSubmit` fires on Enter. It works with a pad too: focus it and the on-screen
 keyboard comes up on platforms that have one.
 
+### Steppers: `< Medium >`
+
+The console settings control. It needs nothing but left and right, so nothing
+opens and a player on a stick never leaves the list.
+
+```kotlin
+Stepper(options = listOf("Low", "Medium", "High"), selected = quality, onSelect = { quality = it })
+NumberStepper(value = volume, range = 0..10, onValueChange = { volume = it })
+NumberStepper(fov, range = 60..110, step = 5, format = { "$it°" }, onValueChange = { fov = it })
+```
+
+![a quality stepper, a focused volume stepper at 7, and a difficulty stepper at its first option with its left arrow dimmed](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-stepper.png)
+
+- **Left and right change it while it has focus.** Arrow keys and the pad both
+  work. Up and down still move focus.
+- **Holding repeats.** A held stick or d-pad steps once, pauses, then repeats at
+  the pad's rate. A held key repeats at the keyboard's own rate. A mouse held on
+  an arrow does the same on the frame clock, and waits while dragged off it.
+- **At an end it lets go.** One more press to the right past the last option
+  moves focus to the neighbour instead of doing nothing. That arrow is drawn
+  disabled. Pass `wrap = true` to go round instead.
+- **Enter, South, or a click on the value** moves to the next option, and goes
+  round at the end.
+- **The arrows stay put.** The value is as wide as the widest option. Give the
+  stepper a width and the extra goes to the value.
+
+Styles: `stepper` behind it, `stepper.arrow` for the two arrows (pressed while
+held, disabled at an end), `stepper.value` for the words.
+
 ---
 
 ## Lists and scrolling
