@@ -30,7 +30,7 @@ import androidx.compose.runtime.remember
  */
 @Composable
 fun <T : Any> rememberSaveable(vararg inputs: Any?, key: String? = null, init: () -> T): T {
-    val finalKey = if (!key.isNullOrEmpty()) key else currentCompositeKeyHashCode.toString(36)
+    val finalKey = if (!key.isNullOrEmpty()) key else currentCompositeKeyHashCode.toString()
     val registry = LocalSaveableStateRegistry.current
 
     val holder = remember {
