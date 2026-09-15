@@ -27,6 +27,7 @@ import dev.wildware.composegl.ui.input.KeyNavigator
 import dev.wildware.composegl.ui.input.KeyRouter
 import dev.wildware.composegl.ui.input.Modifiers
 import dev.wildware.composegl.ui.input.PointerEvent
+import dev.wildware.composegl.ui.input.PointerIcon
 import dev.wildware.composegl.ui.input.PointerId
 import dev.wildware.composegl.ui.input.PointerRouter
 import dev.wildware.composegl.ui.input.SourceAware
@@ -123,7 +124,11 @@ class UiTest(
         private set
 
     private val back = { if (!backs.back()) onBack() }
-    private val pointerRouter = PointerRouter(host.root, focus)
+    // The backend's cursor, so a test asks the headless one which shape the mouse was given.
+    private val pointerRouter = PointerRouter(host.root, focus, backend.cursor)
+
+    /** The shape the mouse cursor should be now, as the router worked it out. */
+    val pointerIcon: PointerIcon get() = pointerRouter.pointerIcon
     private val keyRouter = KeyRouter(focus, host.root)
     private val keyNavigator = KeyNavigator(focus, onBack = back)
     private val padNavigator = GamepadNavigator(focus, onBack = back)

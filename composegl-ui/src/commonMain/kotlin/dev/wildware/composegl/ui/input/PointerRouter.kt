@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.input
 
+import dev.wildware.composegl.ui.backend.SystemCursor
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Shapes
@@ -38,6 +39,15 @@ class PointerRouter(
      * for the keyboard expects the keyboard to be talking to the thing they just clicked.
      */
     private val focus: FocusManager? = null,
+    /**
+     * The mouse cursor, whose shape follows whatever the mouse is over.
+     *
+     * Asked only when the shape changes, never per move, and only by a mouse or a stylus: a finger
+     * has no cursor and a ray in the world is not the one on the desktop. Leave it out and
+     * [pointerIcon] still says what the shape would be, which is what a game drawing its own
+     * cursor reads.
+     */
+    private val cursor: SystemCursor = SystemCursor.None,
 ) : InputSink {
 
     /** What a captured pointer is doing, and to whom. */
@@ -89,6 +99,16 @@ class PointerRouter(
     /** What each pointer is hovering, deepest first. Kept so a change can be a diff. */
     private val hovering = mutableMapOf<PointerId, List<UiNode>>()
 
+    /**
+     * The cursor shape the mouse should be right now: the icon of the topmost node under it, or of
+     * that node's nearest ancestor that asked for one, or [PointerIcon.Default].
+     *
+     * Held still for the length of a press, because the drag it starts belongs to what was under
+     * the pointer when it began. See [dev.wildware.composegl.ui.modifier.pointerHoverIcon].
+     */
+    var pointerIcon: PointerIcon = PointerIcon.Default
+        private set
+
     override fun onPointer(event: PointerEvent): Boolean = when (event) {
         is PointerEvent.Press -> press(event)
         is PointerEvent.Move -> move(event)
@@ -115,6 +135,7 @@ class PointerRouter(
             cancelDrag(capture)
         }
         hovering.keys.toList().forEach { id -> hover(id, emptyList()) }
+        show(PointerIcon.Default)
     }
 
     // --- the events ---------------------------------------------------------------------------
@@ -157,7 +178,9 @@ class PointerRouter(
         }
 
         val candidates = candidatesUnder(event.position)
-        hover(event.pointerId, hoverPathFrom(candidates.firstOrNull(), event.position))
+        val path = hoverPathFrom(candidates.firstOrNull(), event.position)
+        hover(event.pointerId, path)
+        if (event.type.hasCursor) show(iconOf(path))
         return candidates.any { deliver(it, event) }
     }
 
@@ -202,14 +225,19 @@ class PointerRouter(
             clicks.forget()
         }
 
-        // The gesture is over, so whatever the pointer is now over is hovered again.
-        hover(event.pointerId, hoverPathFrom(candidatesUnder(event.position).firstOrNull(), event.position))
+        // The gesture is over, so whatever the pointer is now over is hovered again, and the cursor
+        // it held still through the drag is free to be that thing's.
+        val path = hoverPathFrom(candidatesUnder(event.position).firstOrNull(), event.position)
+        hover(event.pointerId, path)
+        if (event.type.hasCursor) show(iconOf(path))
         return true
     }
 
     private fun cancel(event: PointerEvent.Cancel): Boolean {
         val capture = captures.remove(event.pointerId)
         hover(event.pointerId, emptyList())
+        // Nothing is hovered after a cancel, so nothing is asking for a shape.
+        if (event.type.hasCursor) show(PointerIcon.Default)
         if (capture == null) return false
 
         capture.gesture.cancel()
@@ -229,6 +257,8 @@ class PointerRouter(
         // must keep dragging, and every toolkit that conflates the two has sliders that let go.
         val wasHovering = hovering[event.pointerId]?.isNotEmpty() == true
         hover(event.pointerId, emptyList())
+        // Unless a drag is still going, in which case the shape it started with stays with it.
+        if (event.type.hasCursor && event.pointerId !in captures) show(PointerIcon.Default)
         return wasHovering
     }
 
@@ -539,6 +569,27 @@ class PointerRouter(
         capture.inside = to.claims(event.position)
         if (capture.inside) to.resolved.interactions.forEach { it.press() }
     }
+
+    /**
+     * The icon a hover path asks for: the deepest node's own, or the nearest ancestor's that has
+     * one. The path is already only the nodes that claim the point, so an ancestor's icon never
+     * shows over a corner its hit shape turned down.
+     */
+    private fun iconOf(path: List<UiNode>): PointerIcon {
+        for (node in path) node.resolved.hoverIcon?.let { return it }
+        return PointerIcon.Default
+    }
+
+    /** Tells the cursor about [icon], if it is not already showing it. */
+    private fun show(icon: PointerIcon) {
+        if (icon == pointerIcon) return
+        pointerIcon = icon
+        cursor.set(icon)
+    }
+
+    /** Whether this kind of pointer has a cursor on a screen for [cursor] to change. */
+    private val PointerType.hasCursor: Boolean
+        get() = this == PointerType.Mouse || this == PointerType.Stylus
 
     /** Moves a pointer's hover from whatever it was on to [now], touching only the difference. */
     private fun hover(id: PointerId, now: List<UiNode>) {

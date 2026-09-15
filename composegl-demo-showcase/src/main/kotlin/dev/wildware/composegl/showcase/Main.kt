@@ -15,6 +15,7 @@ import dev.wildware.composegl.gdx.GdxCanvas
 import dev.wildware.composegl.gdx.GdxFonts
 import dev.wildware.composegl.gdx.GdxKeyboardInput
 import dev.wildware.composegl.gdx.GdxPointerInput
+import dev.wildware.composegl.gdx.GdxSystemCursor
 import dev.wildware.composegl.showcase.ui.HoloScreen
 import dev.wildware.composegl.showcase.ui.ShowcaseUi
 import dev.wildware.composegl.showcase.world.HoloStand
@@ -108,10 +109,16 @@ class Showcase : ApplicationAdapter() {
         host.setContent { ShowcaseUi(state, fonts, skin.skin, projection, budget) }
         holo.panel.setContent { HoloScreen(state, fonts, skin.skin) }
 
-        input = ShowcaseInput(host.root, holo, budget) { x, y ->
-            val ray = scene.camera.getPickRay(x, y)
-            Vector3(ray.origin) to Vector3(ray.direction)
-        }
+        input = ShowcaseInput(
+            host.root,
+            holo,
+            budget,
+            ray = { x, y ->
+                val ray = scene.camera.getPickRay(x, y)
+                Vector3(ray.origin) to Vector3(ray.direction)
+            },
+            cursor = GdxSystemCursor(),
+        )
         pointerInput = GdxPointerInput(input, { viewport })
         keyboardInput = GdxKeyboardInput(input)
         Gdx.input.inputProcessor = InputMultiplexer(pointerInput, keyboardInput)

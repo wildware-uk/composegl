@@ -16,6 +16,7 @@ import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.input.DirectionHandler
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.KeyHandler
+import dev.wildware.composegl.ui.input.PointerIcon
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Alignment
@@ -191,6 +192,9 @@ data class HitShapeElement(val contains: (Offset) -> Boolean) : Modifier.Element
 
 /** @see dev.wildware.composegl.ui.modifier.hitShape */
 data class ShapedHitElement(val shape: Shape) : Modifier.Element
+
+/** @see dev.wildware.composegl.ui.modifier.pointerHoverIcon */
+data class PointerHoverIconElement(val icon: PointerIcon) : Modifier.Element
 
 data class AlphaElement(val alpha: Float) : Modifier.Element
 
@@ -677,6 +681,28 @@ fun Modifier.hitShape(contains: (Offset) -> Boolean) = then(HitShapeElement(cont
  * equal to itself, so unlike the lambda it needs no `remember`.
  */
 fun Modifier.hitShape(shape: Shape) = then(ShapedHitElement(shape))
+
+/**
+ * The shape the mouse cursor takes while it is over this node: an I-beam on a text field, a hand
+ * on a link, a resize arrow on an edge that drags.
+ *
+ * The [dev.wildware.composegl.ui.input.PointerRouter] shows the icon of the topmost node under the
+ * pointer, and a node that asks for nothing shows its nearest ancestor's — so an icon on a panel
+ * covers everything inside it that has not asked for its own, and a button drawn over that panel
+ * without one still shows the panel's. Something drawn on top that is not inside the panel hides
+ * it, the same way it would take the click.
+ *
+ * It makes the node findable by the pointer, but not a thing that takes presses: a click goes
+ * straight through to whatever is underneath, exactly as it does through [interaction].
+ *
+ * While a press is held the icon stays whatever it was when the press began, wherever the pointer
+ * is dragged, so a resize arrow does not flicker back to an arrow the moment a fast drag outruns
+ * the edge it started on.
+ *
+ * Two of these on one node is a choice rather than a quantity, so the later one wins — which is
+ * how a caller's own `pointerHoverIcon` on a widget's modifier beats the widget's default.
+ */
+fun Modifier.pointerHoverIcon(icon: PointerIcon) = then(PointerHoverIconElement(icon))
 
 fun Modifier.alpha(alpha: Float) = then(AlphaElement(alpha))
 

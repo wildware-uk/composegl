@@ -24,6 +24,7 @@ import dev.wildware.composegl.ui.input.KeyEventType
 import dev.wildware.composegl.ui.input.KeyHandler
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
+import dev.wildware.composegl.ui.input.PointerIcon
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
@@ -38,6 +39,7 @@ import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.focusable
 import dev.wildware.composegl.ui.modifier.interaction
+import dev.wildware.composegl.ui.modifier.pointerHoverIcon
 import dev.wildware.composegl.ui.modifier.onKeyEvent
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onTextEvent
@@ -314,6 +316,9 @@ fun TextField(
     Box(
         modifier = Modifier
             .drawBehind(locate)
+            // Before the caller's modifier, so a game that wants a different cursor over its field
+            // says so there and wins. A disabled field is not somewhere to type, so no I-beam.
+            .pointerHoverIcon(if (enabled) PointerIcon.Text else PointerIcon.Default)
             .then(modifier)
             .interaction(interaction)
             .focusable(interaction, enabled = enabled, initial = initialFocus)

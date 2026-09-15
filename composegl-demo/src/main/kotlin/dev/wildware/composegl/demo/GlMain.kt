@@ -6,6 +6,7 @@ import dev.wildware.composegl.lwjgl3.GlTexture
 import dev.wildware.composegl.lwjgl3.GlfwGamepadInput
 import dev.wildware.composegl.lwjgl3.GlfwKeyboardInput
 import dev.wildware.composegl.lwjgl3.GlfwPointerInput
+import dev.wildware.composegl.lwjgl3.GlfwSystemCursor
 import dev.wildware.composegl.lwjgl3.GlfwWindow
 import dev.wildware.composegl.lwjgl3.StbFonts
 import dev.wildware.composegl.ui.draw.DrawPass
@@ -52,7 +53,10 @@ fun main() {
     host.setContent { Screen(fonts, skin.skin, state, GlfwClipboard(window)) }
 
     var viewport = window.viewport(Design, ScalePolicy.Fit)
-    val input = DemoInput(state, host.root)
+    // Which page of the status panel a screenshot opens on, since a script cannot click a tab.
+    System.getenv("COMPOSEGL_DEMO_TAB")?.toIntOrNull()?.let { state.tab = it }
+    val cursor = GlfwSystemCursor(window)
+    val input = DemoInput(state, host.root, cursor)
     val pointerInput = GlfwPointerInput(
         sink = input,
         viewport = { viewport },
@@ -121,6 +125,7 @@ fun main() {
         }
     } finally {
         host.dispose()
+        cursor.close()
         canvas.close()
         art.close()
         fonts.close()

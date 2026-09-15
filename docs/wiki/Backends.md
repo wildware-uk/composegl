@@ -37,7 +37,7 @@ val fonts = GdxFonts()
 fonts.registerTrueType("default", Gdx.files.internal("fonts/DejaVuSans.ttf"), listOf(13, 16, 20))
 
 val sprites = SpriteBatch()
-val backend = GdxBackend(fonts, sprites)          // canvas, fonts, clipboard, keyboard
+val backend = GdxBackend(fonts, sprites)          // canvas, fonts, clipboard, keyboard, cursor
 val canvas = backend.canvas
 
 val host = UiHost()
@@ -102,7 +102,8 @@ things that have ever heard of an engine.
 
 One thing that is *not* in `UiBackend`, on any of them: input. Translating a key, a
 pointer or a pad into the toolkit's events is per-platform and stays with the
-launcher — see [[Input]].
+launcher — see [[Input]]. The cursor's shape *is* in it, because that goes the other
+way: the toolkit asks for an I-beam, and the backend shows one.
 
 ---
 
@@ -163,6 +164,7 @@ interface UiBackend {
     val clipboard: Clipboard
     val softKeyboard: SoftKeyboard
     val textures: TextureSource
+    val cursor: SystemCursor          // optional: defaults to one that does nothing
 }
 ```
 
@@ -177,6 +179,9 @@ object back to whoever asked for it.
 
 The optional extras, each of which degrades rather than fails:
 
+- `cursor` — `set(PointerIcon)`, the mouse cursor's shape. Leave it and the shape
+  never changes; a phone has nothing to change anyway. Show the arrow for a shape you
+  have no picture for.
 - `layer(bounds) { }` and `drawLayer(...)` — offscreen drawing, which is what
   [[Shaders|effects]] are built on. Return null and effects simply do not happen.
 - `cutLayer(layer, destination, outline)` — a layer put down through a convex outline,

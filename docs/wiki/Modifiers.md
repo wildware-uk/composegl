@@ -299,6 +299,7 @@ Modifier.onPointer(handler)               // raw pointer events
 Modifier.onKeyEvent(handler)
 Modifier.onTextEvent(handler)
 Modifier.hitShape { it.x >= 20f }         // which points inside the box are really yours
+Modifier.pointerHoverIcon(PointerIcon.Hand) // the mouse cursor's shape over it
 ```
 
 **A note on `hitShape`.** Hit testing is rectangles, because nearly everything is a

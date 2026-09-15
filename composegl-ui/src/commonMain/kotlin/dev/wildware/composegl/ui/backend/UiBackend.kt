@@ -33,4 +33,13 @@ interface UiBackend {
     val softKeyboard: SoftKeyboard
 
     val textures: TextureSource
+
+    /**
+     * The mouse cursor, whose shape a text field or a drag handle asks for. Hand it to the
+     * [dev.wildware.composegl.ui.input.PointerRouter] and the router keeps it right.
+     *
+     * Default [SystemCursor.None], so a backend written before there was a cursor to change — or
+     * one for a platform that has none — is still a valid one.
+     */
+    val cursor: SystemCursor get() = SystemCursor.None
 }
