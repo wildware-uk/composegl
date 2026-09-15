@@ -8,6 +8,7 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.input.UiSounds
+import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.ConstraintsCache
 import dev.wildware.composegl.ui.layout.Inset
 import dev.wildware.composegl.ui.layout.Measurable
@@ -249,6 +250,17 @@ class UiNode(var name: String = "node") {
         toldSize = emptyList()
         toldPlace = emptyList()
     }
+
+    /**
+     * The room this node's parent offered it on the last layout pass, before its own `size` or
+     * `fill` had a say, or null before the first.
+     *
+     * What [dump] prints as `given`. Kept because "why is this 40 wide?" is nearly always answered
+     * by what the node was allowed, and that is gone once the pass returns. A reference to an object
+     * the pass already had, so keeping it costs nothing.
+     */
+    var givenConstraints: Constraints? = null
+        internal set
 
     // --- what the layout pass uses again every frame ---
     //
@@ -696,7 +708,7 @@ class UiNode(var name: String = "node") {
         val found = findAll(tag)
         check(found.size <= 1) {
             "$tag is on ${found.size} nodes under $name, so there is no one node to hand back. " +
-                "Use findAll, or look inside the part of the screen you mean first:\n" + debugTree()
+                "Use findAll, or look inside the part of the screen you mean first:\n" + dump()
         }
         return found.firstOrNull()
     }
@@ -710,15 +722,16 @@ class UiNode(var name: String = "node") {
      * parent to narrow it — `root.find("inventory").find("slot")`.
      */
     fun find(tag: String): UiNode = checkNotNull(findOrNull(tag)) {
-        "no node under $name is tagged $tag:\n" + debugTree()
+        "no node under $name is tagged $tag:\n" + dump()
     }
 
     override fun toString(): String = "UiNode($name)"
 
     /**
-     * The shape of this subtree, one node per line. For test failures and for people.
+     * The shape of this subtree, one node per line: names, tags and boxes relative to the parent.
      *
-     * A node with a test tag shows it after its name as `#tag`.
+     * A node with a test tag shows it after its name as `#tag`. [dump] says more — boxes on the
+     * screen, padding, the room each node was given — and is what a failure should print.
      */
     fun debugTree(indent: String = ""): String = buildString {
         append(indent).append(name)

@@ -73,6 +73,7 @@ class MeasurePass {
             // It may have had handlers last frame; if they come back they hear about it afresh.
             node.forgetReportedLayout()
         }
+        node.givenConstraints = incoming
         val wrap = resolved.wrap
         // A node that wraps its content is not held to the parent's minimum: it measures at its
         // own size and is put inside the slot below, rather than being stretched across it.

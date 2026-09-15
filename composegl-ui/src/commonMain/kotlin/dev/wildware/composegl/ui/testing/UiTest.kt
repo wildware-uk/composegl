@@ -35,6 +35,7 @@ import dev.wildware.composegl.ui.input.SourceAware
 import dev.wildware.composegl.ui.input.TextEvent
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.node.dump
 import dev.wildware.composegl.ui.text.graphemeAfter
 import dev.wildware.composegl.ui.widget.ProvideBackStack
 import dev.wildware.composegl.ui.widget.ProvideClipboard
@@ -190,7 +191,7 @@ class UiTest(
         }
         throw AssertionError(
             "the screen was still changing after $turns frames; something is animating forever or " +
-                "writing state every frame:\n" + root.debugTree(),
+                "writing state every frame:\n" + dump(),
         )
     }
 
@@ -295,7 +296,7 @@ class UiTest(
      */
     fun type(text: String): Boolean {
         if (focus.focused == null) {
-            throw AssertionError("typed \"$text\" with nothing focused, so it went nowhere:\n" + root.debugTree())
+            throw AssertionError("typed \"$text\" with nothing focused, so it went nowhere:\n" + dump())
         }
         var all = true
         var at = 0
@@ -343,7 +344,10 @@ class UiTest(
     // --- reading the screen ----------------------------------------------------------------------
 
     /** The one node tagged [tag]. Fails with the tree printed when there is none, or two. */
-    fun node(tag: String): UiNode = root.find(tag)
+    fun node(tag: String): UiNode = checkNotNull(root.findOrNull(tag)) {
+        // Rather than root.find, whose dump cannot know where focus is.
+        "no node under ${root.name} is tagged $tag:\n" + dump()
+    }
 
     /**
      * Every run of text drawn by [tag] and the nodes inside it, in the order they were drawn.
@@ -365,13 +369,21 @@ class UiTest(
     /** The text [tag] draws, its runs one per line. */
     fun text(tag: String): String = texts(tag).joinToString("\n")
 
+    /**
+     * The screen as text, focus marked: each node's name, tag, box, padding and the room it was
+     * given. What every failure here prints, and a line to add to a test while writing it.
+     *
+     * @param modifiers also list each node's modifier chain.
+     */
+    fun dump(modifiers: Boolean = false): String = root.dump(modifiers, focus.focused)
+
     fun assertExists(tag: String) {
         node(tag)
     }
 
     fun assertDoesNotExist(tag: String) {
         root.findOrNull(tag)?.let {
-            throw AssertionError("$tag is still on the screen at ${it.boundsInRoot}:\n" + root.debugTree())
+            throw AssertionError("$tag is still on the screen at ${it.boundsInRoot}:\n" + dump())
         }
     }
 
@@ -381,7 +393,7 @@ class UiTest(
         val actual = focus.focused
         if (actual === expected) return
         val where = actual?.let { it.testTag?.let { tagged -> "#$tagged" } ?: it.name } ?: "nothing"
-        throw AssertionError("expected focus on #$tag but it is on $where:\n" + root.debugTree())
+        throw AssertionError("expected focus on #$tag but it is on $where:\n" + dump())
     }
 
     /** Fails unless [tag] draws exactly [expected], saying what it drew instead. */
@@ -422,13 +434,13 @@ class UiTest(
     private fun centreOf(tag: String): Offset {
         val bounds = node(tag).boundsInRoot
         if (bounds.isEmpty) {
-            throw AssertionError("#$tag has no area ($bounds), so nothing can point at it:\n" + root.debugTree())
+            throw AssertionError("#$tag has no area ($bounds), so nothing can point at it:\n" + dump())
         }
         val centre = bounds.centre
         if (centre.x < 0f || centre.y < 0f || centre.x >= size.width || centre.y >= size.height) {
             throw AssertionError(
                 "#$tag is off the ${size.width.toInt()}x${size.height.toInt()} screen at $bounds, so a " +
-                    "player cannot point at it:\n" + root.debugTree(),
+                    "player cannot point at it:\n" + dump(),
             )
         }
         return centre
