@@ -101,7 +101,9 @@ class ClockDebug internal constructor() {
      * Moves a frozen [clock], or every frozen clock, on by [frames] frames and freezes it again.
      *
      * A running clock is paused first: stepping is only ever done to something standing still, and a
-     * step key pressed on a running game is somebody wanting it to stop there.
+     * step key pressed on a running game is somebody wanting it to stop there. With no clock, that
+     * only happens when nothing at all is frozen; a clock already let go with [resume] keeps running,
+     * so the interface over a stepped world goes on animating.
      *
      * The step is taken on the frames that follow rather than now, one per frame with time in it,
      * because an animation only moves when it is handed a frame. Each is as long as the frame it is
@@ -111,7 +113,7 @@ class ClockDebug internal constructor() {
     fun step(frames: Int = 1, clock: Clock? = null) {
         require(frames >= 0) { "cannot step back $frames frames; time only runs forwards" }
         if (clock == null) {
-            if (!isPaused) pause()
+            if (!allPaused && paused.isEmpty()) pause()
             stepsForAll += frames
         } else {
             if (!isPaused(clock)) pause(clock)

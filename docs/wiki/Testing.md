@@ -258,7 +258,8 @@ step does not move a clock the game has stopped.
 
 **A step is taken on the next frame**, because an animation only moves when a frame
 arrives. It is as long as that frame, at the clock's speed. Stepping a running clock
-pauses it first. Resuming throws away steps not yet taken.
+pauses it first. A clock you let go with `resume(Clock.Ui)` stays let go when you step
+everything else. Resuming throws away steps not yet taken.
 
 **On keys**, for a game running in front of you. `ClockDebugKeys` is a key handler: F5
 freezes and lets go, F6 steps (and keeps stepping while held), F7 and F8 halve and
