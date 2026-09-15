@@ -265,4 +265,99 @@ class DraggableUiTest {
         assertEquals(1f, volume, 0.001f)
         assertEquals(Offset(40f, 40f), windowAt)
     }
+
+    // --- cards on a board that is draggable itself --------------------------------------------
+
+    private val boardColour = Colour.rgb(0x224422)
+    private var boardAt by mutableStateOf(Offset(20f, 20f))
+
+    /** A map that pans, with a card on it that can be picked up, or locked in place. */
+    private fun board(card: CardState, locked: Boolean = false) = show {
+        Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier.offset(boardAt.x, boardAt.y).size(400f, 300f).background(boardColour)
+                    .draggable { boardAt += it },
+            ) {
+                Box(
+                    Modifier.offset(card.at.x, card.at.y).size(80f, 50f).background(cardColour)
+                        .draggable(enabled = !locked) { card.at += it },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `a card on a draggable board is picked up and the board stays put`() {
+        val card = CardState()
+        board(card)
+
+        // The card is at 100, 100 on a board at 20, 20.
+        press(Offset(140f, 140f))
+        drag(Offset(200f, 180f))
+        release(Offset(260f, 220f))
+
+        assertEquals(Offset(220f, 180f), card.at)
+        assertEquals(Offset(20f, 20f), boardAt, "the board did not pan under the card")
+        assertEquals(Rect.of(20f, 20f, 400f, 300f), drawnInColour(boardColour))
+        assertEquals(Rect.of(240f, 200f, 80f, 50f), drawnInColour(cardColour))
+    }
+
+    @Test
+    fun `a locked card lets the press through and the board pans instead`() {
+        val card = CardState()
+        board(card, locked = true)
+
+        press(Offset(140f, 140f))
+        drag(Offset(200f, 180f))
+        release(Offset(200f, 180f))
+
+        assertEquals(Offset(100f, 100f), card.at, "locked, so it stayed where it is on the board")
+        assertEquals(Offset(80f, 60f), boardAt)
+        assertEquals(Rect.of(180f, 160f, 80f, 50f), drawnInColour(cardColour), "and went along with the board")
+    }
+
+    @Test
+    fun `the right mouse button does not move a card`() {
+        val card = CardState()
+        show { Card(card) }
+
+        pointer.onPointer(PointerEvent.Press(PointerId.Mouse, Offset(120f, 110f), PointerButton.Secondary))
+        frame()
+        pointer.onPointer(PointerEvent.Move(PointerId.Mouse, Offset(300f, 250f), setOf(PointerButton.Secondary)))
+        frame()
+        pointer.onPointer(PointerEvent.Release(PointerId.Mouse, Offset(300f, 250f), PointerButton.Secondary))
+        frame()
+
+        assertEquals(Rect.of(100f, 100f, 80f, 50f), drawnInColour(cardColour))
+        assertEquals(null, card.started)
+    }
+
+    @Test
+    fun `two fingers drag two cards at once`() {
+        var left by mutableStateOf(Offset(20f, 100f))
+        var right by mutableStateOf(Offset(300f, 100f))
+        val leftColour = Colour.rgb(0xAA0000)
+        val rightColour = Colour.rgb(0x00AA00)
+        show {
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.offset(left.x, left.y).size(80f, 50f).background(leftColour).draggable { left += it })
+                Box(Modifier.offset(right.x, right.y).size(80f, 50f).background(rightColour).draggable { right += it })
+            }
+        }
+        val one = PointerId(1)
+        val two = PointerId(2)
+        fun finger(event: PointerEvent) {
+            pointer.onPointer(event)
+            frame()
+        }
+        finger(PointerEvent.Press(one, Offset(40f, 120f), type = PointerType.Touch))
+        finger(PointerEvent.Press(two, Offset(320f, 120f), type = PointerType.Touch))
+        finger(PointerEvent.Move(one, Offset(40f, 220f), setOf(PointerButton.Primary), PointerType.Touch))
+        finger(PointerEvent.Move(two, Offset(420f, 120f), setOf(PointerButton.Primary), PointerType.Touch))
+        finger(PointerEvent.Release(one, Offset(40f, 220f), type = PointerType.Touch))
+        finger(PointerEvent.Release(two, Offset(420f, 120f), type = PointerType.Touch))
+
+        assertEquals(Rect.of(20f, 200f, 80f, 50f), drawnInColour(leftColour), "the first finger took the left card down")
+        assertEquals(Rect.of(400f, 100f, 80f, 50f), drawnInColour(rightColour), "the second took the right one across")
+    }
 }
