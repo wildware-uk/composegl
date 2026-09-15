@@ -104,6 +104,7 @@ import dev.wildware.composegl.ui.widget.NumberStepper
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.ProvideTextScale
 import dev.wildware.composegl.ui.widget.ScrollArea
+import dev.wildware.composegl.ui.widget.SelectionContainer
 import dev.wildware.composegl.ui.widget.Slider
 import dev.wildware.composegl.ui.widget.Stepper
 import dev.wildware.composegl.ui.widget.Text
@@ -512,6 +513,18 @@ private fun MutableList<DocShot>.widgets() {
                 TextField("Commander", onValueChange = {}, modifier = Modifier.width(240f))
                 TextField("", onValueChange = {}, modifier = Modifier.width(240f), placeholder = "Call sign")
                 TextField("Focused", onValueChange = {}, modifier = Modifier.width(240f), initialFocus = true)
+            }
+        }
+    })
+
+    // A real press and drag through the router, from the start of the code to past its end.
+    add(DocShot("widget-selection", 320, 110, pointer = Offset(117f, 44f), dragTo = Offset(300f, 44f)) {
+        Frame {
+            SelectionContainer {
+                Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                    Text("Seed: 8F3A-22C1")
+                    Text("Drag to select, Ctrl+C to copy.", style = "label.dim")
+                }
             }
         }
     })

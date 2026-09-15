@@ -25,6 +25,7 @@ import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.skin.styled
+import dev.wildware.composegl.ui.widget.DisableSelection
 import dev.wildware.composegl.ui.widget.Text
 
 /**
@@ -218,9 +219,13 @@ private fun NotificationCard(
     if (width > 0f) card = card.width(width)
     if (dismissOnClick) card = card.clickable { queue.dismiss(notification) }
 
-    Column(card, horizontalAlignment = HorizontalAlignment.Start) {
+    val lines: @Composable () -> Unit = {
         Text(notification.text, style = style)
         notification.detail?.let { Text(it, style = "$style.detail") }
+    }
+    Column(card, horizontalAlignment = HorizontalAlignment.Start) {
+        // A card a click dismisses keeps that click inside a SelectionContainer; one that stays put can be copied.
+        if (dismissOnClick) DisableSelection(lines) else lines()
     }
 }
 

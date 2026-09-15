@@ -441,6 +441,14 @@ data class FocusableElement(
     val initial: Boolean,
 ) : Modifier.Element
 
+/**
+ * The node takes focus when it is pressed, and at no other time. See [focusableByPointer].
+ *
+ * Its own element rather than a flag on [FocusableElement], because adding a field to a published
+ * data class changes its constructor and every game compiled against the old one fails to link.
+ */
+data class PointerFocusElement(val state: InteractionState?) : Modifier.Element
+
 /** Directions this node uses itself rather than letting focus move off it. See [DirectionHandler]. */
 data class FocusDirectionElement(val handler: DirectionHandler) : Modifier.Element
 
@@ -1422,6 +1430,19 @@ fun Modifier.focusable(
     enabled: Boolean = true,
     initial: Boolean = false,
 ) = then(FocusableElement(enabled, state, initial))
+
+/**
+ * Lets a press put focus on this node, without making it somewhere Tab or the pad can go.
+ *
+ * What a selectable label is: clicking it has to bring the keyboard to it, or Ctrl+C would be
+ * talking to whatever button had focus before. But a pad walking a menu must not stop on every
+ * line of text in it, because there is nothing a pad can do to a label. So a node with this is
+ * never auto-focused, never a Tab stop and never a neighbour, and once a press has put focus here
+ * it stays until something else takes it — the same as a web page's `tabindex="-1"`.
+ *
+ * @param state told when focus arrives and leaves, like the one handed to [focusable].
+ */
+fun Modifier.focusableByPointer(state: InteractionState? = null) = then(PointerFocusElement(state))
 
 /**
  * Lets this node use a direction instead of losing focus to it.

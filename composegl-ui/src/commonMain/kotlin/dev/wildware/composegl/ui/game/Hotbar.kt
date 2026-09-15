@@ -32,6 +32,7 @@ import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.styled
 import dev.wildware.composegl.ui.skin.rememberStates
 import dev.wildware.composegl.ui.skin.rememberStyle
+import dev.wildware.composegl.ui.widget.DisableSelection
 import dev.wildware.composegl.ui.widget.Image
 import dev.wildware.composegl.ui.widget.Text
 
@@ -244,40 +245,43 @@ private fun SlotView(
             .styled(resolved),
         contentAlignment = Alignment.Centre,
     ) {
-        // A picture stays put under the sweep and the seconds sit on top of it. A slot that has no
-        // art has letters instead, and two lots of text in one square is unreadable, so while it
-        // is cooling down the countdown *is* the slot's label.
-        val cooling = slot.cooldown?.isRunning == true
-        val body: @Composable () -> Unit = {
-            when {
-                slot.icon != null -> Image(slot.icon, Modifier.size(size * IconFraction), tint = resolved.textColour)
-                slot.label != null && !cooling ->
-                    Text(slot.label, textStyle = resolved.textStyle, colour = resolved.textColour)
+        // Unselectable inside a SelectionContainer, so a click on the letters still uses the slot.
+        DisableSelection {
+            // A picture stays put under the sweep and the seconds sit on top of it. A slot that has no
+            // art has letters instead, and two lots of text in one square is unreadable, so while it
+            // is cooling down the countdown *is* the slot's label.
+            val cooling = slot.cooldown?.isRunning == true
+            val body: @Composable () -> Unit = {
+                when {
+                    slot.icon != null -> Image(slot.icon, Modifier.size(size * IconFraction), tint = resolved.textColour)
+                    slot.label != null && !cooling ->
+                        Text(slot.label, textStyle = resolved.textStyle, colour = resolved.textColour)
+                }
             }
-        }
 
-        if (slot.cooldown != null) {
-            RadialCooldown(slot.cooldown, Modifier.fillMaxSize(), content = body)
-        } else {
-            body()
-        }
+            if (slot.cooldown != null) {
+                RadialCooldown(slot.cooldown, Modifier.fillMaxSize(), content = body)
+            } else {
+                body()
+            }
 
-        slot.prompt?.let {
-            Text(
-                it,
-                modifier = Modifier.align(Alignment.TopStart).padding(left = 3f, top = 1f),
-                textStyle = prompt.textStyle,
-                colour = prompt.textColour,
-            )
-        }
+            slot.prompt?.let {
+                Text(
+                    it,
+                    modifier = Modifier.align(Alignment.TopStart).padding(left = 3f, top = 1f),
+                    textStyle = prompt.textStyle,
+                    colour = prompt.textColour,
+                )
+            }
 
-        if (slot.charges >= 0) {
-            Text(
-                slot.charges.toString(),
-                modifier = Modifier.align(Alignment.BottomEnd).padding(right = 3f, bottom = 1f),
-                textStyle = charges.textStyle,
-                colour = charges.textColour,
-            )
+            if (slot.charges >= 0) {
+                Text(
+                    slot.charges.toString(),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(right = 3f, bottom = 1f),
+                    textStyle = charges.textStyle,
+                    colour = charges.textColour,
+                )
+            }
         }
     }
 }

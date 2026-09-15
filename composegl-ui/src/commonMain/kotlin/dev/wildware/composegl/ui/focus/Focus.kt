@@ -109,7 +109,8 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         settleScope()
         val focusable = focusables()
         if (pressing != null && pressing !in focusable) cancelPress()
-        if (current != null && current !in focusable) release(current)
+        val holding = current
+        if (holding != null && holding !in focusable && !holding.keepsPointerFocus(scope ?: root)) release(holding)
         if (current == null && autoFocus) take(preferred(focusable))
     }
 
@@ -404,7 +405,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         current = node
         // A held Enter only counts while focus is on what it pressed: moving away is sliding off.
         gesture?.inside = node === pressing
-        node?.resolved?.focusable?.state?.focus()
+        node?.focusState?.focus()
         if (node != null) {
             tellAncestors(node, focused = true)
             reveal(node)
@@ -441,7 +442,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     }
 
     private fun release(node: UiNode?) {
-        node?.resolved?.focusable?.state?.unfocus()
+        node?.focusState?.unfocus()
         if (node != null) tellAncestors(node, focused = false)
         if (node === current) current = null
     }
@@ -456,8 +457,32 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     }
 }
 
+/**
+ * Whether focus may be put here directly — by a press, or by a screen naming it.
+ *
+ * Wider than the list Tab walks: a node that only takes focus from a pointer is focusable here and
+ * nowhere in [FocusManager.focusables], which is the whole of what makes it one.
+ */
 private val UiNode.isFocusable: Boolean
-    get() = resolved.focusable?.enabled == true && isVisible
+    get() = (resolved.focusable?.enabled == true || resolved.pointerFocus != null) && isVisible
+
+/** The state a node's focus is reported through, whichever way it came to be focusable. */
+private val UiNode.focusState get() = resolved.focusable?.state ?: resolved.pointerFocus?.state
+
+/**
+ * Whether a node a press put focus on can keep it: still pointer-focusable, still visible, and
+ * still in the tree inside [scope]. It is never in the Tab list, so `refresh` has to ask this
+ * instead, or focus would be taken back off a label the frame after it was clicked.
+ */
+private fun UiNode.keepsPointerFocus(scope: UiNode): Boolean {
+    if (resolved.pointerFocus == null || !isVisible) return false
+    var walk: UiNode? = this
+    while (walk != null) {
+        if (walk === scope) return true
+        walk = walk.parent
+    }
+    return false
+}
 
 /**
  * Whether a node can be seen at all: it, and everything it is inside, has some opacity.

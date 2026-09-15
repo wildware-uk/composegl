@@ -170,6 +170,8 @@ class ResolvedModifier private constructor(
     val drag: DraggableElement?,
     /** Whether and how this node can hold focus. */
     val focusable: FocusableElement?,
+    /** Whether a press puts focus here without the node being a stop for Tab or the pad. */
+    val pointerFocus: PointerFocusElement?,
     /** The handle a screen can use to send focus straight here. */
     val focusRequester: FocusRequester?,
     /** Directions this node answers itself rather than leaving to the geometry. */
@@ -207,7 +209,7 @@ class ResolvedModifier private constructor(
      */
     val isInteractive: Boolean
         get() = interactions.isNotEmpty() || handlers.isNotEmpty() || click != null || drag != null ||
-            focusable?.enabled == true || hoverIcon != null
+            focusable?.enabled == true || hoverIcon != null || pointerFocus != null
 
     companion object {
 
@@ -255,6 +257,7 @@ class ResolvedModifier private constructor(
             var click: ClickableElement? = null
             var drag: DraggableElement? = null
             var focusable: FocusableElement? = null
+            var pointerFocus: PointerFocusElement? = null
             var focusRequester: FocusRequester? = null
             var focusOrder: FocusOrderElement? = null
             val focusDirections = mutableListOf<DirectionHandler>()
@@ -372,6 +375,7 @@ class ResolvedModifier private constructor(
                     // absent one, and every reader asking `drag != null` gets that for free.
                     is DraggableElement -> drag = element.takeIf { it.enabled }
                     is FocusableElement -> focusable = element
+                    is PointerFocusElement -> pointerFocus = element
                     is FocusRequesterElement -> focusRequester = element.requester
                     is FocusOrderElement -> focusOrder = element
                     is FocusDirectionElement -> focusDirections += element.handler
@@ -396,7 +400,7 @@ class ResolvedModifier private constructor(
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click, drag,
-                focusable, focusRequester, focusOrder, focusDirections.toList(),
+                focusable, pointerFocus, focusRequester, focusOrder, focusDirections.toList(),
                 reveals.toList(), focusWithin.toList(), focusTrap, testTag,
                 sizeChanged.toList(), placed.toList(),
             )

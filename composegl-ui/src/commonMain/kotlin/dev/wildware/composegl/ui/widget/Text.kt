@@ -1,6 +1,7 @@
 package dev.wildware.composegl.ui.widget
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import dev.wildware.composegl.ui.geometry.Offset
@@ -9,6 +10,7 @@ import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.graphics.textRun
 import dev.wildware.composegl.ui.input.InteractionState
+import dev.wildware.composegl.ui.input.PointerButton
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Constraints
@@ -22,16 +24,20 @@ import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.drawBehind
+import dev.wildware.composegl.ui.modifier.focusableByPointer
 import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onPointer
+import dev.wildware.composegl.ui.skin.ResolvedStyle
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.Paragraph
 import dev.wildware.composegl.ui.text.TextAnchor
 import dev.wildware.composegl.ui.text.TextDecoration
+import dev.wildware.composegl.ui.text.TextGestures
 import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.text.TextOutline
+import dev.wildware.composegl.ui.text.TextRange
 import dev.wildware.composegl.ui.text.TextRun
 import dev.wildware.composegl.ui.text.TextStyle
 import dev.wildware.composegl.ui.text.paragraph
@@ -141,6 +147,12 @@ fun Text(
     outline: TextOutline? = LocalTextOutline.current,
     anchor: TextAnchor,
 ) {
+    // A selection has to know where every character is, and only the overload that breaks its own
+    // lines does. So a label inside a SelectionContainer is that one, with nothing styled.
+    if (LocalSelection.current != null) {
+        Text(text, modifier, style, textStyle, colour, align, softWrap, maxLines, ellipsis, outline, anchor, runs = emptyList())
+        return
+    }
     val named = rememberStyle(style ?: "label")
     val inherited = LocalContentStyle.current
     val resolved = if (style == null && inherited != null) inherited else named
@@ -374,8 +386,20 @@ fun Text(
 
     val interactions = remember { InteractionState() }
 
+    // Inside a SelectionContainer: the text field's own gestures, pointed at this paragraph.
+    val selecting = LocalSelection.current
+    val selected = selecting?.state?.rangeIn(view)
+    val focusState = remember { InteractionState() }
+    val gestures = remember(view, painter) { TextGestures(indexAt = { painter.indexAt(view.textPoint(it)) }) }
+    val selector = remember(selecting, gestures, text) {
+        selecting?.let { SelectionPointer(it.state, view, gestures, text) }
+    }
+
     var placed = if (lift == 0f) Modifier else Modifier.offset(y = -lift)
-    if (watched) placed = placed.interaction(interactions).drawBehind(locate).onPointer(pointer)
+    if (watched || selector != null) placed = placed.drawBehind(locate)
+    if (watched) placed = placed.interaction(interactions).onPointer(pointer)
+    // After the run handler, so a clickable term inside a selectable label still gets its click.
+    if (selector != null) placed = placed.focusableByPointer(focusState).onPointer(selector)
     val chain = placed.then(modifier)
 
     // A pointer that has left this label altogether sends it nothing — the router delivers a move
@@ -385,7 +409,55 @@ fun Text(
     val over = watched && interactions.isHovered
     SideEffect { if (watched && !over) pointer.left() }
 
-    LeafLayout(modifier = chain, name = "text", measurePolicy = painter, draw = painter.draw, ink = painter.ink)
+    if (selecting != null) {
+        val state = selecting.state
+        // Read here so losing focus recomposes this label. Only the moment it is lost clears the
+        // selection: a game whose pointer router has no focus manager never focuses a label at all,
+        // and its selections should still stay where the player dragged them.
+        val focused = focusState.isFocused
+        SideEffect {
+            state.textChanged(view, text)
+            if (view.wasFocused && !focused) {
+                state.forget(view)
+                // A shift let go of while focus was elsewhere never reaches the container, so it
+                // must not turn the next plain click back here into an extend.
+                state.shiftHeld = false
+            }
+            view.wasFocused = focused
+        }
+        DisposableEffect(state, view) { onDispose { state.forget(view) } }
+    }
+
+    // The painter is kept while the selection moves, so a drag re-measures nothing; only the little
+    // lambda that puts the highlight behind it is new each time the range is.
+    val highlight = selecting?.highlight
+    val draw = if (selected == null || selected.collapsed || highlight == null) painter.draw else {
+        remember(painter, selected, highlight) { painter.drawSelected(selected, highlight) }
+    }
+
+    LeafLayout(modifier = chain, name = "text", measurePolicy = painter, draw = draw, ink = painter.ink)
+}
+
+/**
+ * The pointer half of a selectable label: [TextGestures], exactly as a [TextField] uses them, with
+ * the answer handed to the container rather than to an `onValueChange`.
+ *
+ * It takes the press — that is what brings focus, and so Ctrl+C, to this label — and every move of
+ * the drag that follows, wherever the pointer goes. Anything but the primary button is left alone,
+ * so a right-click still reaches whatever a game has put underneath.
+ */
+private class SelectionPointer(
+    private val state: SelectionState,
+    private val view: RunView,
+    private val gestures: TextGestures,
+    private val text: String,
+) : PointerHandler {
+
+    override fun onPointer(event: PointerEvent): Boolean {
+        val wasDragging = gestures.isDragging
+        gestures.onPointer(event, state.valueFor(view, text), state.shiftHeld)?.let { state.select(view, it) }
+        return (event is PointerEvent.Press && event.button == PointerButton.Primary) || wasDragging
+    }
 }
 
 /** Records where the label is on the screen, every frame, without drawing anything. */
@@ -404,6 +476,9 @@ private fun runLocator(view: RunView): UiCanvas.(Rect) -> Unit = { bounds -> vie
 private class RunView {
     var node = Offset.Zero
     var origin = Offset.Zero
+
+    /** Whether this label had focus at its last composition, so the moment it loses it is seen. */
+    var wasFocused = false
 
     /** [point], given in the widget's own coordinates, moved into the paragraph's. */
     fun textPoint(point: Offset) = point + node - origin
@@ -550,6 +625,30 @@ private class RunPainter(
         val height = constraints.constrainHeight(block.size.height)
         return if (lines.isEmpty()) layout(width, height) {}
         else layout(width, height, lines.first().baseline, lines.last().baseline) {}
+    }
+
+    /**
+     * Which character boundary is nearest [point], in the paragraph's own coordinates.
+     *
+     * Clamped the way a selection drag needs: above the first line is the first line and below the
+     * last is the last, so a drag that leaves the label keeps selecting instead of stopping dead.
+     */
+    fun indexAt(point: Offset): Int = measured?.indexAt(point) ?: 0
+
+    /**
+     * The same drawing, with [range] highlighted behind the glyphs in [highlight]'s background.
+     *
+     * One rectangle per line the range touches, off [Paragraph.boxesOf] — the same boxes a run's
+     * hit test uses, so what lights up is exactly what a click would have landed on.
+     */
+    fun drawSelected(range: TextRange, highlight: ResolvedStyle): UiCanvas.(Rect) -> Unit = { bounds ->
+        measured?.let { block ->
+            val left = bounds.left + shift
+            for (box in block.boxesOf(range)) {
+                highlight.background.drawInto(this, box.translate(Offset(left, bounds.top)), highlight.tint)
+            }
+        }
+        draw(bounds)
     }
 
     /** Which run [point] is in, in the paragraph's own coordinates. The later run wins an overlap. */

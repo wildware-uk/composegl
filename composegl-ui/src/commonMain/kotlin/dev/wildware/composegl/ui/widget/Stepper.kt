@@ -223,12 +223,15 @@ private fun StepperControl(
             .clickable(enabled = enabled) { if (!stepper.swallowClick()) stepper.step(1, wrapAnyway = true) }
             .styled(style, states),
         name = "stepper",
+        // Unselectable inside a SelectionContainer: a press on the value or an arrow is a step.
         content = {
-            Arrow("<", "$style.arrow", arrowStates(states, pressed = held < 0 && stepper.overHeld, blocked = !stepper.canStep(-1)))
-            Box(Modifier.styled("$style.value", states), contentAlignment = Alignment.Centre) {
-                ProvideContentStyle(valueStyle) { Text(text) }
+            DisableSelection {
+                Arrow("<", "$style.arrow", arrowStates(states, pressed = held < 0 && stepper.overHeld, blocked = !stepper.canStep(-1)))
+                Box(Modifier.styled("$style.value", states), contentAlignment = Alignment.Centre) {
+                    ProvideContentStyle(valueStyle) { Text(text) }
+                }
+                Arrow(">", "$style.arrow", arrowStates(states, pressed = held > 0 && stepper.overHeld, blocked = !stepper.canStep(1)))
             }
-            Arrow(">", "$style.arrow", arrowStates(states, pressed = held > 0 && stepper.overHeld, blocked = !stepper.canStep(1)))
         },
         measurePolicy = StepperPolicy(stepper, widest + valueStyle.padding.horizontal),
     )
