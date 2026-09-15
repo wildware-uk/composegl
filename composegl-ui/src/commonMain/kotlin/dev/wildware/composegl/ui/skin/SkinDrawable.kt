@@ -1,11 +1,14 @@
 package dev.wildware.composegl.ui.skin
 
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NinePatch
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.graphics.box
+import dev.wildware.composegl.ui.graphics.boxBorder
 import dev.wildware.composegl.ui.graphics.refuseNineRegions
 import dev.wildware.composegl.ui.layout.Padding
 
@@ -48,16 +51,30 @@ sealed interface SkinDrawable {
      */
     data class Fill(
         val colour: Colour,
-        val corner: Float = 0f,
+        val corners: Corners = Corners.None,
         val border: Colour? = null,
         val borderWidth: Float = 0f,
         override val padding: Padding = Padding.None,
     ) : SkinDrawable {
-        override val minimumSize: Size get() = Size(corner * 2f, corner * 2f)
+
+        /** The same box with one radius on every corner, which is what most skins say. */
+        constructor(
+            colour: Colour,
+            corner: Float,
+            border: Colour? = null,
+            borderWidth: Float = 0f,
+            padding: Padding = Padding.None,
+        ) : this(colour, Corners.single(corner), border, borderWidth, padding)
+
+        /** Kept so code that read the one radius still compiles. It is the smallest of the four. */
+        @Deprecated("A fill has a radius per corner now.", ReplaceWith("corners"))
+        val corner: Float get() = corners.smallest
+
+        override val minimumSize: Size get() = corners.minimumSize
         override fun drawInto(canvas: UiCanvas, destination: Rect, tint: Colour) {
-            if (!colour.isTransparent) canvas.rect(destination, colour.modulate(tint), corner)
+            if (!colour.isTransparent) canvas.box(destination, colour.modulate(tint), corners)
             if (border != null && borderWidth > 0f) {
-                canvas.border(destination, border.modulate(tint), borderWidth, corner)
+                canvas.boxBorder(destination, border.modulate(tint), borderWidth, corners)
             }
         }
     }

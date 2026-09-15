@@ -3,6 +3,7 @@ package dev.wildware.composegl.ui.modifier
 import dev.wildware.composegl.ui.focus.FocusRequester
 import dev.wildware.composegl.ui.focus.FocusWithinHandler
 import dev.wildware.composegl.ui.focus.RevealHandler
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.effect.ShaderEffect
@@ -114,19 +115,64 @@ data class LayoutIdElement(val layoutId: Any) : Modifier.Element
 
 // --- how a node looks ----------------------------------------------------------------------
 
-data class BackgroundElement(val colour: Colour, val corner: Float = 0f) : Modifier.Element
+/**
+ * A filled box behind the node, with a radius for each of its [corners].
+ *
+ * The four radii are the element's only corner field, so two backgrounds that differ in one corner
+ * never compare equal. The constructor that takes a single `corner` is kept, and means the same
+ * radius on all four.
+ */
+data class BackgroundElement(val colour: Colour, val corners: Corners = Corners.None) : Modifier.Element {
+    constructor(colour: Colour, corner: Float) : this(colour, Corners.single(corner))
 
-data class BorderElement(val colour: Colour, val width: Float, val corner: Float = 0f) : Modifier.Element {
-    init { require(width >= 0f) { "border width cannot be negative, was $width" } }
+    /** Kept so code that read the one radius still compiles. It is the smallest of the four. */
+    @Deprecated("A background has a radius per corner now.", ReplaceWith("corners"))
+    val corner: Float get() = corners.smallest
 }
 
-data class ShadowElement(val colour: Colour, val spread: Float, val corner: Float = 0f) : Modifier.Element
+data class BorderElement(
+    val colour: Colour,
+    val width: Float,
+    val corners: Corners = Corners.None,
+) : Modifier.Element {
+    constructor(colour: Colour, width: Float, corner: Float) : this(colour, width, Corners.single(corner))
+
+    init { require(width >= 0f) { "border width cannot be negative, was $width" } }
+
+    /** Kept so code that read the one radius still compiles. It is the smallest of the four. */
+    @Deprecated("A border has a radius per corner now.", ReplaceWith("corners"))
+    val corner: Float get() = corners.smallest
+}
+
+data class ShadowElement(
+    val colour: Colour,
+    val spread: Float,
+    val corners: Corners = Corners.None,
+) : Modifier.Element {
+    constructor(colour: Colour, spread: Float, corner: Float) : this(colour, spread, Corners.single(corner))
+
+    /** Kept so code that read the one radius still compiles. It is the smallest of the four. */
+    @Deprecated("A shadow has a radius per corner now.", ReplaceWith("corners"))
+    val corner: Float get() = corners.smallest
+}
 
 /** Art behind the node, cut into nine so it can be any size. See [dev.wildware.composegl.ui.graphics.NinePatch]. */
 data class NinePatchElement(val patch: NinePatch, val tint: Colour = Colour.White) : Modifier.Element
 
-/** Nothing outside this node is drawn by it or by its children. */
-data class ClipElement(val corner: Float = 0f) : Modifier.Element
+/**
+ * Nothing outside this node is drawn by it or by its children.
+ *
+ * The [corners] are written down but the clip itself is the node's rectangle on every backend in
+ * this repository: a clip is a scissor, and a scissor has no corners. That was as true of the
+ * single radius before this took four.
+ */
+data class ClipElement(val corners: Corners = Corners.None) : Modifier.Element {
+    constructor(corner: Float) : this(Corners.single(corner))
+
+    /** Kept so code that read the one radius still compiles. It is the smallest of the four. */
+    @Deprecated("A clip has a radius per corner now.", ReplaceWith("corners"))
+    val corner: Float get() = corners.smallest
+}
 
 /** @see dev.wildware.composegl.ui.modifier.hitShape */
 data class HitShapeElement(val contains: (Offset) -> Boolean) : Modifier.Element
@@ -421,11 +467,31 @@ fun Modifier.layoutId(layoutId: Any) = then(LayoutIdElement(layoutId))
 
 fun Modifier.background(colour: Colour, corner: Float = 0f) = then(BackgroundElement(colour, corner))
 
+/**
+ * A filled box with its own radius on each corner.
+ *
+ * ```kotlin
+ * Modifier.background(colour, Corners(topLeft = 8f, topRight = 8f))   // a tab
+ * ```
+ *
+ * On a canvas that cannot round corners separately every corner is drawn at the smallest of the
+ * four; see [UiCanvas.roundsCornersSeparately].
+ */
+fun Modifier.background(colour: Colour, corners: Corners) = then(BackgroundElement(colour, corners))
+
 fun Modifier.border(colour: Colour, width: Float = 1f, corner: Float = 0f) =
     then(BorderElement(colour, width, corner))
 
+/** An outline with its own radius on each corner. Give it the same [Corners] as the background. */
+fun Modifier.border(colour: Colour, width: Float = 1f, corners: Corners) =
+    then(BorderElement(colour, width, corners))
+
 fun Modifier.shadow(colour: Colour, spread: Float, corner: Float = 0f) =
     then(ShadowElement(colour, spread, corner))
+
+/** A soft shadow with its own radius on each corner, following the box it is under. */
+fun Modifier.shadow(colour: Colour, spread: Float, corners: Corners) =
+    then(ShadowElement(colour, spread, corners))
 
 /**
  * Draws [patch] behind this node, sized to it.
@@ -446,6 +512,9 @@ fun Modifier.ninePatch(
 }
 
 fun Modifier.clip(corner: Float = 0f) = then(ClipElement(corner))
+
+/** The same, written with four radii so a clip can say the same [Corners] its background does. */
+fun Modifier.clip(corners: Corners) = then(ClipElement(corners))
 
 /**
  * Which points inside this node's rectangle actually belong to it.

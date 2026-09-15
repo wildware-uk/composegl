@@ -2,6 +2,7 @@ package dev.wildware.composegl.ui.graphics
 
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.layout.Viewport
@@ -73,6 +74,39 @@ interface UiCanvas {
      * often as it is drawn behind one box.
      */
     fun shadow(rect: Rect, colour: Colour, spread: Float, corner: Float = 0f)
+
+    /**
+     * A filled rectangle with its own radius on each corner. See [Corners].
+     *
+     * An overload rather than a change to the call above, so every backend written against one
+     * radius keeps compiling and keeps drawing. Its default body draws the box with the
+     * [smallest][Corners.smallest] of the four on every corner: the right place and the right size,
+     * with the rounding left out rather than put where it was not asked for. A tab that meets its
+     * panel square along the bottom still meets it square. Ask [roundsCornersSeparately] first if
+     * that matters.
+     *
+     * Corners that are all the same come here too and are drawn as the single-radius call would
+     * draw them — but the toolkit's own drawing sends those through the call above instead, so a
+     * canvas that wraps another and overrides only that one keeps seeing every box it used to.
+     */
+    fun rect(rect: Rect, colour: Colour, corners: Corners) = rect(rect, colour, corners.smallest)
+
+    /** An outline drawn inside [rect], [width] thick, with its own radius on each corner. */
+    fun border(rect: Rect, colour: Colour, width: Float, corners: Corners) =
+        border(rect, colour, width, corners.smallest)
+
+    /** A soft shadow under [rect], reaching [spread] beyond it, with its own radius on each corner. */
+    fun shadow(rect: Rect, colour: Colour, spread: Float, corners: Corners) =
+        shadow(rect, colour, spread, corners.smallest)
+
+    /**
+     * Whether the calls that take [Corners] really round each corner by its own radius.
+     *
+     * False means they draw every corner at the smallest of the four, which is a squarer box in the
+     * right place — nothing vanishes and nothing throws. Same shape as [rotatesImages] and
+     * [supports]: a question with an honest default.
+     */
+    val roundsCornersSeparately: Boolean get() = false
 
     /**
      * Text that has already been measured, with [x] and [y] as its top-left.
@@ -589,4 +623,28 @@ internal fun UiCanvas.textRun(
 ) {
     if (outline == null || !outline.isVisible) text(layout, x, y, colour)
     else text(layout, x, y, colour, outline)
+}
+
+/**
+ * A filled box, through the single-radius call whenever one radius says it.
+ *
+ * The same reasoning as [textRun]. A wrapper canvas written before [Corners] existed overrides
+ * `rect(Rect, Colour, Float)` and nothing else; a box with four equal corners sent through the
+ * [Corners] overload would go straight past it to whatever it wraps. So only a box whose corners
+ * really differ takes the new call.
+ */
+internal fun UiCanvas.box(rect: Rect, colour: Colour, corners: Corners) {
+    if (corners.isUniform) rect(rect, colour, corners.topLeft) else rect(rect, colour, corners)
+}
+
+/** The same, for an outline. */
+internal fun UiCanvas.boxBorder(rect: Rect, colour: Colour, width: Float, corners: Corners) {
+    if (corners.isUniform) border(rect, colour, width, corners.topLeft)
+    else border(rect, colour, width, corners)
+}
+
+/** The same, for a shadow. */
+internal fun UiCanvas.boxShadow(rect: Rect, colour: Colour, spread: Float, corners: Corners) {
+    if (corners.isUniform) shadow(rect, colour, spread, corners.topLeft)
+    else shadow(rect, colour, spread, corners)
 }

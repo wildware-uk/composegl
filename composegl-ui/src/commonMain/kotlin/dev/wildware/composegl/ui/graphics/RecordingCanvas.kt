@@ -1,6 +1,7 @@
 package dev.wildware.composegl.ui.graphics
 
 import dev.wildware.composegl.ui.effect.ShaderEffect
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.layout.Viewport
@@ -43,6 +44,42 @@ sealed interface DrawCall {
         val colour: Colour,
         val spread: Float,
         val corner: Float,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : DrawCall
+
+    /**
+     * A filled box whose corners were not all given the same radius.
+     *
+     * Its own kind rather than a new field on [Rectangle], for the reason [RotatedImage] gives:
+     * [Rectangle] is published, and a new constructor parameter on a data class is a binary break.
+     * A box whose four corners agree is recorded as a plain [Rectangle], with that one radius, so a
+     * test written before [Corners] existed keeps passing.
+     */
+    data class CorneredRectangle(
+        val rect: Rect,
+        val colour: Colour,
+        val corners: Corners,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : DrawCall
+
+    /** An outline whose corners differ. One whose corners agree is a plain [Border]. */
+    data class CorneredBorder(
+        val rect: Rect,
+        val colour: Colour,
+        val width: Float,
+        val corners: Corners,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : DrawCall
+
+    /** A shadow whose corners differ. One whose corners agree is a plain [Shadow]. */
+    data class CorneredShadow(
+        val rect: Rect,
+        val colour: Colour,
+        val spread: Float,
+        val corners: Corners,
         override val clip: Rect,
         override val alpha: Float,
     ) : DrawCall
@@ -294,6 +331,28 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     override fun shadow(rect: Rect, colour: Colour, spread: Float, corner: Float) {
         record(DrawCall.Shadow(rect, colour, spread, corner, state.clip, state.alpha))
     }
+
+    /**
+     * Four equal corners record a plain [DrawCall.Rectangle], exactly as the single-radius call
+     * would; only corners that differ record a [DrawCall.CorneredRectangle].
+     */
+    override fun rect(rect: Rect, colour: Colour, corners: Corners) {
+        if (corners.isUniform) return rect(rect, colour, corners.topLeft)
+        record(DrawCall.CorneredRectangle(rect, colour, corners, state.clip, state.alpha))
+    }
+
+    override fun border(rect: Rect, colour: Colour, width: Float, corners: Corners) {
+        if (corners.isUniform) return border(rect, colour, width, corners.topLeft)
+        record(DrawCall.CorneredBorder(rect, colour, width, corners, state.clip, state.alpha))
+    }
+
+    override fun shadow(rect: Rect, colour: Colour, spread: Float, corners: Corners) {
+        if (corners.isUniform) return shadow(rect, colour, spread, corners.topLeft)
+        record(DrawCall.CorneredShadow(rect, colour, spread, corners, state.clip, state.alpha))
+    }
+
+    /** It writes all four down, which is the whole of what this canvas can do about anything. */
+    override val roundsCornersSeparately: Boolean get() = true
 
     override fun fan(points: FloatArray, colour: Colour) {
         if (points.size < 6) return

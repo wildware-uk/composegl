@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.game.RadialCooldown
 import dev.wildware.composegl.ui.game.Reticle
 import dev.wildware.composegl.ui.game.rememberCooldown
 import dev.wildware.composegl.ui.game.rememberReticleState
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Alignment
@@ -517,6 +518,39 @@ private fun MutableList<DocShot>.modifiers() {
                 // as nothing at all. The modifier is the same one either way.
                 Tile("shadow") { Modifier.shadow(Accent.scaleAlpha(0.7f), spread = 14f, corner = 6f).background(Steel, corner = 6f) }
                 Tile("alpha") { Modifier.alpha(0.35f).background(Accent, corner = 6f) }
+            }
+        }
+    })
+
+    add(DocShot("modifier-corners", 420, 150) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(22f)) {
+                Labelled("a tab") {
+                    // Rounded along the top only, so the selected tab and its panel read as one.
+                    Column {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4f)) {
+                            Box(Modifier.size(52f, 22f).background(Accent, Corners.top(8f))) {}
+                            Box(Modifier.size(52f, 22f).background(Steel, Corners.top(8f))) {}
+                        }
+                        Box(Modifier.size(126f, 50f).background(Accent, Corners(topRight = 8f, bottomRight = 8f, bottomLeft = 8f))) {}
+                    }
+                }
+                Labelled("a bubble") {
+                    val speech = Corners(topLeft = 14f, topRight = 14f, bottomRight = 14f, bottomLeft = 0f)
+                    Box(
+                        Modifier.size(110f, 60f)
+                            .shadow(Accent.scaleAlpha(0.5f), spread = 10f, corners = speech)
+                            .background(Steel, speech)
+                            .border(Accent, width = 2f, corners = speech),
+                    ) {}
+                }
+                Labelled("docked") {
+                    Box(
+                        Modifier.size(76f, 72f)
+                            .background(Steel, Corners.left(16f))
+                            .border(Accent, width = 2f, corners = Corners.left(16f)),
+                    ) {}
+                }
             }
         }
     })

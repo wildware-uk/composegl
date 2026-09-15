@@ -44,7 +44,9 @@ import dev.wildware.composegl.ui.text.FontProvider
  * - `{ "patch": "region", "slice": 6 }` — art cut into nine. `slice` is required, `padding` defaults
  *   to it, and `edges` can set any of `left`, `top`, `right`, `bottom`, `centreAcross`,
  *   `centreDown` to `"stretch"` or `"tile"`.
- * - `{ "fill": "#203040", "corner": 4 }` — a flat box with no art at all.
+ * - `{ "fill": "#203040", "corner": 4 }` — a flat box with no art at all. `corner` is one radius
+ *   for all four, four written `[topLeft, topRight, bottomRight, bottomLeft]`, or an object naming
+ *   only the rounded ones, such as `{ "topLeft": 8, "topRight": 8 }` for a tab.
  * - `{ "image": "region" }` — one picture stretched across the widget.
  * - `"none"` — nothing, which is how a flat state stops the base's box showing through.
  *

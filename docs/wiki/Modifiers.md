@@ -78,6 +78,7 @@ Modifier.background(Colour.rgb(0x1A1F28), corner = 6f)
 Modifier.border(Colour.rgb(0x2C3545), width = 1f, corner = 6f)
 Modifier.shadow(Colour.argb(0x80000000), spread = 12f, corner = 6f)
 Modifier.ninePatch(frame)          // skin art, stretched properly
+Modifier.background(Accent, Corners.top(8f))  // …with a radius per corner
 Modifier.clip(corner = 6f)         // children cannot draw outside
 Modifier.alpha(0.4f)               // the subtree fades as one thing
 Modifier.scale(1.2f)               // …drawn bigger, without re-laying it out
@@ -225,6 +226,30 @@ Changes nothing about how the node looks or behaves. See [[Testing]].
 The decoration ones, on the same box:
 
 ![four boxes showing background, border, shadow and alpha](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-decoration.png)
+
+**One radius, or one per corner.** `background`, `border` and `shadow` take a single
+`corner`, or a `Corners` with a radius for each — clockwise from the top-left, like
+CSS. That is how a tab rounds only along its top, a speech bubble keeps one sharp
+corner, and a panel docked to the edge of the screen stays square against it:
+
+```kotlin
+val speech = Corners(topLeft = 14f, topRight = 14f, bottomRight = 14f, bottomLeft = 0f)
+
+Modifier.background(Accent, Corners.top(8f))                       // a tab
+Modifier.shadow(Glow, spread = 10f, corners = speech)
+    .background(Steel, speech)
+    .border(Accent, width = 2f, corners = speech)                  // a bubble
+Modifier.background(Steel, Corners.left(16f))                      // docked to the right edge
+```
+
+Give the border and the shadow the same `Corners` as the background, or they show
+at the corner that differs. `Corners.top`, `bottom`, `left` and `right` round two;
+`Corners.all(r)` is exactly `corner = r`. A backend that cannot round corners one by
+one draws every corner at the smallest of the four and says so through
+`canvas.roundsCornersSeparately`; both backends here can. `clip(corners)` is
+accepted too, but a clip is still the node's plain rectangle on every backend.
+
+![a tab rounded along its top, a speech bubble with one square corner, and a panel square on its right](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-corners.png)
 
 And what `padding` does to what is inside it:
 

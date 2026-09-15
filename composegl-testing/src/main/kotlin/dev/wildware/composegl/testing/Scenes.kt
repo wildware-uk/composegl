@@ -10,6 +10,7 @@ import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.effect.Uniform
 import dev.wildware.composegl.ui.game.ParticleEmitter
 import dev.wildware.composegl.ui.game.ParticleStyle
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.BlendMode
@@ -194,6 +195,28 @@ fun scenes(): List<Scene> = listOf(
         border(Rect.of(20f, 100f, 60f, 60f), Paper, width = 1f, corner = 0f)
         border(Rect.of(90f, 100f, 60f, 60f), Paper, width = 4f, corner = 12f)
         border(Rect.of(160f, 100f, 60f, 60f), Paper, width = 10f, corner = 30f)
+    },
+
+    Scene("per-corner") { _ ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+        // Two tabs on the panel they open: round along the top, square where they meet it. The
+        // panel is square under the selected tab and round everywhere else.
+        rect(Rect.of(20f, 16f, 70f, 26f), Accent, Corners.top(10f))
+        rect(Rect.of(94f, 16f, 70f, 26f), Panel, Corners.top(10f))
+        rect(Rect.of(20f, 42f, 200f, 64f), Accent, Corners(topRight = 14f, bottomRight = 14f, bottomLeft = 14f))
+
+        // A speech bubble: rounded but for the one corner that points at whoever is talking. The
+        // shadow and the outline follow the same four radii, or they would show at that corner.
+        val bubble = Rect.of(24f, 128f, 130f, 60f)
+        val speech = Corners(topLeft = 18f, topRight = 18f, bottomRight = 18f, bottomLeft = 0f)
+        shadow(bubble, Colour.argb(0xFF000000), spread = 12f, corners = speech)
+        rect(bubble, Paper, speech)
+        border(bubble, Accent, width = 3f, corners = speech)
+
+        // A panel docked to the right edge: round on the side facing in, square against the edge.
+        val docked = Rect.of(176f, 124f, 64f, 96f)
+        rect(docked, Panel, Corners.left(20f))
+        border(docked, Accent, width = 2f, corners = Corners.left(20f))
     },
 
     Scene("text") { art ->
