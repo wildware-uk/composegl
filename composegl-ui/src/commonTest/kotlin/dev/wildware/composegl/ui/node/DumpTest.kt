@@ -2,6 +2,8 @@ package dev.wildware.composegl.ui.node
 
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.graphics.BlendMode
+import dev.wildware.composegl.ui.graphics.BorderSide
+import dev.wildware.composegl.ui.graphics.BorderStyle
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Constraints
@@ -168,6 +170,21 @@ class DumpTest {
             "    modifier sizeIn(minWidth 40 maxWidth 200) -> defaultMinSize(minHeight 48) -> " +
                 "aspectRatio(1.5 height first) -> layoutId(slot) -> zIndex(2) -> " +
                 "background(#FF000000 corners 4,4,0,0) -> border(#FFFFFFFF 1 corner 6) -> clip(corners 0,0,0,2)",
+            root.dump(modifiers = true).lines()[1],
+        )
+    }
+
+    @Test
+    fun `a broken or one-sided border says how it is drawn`() {
+        val chain = Modifier
+            .border(Colour.White, width = 2f, style = BorderStyle.Dashed(on = 6f, off = 4f))
+            .border(Colour.Black, width = 1f, corner = 4f, style = BorderStyle.Dotted)
+            .border(top = BorderSide(1f, Colour.White), bottom = BorderSide(3f, Colour.Black, BorderStyle.Dotted))
+        val root = node("root", chain)
+
+        assertEquals(
+            "    modifier border(#FFFFFFFF 2 dashed 6,4) -> border(#FF000000 1 corner 4 dotted) -> " +
+                "border(top #FFFFFFFF 1, bottom #FF000000 3 dotted)",
             root.dump(modifiers = true).lines()[1],
         )
     }

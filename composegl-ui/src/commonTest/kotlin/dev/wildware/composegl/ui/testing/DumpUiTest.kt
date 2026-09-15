@@ -6,11 +6,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.graphics.BorderSide
+import dev.wildware.composegl.ui.graphics.BorderStyle
+import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.border
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.testTag
@@ -116,6 +120,40 @@ class DumpUiTest {
             chain,
         )
         assertFalse(ui.dump().lines().any { "modifier" in it }, "only when asked for")
+    }
+
+    @Test
+    fun `a border a click turns dashed then one-sided is dumped as drawn`() {
+        val ui = open {
+            var look by remember { mutableStateOf(0) }
+            Column {
+                Button("LOOK", onClick = { look++ }, initialFocus = true, modifier = Modifier.testTag("look"))
+                val border = when (look) {
+                    0 -> Modifier.border(Colour.White, width = 2f)
+                    1 -> Modifier.border(Colour.White, width = 2f, style = BorderStyle.Dashed(on = 6f, off = 4f))
+                    else -> Modifier.border(
+                        top = BorderSide(1f, Colour.White),
+                        bottom = BorderSide(3f, Colour.Black, BorderStyle.Dotted),
+                    )
+                }
+                Box(Modifier.testTag("card").then(border).size(100f, 40f))
+            }
+        }
+        fun chain(): String {
+            val lines = ui.dump(modifiers = true).lines()
+            return lines[lines.indexOfFirst { " #card " in it } + 1].trim()
+        }
+
+        assertEquals("modifier testTag(\"card\") -> border(#FFFFFFFF 2) -> size(100x40)", chain())
+
+        ui.click("look")
+        assertEquals("modifier testTag(\"card\") -> border(#FFFFFFFF 2 dashed 6,4) -> size(100x40)", chain())
+
+        ui.pad(GamepadButton.South)
+        assertEquals(
+            "modifier testTag(\"card\") -> border(top #FFFFFFFF 1, bottom #FF000000 3 dotted) -> size(100x40)",
+            chain(),
+        )
     }
 
     @Test
