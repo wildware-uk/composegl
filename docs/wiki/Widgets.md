@@ -336,6 +336,40 @@ Image(icon, fit = ImageFit.Cover, alignment = Alignment.TopStart)
 A name that is not in the atlas stops there and says so, rather than drawing
 nothing — because nothing looks exactly like a widget somebody has not written yet.
 
+### Sprite-sheet animation
+
+```kotlin
+val coin = rememberSpriteAnimation(atlas, prefix = "coin_", fps = 12f)   // coin_0, coin_1 … coin_11
+AnimatedImage(coin, Modifier.size(32f))
+
+val torch = rememberSpriteAnimation("torch_", fps = 8f, clock = Clock.World)  // the skin's atlas
+val boom = rememberSpriteAnimation(explosion, fps = 24f, loop = false)       // a list of frames
+AnimatedImage(boom, onFinished = { exploding = false })
+boom.restart()
+```
+
+![eight frames of a coin cut from one sheet, and the coin playing](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-animated.png)
+
+Frames are every region called the prefix followed by a number, played in number
+order, so `coin_10` comes after `coin_9`. A prefix that matches nothing stops and
+lists what the atlas does hold.
+
+- **It runs on a `Clock`.** On `Clock.World` it freezes when the game is paused and
+  carries on from the same frame; the default `Clock.Ui` keeps a pause menu's
+  spinner turning.
+- **It only redraws when the frame changes.** A 12 fps coin costs twelve redraws a
+  second, not sixty, and a finished one-shot costs nothing.
+- **The box is the largest frame**, so frames a packer trimmed to different sizes do
+  not make the layout jump. `fit` and `alignment` place that box, and every frame is
+  scaled by the same amount inside it, so a trimmed frame does not grow or shrink.
+
+LibGDX's packer strips a trailing `_0` into a region's `index`, so name those
+regions back when you build the atlas:
+`atlas.regions.associate { (if (it.index >= 0) "${it.name}_${it.index}" else it.name) to GdxTexture(it) }`.
+
+In a `uiTest`, a loop that changes frame more often than one frame in three never
+lets the screen settle. Test it on a clock the test stops, or at a lower rate.
+
 ---
 
 ## Tooltips and prompts

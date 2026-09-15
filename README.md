@@ -95,7 +95,7 @@ You need `composegl-ui` and exactly one backend.
 | | |
 |---|---|
 | [Your first screen](docs/wiki/Your-first-screen.md) | a window with a button in it, start to finish |
-| [Widgets](docs/wiki/Widgets.md) · [Layout](docs/wiki/Layout.md) · [Modifiers](docs/wiki/Modifiers.md) | what there is, and how it fits together — down to a panel that shakes on a wrong password, parallax layers that follow the mouse, stick or scroll, panels that animate out before they go, a small thing kept small in a big slot, and borders that are one-sided, dashed or dotted, and text lined up by its baseline |
+| [Widgets](docs/wiki/Widgets.md) · [Layout](docs/wiki/Layout.md) · [Modifiers](docs/wiki/Modifiers.md) | what there is, and how it fits together — down to a panel that shakes on a wrong password, parallax layers that follow the mouse, stick or scroll, panels that animate out before they go, a small thing kept small in a big slot, and borders that are one-sided, dashed or dotted, text lined up by its baseline, and sprite-sheet animation |
 | [Skins](docs/wiki/Skins.md) | every colour, gradient and corner — one radius, or one per corner — comes out of a JSON file |
 | [Input](docs/wiki/Input.md) · [Backends](docs/wiki/Backends.md) · [Shaders](docs/wiki/Shaders.md) | mouse, keyboard, gamepad, the cursor's shape, UI sounds; long press, double click, hold to repeat; and writing your own |
 | [Saving state](docs/wiki/Saving-state.md) | `rememberSaveable`: the tab, the scroll and the half-typed name survive leaving a screen |

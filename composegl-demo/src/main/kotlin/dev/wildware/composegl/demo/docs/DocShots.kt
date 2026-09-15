@@ -86,7 +86,9 @@ import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.wrapContentWidth
 import dev.wildware.composegl.ui.saveable.SaveableStateHolder
 import dev.wildware.composegl.ui.saveable.rememberSaveable
+import dev.wildware.composegl.ui.widget.AnimatedImage
 import dev.wildware.composegl.ui.widget.Button
+import dev.wildware.composegl.ui.widget.rememberSpriteAnimation
 import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.Divider
 import dev.wildware.composegl.ui.widget.Image
@@ -628,6 +630,23 @@ private fun MutableList<DocShot>.widgets() {
                 Button("NORMAL", onClick = {}, style = "chip.chosen")
                 Button("BRISK", onClick = {}, style = "chip")
                 Button("ABORT", onClick = {}, style = "chip.danger")
+            }
+        }
+    })
+
+    // The sheet's eight frames laid out as the atlas holds them, and the same frames playing. A
+    // quarter of a second in, so the playing coin is caught partway round rather than on frame 0.
+    add(DocShot("widget-animated", 420, 150, seconds = 0.25f) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(10f)) {
+                Text("coin_0 … coin_7", style = "label.dim")
+                Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
+                    repeat(8) { Image("coin_$it", Modifier.size(32f)) }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12f), verticalAlignment = VerticalAlignment.Centre) {
+                    AnimatedImage(rememberSpriteAnimation("coin_", fps = 12f), Modifier.size(48f))
+                    Text("AnimatedImage at 12 fps")
+                }
             }
         }
     })
