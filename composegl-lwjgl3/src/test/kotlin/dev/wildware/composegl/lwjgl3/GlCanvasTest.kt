@@ -286,6 +286,35 @@ class GlCanvasTest {
         assertColour(Colour.Black, frame.at(200, 20), "outside it")
     }
 
+    @Test
+    fun `a filled design in one player's half is cut off at the edge of that half`() {
+        val window = Size(Gl.size.toFloat(), Gl.size.toFloat())
+        // A square design in the tall left half, filled: twice as wide as the half it is given.
+        val left = Viewport.splitScreen(window, window, players = 2, policy = ScalePolicy.Fill)[0]
+        val pixels = Gl.render {
+            val canvas = GlCanvas(null)
+            try {
+                GL11.glClearColor(0f, 0f, 0f, 1f)
+                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+                canvas.begin(left)
+                canvas.rect(Rect.of(0f, 0f, window.width, window.height), red)
+                // And after a layer, which sets a scissor of its own and has to give this one back.
+                canvas.layer(Rect.of(0f, 0f, 10f, 10f)) { canvas.rect(Rect.of(0f, 0f, 10f, 10f), blue) }
+                canvas.rect(Rect.of(0f, 200f, window.width, 100f), blue)
+                canvas.end()
+                Gl.readPixels(Gl.size, Gl.size)
+            } finally {
+                canvas.close()
+            }
+        }
+        val at = { x: Int, y: Int -> pixels[y * Gl.size + x] }
+
+        assertColour(red, at(100, 20), "the left half")
+        assertColour(Colour.Black, at(250, 20), "the right half, which the picture reaches but is not given")
+        assertColour(blue, at(100, 250), "drawn after a layer, in the left half")
+        assertColour(Colour.Black, at(250, 250), "and still kept out of the right half")
+    }
+
     // --- gradients ---
 
     private val box = Rect.of(100f, 100f, 200f, 160f)

@@ -1,6 +1,7 @@
 package dev.wildware.composegl.ui.layout
 
 import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.fillMaxSize
@@ -8,6 +9,7 @@ import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.node.UiTree
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class ViewportTest {
@@ -195,5 +197,82 @@ class ViewportTest {
         assertEquals(640f, tree.root.height)
         assertEquals(80f, tree.root.x)
         assertEquals(40f, tree.root.y)
+    }
+
+    // --- split-screen ---
+
+    @Test
+    fun `two players sit side by side each fitted into their own half`() {
+        // Each half of a double-wide window is exactly the design, so nothing is scaled.
+        val (left, right) = Viewport.splitScreen(design, Size(2560f, 720f), players = 2)
+
+        assertEquals(Rect.of(0f, 0f, 1280f, 720f), left.area)
+        assertEquals(Rect.of(1280f, 0f, 1280f, 720f), right.area)
+        assertEquals(1f, left.scaleX)
+        assertEquals(Offset(0f, 0f), left.origin)
+        assertEquals(Offset(1280f, 0f), right.origin)
+    }
+
+    @Test
+    fun `a half narrower than the design is letterboxed inside that half`() {
+        val (left, right) = Viewport.splitScreen(design, Size(1280f, 720f), players = 2)
+
+        assertEquals(0.5f, left.scaleX)
+        // 360 tall in a 720 half: 180 of bar above.
+        assertEquals(Offset(0f, 180f), left.origin)
+        assertEquals(Offset(640f, 180f), right.origin)
+    }
+
+    @Test
+    fun `stacked puts the second player underneath`() {
+        val (top, bottom) = Viewport.splitScreen(design, Size(1280f, 1440f), players = 2, stacked = true)
+
+        assertEquals(Offset(0f, 0f), top.origin)
+        assertEquals(Offset(0f, 720f), bottom.origin)
+        assertEquals(1f, bottom.scaleY)
+    }
+
+    @Test
+    fun `three and four players get a quarter each reading across then down`() {
+        val four = Viewport.splitScreen(design, Size(2560f, 1440f), players = 4)
+        val three = Viewport.splitScreen(design, Size(2560f, 1440f), players = 3)
+
+        assertEquals(listOf(Offset(0f, 0f), Offset(1280f, 0f), Offset(0f, 720f), Offset(1280f, 720f)), four.map { it.origin })
+        assertEquals(four.take(3), three)
+    }
+
+    @Test
+    fun `one player gets the whole window like an ordinary viewport`() {
+        val (only) = Viewport.splitScreen(design, Size(2560f, 1440f), players = 1)
+
+        assertEquals(Viewport(design, Size(2560f, 1440f)), only)
+    }
+
+    @Test
+    fun `split-screen refuses nobody and a fifth player`() {
+        assertThrows(IllegalArgumentException::class.java) { Viewport.splitScreen(design, design, players = 0) }
+        assertThrows(IllegalArgumentException::class.java) { Viewport.splitScreen(design, design, players = 5) }
+    }
+
+    @Test
+    fun `a window position becomes the right player's own position`() {
+        val (left, right) = Viewport.splitScreen(design, Size(1280f, 720f), players = 2)
+
+        // The middle of each half is the middle of each player's design.
+        assertEquals(Offset(640f, 360f), left.toDesign(Offset(320f, 360f)))
+        assertEquals(Offset(640f, 360f), right.toDesign(Offset(960f, 360f)))
+        assertEquals(Offset(960f, 360f), right.toScreen(Offset(640f, 360f)))
+    }
+
+    @Test
+    fun `a notch on the left only pushes in the player whose half reaches it`() {
+        val (left, right) = Viewport.splitScreen(
+            design, Size(2560f, 720f), players = 2, safeArea = Padding(left = 100f, right = 40f),
+        )
+
+        assertEquals(100f, left.contentOrigin.x)
+        assertEquals(0f, left.safeInsets.right)
+        assertEquals(0f, right.contentOrigin.x)
+        assertEquals(40f, right.safeInsets.right)
     }
 }

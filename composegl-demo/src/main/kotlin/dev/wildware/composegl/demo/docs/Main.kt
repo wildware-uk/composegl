@@ -14,8 +14,15 @@ import dev.wildware.composegl.ui.host.UiRenderer
 import dev.wildware.composegl.ui.input.GamepadCursor
 import dev.wildware.composegl.ui.input.InputSource
 import dev.wildware.composegl.ui.input.InputSourceTracker
+import dev.wildware.composegl.ui.input.GamepadEvent
+import dev.wildware.composegl.ui.input.GamepadId
+import dev.wildware.composegl.ui.input.GamepadNavigator
+import dev.wildware.composegl.ui.input.InputRouter
+import dev.wildware.composegl.ui.input.InputSink
+import dev.wildware.composegl.ui.input.KeyEvent
 import dev.wildware.composegl.ui.input.PointerButton
 import dev.wildware.composegl.ui.input.PointerEvent
+import dev.wildware.composegl.ui.input.TextEvent
 import dev.wildware.composegl.ui.input.PointerId
 import dev.wildware.composegl.ui.input.PointerRouter
 import dev.wildware.composegl.ui.layout.ScalePolicy
@@ -175,43 +182,69 @@ private const val DragSteps = 12
 private const val FrameNanos = 16_666_666L
 
 private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Skin): BufferedImage {
-    val host = UiHost()
+    val window = Size(shot.width.toFloat(), shot.height.toFloat())
+    // One player is an ordinary picture; several share the window the way a local co-op game does.
+    val viewports = if (shot.players == 1) {
+        listOf(Viewport(design = window, physical = window, policy = ScalePolicy.Fit))
+    } else {
+        Viewport.splitScreen(
+            design = Size(shot.width.toFloat() / 2f, shot.height.toFloat()),
+            physical = window,
+            players = shot.players,
+        )
+    }
+
+    val hosts = viewports.map { UiHost() }
 
     // Real input rather than a widget told to look hovered: a picture of a hover is only worth
     // having if it is the state the toolkit actually reaches when a mouse is there.
-    val focus = FocusManager(host.root)
-    val router = PointerRouter(host.root, focus)
+    val focuses = hosts.map { FocusManager(it.root) }
+    val pointers = hosts.indices.map { PointerRouter(hosts[it].root, focuses[it]) }
+    val pads = focuses.map { GamepadNavigator(it) }
+    val mouse = pointers[0]
 
     // The same for a pad's cursor: a real one, moved and framed as a game would, on a player who is
     // on a pad — which is the only time the arrow is drawn.
-    val cursor = GamepadCursor(host.root, router)
+    val cursor = GamepadCursor(hosts[0].root, mouse)
 
-    host.setContent {
-        CompositionLocalProvider(LocalFonts provides fonts) {
-            ProvideSkin(skin) {
-                if (shot.padCursor == null) {
-                    shot.content()
-                } else {
-                    ProvideInputSource(InputSourceTracker(InputSource.Gamepad)) {
-                        ProvideGamepadCursor(cursor) { shot.content() }
+    hosts.forEachIndexed { player, host ->
+        host.setContent {
+            CompositionLocalProvider(LocalFonts provides fonts, LocalDocPlayer provides player) {
+                ProvideSkin(skin) {
+                    if (shot.padCursor == null || player != 0) {
+                        shot.content()
+                    } else {
+                        ProvideInputSource(InputSourceTracker(InputSource.Gamepad)) {
+                            ProvideGamepadCursor(cursor) { shot.content() }
+                        }
                     }
                 }
             }
         }
     }
 
-    val viewport = Viewport(
-        design = Size(shot.width.toFloat(), shot.height.toFloat()),
-        physical = Size(shot.width.toFloat(), shot.height.toFloat()),
-        policy = ScalePolicy.Fit,
-    )
+    // Each player's pad through one router, as a split-screen game has it: pad 0 is player one's.
+    val router = InputRouter()
+    hosts.indices.forEach { player ->
+        router.assignGamepad(GamepadId(player), object : InputSink {
+            override fun onPointer(event: PointerEvent) = pointers[player].onPointer(event)
+            override fun onKey(event: KeyEvent) = false
+            override fun onText(event: TextEvent) = false
+            override fun onGamepad(event: GamepadEvent) = pads[player].onGamepad(event)
+        })
+    }
 
-    val ui = UiRenderer(host, canvas)
+    val renderers = hosts.indices.map { player ->
+        // Focus is drawn only where a pad moved it: the split-screen picture is about whose focus
+        // is where, and every other picture shows its widgets the way they look before anyone
+        // reaches for a pad.
+        UiRenderer(hosts[player], canvas).also { if (shot.players > 1) it.focus = focuses[player] }
+    }
     // After layout, because a pointer lands on whatever is under it and nothing is anywhere until
     // the tree has been measured.
     var dragged = false
     var clicked = false
-    ui.onLaidOut = { nanos ->
+    renderers[0].onLaidOut = { nanos ->
         shot.padCursor?.let { at ->
             cursor.moveTo(at)
             cursor.frame(nanos / 1_000_000L)
@@ -219,25 +252,25 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
         val to = shot.dragTo
         shot.pointer?.let { at ->
             if (to == null) {
-                router.onPointer(PointerEvent.Move(PointerId.Mouse, at))
-                if (shot.press) router.onPointer(PointerEvent.Press(PointerId.Mouse, at))
+                mouse.onPointer(PointerEvent.Move(PointerId.Mouse, at))
+                if (shot.press) mouse.onPointer(PointerEvent.Press(PointerId.Mouse, at))
                 // Once, not every frame: a click every frame on a dropdown opens and closes it in turn.
                 if (shot.click && !clicked) {
                     clicked = true
-                    router.onPointer(PointerEvent.Press(PointerId.Mouse, at))
-                    router.onPointer(PointerEvent.Release(PointerId.Mouse, at))
+                    mouse.onPointer(PointerEvent.Press(PointerId.Mouse, at))
+                    mouse.onPointer(PointerEvent.Release(PointerId.Mouse, at))
                 }
             } else if (!dragged) {
                 // Once, in steps, the way a hand does it: a drag is a gesture rather than a state,
                 // and pressing again every frame would be a new one each time.
                 dragged = true
-                router.onPointer(PointerEvent.Press(PointerId.Mouse, at))
+                mouse.onPointer(PointerEvent.Press(PointerId.Mouse, at))
                 for (step in 1..DragSteps) {
                     val along = at + (to - at) * (step / DragSteps.toFloat())
-                    router.onPointer(PointerEvent.Move(PointerId.Mouse, along, setOf(PointerButton.Primary)))
+                    mouse.onPointer(PointerEvent.Move(PointerId.Mouse, along, setOf(PointerButton.Primary)))
                 }
                 // Held, for a picture of something still being carried.
-                if (!shot.hold) router.onPointer(PointerEvent.Release(PointerId.Mouse, to))
+                if (!shot.hold) mouse.onPointer(PointerEvent.Release(PointerId.Mouse, to))
             }
         }
     }
@@ -247,11 +280,18 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
         for (frame in 0..frames) {
             GL11.glClearColor(0f, 0f, 0f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
-            ui.render(viewport, frame * FrameNanos)
+            renderers.forEachIndexed { player, ui -> ui.render(viewports[player], frame * FrameNanos) }
+            // Once focus has settled on something, so a step moves it from somewhere.
+            if (frame == 1) {
+                shot.pads.forEach { (pad, button) ->
+                    router.onGamepad(GamepadEvent.ButtonDown(pad, button))
+                    router.onGamepad(GamepadEvent.ButtonUp(pad, button))
+                }
+            }
         }
         return read(shot.width, shot.height)
     } finally {
-        host.dispose()
+        hosts.forEach { it.dispose() }
     }
 }
 

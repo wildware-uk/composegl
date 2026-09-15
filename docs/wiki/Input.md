@@ -624,4 +624,5 @@ existed.
 
 - **[[Widgets]]** — `TextField`, `Slider`, `Hotbar` and what they do with input
 - **[[Backends]]** — the translators that ship, and writing your own
+- **[[Split-screen]]** — several players in one window, each pad routed to its own interface
 - **[[Testing]]** — handing the toolkit events with no window anywhere

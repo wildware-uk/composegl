@@ -1,7 +1,10 @@
 package dev.wildware.composegl.demo.docs
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.input.GamepadButton
+import dev.wildware.composegl.ui.input.GamepadId
 
 /**
  * One picture for the documentation.
@@ -28,6 +31,11 @@ import dev.wildware.composegl.ui.geometry.Offset
  *   draining, a cooldown sweeping, a caret blinking — is a different picture at a different moment.
  * @param stock whether to take it through `Skin.Default` rather than the example's skin. For the
  *   pictures whose point is what you get before you have written a skin.
+ * @param players how many players share the picture, split the way `Viewport.splitScreen` splits a
+ *   window. Each gets their own interface, composed from [content] with [LocalDocPlayer] saying
+ *   which player it is, and their own pad through one `InputRouter`: pad 0 is player one's.
+ * @param pads buttons pressed before the shutter, through that router, so a picture of two players
+ *   in two different places is the routing really putting them there.
  */
 internal class DocShot(
     val name: String,
@@ -41,5 +49,10 @@ internal class DocShot(
     val hold: Boolean = false,
     val seconds: Float = 0f,
     val stock: Boolean = false,
+    val players: Int = 1,
+    val pads: List<Pair<GamepadId, GamepadButton>> = emptyList(),
     val content: @Composable () -> Unit,
 )
+
+/** Which player's interface is being composed, counting from zero, in a picture of several. */
+internal val LocalDocPlayer = staticCompositionLocalOf { 0 }
