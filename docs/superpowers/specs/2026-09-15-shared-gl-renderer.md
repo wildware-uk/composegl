@@ -75,6 +75,9 @@ What the code does where this design said otherwise. The code is the reference.
     still passes unchanged.
   - The forced WebGL 1 run is `wasmJsBrowserWebGl1Test` (Chrome's `--disable-webgl2`), not
     `wasmJsBrowserTestWebGl1`.
+  - There is no web `ImageDecoder`, suspending or otherwise: `WebFonts` has no decoder, so the
+    inherited `registerPictures` (encoded bytes) throws. `registerDecodedPictures` is inherited, but a picture
+    family cannot be a `fallBackTo` target, because `WebFonts`' fallbacks are CSS font names.
 - lwjgl3 `src/main` went from 4,574 lines to 1,782 (the estimate was 1,680). `composegl-render` is
   3,949 lines, plus 1,706 of common tests (93 tests on jvm, linuxX64 and wasmJs) using a recording
   `GpuDevice` and a recording `Gl`.

@@ -64,6 +64,31 @@ class GlDeviceTest {
     }
 
     @Test
+    fun `the index buffer is only ever an element buffer and goes up inside the device's own vertex array`() {
+        listOf(GlProfile(GlApi.WebGl, 2, 0), GlProfile(GlApi.WebGl, 1, 0)).forEach { profile ->
+            val gl = RecordingGl(profile)
+            val device = drawOne(gl)
+            // A second frame that needs more indices than were uploaded, so they go up again mid-frame.
+            device.begin(FrameTarget.Host)
+            device.drawShapes(device.vertices(4000), 1, device.texture(4, 4, smooth = true), Blend.SourceOver, identity)
+            device.end()
+
+            val index = gl.named("createBuffer=")[2].substringAfter('=')
+            assertEquals(0, gl.named("bindBuffer(${GlConst.ARRAY_BUFFER}, $index)").size, "WebGL refuses an index buffer once it was an array buffer")
+            assertEquals(0, gl.named("bufferData(${GlConst.ARRAY_BUFFER}, shorts").size)
+            val uploads = gl.calls.indices.filter { gl.calls[it].startsWith("bufferData(${GlConst.ELEMENT_ARRAY_BUFFER}, shorts") }
+            assertEquals(listOf("shorts 48", "shorts 24000"), uploads.map { gl.calls[it].substringAfter(", ").removeSuffix(")") })
+            if (device.usesVertexArrays) {
+                val shapeArray = gl.named("createVertexArray=").first().substringAfter('=')
+                uploads.forEach { at ->
+                    val lastArray = gl.calls.subList(0, at).last { it.startsWith("bindVertexArray") }
+                    assertEquals("bindVertexArray($shapeArray)", lastArray, "not written into whatever array the engine had bound")
+                }
+            }
+        }
+    }
+
+    @Test
     fun `ES 2 compiles version 100 and makes offscreen pictures of plain RGBA`() {
         val gl = RecordingGl(GlProfile(GlApi.Es, 2, 0))
         val device = drawOne(gl)
