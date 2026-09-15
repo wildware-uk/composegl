@@ -116,6 +116,24 @@ class KorgeAtlas(val pageSize: Int = 1024) {
         changed(page)
     }
 
+    /**
+     * Copies a picture with colours of its own — an emoji — into [region], premultiplied like the
+     * page. The canvas draws it in white, so it keeps those colours whatever colour the text is.
+     */
+    internal fun putPicture(region: Region, picture: Pictures.Premultiplied) {
+        val page = bitmaps[region.page]
+        for (y in 0 until region.height) {
+            for (x in 0 until region.width) {
+                page.setRgbaRaw(
+                    region.x + x,
+                    region.y + y,
+                    RGBA(picture[x, y, 0], picture[x, y, 1], picture[x, y, 2], picture[x, y, 3]),
+                )
+            }
+        }
+        changed(page)
+    }
+
     private fun newPage() {
         // Premultiplied, because that is the only kind KorGE uploads without complaint. The batch
         // straightens a premultiplied picture before it blends, so nothing downstream can tell.

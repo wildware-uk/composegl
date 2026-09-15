@@ -258,16 +258,39 @@ class KorgeCanvas(private val atlas: KorgeAtlas? = null) : UiCanvas, AutoCloseab
 
     // --- text and pictures ---
 
-    override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) {
+    override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) =
+        drawText(layout, x, y, colour, ring = false)
+
+    /**
+     * One copy of an outline's ring, which leaves picture glyphs out.
+     *
+     * A letter's copies are silhouettes in the ring colour, because a letter is only coverage. An
+     * emoji's copies would be eight more emoji in their own colours, smeared round the real one.
+     * Leaving them out keeps the ring round the words and the picture clean, as the LibGDX canvas does.
+     */
+    override fun textRing(layout: TextLayout, x: Float, y: Float, colour: Colour) =
+        drawText(layout, x, y, colour, ring = true)
+
+    private fun drawText(layout: TextLayout, x: Float, y: Float, colour: Colour, ring: Boolean) {
         if (state.isHidden) return
         val korge = layout as? KorgeTextLayout
             ?: error("this canvas can only draw text measured by KorgeFonts, not ${layout::class}")
         val packed = colour.faded()
+        // A picture keeps its own colours and takes only the text's fade. Worked out once per run,
+        // and only for a run that has one.
+        var picturePacked = 0
+        var pictureReady = false
         val pages = korge.atlas.pages
-        // Indexed rather than `forEach`, which asks for an iterator: a HUD draws hundreds of runs.
+        // Indexed rather than `forEach`, which asks for an iterator: a HUD draws hundreds of runs, and
+        // an outlined one comes through here nine times.
         val glyphs = korge.glyphs
         for (index in glyphs.indices) {
             val glyph = glyphs[index]
+            if (glyph.picture && ring) continue
+            if (glyph.picture && !pictureReady) {
+                picturePacked = Colour.White.scaleAlpha(colour.alphaFraction).faded()
+                pictureReady = true
+            }
             val region = glyph.region
             batch().textured(
                 pages[region.page],
@@ -277,7 +300,7 @@ class KorgeCanvas(private val atlas: KorgeAtlas? = null) : UiCanvas, AutoCloseab
                 width = glyph.width,
                 height = glyph.height,
                 u = region.u, v = region.v, u2 = region.u2, v2 = region.v2,
-                colour = packed,
+                colour = if (glyph.picture) picturePacked else packed,
             )
         }
     }

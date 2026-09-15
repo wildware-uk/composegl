@@ -63,17 +63,22 @@ Each item names the files it should touch. Items that name different files can g
 9. **Render target for in-world UI**, in a new `KorgeRenderTarget.kt`, modelled on
    `GdxRenderTarget.kt`. It draws a screen into a texture a game can put on a sprite.
 
-### Fonts (`KorgeFonts.kt`, `KorgeAtlas.kt`)
+### Fonts (`KorgeFonts.kt`, `KorgeFallback.kt`, `KorgeAtlas.kt`)
 
-1. **Fallback fonts.** Add `fallBackTo` (for everyone, and per family), trying each fallback one
-   character at a time. At the moment a missing character becomes `?` in `Face.make`. Model it on
-   `GdxFonts`/`StbFonts`.
-2. **Picture glyphs (emoji).** Add `registerPictures`, packed into the same atlas. The canvas's
-   `textRing` then has to skip pictures.
-3. **Outlines.** Override `textRing` once pictures exist. Until then the interface's default draws
-   outlines correctly.
-4. **Kerning.** KorGE's `getKerning` is not applied yet, which keeps it in line with the toolkit's
-   `Paragraph` assumptions. Decide deliberately before adding it.
+1. **Fallback fonts.** Done. `fallBackTo` for everyone and per family, `fallbacksOf`, tried one
+   character at a time in `Chain`. A character nothing has is the main font's `?`. Note that DejaVu
+   Sans has a plain 😀 of its own, and the main font always wins, so the tests use 🥳 for the picture.
+2. **Picture glyphs (emoji).** Done. `registerPictures` (bitmaps) and `registerEncodedPictures`
+   (PNG bytes), packed premultiplied into the same atlas, with the same size, gap and drop below the
+   baseline as gdx and LWJGL.
+3. **Outlines.** Done. `KorgeCanvas.textRing` draws the letters and leaves pictures out.
+4. **Kerning.** Decided: not applied, like LWJGL. Widths stay the sum of advances, which
+   `Paragraph`, `TextField`'s caret, bidi runs and `Typewriter` all rely on. KorGE reads no kerning
+   from DejaVu Sans anyway; a test with a font that claims kerning pins the choice.
+
+`families()`, `sizesOf` and `fontFor(style)` match `GdxFonts`. Text scale and `TextMetricsOverlay`
+have GPU tests like gdx's. One difference: KorGE's cap height is the font's own fraction, where
+FreeType rounds it to a whole pixel for gdx.
 
 ### Input (new files only)
 
