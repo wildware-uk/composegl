@@ -35,6 +35,9 @@
       "text": { "size": 20 }
     },
 
+    // The line between two sections of a panel. Faint, so it groups rather than fences.
+    "divider": { "background": { "fill": "#40FFFFFF" } },
+
     // A panel with no art behind it, for the half of the screen that is drawn by the shader.
     "panel.flat": {
       "background": { "fill": "#F01B1F2A", "corner": 10, "border": "#40FFFFFF", "padding": 16 }

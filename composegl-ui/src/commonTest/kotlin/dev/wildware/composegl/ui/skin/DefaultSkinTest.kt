@@ -25,7 +25,7 @@ class DefaultSkinTest {
     @Test
     fun `everything a widget set will ask for is in it`() {
         val expected = listOf(
-            "screen", "panel", "separator", "tooltip",
+            "screen", "panel", "separator", "divider", "tooltip",
             "label", "button", "button.primary", "button.danger", "button.quiet",
             "checkbox", "radio", "slider.track", "slider.knob", "progress.track", "progress.fill",
             "field", "item", "scrollbar.thumb", "focusRing",

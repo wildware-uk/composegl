@@ -46,6 +46,10 @@
 
     "separator": { "background": { "fill": "#2C3545" } },
 
+    // The line Divider() draws between two sections. The widget decides how thick; this decides
+    // what it looks like.
+    "divider": { "background": { "fill": "#2C3545" } },
+
     "tooltip": {
       "background": { "fill": "#232A35", "corner": 4, "border": "#39445A", "padding": [8, 5] },
       "text": { "size": 14 }
