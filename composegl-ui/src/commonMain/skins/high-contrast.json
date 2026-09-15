@@ -485,6 +485,30 @@
       "disabled": { "tint": "#B0FFFFFF" }
     },
 
+    // --- trees ---
+    //
+    // Rows are black with white words, the chosen one filled in blue, and focus is the yellow edge it
+    // is everywhere else. The arrow and the guides are white: nothing here is allowed to be faint.
+
+    "tree.row": {
+      "background": "none",
+      "padding": [6, 3],
+      "hovered": { "background": { "fill": "#000000", "corner": 3 } },
+      "focused": { "background": { "fill": "#000000", "corner": 3, "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#333333", "corner": 3 } },
+      "disabled": { "textColour": "#B0B0B0" }
+    },
+
+    "tree.row.selected": {
+      "background": { "fill": "#002277", "corner": 3, "padding": [6, 3] },
+      "hovered": { "background": { "fill": "#0033AA", "corner": 3 } },
+      "focused": { "background": { "fill": "#002277", "corner": 3, "border": "#FFD600", "borderWidth": 2 } }
+    },
+
+    "tree.toggle": { "textColour": "#FFFFFF", "hovered": { "textColour": "#FFD600" } },
+    "tree.toggle.open": { "textColour": "#FFFFFF", "hovered": { "textColour": "#FFD600" } },
+    "tree.guide": { "background": { "fill": "#FFFFFF" } },
+
     // --- tabs ---
     //
     // A heading rather than a button: flat until it is the chosen one, which is the one thing a

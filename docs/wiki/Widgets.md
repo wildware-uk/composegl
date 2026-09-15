@@ -848,6 +848,97 @@ drawn — `table.row`, `table.row.alt` for every other row and
 
 ---
 
+## Trees
+
+Nested rows that open and close: a scene hierarchy, a quest log, a codex, a file
+picker.
+
+```kotlin
+var selection by remember { mutableStateOf<SceneNode?>(null) }
+
+TreeView(
+    roots = scene.roots,
+    children = { it.children },
+    key = { it.id },
+    modifier = Modifier.fillMaxSize(),
+    selected = selection,
+    onSelect = { selection = it },
+) { node, expanded ->
+    Text(node.name)
+}
+```
+
+![a scene tree with World and Player open, indent guides beside the children, and Weapon chosen](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-tree.png)
+
+It is a `LazyColumn` underneath, so only the rows on screen are built, and a
+tree of 10,000 nodes scrolls like a screenful. A node is asked for its
+`children` only when it is open. To draw the arrow, the tree calls
+`hasChildren` only for the rows it builds (and for the focused row when Left or
+Right is pressed), so the default, which asks `children`, costs a screenful of
+calls, not the whole tree. Pass something cheaper when finding children is
+slow, like a folder on disk:
+
+```kotlin
+TreeView(
+    roots = listOf(saveFolder),
+    children = { folder -> folder.listFiles().orEmpty().sortedBy { it.name } },
+    hasChildren = { it.isDirectory },
+    key = { it.path },
+    onActivate = { file -> load(file) },
+) { file, _ -> Text(file.name) }
+```
+
+- **Mouse** — a click selects a row. A click on its arrow opens or closes it. A
+  double click opens it too, or calls `onActivate` if you gave one.
+- **Keyboard and pad** — Up and Down move row by row, and past either end they
+  leave the tree. Right opens a closed row, or goes into an open row's first
+  child. Left closes an open row, or goes up to the parent. Enter or South
+  selects.
+- **Right to left** — the indent comes in from the right, a closed row's arrow
+  points left, and Left and Right swap.
+
+What is open is kept by key in a `TreeState`, so a row stays open when the list
+is sorted. The default `rememberTreeState()` is saved like any `rememberSaveable`
+(see [[Saving state]]). Make your own to open rows from code:
+
+```kotlin
+val tree = rememberTreeState("world")          // starts with "world" open
+
+Button("Find the player", onClick = {
+    tree.expandAll(listOf("world", "actors"))
+    tree.scrollTo("player")
+})
+TreeView(scene.roots, { it.children }, { it.id }, state = tree) { node, _ -> Text(node.name) }
+```
+
+`scrollTo` waits one frame, until the rows have been worked out again, so it can
+follow `expandAll` or `collapse` even when rows above the one you want have
+moved; if the row still is not there, the scroll is dropped.
+`collapse`, `toggle`, `collapseAll` and `isExpanded` are there too. If a row
+closes while focus is on something under it, focus moves up to the nearest row
+still showing. Keys must be unique across the whole tree; a repeated key fails
+with the key in the message.
+
+For something on the whole row, like a right-click menu, use `rowModifier`:
+
+```kotlin
+TreeView(
+    roots, { it.children }, { it.id },
+    rowModifier = { node -> Modifier.contextMenu { Item("&Delete") { delete(node) } } },
+) { node, _ -> Text(node.name) }
+```
+
+Styles: `"tree.row"` for a row in each state and `"tree.row.selected"` for the
+chosen one. `"tree.toggle"` and `"tree.toggle.open"` are the arrow: a triangle in
+the style's text colour, or its picture if the style's background is one. In a
+right-to-left screen a closed arrow's picture is turned to point left; a
+nine-patch is flipped, which needs a canvas that can mirror layers.
+`"tree.guide"` is the indent lines; give it `"background": "none"` to hide them.
+`style = "codex"` reads `"codex.row"` and so on instead. `indent`, `glyphSize`
+and `spacing` set the sizes.
+
+---
+
 ## Pictures
 
 ```kotlin

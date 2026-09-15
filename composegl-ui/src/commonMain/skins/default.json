@@ -495,6 +495,30 @@
       "disabled": { "tint": "#80FFFFFF" }
     },
 
+    // --- trees ---
+    //
+    // Rows as quiet as a list's until they are hovered or chosen. The arrow is dimmer than the words,
+    // and the indent guides dimmer still: they are there to be followed, not read.
+
+    "tree.row": {
+      "background": "none",
+      "padding": [6, 3],
+      "hovered": { "background": { "fill": "#232A35", "corner": 3 } },
+      "focused": { "background": { "fill": "#232A35", "corner": 3, "border": "#5B8DEF" } },
+      "pressed": { "background": { "fill": "#2C3545", "corner": 3 } },
+      "disabled": { "textColour": "#5E6B7E" }
+    },
+
+    "tree.row.selected": {
+      "background": { "fill": "#2F53A8", "corner": 3, "padding": [6, 3] },
+      "hovered": { "background": { "fill": "#3F6BD6", "corner": 3 } },
+      "focused": { "background": { "fill": "#2F53A8", "corner": 3, "border": "#7BA5F5" } }
+    },
+
+    "tree.toggle": { "textColour": "#9BA6B6", "hovered": { "textColour": "#FFFFFF" } },
+    "tree.toggle.open": { "textColour": "#9BA6B6", "hovered": { "textColour": "#FFFFFF" } },
+    "tree.guide": { "background": { "fill": "#39445A" } },
+
     // --- tabs ---
     //
     // A heading rather than a button: flat until it is the chosen one, which is the one thing a
