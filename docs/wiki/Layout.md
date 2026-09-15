@@ -11,11 +11,11 @@ This page is the differences and the things that are ours.
 
 ---
 
-## The three layouts
+## The three layouts, and a grid
 
-`Column`, `Row`, `Box`. There is no `FlowRow`, no `ConstraintLayout`, no grid —
-these three plus `weight` have covered every HUD, menu and inventory screen we
-have built.
+`Column`, `Row`, `Box`. There is no `FlowRow` and no `ConstraintLayout` — these
+three plus `weight` have covered every HUD and menu we have built. For
+inventories and level selects there is [`Grid`](#grids).
 
 ```kotlin
 Column { Text("one"); Text("two") }   // downwards
@@ -251,6 +251,48 @@ Modifier.padding(left = 28f, bottom = 28f)   // name the ones you want
 
 There is no margin, and no `Spacer` in a typical chain. Space *between* things is
 the parent's job: `Arrangement.spacedBy`.
+
+---
+
+## Grids
+
+An inventory, a level select, a wall of achievements: children in rows and
+columns. Write them as one flat list; the grid fills across, then down.
+
+```kotlin
+Grid(columns = GridCells.Fixed(6), spacing = 4f) {
+    items.forEach { item -> key(item.id) { Slot(item) } }
+}
+
+Grid(columns = GridCells.Adaptive(minSize = 64f)) {
+    levels.forEach { LevelTile(it) }
+}
+```
+
+- **`Fixed(6)`** is six columns however wide the grid is. They share the width
+  out equally, like six `weight(1f)`s.
+- **`Adaptive(minSize = 64f)`** fits as many columns as it can with each at least
+  64 wide, and shares out what is left. Make the screen narrower and it wraps.
+  It needs a width to fit into, so it fails inside anything that scrolls sideways.
+
+Every row is as tall as its tallest child. A child smaller than its cell sits in
+the top-left corner, or wherever `contentAlignment` or its own `Modifier.align`
+says. `horizontalSpacing` and `verticalSpacing` set the two gaps separately.
+
+![a fixed grid of four columns beside an adaptive grid that fitted three](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-grid.png)
+
+Because it is one list rather than rows of rows, the awkward parts of nested
+`Row`s go away:
+
+- **Focus moves between cells with no wiring.** Right goes to the next cell,
+  down to the one straight below. At the end of a row focus stops rather than
+  wrapping. Tab walks across and then down.
+- **`key` works on each item.** Reorder or remove items and each one's node,
+  state and focus move with it.
+
+There is no lazy grid yet: every cell is composed. That is fine for a bag of
+forty slots; a thousand-item catalogue wants a `LazyColumn` of rows. A cell
+cannot span several columns yet either.
 
 ---
 
