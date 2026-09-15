@@ -147,6 +147,8 @@ import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.CollapsingHeader
 import dev.wildware.composegl.ui.widget.Orientation
 import dev.wildware.composegl.ui.widget.Splitter
+import dev.wildware.composegl.ui.widget.Table
+import dev.wildware.composegl.ui.widget.rememberTableState
 import dev.wildware.composegl.ui.widget.Divider
 import dev.wildware.composegl.ui.widget.Dropdown
 import dev.wildware.composegl.ui.widget.PopupHost
@@ -958,6 +960,36 @@ private fun MutableList<DocShot>.widgets() {
             }
         }
     })
+
+    // A scoreboard sorted by kills, highest first, so the Kills title is lit with its arrow pointing
+    // down, and the player's own row is the selected one.
+    add(DocShot("widget-table-scoreboard", 460, 250, stock = true) {
+        Frame { Scoreboard() }
+    })
+
+    // A server browser scrolled well down its list, with the header still at the top. Server has been
+    // widened into Map through the table's state, as a drag leaves it, and the divider between them is
+    // really pressed, so it is lit. (A drag made in one go between frames outruns the divider's grab
+    // area before it is laid out again, which a hand at sixty frames a second does not.)
+    add(DocShot("widget-table-resize", 480, 260, pointer = Offset(TableDividerX, 32f), press = true, stock = true, seconds = 0.2f) {
+        Frame { ServerBrowser() }
+    })
+
+    // Right to left in the high-contrast skin: a backpack sorted by value, lowest first, with the pad
+    // stepped down into the rows, so a focus ring sits on one of them.
+    add(
+        DocShot(
+            "widget-table-rtl", 460, 250,
+            focus = true,
+            pads = listOf(GamepadId(0) to GamepadButton.DpadDown, GamepadId(0) to GamepadButton.DpadDown),
+        ) {
+            ProvideSkin(Skin.HighContrast) {
+                ProvideLayoutDirection(LayoutDirection.Rtl) {
+                    Frame { Inventory() }
+                }
+            }
+        },
+    )
 
     add(DocShot("widget-panel", 420, 150) {
         Frame {
@@ -2309,5 +2341,98 @@ private fun SplitPane(title: String, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxSize().styled("panel").padding(8f), verticalArrangement = Arrangement.spacedBy(4f)) {
         Text(title)
         content()
+    }
+}
+
+private class DocPlayer(val name: String, val kills: Int, val deaths: Int, val score: Int, val ping: Int)
+
+/** A deathmatch scoreboard sorted by kills, the player's own row picked, for the table pictures. */
+@Composable
+private fun Scoreboard() {
+    val players = remember {
+        listOf(
+            DocPlayer("Nightjar", 14, 9, 1620, 38),
+            DocPlayer("Vex", 22, 6, 2410, 21),
+            DocPlayer("Brannock", 9, 12, 1080, 64),
+            DocPlayer("Mirela", 17, 8, 1890, 45),
+            DocPlayer("Oskar", 6, 15, 720, 112),
+            DocPlayer("Kestrel", 19, 10, 2050, 29),
+        )
+    }
+    Table(
+        rows = players,
+        modifier = Modifier.width(420f).height(210f),
+        key = { it.name },
+        state = rememberTableState(sortColumn = 1, descending = true),
+        selected = players[3],
+        onSelect = {},
+    ) {
+        column("Player", weight = 1f, sortBy = { it.name }) { Text(it.name) }
+        column("Kills", width = 64f, sortBy = { it.kills }, align = HorizontalAlignment.End) { Text("${it.kills}") }
+        column("Deaths", width = 72f, sortBy = { it.deaths }, align = HorizontalAlignment.End) { Text("${it.deaths}") }
+        column("Score", width = 72f, sortBy = { it.score }, align = HorizontalAlignment.End) { Text("${it.score}") }
+        column("Ping", width = 60f, sortBy = { it.ping }, align = HorizontalAlignment.End) { Text("${it.ping}") }
+    }
+}
+
+private class DocServer(val name: String, val map: String, val players: String, val ping: Int)
+
+/** Where the divider after the server browser's first column is, in its picture, once Server is widened. */
+private const val TableDividerX = 229f
+
+/** A long server list scrolled down, for the picture of the frozen header and a column drag. */
+@Composable
+private fun ServerBrowser() {
+    val servers = remember {
+        val names = listOf(
+            "EU West Casual", "Frag Fest 24/7", "Night Owls", "Rookie Friendly", "Ranked NA 2", "Old School CTF",
+            "Mod Madness", "Tokyo Speedrun", "Hardcore Only", "Weekend Warriors", "Sydney Scrims", "Nordic Rail",
+            "Clan Wars EU", "Pistols at Dawn", "Chill Builds", "Ranked EU 4",
+        )
+        val maps = listOf("Harbour", "Foundry", "Dunes", "Glacier", "Canal")
+        names.mapIndexed { i, name -> DocServer(name, maps[i % maps.size], "${(i * 7) % 17}/16", 18 + (i * 37) % 140) }
+    }
+    val state = rememberTableState()
+    remember {
+        state.setColumnWidth(0, 212f)
+        state.setColumnWidth(1, 90f)
+    }
+    // After the first layout, once the list knows how many rows it has and how tall they are.
+    LaunchedEffect(Unit) {
+        repeat(2) { withFrameNanos {} }
+        state.list.scrollToItem(7)
+    }
+    Table(rows = servers, modifier = Modifier.width(450f).height(230f), key = { it.name }, state = state) {
+        column("Server", weight = 1f, sortBy = { it.name }) { Text(it.name) }
+        column("Map", width = 130f, sortBy = { it.map }) { Text(it.map, style = "label.dim") }
+        column("Players", width = 76f, align = HorizontalAlignment.End) { Text(it.players) }
+        column("Ping", width = 60f, sortBy = { it.ping }, align = HorizontalAlignment.End) { Text("${it.ping}") }
+    }
+}
+
+private class DocItem(val name: String, val weight: String, val value: Int)
+
+/** A backpack sorted by value, lowest first, for the right-to-left table picture. */
+@Composable
+private fun Inventory() {
+    val items = remember {
+        listOf(
+            DocItem("Iron sword", "3.5", 120),
+            DocItem("Healing potion", "0.5", 45),
+            DocItem("Leather boots", "1.2", 60),
+            DocItem("Silver ring", "0.1", 300),
+            DocItem("Torch", "0.8", 5),
+            DocItem("Rope", "2.0", 15),
+        )
+    }
+    Table(
+        rows = items,
+        modifier = Modifier.width(420f).height(210f),
+        key = { it.name },
+        state = rememberTableState(sortColumn = 2),
+    ) {
+        column("Item", weight = 1f, sortBy = { it.name }) { Text(it.name) }
+        column("Weight", width = 80f, sortBy = { it.weight.toFloat() }, align = HorizontalAlignment.End) { Text(it.weight) }
+        column("Value", width = 80f, sortBy = { it.value }, align = HorizontalAlignment.End) { Text("${it.value}") }
     }
 }
