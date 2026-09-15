@@ -341,6 +341,33 @@
       "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "padding": 4, "borderWidth": 2 }
     },
 
+    // A collapsing header is a bordered bar; open, it is filled in blue like an open menu title, so
+    // which sections are open reads without the triangles. Focus is the yellow edge.
+
+    "collapsingheader": {
+      "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "padding": [8, 6], "borderWidth": 2 },
+      "hovered": { "background": { "fill": "#333333", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#000000", "corner": 4, "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#333333", "corner": 4, "border": "#FFD600", "borderWidth": 2 } },
+      "disabled": { "textColour": "#B0B0B0" }
+    },
+
+    "collapsingheader.open": {
+      "background": { "fill": "#0033AA", "corner": 4, "border": "#FFFFFF", "padding": [8, 6], "borderWidth": 2 },
+      "hovered": { "background": { "fill": "#002277", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#0033AA", "corner": 4, "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#002277", "corner": 4, "border": "#FFD600", "borderWidth": 2 } },
+      "disabled": { "textColour": "#B0B0B0" }
+    },
+
+    "collapsingheader.glyph": {
+      "textColour": "#FFFFFF",
+      "focused": { "textColour": "#FFD600" },
+      "disabled": { "textColour": "#B0B0B0" }
+    },
+
+    "collapsingheader.body": { "padding": [12, 6] },
+
     // --- menus ---
     //
     // Titles and rows are black with white words; the open title is filled in blue so the menu under

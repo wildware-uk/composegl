@@ -327,6 +327,9 @@ spring, so contents that change again part-way turn it round smoothly. A spec
 written inline is fine: specs compare by value, so recomposing does not cost a
 redraw. It costs nothing once it has arrived, and a test's `settle` waits for it.
 
+A [[collapsing header|Widgets#collapsing-headers]] is this with a title bar on top:
+`CollapsingHeader` grows and shrinks its section the same way.
+
 ### Sliding to a new place: animatePlacement
 
 Sort an inventory, reshuffle a leaderboard, take a notification out of the middle of a

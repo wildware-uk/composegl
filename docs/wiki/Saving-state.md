@@ -41,6 +41,8 @@ the same things back.
 - **Scroll positions**, with no code at all: `rememberScrollState()` and
   `rememberLazyListState()` are saveable, and so are the defaults `ScrollArea`
   and `LazyColumn` use when you do not pass a state.
+- **Which sections are open**, with no code either: a `CollapsingHeader` given
+  `initiallyExpanded` rather than `expanded` keeps its answer the same way.
 - The saved value is **the object itself**, kept in memory. A `MutableState`
   comes back as the same `MutableState`. Nothing needs to be serialisable.
 

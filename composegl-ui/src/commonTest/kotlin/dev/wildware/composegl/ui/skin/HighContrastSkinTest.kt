@@ -48,6 +48,7 @@ class HighContrastSkinTest {
         "label.danger" to null, "label.good" to null,
         "button" to null, "button.primary" to null, "button.danger" to null, "button.quiet" to null,
         "button.listening" to null, "button.key" to null, "button.key.on" to null, "dropdown" to null,
+        "collapsingheader" to null, "collapsingheader.open" to null,
         "tooltip" to null, "notification" to null, "notification.detail" to "notification",
         "notification.more" to "notification", "minimap.compass" to "minimap", "prompt" to null,
         "stepper.arrow" to "stepper", "stepper.value" to "stepper",

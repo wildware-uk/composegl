@@ -60,6 +60,29 @@
 
     "toggle.knob": { "background": { "fill": "#E8F4FF", "corner": 8 } },
 
+    // The header the switches fold away under: a quiet strip, lit while it is open.
+
+    "collapsingheader": {
+      "background": { "fill": "#200A1018", "corner": 3, "padding": [6, 5] },
+      "textColour": "#4CC2FF",
+      "text": { "size": 18 },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 3 } },
+      "pressed": { "background": { "fill": "#504CC2FF", "corner": 3 } },
+      "focused": { "background": { "fill": "#200A1018", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "collapsingheader.open": {
+      "background": { "fill": "#204CC2FF", "corner": 3, "padding": [6, 5] },
+      "textColour": "#4CC2FF",
+      "text": { "size": 18 },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 3 } },
+      "pressed": { "background": { "fill": "#504CC2FF", "corner": 3 } },
+      "focused": { "background": { "fill": "#204CC2FF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "collapsingheader.glyph": { "textColour": "#8ADBFF", "focused": { "textColour": "#FFFFFF" } },
+    "collapsingheader.body": { "padding": [0, 8] },
+
     // --- bars ---
     //
     // Hull is the one that matters, so it is the one that changes colour and pulses; heat is a
