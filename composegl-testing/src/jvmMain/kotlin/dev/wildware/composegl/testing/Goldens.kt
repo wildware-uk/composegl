@@ -47,12 +47,22 @@ object Goldens {
      *
      * A missing golden is a failure, not a pass: a test that quietly writes its own expectation the
      * first time it runs is a test that can never fail.
+     *
+     * @param directory where the golden lives. A multiplatform module keeps its test resources
+     *   somewhere other than `src/test`, and a backend can be held to another backend's goldens.
+     * @param updatable whether `COMPOSEGL_UPDATE_GOLDENS=1` may overwrite it. Pass false when
+     *   [directory] belongs to another backend: those pictures are that backend's to change.
      */
-    fun assertMatches(name: String, actual: BufferedImage) {
-        val golden = File(goldenDirectory, "$name.png")
+    fun assertMatches(
+        name: String,
+        actual: BufferedImage,
+        directory: File = goldenDirectory,
+        updatable: Boolean = true,
+    ) {
+        val golden = File(directory, "$name.png")
 
-        if (updating) {
-            goldenDirectory.mkdirs()
+        if (updating && updatable) {
+            directory.mkdirs()
             ImageIO.write(actual, "png", golden)
             return
         }

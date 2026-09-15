@@ -87,6 +87,21 @@ jobs:
           GALLIUM_DRIVER: llvmpipe
         run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-lwjgl3:test --rerun-tasks --stacktrace
 
+      # The KorGE backend, in KorGE's own AWT window on Xvfb, the way a desktop game opens it.
+      - name: The same scenes, drawn inside a KorGE game
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GALLIUM_DRIVER: llvmpipe
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-korge:test --rerun-tasks --stacktrace
+
+      # And again with no display at all: KorGE renders offscreen with llvmpipe. Both ways must agree.
+      - name: KorGE with no display
+        env:
+          KORGE_HEADLESS: 'true'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GALLIUM_DRIVER: llvmpipe
+        run: env -u DISPLAY ./gradlew :composegl-korge:test --rerun-tasks --stacktrace
+
       - name: Prove the runtime redraws only when something changed
         env:
           SPIKE_S6_HEADLESS: '1'

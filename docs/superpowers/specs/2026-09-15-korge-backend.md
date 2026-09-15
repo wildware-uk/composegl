@@ -86,13 +86,21 @@ Each item names the files it should touch. Items that name different files can g
 
 ### Everything else
 
-- **Goldens for the 21 shared scenes**: add `src/jvmTest/kotlin/.../KorgeScreenshotTest.kt` against
-  `composegl-testing`'s `Scenes.kt`, reusing the LWJGL goldens as gdx and WebGL do.
+- **Goldens for the shared scenes** — *done*. `KorgeScreenshotTest.kt` draws every scene in
+  `Scenes.kt` and holds it to `src/jvmTest/resources/goldens`; the text-free scenes are also held to
+  the LWJGL goldens. A scene that needs a capability the canvas does not claim yet is skipped by an
+  assumption naming that flag (see `Needs` in the test). When you switch a flag on, the scene runs
+  and fails for want of a golden: run with `COMPOSEGL_UPDATE_GOLDENS=1`, look at the picture, commit it.
+  Waiting on layers: `layer`, `scale`, `tint` (`drawsLayers`); `skew` (`drawsLayersOnto`); `tilt`
+  (`tiltsLayers`); `clip-shape` (`cutsLayers`). Waiting on layers and ShaderEffect programs: `effect`,
+  `effects`.
+- **A realistic screen driven by `uiTest`** — *done*. `KorgeUiTestScreenTest.kt`: a panel, a text
+  field, buttons and a scrolling list, played with pointer and keys, checked in state and pixels.
 - **Demo**: a new `composegl-demo-korge` module (not published). Set `duplicatesStrategy` on its
   distribution tasks: the Compose runtime brings two jars named `runtime-desktop-1.12.0.jar`.
 - **Docs**: a KorGE page in `docs/wiki/`, and a KorGE line in `Your-first-screen.md`'s backends note.
-- **CI**: add `:composegl-korge:test` to the `gl` job in `.github/workflows/ci.yml`, under Xvfb as for
-  gdx. Consider a second step with `KORGE_HEADLESS=true`.
+- **CI** — *done*. The `gl` job runs `:composegl-korge:test` under Xvfb, and again with
+  `KORGE_HEADLESS=true` and no display. The `build` job has neither, so the pixel tests skip there.
 - **More targets**: turn on `wasmJs` (and later iOS/Android) in `composegl-korge/build.gradle.kts`.
   Needed first: `KorgeClipboard` uses AWT and `runBlocking`, and `KorgeFonts` uses
   `String.codePointAt`. Put those behind `expect`/`actual` in `commonMain`.
