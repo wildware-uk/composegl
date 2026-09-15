@@ -56,9 +56,13 @@ import dev.wildware.composegl.ui.backend.TextInput
 import dev.wildware.composegl.ui.backend.TextInputSession
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.EditCommand
+import dev.wildware.composegl.ui.text.FontMetrics
 import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.text.GuideLine
 import dev.wildware.composegl.ui.text.KeyboardEditor
 import dev.wildware.composegl.ui.text.TextFieldValue
+import dev.wildware.composegl.ui.text.TextGuideSource
+import dev.wildware.composegl.ui.text.TextGuides
 import dev.wildware.composegl.ui.text.TextGestures
 import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.text.TextRange
@@ -549,6 +553,9 @@ internal class FieldMetrics(
 
     val lineHeight: Float = style.lineHeight
 
+    /** The face the lines are set in, at its size. Asked only by a debug overlay. */
+    val fontMetrics: FontMetrics get() = fonts.metrics(style)
+
     private val layouts = HashMap<Int, TextLayout>()
     private val widths = HashMap<Int, Float>()
 
@@ -634,7 +641,7 @@ private class FieldPainter(
     private val caretShowing: Boolean,
     private val view: FieldView,
     private val multiline: Boolean,
-) : MeasurePolicy {
+) : MeasurePolicy, TextGuideSource {
 
     private var viewport = Rect(0f, 0f, 0f, 0f)
 
@@ -695,6 +702,36 @@ private class FieldPainter(
         }
         if (caret.y - view.scrollY < 0f) view.scrollY = caret.y
         view.scrollY = view.scrollY.coerceIn(0f, overflowY)
+    }
+
+    /**
+     * The lines the field is showing, where they have scrolled to: the hint's when it is empty.
+     *
+     * Only the lines inside [box], and no wider than it, because the field clips its words there.
+     */
+    override fun textGuides(box: Rect): TextGuides {
+        val hint = metrics.text.isEmpty() && placeholder != null
+        val left = if (hint) box.left else box.left - view.scrollX
+        val top = if (hint) box.top else box.top - view.scrollY
+        val lines = buildList {
+            val count = if (hint) 1 else metrics.lines.size
+            for (line in 0 until count) {
+                val layout = if (hint) metrics.hintLayout(placeholder) else metrics.layoutOf(line)
+                val lineTop = top + line * metrics.lineHeight
+                val lineBottom = lineTop + metrics.lineHeight
+                if (lineBottom <= box.top || lineTop >= box.bottom) continue
+                add(
+                    GuideLine(
+                        left = left.coerceIn(box.left, box.right),
+                        right = (left + layout.size.width).coerceIn(box.left, box.right),
+                        top = lineTop,
+                        bottom = lineBottom,
+                        baseline = lineTop + layout.firstBaseline,
+                    ),
+                )
+            }
+        }
+        return TextGuides(metrics.fontMetrics, lines)
     }
 
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->

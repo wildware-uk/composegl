@@ -60,6 +60,11 @@ to cap top, and `ascent` is the baseline.
 `TextAnchor.Baseline` is also how you line a label up with an icon, or two
 strings at different sizes against each other.
 
+To see where those lines are, turn on `TextMetricsOverlay`: line box, ascent, cap
+height, baseline and descent, in five colours, through every label, text field,
+typewriter, tooltip and prompt glyph. See
+[Testing](Testing.md#the-lines-inside-text-on-the-screen).
+
 ### Styled runs: an underlined term, a struck word, a value in colour
 
 A `Text` draws one string in one style. When part of a sentence has to look

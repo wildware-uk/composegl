@@ -27,6 +27,7 @@ import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.LeafLayout
+import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.fillMaxSize
@@ -37,8 +38,12 @@ import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.skin.ResolvedStyle
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.text.GuideLine
+import dev.wildware.composegl.ui.text.TextGuideSource
+import dev.wildware.composegl.ui.text.TextGuides
 import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.text.TextOutline
+import dev.wildware.composegl.ui.text.TextStyle
 
 /**
  * The one tooltip a screen has, and everything it knows about what to show.
@@ -228,30 +233,61 @@ private fun TooltipLayer(tooltips: Tooltips, style: String) {
     }
 
     val outline = LocalTextOutline.current
-    val painter = remember(showing, layout, resolved, fade.value, outline) {
+    val painter = remember(showing, layout, resolved, fade.value, outline, face, fonts) {
         if (showing == null || layout == null || fade.value <= 0f) {
             null
         } else {
-            TooltipPainter(showing, layout, resolved, fade.value, outline)
+            TooltipPainter(showing, layout, resolved, fade.value, outline, fonts, face)
         }
     }
 
-    LeafLayout(Modifier.fillMaxSize(), name = "tooltip", draw = painter?.draw)
+    LeafLayout(Modifier.fillMaxSize(), name = "tooltip", measurePolicy = painter ?: MeasurePolicy.Empty, draw = painter?.draw)
 }
 
 /** How far a tooltip sits from the thing it belongs to. */
 private const val Gap = 8f
 
-/** The box and its text, placed so that all of it is on screen. */
+/**
+ * The box and its text, placed so that all of it is on screen.
+ *
+ * Its node fills the screen and measures as [MeasurePolicy.Empty] does; it is its measure policy
+ * only so a text overlay can ask where the words went.
+ */
 private class TooltipPainter(
     private val anchor: TooltipAnchor,
     private val layout: TextLayout,
     private val style: ResolvedStyle,
     private val fade: Float,
     private val outline: TextOutline?,
-) {
+    private val fonts: FontProvider,
+    private val face: TextStyle,
+) : MeasurePolicy by MeasurePolicy.Empty, TextGuideSource {
+
+    /** The words' one line, where [draw] puts them on [box], the screen. */
+    override fun textGuides(box: Rect): TextGuides {
+        val at = boxOn(box)
+        val left = at.left + style.padding.left
+        val top = at.top + style.padding.top
+        return TextGuides(
+            fonts.metrics(face),
+            listOf(GuideLine(left, left + layout.size.width, top, top + layout.size.height, top + layout.firstBaseline)),
+        )
+    }
 
     val draw: UiCanvas.(Rect) -> Unit = { screen ->
+        val padding = style.padding
+        val box = boxOn(screen)
+
+        // The skin's own drawable rather than a rectangle, so a tooltip cut out of art works and
+        // the border in the default skin is drawn. The fade is an alpha over both, which is one
+        // comparison rather than a colour worked out twice.
+        pushAlpha(fade)
+        style.background.drawInto(this, box, Colour.White)
+        textRun(layout, box.left + padding.left, box.top + padding.top, style.textColour, outline)
+        popAlpha()
+    }
+
+    private fun boxOn(screen: Rect): Rect {
         val padding = style.padding
         val width = layout.size.width + padding.horizontal
         val height = layout.size.height + padding.vertical
@@ -272,14 +308,6 @@ private class TooltipPainter(
         val wanted = (from.left + from.right) / 2f - width / 2f
         val left = wanted.coerceIn(screen.left, (screen.right - width).coerceAtLeast(screen.left))
 
-        val box = Rect(left, top.coerceAtLeast(screen.top), left + width, top.coerceAtLeast(screen.top) + height)
-
-        // The skin's own drawable rather than a rectangle, so a tooltip cut out of art works and
-        // the border in the default skin is drawn. The fade is an alpha over both, which is one
-        // comparison rather than a colour worked out twice.
-        pushAlpha(fade)
-        style.background.drawInto(this, box, Colour.White)
-        textRun(layout, box.left + padding.left, box.top + padding.top, style.textColour, outline)
-        popAlpha()
+        return Rect(left, top.coerceAtLeast(screen.top), left + width, top.coerceAtLeast(screen.top) + height)
     }
 }

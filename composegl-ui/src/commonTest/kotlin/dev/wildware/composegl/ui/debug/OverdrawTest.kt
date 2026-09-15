@@ -31,6 +31,7 @@ import dev.wildware.composegl.ui.testing.UiTest
 import dev.wildware.composegl.ui.testing.uiTest
 import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.widget.Button
+import dev.wildware.composegl.ui.widget.Text
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -445,6 +446,31 @@ class OverdrawTest {
         assertEquals(1, after.at(125f, 125f), "the tint is the focus overlay's, not the screen's")
         assertEquals(before.areaAtLeast(2), after.areaAtLeast(2))
         assertFalse(calls.shades().map { it.rect }.covers(125f, 125f), "and so not shaded")
+    }
+
+    @Test
+    fun `a text metrics overlay turned on beside it is not counted`() {
+        val ui = open {
+            var guides by remember { mutableStateOf(false) }
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.offset(100f, 100f).size(200f, 50f).background(Colour.Blue).clickable { guides = true }.testTag("panel")) {
+                    Text("LABEL")
+                }
+                OverdrawOverlay(true, cell = 1f)
+                TextMetricsOverlay(guides)
+            }
+        }
+        val before = ui.overdraw()
+        // The label's box on the panel: painted twice, and its baseline 16 below its top.
+        assertEquals(2, before.at(110f, 116.5f))
+
+        ui.click("panel")
+        val calls = drawn(ui)
+        assertTrue(calls.any { it is DrawCall.Rectangle && it.colour == TextMetricsColours.Baseline }, "the text metrics overlay is up")
+
+        val after = ui.overdraw()
+        assertEquals(2, after.at(110f, 116.5f), "the baseline is the text metrics overlay's, not the screen's")
+        for (depth in 1..4) assertEquals(before.areaAtLeast(depth), after.areaAtLeast(depth), "painted at least $depth times")
     }
 
     private companion object {

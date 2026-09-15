@@ -1,16 +1,12 @@
 package dev.wildware.composegl.ui.debug
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.ComposeNode
 import androidx.compose.runtime.remember
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.layout.LinearPolicy
-import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.modifier.Modifier
-import dev.wildware.composegl.ui.modifier.zIndex
-import dev.wildware.composegl.ui.node.UiApplier
 import dev.wildware.composegl.ui.node.UiNode
 import kotlin.math.max
 import kotlin.math.min
@@ -88,27 +84,11 @@ fun LayoutOverlay(
     // Remembered by value, so a screen recomposing with an equal set hands the node the same painter
     // and the tree hears nothing. A fresh one per recomposition would redraw every frame it recomposed.
     val painter = remember(show) { LayoutOverlayPainter(show) }
-    ComposeNode<UiNode, UiApplier>(
-        factory = { UiNode(OverlayName) },
-        update = {
-            set(modifier) { this.modifier = Modifier.zIndex(OnTop).then(it) }
-            set(MeasurePolicy.Empty) { this.measurePolicy = it }
-            // "Painted nothing", so a parent's painted rectangle is not stretched to reach this node.
-            set(NoInk) { this.ink = it }
-            set(painter) {
-                it.node = this
-                this.content = it
-            }
-        },
-    )
+    OverlayNode(OverlayName, modifier, painter)
 }
 
 /** What the overlay node is called in a dump. */
 internal const val OverlayName = "layout overlay"
-
-private const val OnTop = Float.MAX_VALUE
-
-private val NoInk: (Rect) -> Rect? = { null }
 
 /** The overlay's colours. Strong, and one colour channel apart, so each reads over the others. */
 internal object LayoutOverlayColours {
@@ -125,24 +105,9 @@ internal object LayoutOverlayColours {
  * Shading first, for every node, and outlines after, for every node, so a child's padding never
  * covers its parent's edge. Parents before children in each, in the order the tree is drawn.
  */
-internal class LayoutOverlayPainter(private val show: Set<Show>) : DebugOverlayPainter {
+internal class LayoutOverlayPainter(private val show: Set<Show>) : OverlayPainter() {
 
-    /** The node this draws for. Set when it is handed over, and how it finds the tree. */
-    var node: UiNode? = null
-
-    override fun invoke(canvas: UiCanvas, content: Rect) {
-        // Drawn into OverdrawOverlay's count: its outlines are not what the screen paints.
-        if (canvas is OverdrawCanvas) return
-        val self = node ?: return
-        var root = self
-        while (true) root = root.parent ?: break
-
-        // The canvas is in the root's coordinates everywhere except a picture a caller drew a subtree
-        // into at some other origin. Where this node's own content box landed says which.
-        val box = self.layoutBoundsInRoot
-        val dx = content.left - box.left - self.resolved.padding.left
-        val dy = content.top - box.top - self.resolved.padding.top - self.baselineTop
-
+    override fun paint(canvas: UiCanvas, root: UiNode, self: UiNode, dx: Float, dy: Float) {
         val padding = Show.Padding in show
         val gaps = Show.Gaps in show
         if (padding || gaps) {
@@ -170,19 +135,6 @@ internal class LayoutOverlayPainter(private val show: Set<Show>) : DebugOverlayP
                 }
             }
         }
-    }
-
-    /**
-     * Every node the draw pass would draw, but overlays, parents first. Any overlay, not only this one:
-     * a second one on the same screen has no size and would otherwise be marked as a one-unit dot.
-     */
-    private fun walk(node: UiNode, self: UiNode, visit: (UiNode) -> Unit) {
-        if (node === self || node.content is DebugOverlayPainter || !node.everMeasured) return
-        val resolved = node.resolved
-        if (resolved.alpha <= 0f || resolved.scale <= 0f) return
-        visit(node)
-        val children = node.drawOrder
-        for (index in children.indices) walk(children[index], self, visit)
     }
 
     /** Four bands between the box and its content box: padding, and the room `paddingFrom` added. */

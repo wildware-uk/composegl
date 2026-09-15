@@ -102,6 +102,7 @@ import dev.wildware.composegl.ui.modifier.focusOrder
 import dev.wildware.composegl.ui.modifier.focusRequester
 import dev.wildware.composegl.ui.modifier.hitShape
 import dev.wildware.composegl.ui.debug.RedrawOverlay
+import dev.wildware.composegl.ui.debug.TextMetricsOverlay
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -1552,6 +1553,23 @@ private fun MutableList<DocShot>.modifiers() {
                 }
             }
             RedrawOverlay(enabled = true)
+        }
+    })
+
+    add(DocShot("text-metrics-overlay", 420, 150) {
+        Box(Modifier.fillMaxSize()) {
+            Frame {
+                // Two sizes of one face placed on one baseline, and a wrapped line in another size, so
+                // the picture shows the lines lining up across sizes and a set of lines per line.
+                Column(verticalArrangement = Arrangement.spacedBy(14f)) {
+                    Row(verticalAlignment = VerticalAlignment.Baseline, horizontalArrangement = Arrangement.spacedBy(10f)) {
+                        Text("148", textStyle = TextStyle(family = "display", size = 34f))
+                        Text("HP", textStyle = TextStyle(family = "body", size = 16f))
+                    }
+                    Text("Jumpy quartz glyphs", textStyle = TextStyle(family = "body", size = 20f))
+                }
+            }
+            TextMetricsOverlay(enabled = true)
         }
     })
 

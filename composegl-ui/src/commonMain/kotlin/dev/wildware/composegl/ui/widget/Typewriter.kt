@@ -23,6 +23,9 @@ import dev.wildware.composegl.ui.layout.MeasureScope
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.text.GuideLine
+import dev.wildware.composegl.ui.text.TextGuideSource
+import dev.wildware.composegl.ui.text.TextGuides
 import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.text.TextOutline
 import dev.wildware.composegl.ui.text.TextStyle
@@ -308,7 +311,7 @@ private class TypewriterPainter(
     private val effect: TypewriterEffect?,
     private val clocks: dev.wildware.composegl.ui.animation.Clocks,
     private val outline: TextOutline?,
-) : MeasurePolicy {
+) : MeasurePolicy, TextGuideSource {
 
     private var lines: List<Line> = emptyList()
 
@@ -390,6 +393,21 @@ private class TypewriterPainter(
             start += paragraph.length + 1
         }
         return result
+    }
+
+    /**
+     * Every line as it will stand once typed, however much of it is showing: the lines never move
+     * as the characters arrive, so neither do their guides.
+     */
+    override fun textGuides(box: Rect): TextGuides? {
+        if (lines.isEmpty()) return null
+        return TextGuides(
+            fonts.metrics(style),
+            lines.mapIndexed { index, line ->
+                val top = box.top + index * style.lineHeight
+                GuideLine(box.left, box.left + line.whole.size.width, top, top + style.lineHeight, top + line.whole.firstBaseline)
+            },
+        )
     }
 
     /** What to draw with [revealed] characters showing. */
