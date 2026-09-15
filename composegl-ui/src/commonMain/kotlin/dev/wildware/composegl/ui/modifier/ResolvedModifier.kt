@@ -75,6 +75,11 @@ class ResolvedModifier private constructor(
      * almost every node there has ever been; see [dev.wildware.composegl.ui.modifier.blend].
      */
     val blend: BlendMode,
+    /**
+     * Where this node sits among its siblings when they are drawn and hit. Zero for almost every
+     * node there has ever been; see [dev.wildware.composegl.ui.modifier.zIndex].
+     */
+    val zIndex: Float,
     val clip: ClipElement?,
     /**
      * Which points inside the node's rectangle are its own, or null for all of them, which is
@@ -144,6 +149,7 @@ class ResolvedModifier private constructor(
             var alignment: Alignment? = null
             var alpha = 1f
             var blend = BlendMode.SourceOver
+            var zIndex = 0f
             var scale = 1f
             var scaleOrigin = Alignment.Centre
             var rotation = 0f
@@ -188,6 +194,9 @@ class ResolvedModifier private constructor(
                     // answers to the same question, so the later one is the answer. Nesting still
                     // works, because an inner node resolves its own and the canvas stacks them.
                     is BlendElement -> blend = element.mode
+                    // A quantity, like an offset: two on one node add, so a resting lift and a
+                    // drag's lift on the same node are both there.
+                    is ZIndexElement -> zIndex += element.z
                     // A quantity, like opacity: two scales on one node multiply, so a panel
                     // arriving at 0.9 inside a fit correction of 0.8 is drawn at 0.72 rather than
                     // silently losing one of them. Where it grows from is a choice, so later wins.
@@ -231,7 +240,7 @@ class ResolvedModifier private constructor(
             return ResolvedModifier(
                 size, fill, padding, offset, weight, alignment, alpha, scale, scaleOrigin,
                 rotation, rotationOrigin,
-                blend, clip, hitShape, effects.toList(),
+                blend, zIndex, clip, hitShape, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click,

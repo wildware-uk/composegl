@@ -31,11 +31,13 @@ import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
+import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.shadow
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
+import dev.wildware.composegl.ui.modifier.zIndex
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.Image
@@ -455,6 +457,35 @@ private fun MutableList<DocShot>.modifiers() {
             }
         }
     })
+
+    // The same hand twice, written in the same order both times. Only the zIndex differs, so
+    // the middle card coming forward over both neighbours is the whole difference.
+    add(DocShot("modifier-zindex", 420, 170) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(40f)) {
+                Labelled("as written") { Hand(lifted = -1) }
+                Labelled("zIndex(1f) on the middle") { Hand(lifted = 1) }
+            }
+        }
+    })
+}
+
+/** Three overlapping cards, fanned like a hand; [lifted] is the one given a zIndex. */
+@Composable
+private fun Hand(lifted: Int) {
+    Box(Modifier.size(150f, 110f)) {
+        listOf(Steel, Accent, Deep).forEachIndexed { index, colour ->
+            Box(
+                Modifier
+                    .offset(index * 35f, index * 12f)
+                    .size(80f, 86f)
+                    .zIndex(if (index == lifted) 1f else 0f)
+                    .shadow(Colour.argb(0xAA000000), spread = 8f, corner = 6f)
+                    .background(colour, corner = 6f)
+                    .border(Ink, width = 2f, corner = 6f),
+            ) {}
+        }
+    }
 }
 
 // ---------------------------------------------------------------- the small pieces

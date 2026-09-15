@@ -244,7 +244,9 @@ class DrawPass(val canvas: UiCanvas) {
             )
         }
 
-        val children = node.children
+        // By zIndex, not by source order, and the same list the pointer walks backwards — so what
+        // is drawn on top is what gets the click. Nearly always `children` itself.
+        val children = node.drawOrder
         for (index in children.indices) draw(children[index], bounds.left, bounds.top)
 
         if (clipped) canvas.popClip()

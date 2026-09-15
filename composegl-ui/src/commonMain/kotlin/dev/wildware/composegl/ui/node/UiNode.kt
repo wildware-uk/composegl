@@ -46,6 +46,35 @@ class UiNode(var name: String = "node") {
 
     val children: List<UiNode> get() = mutableChildren
 
+    private var cachedDrawOrder: List<UiNode>? = null
+
+    /**
+     * [children] in the order they are drawn: by `zIndex`, lowest first, and in source order where
+     * two are equal. Hit testing walks it backwards, so the one on top is asked first.
+     *
+     * The same list as [children] — not a copy — whenever no child has a zIndex, which is nearly
+     * every node. Otherwise a sorted copy, kept until a child is added, removed, moved or given a
+     * different chain, so a screen standing still sorts nothing.
+     *
+     * Only drawing and the pointer read this. Layout, focus and the tree walks go by [children],
+     * because lifting a card is a statement about the picture, not about where it sits in a row.
+     */
+    val drawOrder: List<UiNode>
+        get() = cachedDrawOrder ?: sortedForDrawing().also { cachedDrawOrder = it }
+
+    private fun sortedForDrawing(): List<UiNode> {
+        val children = mutableChildren
+        var lifted = false
+        for (index in children.indices) {
+            if (children[index].resolved.zIndex != 0f) {
+                lifted = true
+                break
+            }
+        }
+        // `sortedBy` is stable, which is the whole promise: equal values keep source order.
+        return if (lifted) children.sortedBy { it.resolved.zIndex } else children
+    }
+
     /**
      * What this node was told about itself.
      *
@@ -58,6 +87,9 @@ class UiNode(var name: String = "node") {
             if (field == value) return
             field = value
             cachedResolution = null
+            // The parent's pile may have a different order now. Asked again next time rather than
+            // worked out here, because a chain changing almost never changes a zIndex.
+            parent?.cachedDrawOrder = null
             invalidate()
         }
 
@@ -394,6 +426,7 @@ class UiNode(var name: String = "node") {
         mutableChildren.add(index, child)
         child.parent = this
         child.attachTo(tree)
+        cachedDrawOrder = null
         invalidate()
     }
 
@@ -405,6 +438,7 @@ class UiNode(var name: String = "node") {
             it.attachTo(null)
         }
         removed.clear()
+        cachedDrawOrder = null
         invalidate()
     }
 
@@ -422,6 +456,7 @@ class UiNode(var name: String = "node") {
         val moved = run.toList()
         run.clear()
         mutableChildren.addAll(destination, moved)
+        cachedDrawOrder = null
         invalidate()
     }
 

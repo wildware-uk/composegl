@@ -70,6 +70,16 @@ data class AlphaElement(val alpha: Float) : Modifier.Element
 /** @see dev.wildware.composegl.ui.modifier.blend */
 data class BlendElement(val mode: BlendMode) : Modifier.Element
 
+/** @see dev.wildware.composegl.ui.modifier.zIndex */
+data class ZIndexElement(val z: Float) : Modifier.Element {
+    init {
+        // A sort key that is not a number sorts nowhere in particular, and an infinite one hides
+        // the mistake that produced it. Every finite value, negative included, means something.
+        require(!z.isNaN()) { "a zIndex cannot be NaN" }
+        require(!z.isInfinite()) { "a zIndex cannot be infinite, was $z" }
+    }
+}
+
 /** @see dev.wildware.composegl.ui.modifier.scale */
 data class ScaleElement(
     val factor: Float,
@@ -317,6 +327,30 @@ fun Modifier.alpha(alpha: Float) = then(AlphaElement(alpha))
  * not brighten is a worse picture, not a broken one.
  */
 fun Modifier.blend(mode: BlendMode) = then(BlendElement(mode))
+
+/**
+ * Where this node sits in the pile its siblings make: higher is drawn later, so on top.
+ *
+ * ```kotlin
+ * Card(Modifier.zIndex(if (selected) 1f else 0f))
+ * ```
+ *
+ * Without it, children paint in the order they are written, and the only way to lift one was to
+ * write it last — which also moves it in focus order and changes the keys recomposition matches
+ * nodes by. This changes the picture and nothing else.
+ *
+ * - **Siblings only.** It orders a node against the other children of the same parent. A child
+ *   with a huge zIndex inside a low one is still under the low one's higher siblings, the same as
+ *   Compose: a parent carries its whole subtree up or down with it.
+ * - **Stable.** Equal values keep source order, so the default of zero changes nothing.
+ * - **Clicks agree.** The pointer asks nodes in the reverse of the order they are drawn, so the
+ *   one on top gets the press — a dragged tile over its grid, a hovered card over the hand.
+ * - **Focus does not move.** Pad and key focus go by geometry and source order, not by paint order.
+ * - **Layout does not move.** A row still lays its children out left to right as written.
+ *
+ * Two on one node add, like [offset]: a resting lift and a dragged one are both there.
+ */
+fun Modifier.zIndex(z: Float) = then(ZIndexElement(z))
 
 /**
  * Draws this node, and everything under it, bigger or smaller.
