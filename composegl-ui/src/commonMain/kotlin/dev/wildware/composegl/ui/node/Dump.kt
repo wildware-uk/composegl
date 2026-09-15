@@ -1,6 +1,8 @@
 package dev.wildware.composegl.ui.node
 
 import dev.wildware.composegl.ui.geometry.Corners
+import dev.wildware.composegl.ui.graphics.BorderSide
+import dev.wildware.composegl.ui.graphics.BorderStyle
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Constraints
@@ -11,6 +13,7 @@ import dev.wildware.composegl.ui.modifier.AspectRatioElement
 import dev.wildware.composegl.ui.modifier.BackgroundElement
 import dev.wildware.composegl.ui.modifier.BlendElement
 import dev.wildware.composegl.ui.modifier.BorderElement
+import dev.wildware.composegl.ui.modifier.BorderSidesElement
 import dev.wildware.composegl.ui.modifier.ClickableElement
 import dev.wildware.composegl.ui.modifier.ClipElement
 import dev.wildware.composegl.ui.modifier.DefaultMinSizeElement
@@ -157,7 +160,14 @@ internal fun describe(element: Modifier.Element): String = when (element) {
     is AlignElement -> "align(${alignment(element.alignment)})"
     is LayoutIdElement -> "layoutId(${element.layoutId})"
     is BackgroundElement -> "background(${colour(element.colour)}${corners(element.corners)})"
-    is BorderElement -> "border(${colour(element.colour)} ${number(element.width)}${corners(element.corners)})"
+    is BorderElement ->
+        "border(${colour(element.colour)} ${number(element.width)}${corners(element.corners)}${style(element.style)})"
+    is BorderSidesElement -> listOfNotNull(
+        element.left?.let { "left ${side(it)}" },
+        element.top?.let { "top ${side(it)}" },
+        element.right?.let { "right ${side(it)}" },
+        element.bottom?.let { "bottom ${side(it)}" },
+    ).joinToString(", ", "border(", ")")
     is ShadowElement -> "shadow(${colour(element.colour)} spread ${number(element.spread)}${corners(element.corners)})"
     is ClipElement -> if (element.corners == Corners.None) "clip" else "clip(${corners(element.corners).trim()})"
     is AlphaElement -> "alpha(${number(element.alpha)})"
@@ -211,6 +221,15 @@ private fun corners(corners: Corners) = with(corners) {
         else -> " corners ${number(topLeft)},${number(topRight)},${number(bottomRight)},${number(bottomLeft)}"
     }
 }
+
+/** Nothing for a solid line, which is what a border is unless it says otherwise. */
+private fun style(style: BorderStyle) = when (style) {
+    BorderStyle.Solid -> ""
+    is BorderStyle.Dashed -> " dashed ${number(style.on)},${number(style.off)}"
+    BorderStyle.Dotted -> " dotted"
+}
+
+private fun side(side: BorderSide) = "${colour(side.colour)} ${number(side.width)}${style(side.style)}"
 
 private fun origin(origin: Alignment) = if (origin == Alignment.Centre) "" else " about ${alignment(origin)}"
 
