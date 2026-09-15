@@ -48,6 +48,14 @@
     // what it looks like.
     "divider": { "background": { "fill": "#FFFFFF" } },
 
+    // Working, for an unknown length of time: a yellow arc turning over a grey ring, and a yellow
+    // block sliding along a white-edged track.
+
+    "spinner": { "textColour": "#FFD600" },
+    "spinner.track": { "textColour": "#404040" },
+    "indeterminatebar.track": { "background": { "fill": "#000000", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } },
+    "indeterminatebar.fill": { "background": { "fill": "#FFD600", "corner": 3 } },
+
     "tooltip": {
       "background": { "fill": "#000000", "corner": 4, "border": "#333333", "padding": [8, 5], "borderWidth": 2 },
       "text": { "size": 14 }

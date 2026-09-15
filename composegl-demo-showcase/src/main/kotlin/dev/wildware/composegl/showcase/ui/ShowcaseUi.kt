@@ -66,6 +66,8 @@ import dev.wildware.composegl.ui.widget.LocalFonts
 import dev.wildware.composegl.ui.widget.MenuBar
 import dev.wildware.composegl.ui.widget.PopupHost
 import dev.wildware.composegl.ui.widget.Splitter
+import dev.wildware.composegl.ui.widget.Spinner
+import dev.wildware.composegl.ui.widget.IndeterminateBar
 import dev.wildware.composegl.ui.widget.contextMenu
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.Table
@@ -277,7 +279,7 @@ private fun CombatHud(state: ShowcaseState) {
         }
     }
 
-    if (target != null) TargetPanel(target, state)
+    if (target != null) TargetPanel(target, state) else ScanningPanel()
 }
 
 /** What is locked: its shields, its hull, and how far away it is. */
@@ -331,6 +333,23 @@ private fun Contacts(state: ShowcaseState) {
         }
         column("Hull", width = 76f, sortBy = { it.integrity }, align = HorizontalAlignment.End) {
             Text("${(it.integrity * 100f).toInt()}%")
+        }
+    }
+}
+
+/**
+ * Where the target readout goes while nothing is locked: a spinner and a bar that say the ship is
+ * looking, for as long as it takes. Only their drawing moves, so the HUD round them never recomposes.
+ */
+@Composable
+private fun ScanningPanel() {
+    Panel(Modifier.align(Alignment.TopEnd).padding(right = 28f, top = BelowMenus).width(260f)) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8f)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("SCANNING", style = "label.title")
+                Spinner(Modifier.size(20f))
+            }
+            IndeterminateBar(Modifier.fillMaxWidth())
         }
     }
 }
