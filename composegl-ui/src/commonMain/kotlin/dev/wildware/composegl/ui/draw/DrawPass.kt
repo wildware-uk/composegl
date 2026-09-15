@@ -488,7 +488,7 @@ class DrawPass(val canvas: UiCanvas) {
             is BorderElement -> canvas.border(rect, element.colour, element.width, element.corners, element.style)
             is BorderSidesElement -> canvas.borders(rect, element.left, element.top, element.right, element.bottom)
             is ShadowElement -> canvas.boxShadow(rect, element.colour, element.spread, element.corners)
-            is BrushBackgroundElement -> canvas.rect(rect, element.brush, element.corner)
+            is BrushBackgroundElement -> canvas.box(rect, element.brush, element.corners)
             is NinePatchElement -> element.patch.drawInto(canvas, rect, element.tint)
             is SkinBackgroundElement -> element.drawable.drawInto(canvas, rect, element.tint)
             is DrawBehindElement -> element.draw(canvas, rect)

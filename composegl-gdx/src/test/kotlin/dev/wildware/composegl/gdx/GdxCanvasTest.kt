@@ -643,6 +643,16 @@ class GdxCanvasTest {
     }
 
     @Test
+    fun `a gradient is cut by each corner's own radius`() {
+        val frame = draw { rect(Rect.of(50f, 50f, 100f, 100f), Brush.vertical(red, red), Corners.top(30f)) }
+
+        assertColour(Color.BLACK, frame.pixels.at(52, 52), "top-left cut")
+        assertColour(Color.BLACK, frame.pixels.at(147, 52), "top-right cut")
+        assertColour(Color.RED, frame.pixels.at(52, 147), "bottom-left square")
+        assertColour(Color.RED, frame.pixels.at(147, 147), "bottom-right square")
+    }
+
+    @Test
     fun `a tab and a plain panel beside it are one draw call`() {
         // Radii are per vertex, so boxes with different corners still batch together.
         val frame = draw {

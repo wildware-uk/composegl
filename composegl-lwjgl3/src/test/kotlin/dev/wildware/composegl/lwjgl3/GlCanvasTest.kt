@@ -128,6 +128,16 @@ class GlCanvasTest {
     }
 
     @Test
+    fun `a gradient is cut by each corner's own radius`() {
+        val frame = draw { rect(Rect.of(50f, 50f, 100f, 100f), Brush.vertical(red, red), Corners.top(30f)) }
+
+        assertColour(Colour.Black, frame.at(52, 52), "top-left cut")
+        assertColour(Colour.Black, frame.at(147, 52), "top-right cut")
+        assertColour(red, frame.at(52, 147), "bottom-left square")
+        assertColour(red, frame.at(147, 147), "bottom-right square")
+    }
+
+    @Test
     fun `a tab and a plain panel beside it are one draw call`() {
         val frame = draw {
             rect(Rect.of(10f, 10f, 60f, 24f), red, Corners.top(8f))

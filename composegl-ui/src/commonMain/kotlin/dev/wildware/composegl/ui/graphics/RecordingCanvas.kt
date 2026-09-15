@@ -99,6 +99,15 @@ sealed interface DrawCall {
         override val alpha: Float,
     ) : DrawCall
 
+    /** A gradient box whose corners differ. One whose corners agree is a plain [GradientRectangle]. */
+    data class CorneredGradientRectangle(
+        val rect: Rect,
+        val brush: Brush,
+        val corners: Corners,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : DrawCall
+
     /** A triangle fan. The first point is the hub; [points] is in the order it was handed over. */
     data class Fan(
         val points: List<Offset>,
@@ -415,6 +424,11 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     override fun shadow(rect: Rect, colour: Colour, spread: Float, corners: Corners) {
         if (corners.isUniform) return shadow(rect, colour, spread, corners.topLeft)
         record(DrawCall.CorneredShadow(rect, colour, spread, corners, state.clip, state.alpha))
+    }
+
+    override fun rect(rect: Rect, brush: Brush, corners: Corners) {
+        if (corners.isUniform) return rect(rect, brush, corners.topLeft)
+        record(DrawCall.CorneredGradientRectangle(rect, brush, corners, state.clip, state.alpha))
     }
 
     /** It writes all four down, which is the whole of what this canvas can do about anything. */

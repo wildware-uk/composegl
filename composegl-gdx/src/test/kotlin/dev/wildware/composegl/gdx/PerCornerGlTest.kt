@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Pixmap
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Row
@@ -89,6 +90,41 @@ class PerCornerGlTest {
                 assertColour(Color.GREEN, it.at(217, 77), "and its bottom-right")
                 assertColour(Color.RED, it.at(42, 77), "the first tab went back to red, still square below")
                 assertColour(Color.BLACK, it.at(42, 42), "and still cut above")
+            }
+        } finally {
+            ui.close()
+            backend.dispose()
+        }
+    }
+
+    @Test
+    fun `a clicked gradient tab keeps its top corners cut and its bottom square`() = Gl.render {
+        val backend = GdxBackend(HeadlessFonts.registry())
+        val ui = uiTest(Size(Gl.size.toFloat(), Gl.size.toFloat()), backend) {
+            var chosen by remember { mutableStateOf(0) }
+            Row(Modifier.offset(40f, 40f)) {
+                repeat(2) { index ->
+                    Box(
+                        Modifier.size(60f, 40f)
+                            .background(if (chosen == index) Brush.vertical(green, green) else Brush.vertical(red, red), Corners.top(16f))
+                            .clickable { chosen = index }
+                            .testTag("tab$index"),
+                    )
+                }
+            }
+        }
+        try {
+            ui.click("tab1")
+
+            frame(ui).use {
+                // The second tab runs from x 100 to 160 and y 40 to 80.
+                assertColour(Color.GREEN, it.at(130, 60), "the clicked gradient tab is lit")
+                assertColour(Color.BLACK, it.at(102, 42), "its top-left is cut away")
+                assertColour(Color.BLACK, it.at(157, 42), "and its top-right")
+                assertColour(Color.GREEN, it.at(102, 77), "its bottom-left is square")
+                assertColour(Color.GREEN, it.at(157, 77), "and its bottom-right")
+                assertColour(Color.RED, it.at(42, 77), "the first tab is red again and square below")
+                assertColour(Color.BLACK, it.at(42, 42), "and cut above")
             }
         } finally {
             ui.close()

@@ -118,7 +118,7 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
             )
             "gradient" -> SkinDrawable.Gradient(
                 brush = brush(json.getValue("gradient")),
-                corner = json["corner"]?.number("\"corner\"") ?: 0f,
+                corners = json["corner"]?.corners() ?: Corners.None,
                 border = json["border"]?.colour(),
                 borderWidth = json["borderWidth"]?.number("\"borderWidth\"") ?: json["border"]?.let { 1f } ?: 0f,
                 padding = json["padding"]?.padding() ?: Padding.None,
