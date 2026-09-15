@@ -15,6 +15,7 @@ import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.background
+import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.padding
@@ -373,6 +374,20 @@ class BaselineTest {
         near(17.2f, drawnAt("HP").y)
         val painted = backend.canvas.calls.filterIsInstance<DrawCall.Rectangle>().single { it.colour == red }
         near(37.2f, painted.rect.height, "the background covers the whole node")
+    }
+
+    @Test
+    fun `a label spaced from its baseline inside a rounded clip is drawn on that line`() {
+        show {
+            Text(
+                "HP",
+                Modifier.clip(8f).paddingFrom(Baseline.First, before = 30f).testTag("unit"),
+                textStyle = small,
+            )
+        }
+
+        near(30f, node("unit").firstBaseline)
+        near(top("unit") + 17.2f, drawnAt("HP").y, "drawn below the room, not over it")
     }
 
     @Test
