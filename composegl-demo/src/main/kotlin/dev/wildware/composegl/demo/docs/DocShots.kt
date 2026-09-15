@@ -112,6 +112,8 @@ import dev.wildware.composegl.ui.widget.Dropdown
 import dev.wildware.composegl.ui.widget.PopupHost
 import dev.wildware.composegl.ui.widget.Image
 import dev.wildware.composegl.ui.widget.NumberStepper
+import dev.wildware.composegl.ui.widget.LazyGridState
+import dev.wildware.composegl.ui.widget.LazyVerticalGrid
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.ProvideTextScale
 import dev.wildware.composegl.ui.widget.ScrollArea
@@ -297,6 +299,23 @@ private fun MutableList<DocShot>.layout() {
                     Box(Modifier.width(2f).fillMaxHeight().background(Accent)) {}
                     Text("SHIELD\nHULL")
                 }
+            }
+        }
+    })
+
+    add(DocShot("layout-lazy-grid", 420, 220) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(6f)) {
+                Text("LazyVerticalGrid: 1,000 items, only these rows built", style = "label.dim")
+                // Part of the way into a row, so the picture shows the edge clipping it.
+                val state = remember { LazyGridState(initialPosition = 1_000f) }
+                LazyVerticalGrid(
+                    count = 1_000,
+                    columns = GridCells.Adaptive(minSize = 56f),
+                    modifier = Modifier.fillMaxWidth().height(170f),
+                    state = state,
+                    spacing = 4f,
+                ) { index -> GridTile(index, if (index % 7 == 0) Deep else Steel) }
             }
         }
     })

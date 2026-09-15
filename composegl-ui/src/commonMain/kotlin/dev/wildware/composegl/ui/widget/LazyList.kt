@@ -38,60 +38,82 @@ import dev.wildware.composegl.ui.saveable.rememberSaveableStateHolder
  */
 class LazyListState(initialPosition: Float = 0f) {
 
-    internal val axis = MeasuredAxis(initialPosition)
+    /** Every item is a line of its own. A grid shares the same arithmetic with several to a line. */
+    internal val lines = LazyLines(initialPosition)
 
-    /** What each item measured, by index. An estimate is used for everything not in here. */
+    internal val axis: MeasuredAxis get() = lines.axis
+
+    /** How far down the list, in units, counting the estimate for everything unmeasured. */
+    val position: Float get() = lines.axis.position
+
+    /** The first item with any part of it on screen. */
+    val firstVisibleItem: Int get() = lines.indexAt(lines.axis.position)
+
+    val isFlinging: Boolean get() = lines.axis.isFlinging
+
+    /** Puts [index] at the top of the window. [offset] scrolls that item too. */
+    fun scrollToItem(index: Int, offset: Float = 0f) = lines.scrollToLine(index, offset)
+
+    fun scrollBy(delta: Float): Boolean = lines.axis.scrollBy(delta)
+
+    fun stopFling() = lines.axis.stop()
+}
+
+/**
+ * The part of a lazy list that does not care what is on a line: sizes learned, sizes guessed, and
+ * which lines to build.
+ *
+ * A list has one item to a line. A grid has a row of them, and scrolls exactly as a list of its rows
+ * would — which is how a grid gets windowing, scroll-to-item and focus reveal without a second copy
+ * of any of it.
+ */
+internal class LazyLines(initialPosition: Float) {
+
+    val axis = MeasuredAxis(initialPosition)
+
+    /** What each line measured, by index. An estimate is used for everything not in here. */
     private val sizes = HashMap<Int, Float>()
     private var measuredSum = 0f
 
-    private var count = 0
+    var count = 0
+        private set
     private var spacing = 0f
     private var lastVisible = -1f
 
     /**
-     * Bumped whenever something that decides *which* items to compose has changed.
+     * Bumped whenever something that decides *which* lines to compose has changed.
      *
      * Read during composition, written by layout. That is the loop the whole design turns on: a
-     * frame composes its best guess, layout finds out what the items really were, and the next
+     * frame composes its best guess, layout finds out what the lines really were, and the next
      * frame composes the right ones. It settles in a frame or two and then stops changing, because
      * a size that has been measured does not move.
      */
-    internal var revision: Int by mutableStateOf(0)
+    var revision: Int by mutableStateOf(0)
         private set
 
-    /** How far down the list, in units, counting the estimate for everything unmeasured. */
-    val position: Float get() = axis.position
-
-    /** The first item with any part of it on screen. */
-    val firstVisibleItem: Int get() = indexAt(axis.position)
-
-    val isFlinging: Boolean get() = axis.isFlinging
-
-    /** Puts [index] at the top of the window. [offset] scrolls that item too. */
-    fun scrollToItem(index: Int, offset: Float = 0f) =
+    fun scrollToLine(index: Int, offset: Float) =
         axis.scrollTo(startOf(index.coerceIn(0, (count - 1).coerceAtLeast(0))) + offset)
-
-    fun scrollBy(delta: Float): Boolean = axis.scrollBy(delta)
-
-    fun stopFling() = axis.stop()
 
     // --- what it has learned ---------------------------------------------------------------------
 
-    /** The size to assume for an item nobody has measured. */
-    internal val average: Float
-        get() = if (sizes.isEmpty()) DefaultItem else measuredSum / sizes.size
+    /** The size to assume for a line nobody has measured. */
+    val average: Float
+        get() = if (sizes.isEmpty()) seed else measuredSum / sizes.size
 
-    internal fun sizeOf(index: Int): Float = sizes[index] ?: average
+    /** The guess for a line before any has been measured, or since [forget]. */
+    private var seed = DefaultItem
 
-    /** Where an item starts, counting the estimate for the ones above it. */
-    internal fun startOf(index: Int): Float {
+    fun sizeOf(index: Int): Float = sizes[index] ?: average
+
+    /** Where a line starts, counting the estimate for the ones above it. */
+    fun startOf(index: Int): Float {
         var at = 0f
         for (i in 0 until index) at += sizeOf(i) + spacing
         return at
     }
 
-    /** Which item contains [position]. */
-    internal fun indexAt(position: Float): Int {
+    /** Which line contains [position]. */
+    fun indexAt(position: Float): Int {
         var at = 0f
         for (i in 0 until count) {
             at += sizeOf(i) + spacing
@@ -101,14 +123,14 @@ class LazyListState(initialPosition: Float = 0f) {
     }
 
     /**
-     * Which items to compose: everything on screen, plus [overscan] either side.
+     * Which lines to compose: everything on screen, plus [overscan] either side.
      *
      * The overscan is what makes focus and a fast flick work. Focus can only move to something that
      * exists, so a list with nothing composed below the fold is a list a pad cannot walk down; two
-     * spare items either side are enough for the next press to land on something real, and cheap
+     * spare lines either side are enough for the next press to land on something real, and cheap
      * enough that nobody notices.
      */
-    internal fun window(overscan: Int): IntRange {
+    fun window(overscan: Int): IntRange {
         if (count <= 0) return IntRange.EMPTY
         val first = indexAt(axis.position)
         // Before it has ever been laid out there is no window to fill, so it composes a screenful
@@ -125,20 +147,38 @@ class LazyListState(initialPosition: Float = 0f) {
 
     // --- what layout tells it ----------------------------------------------------------------------
 
-    internal fun describe(count: Int, spacing: Float) {
+    fun describe(count: Int, spacing: Float) {
         if (this.spacing != spacing) {
             this.spacing = spacing
             revision++
         }
         if (this.count == count) return
         this.count = count
-        // Sizes for items that no longer exist are worse than no sizes: they would be averaged in.
+        // Sizes for lines that no longer exist are worse than no sizes: they would be averaged in.
         val gone = sizes.keys.filter { it >= count }
         gone.forEach { index -> sizes.remove(index)?.let { measuredSum -= it } }
         revision++
     }
 
-    internal fun measuredItem(index: Int, size: Float) {
+    /**
+     * Everything measured so far is about lines that are not the same lines any more.
+     *
+     * A grid that goes from four columns to three has regrouped every row, so the third row's height
+     * says nothing about what the third row is now.
+     */
+    fun forget() {
+        // The sizes go, but not what they averaged: a grid's rows are nearly always one height,
+        // and the old average is a far better guess for the new rows than a made-up constant.
+        seed = average
+        sizes.clear()
+        measuredSum = 0f
+        revision++
+    }
+
+    /** Works the estimate of the whole out again now, rather than at the next layout. */
+    fun refreshTotal() = axis.measured(axis.visible, estimatedTotal())
+
+    fun measuredLine(index: Int, size: Float) {
         val before = sizes.put(index, size)
         if (before == size) return
         measuredSum += size - (before ?: 0f)
@@ -146,7 +186,7 @@ class LazyListState(initialPosition: Float = 0f) {
     }
 
     /** The window's own size, and with it the estimate of the whole. */
-    internal fun measuredViewport(visible: Float) {
+    fun measuredViewport(visible: Float) {
         axis.measured(visible, estimatedTotal())
         if (visible == lastVisible) return
         lastVisible = visible
@@ -160,7 +200,7 @@ class LazyListState(initialPosition: Float = 0f) {
     }
 
     private companion object {
-        /** What an item is assumed to be before anything has been measured. */
+        /** What a line is assumed to be before anything has been measured. */
         const val DefaultItem = 48f
 
         /** How many of those to compose on the very first frame, before there is a window. */
@@ -239,7 +279,7 @@ private fun LazyList(
     barThickness: Float,
     item: @Composable (Int) -> Unit,
 ) {
-    state.describe(count, spacing)
+    state.lines.describe(count, spacing)
 
     val gestures = remember { ScrollGestures() }
     gestures.horizontal = if (vertical) null else state.axis
@@ -251,8 +291,8 @@ private fun LazyList(
 
     // Both of these are snapshot state, and between them they are the whole of "which items should
     // exist": where the list is, and everything layout has learned about how big things are.
-    state.revision
-    val window = state.window(overscan)
+    state.lines.revision
+    val window = state.lines.window(overscan)
 
     // A row scrolled out of the window leaves the tree, and without this its rememberSaveable state
     // would go with it. Each row is a screen of its own here, kept under its key until it is back.
@@ -286,7 +326,7 @@ private fun LazyList(
  * free and scrolling being the most expensive thing on the frame.
  */
 @Composable
-private fun LazyItem(index: Int, item: @Composable (Int) -> Unit) {
+internal fun LazyItem(index: Int, item: @Composable (Int) -> Unit) {
     item(index)
 }
 
@@ -322,7 +362,7 @@ private class LazyPolicy(
         for (slot in 0 until itemCount) {
             val placeable = measurables[slot].measure(room)
             placeables += placeable
-            state.measuredItem(window.first + slot, if (vertical) placeable.height else placeable.width)
+            state.lines.measuredLine(window.first + slot, if (vertical) placeable.height else placeable.width)
         }
 
         // A lazy list fills the room it was given. With no room at all — a column that did not say
@@ -337,7 +377,7 @@ private class LazyPolicy(
 
         // Sizes first, then the window: the estimate of the whole list is built out of the sizes,
         // and scrolling is clamped against that estimate.
-        state.measuredViewport(if (vertical) height else width)
+        state.lines.measuredViewport(if (vertical) height else width)
         val scrolled = state.position
 
         val bar = if (bars) {
@@ -349,7 +389,7 @@ private class LazyPolicy(
         }
 
         return layout(width, height) {
-            var at = state.startOf(window.first) - scrolled
+            var at = state.lines.startOf(window.first) - scrolled
             placeables.forEach { placeable ->
                 if (vertical) placeable.at(0f, at) else placeable.at(at, 0f)
                 at += (if (vertical) placeable.height else placeable.width) + spacing
