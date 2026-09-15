@@ -580,7 +580,7 @@ The rules, all of them things you would otherwise find out by accident:
   starts with the shape of what the press landed on.
 
 `pointer.pointerIcon` says what the shape should be, for a game that draws its own
-cursor. `GdxBackend` and `Lwjgl3Backend` change the real one; on Android and iOS there
+cursor. `GdxBackend`, `Lwjgl3Backend` and `WebGlBackend` change the real one; on Android and iOS there
 is nothing to change and the call does nothing. A backend that cannot show a shape
 shows the arrow.
 

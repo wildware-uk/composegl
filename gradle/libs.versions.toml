@@ -5,6 +5,9 @@ kotlin = "2.4.20"
 # docs/superpowers/specs/2026-09-09-runtime-ui-design.md.
 compose = "1.12.0"
 coroutines = "1.9.0"
+# The DOM and WebGL, as Kotlin declarations. Only composegl-webgl has it: a browser is the one
+# platform where it means anything.
+kotlinxBrowser = "0.5.0"
 gdx = "1.14.2"
 gdxControllers = "2.2.3"
 lwjgl = "3.4.3"
@@ -21,6 +24,10 @@ androidxCore = "1.13.1"
 # --- the only two things composegl-ui is allowed to depend on ---
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose" }
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+
+# --- the browser backend ---
+kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinxBrowser" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 
 # --- backends ---
 gdx = { module = "com.badlogicgames.gdx:gdx", version.ref = "gdx" }

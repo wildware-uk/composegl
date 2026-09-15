@@ -170,9 +170,16 @@ class UiRendererTest {
      */
     @Test
     fun `the budget it keeps is the one it was given and it is filled in`() {
+        val shade = mutableStateOf(Colour.White)
         host.setContent {
-            repeat(20) { LeafLayout(Modifier.size(40f, 20f).background(Colour.White), name = "block$it") }
+            // Enough blocks that each pass takes measurable time on every target. A browser rounds
+            // its clock to a tenth of a millisecond on purpose, and twenty blocks lay out faster
+            // than that — which read as "not timed" when it was timed and came to nothing.
+            repeat(1_000) { LeafLayout(Modifier.size(4f, 2f).background(shade.value), name = "block$it") }
         }
+        // Something for the frame's own recompose to do. Setting the content composed it already,
+        // so without this the recompose is timed doing nothing, which a coarse clock reads as zero.
+        shade.value = Colour.Black
         val budget = FrameBudget()
         budget.isOn = true
         val renderer = UiRenderer(host, canvas, budget)

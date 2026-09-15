@@ -18,6 +18,12 @@ kotlin {
     iosArm64()
     iosSimulatorArm64()
 
+    // The browser, so a game drawn by `composegl-webgl` gets the same blur as everybody else.
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+    }
+
     sourceSets {
         commonMain.dependencies {
             api(project(":composegl-ui"))

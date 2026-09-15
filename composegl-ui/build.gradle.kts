@@ -60,6 +60,13 @@ kotlin {
     iosArm64()
     iosSimulatorArm64()
 
+    // The browser, as WebAssembly. The fourth kind of machine the same source compiles for, and the
+    // first with no threads at all: see `wasmJsMain`'s `Guard`. `composegl-webgl` draws it.
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        browser()
+    }
+
     // `expect class` is still officially Beta, and the warning is an error here. One internal
     // lock uses it, deliberately: see `internal/Guard.kt`.
     compilerOptions { freeCompilerArgs.add("-Xexpect-actual-classes") }
