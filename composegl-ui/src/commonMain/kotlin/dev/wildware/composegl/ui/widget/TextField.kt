@@ -5,6 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -18,13 +19,16 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.input.InputSource
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.Key
+import dev.wildware.composegl.ui.input.KeyEvent
 import dev.wildware.composegl.ui.input.KeyEventType
 import dev.wildware.composegl.ui.input.KeyHandler
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.input.PointerIcon
+import dev.wildware.composegl.ui.input.TextEvent
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
@@ -35,6 +39,7 @@ import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -119,6 +124,8 @@ fun ProvideTextInput(input: TextInput, content: @Composable () -> Unit) =
  * @param multiline whether Enter makes a line. A single-line field leaves Enter for whatever is
  *   around it, which is how a form's default button works.
  * @param onSubmit called by Enter in a single-line field, for that default button.
+ * @param gamepadKeyboard the keyboard made of buttons a pad player types with, from
+ *   [ProvideGamepadKeyboard]. It opens when the field is focused from a pad, and again on South.
  */
 @Composable
 fun TextField(
@@ -135,6 +142,7 @@ fun TextField(
     clipboard: Clipboard = LocalClipboard.current,
     softKeyboard: SoftKeyboard = LocalSoftKeyboard.current,
     textInput: TextInput = LocalTextInput.current,
+    gamepadKeyboard: GamepadKeyboard? = LocalGamepadKeyboard.current,
     interaction: InteractionState = remember { InteractionState() },
 ) {
     val resolved = rememberStyle(style, rememberStates(interaction, enabled))
@@ -317,6 +325,45 @@ fun TextField(
         }
     }
 
+    // A pad player has no keyboard at all, so a field inside ProvideGamepadKeyboard offers them one
+    // made of buttons. It types through `keys` and `typing` below, which is what makes a letter
+    // picked with a pad obey the same length limit and editing rules as one typed at a desk.
+    val source = LocalInputSource.current
+    val hintText by rememberUpdatedState(placeholder)
+    val target = remember(session, multiline, keys, typing) {
+        object : KeyboardTarget {
+            override val value: TextFieldValue get() = session.value
+            override val placeholder: String? get() = hintText
+            override val multiline: Boolean get() = multiline
+            override fun onText(event: TextEvent): Boolean = typing.onText(event)
+            override fun onKey(event: KeyEvent): Boolean = keys.onKey(event)
+        }
+    }
+
+    // Opens when focus arrives while the player is on a pad. Not when focus arrives because the
+    // keyboard closed and gave it back: that is the player finishing, not asking again.
+    val focusedNow = interaction.isFocused && enabled
+    DisposableEffect(gamepadKeyboard, target, focusedNow) {
+        if (focusedNow && gamepadKeyboard != null && !gamepadKeyboard.isReturningTo(target)) {
+            if (gamepadKeyboard.openOnFocus && source.current == InputSource.Gamepad) gamepadKeyboard.open(target)
+        }
+        onDispose { }
+    }
+    // A field that goes away, or is disabled, while the keyboard is typing into it closes it.
+    DisposableEffect(gamepadKeyboard, target, enabled) {
+        onDispose { gamepadKeyboard?.forget(target) }
+    }
+    // The line on the keyboard follows the field when anything else changes it.
+    SideEffect { if (gamepadKeyboard?.target === target) gamepadKeyboard.sync() }
+
+    // South on a focused field opens it again, which is how a player who closed it gets it back.
+    // A click from anything but a pad is left alone: the mouse and the keyboard have their own ways in.
+    val open = remember(gamepadKeyboard, target, source) {
+        {
+            if (gamepadKeyboard != null && source.current == InputSource.Gamepad) gamepadKeyboard.open(target)
+        }
+    }
+
     Box(
         modifier = Modifier
             .drawBehind(locate)
@@ -326,6 +373,7 @@ fun TextField(
             .then(modifier)
             .interaction(interaction)
             .focusable(interaction, enabled = enabled, initial = initialFocus)
+            .clickable(enabled = gamepadKeyboard != null && enabled, onClick = open)
             .onKeyEvent(keys)
             .onTextEvent(typing)
             .onPointer(pointer)
@@ -354,6 +402,7 @@ fun TextField(
     clipboard: Clipboard = LocalClipboard.current,
     softKeyboard: SoftKeyboard = LocalSoftKeyboard.current,
     textInput: TextInput = LocalTextInput.current,
+    gamepadKeyboard: GamepadKeyboard? = LocalGamepadKeyboard.current,
     interaction: InteractionState = remember { InteractionState() },
 ) {
     // The caret lives here, because a plain string cannot carry one. A game that sets the text from
@@ -378,6 +427,7 @@ fun TextField(
         clipboard = clipboard,
         softKeyboard = softKeyboard,
         textInput = textInput,
+        gamepadKeyboard = gamepadKeyboard,
         interaction = interaction,
     )
 }
