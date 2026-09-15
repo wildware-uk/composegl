@@ -194,6 +194,62 @@ class ClockDebugUiTest {
     }
 
     @Test
+    fun `the step key on a moving animation stops it one frame on`() {
+        // A test only ever looks at a settled screen, so the slide is started on a world the game
+        // has stopped and the game lets it go without a frame passing. The step key is then the
+        // first thing to reach a moving animation: it must freeze it there rather than let it run.
+        val ui = screen(linear, slideClock = Clock.World)
+        ui.host.clocks.stop(Clock.World)
+        ui.click("go")
+        ui.host.clocks.start(Clock.World)
+
+        ui.key(Key.F6)
+
+        assertTrue(ui.ballX > 0f && ui.ballX < 10f, "one frame of a second-long slide: ${ui.ballX}")
+        ui.advanceBy(1_000)
+        assertTrue(ui.ballX < 10f, "and it stayed frozen there: ${ui.ballX}")
+    }
+
+    @Test
+    fun `the faster key brings a slowed screen back to real time`() {
+        val normal = screen(Tween(200, easing = Easings.Linear))
+        val start = normal.nanos
+        normal.click("go")
+        val fullSpeed = normal.nanos - start
+
+        val ui = screen(Tween(200, easing = Easings.Linear))
+        ui.key(Key.F7)
+        ui.key(Key.F7)
+        ui.key(Key.F8)
+        ui.key(Key.F8)
+        assertEquals(1f, ui.host.clocks.debug.speed)
+
+        val uiStart = ui.nanos
+        ui.click("go")
+        val took = ui.nanos - uiStart
+
+        assertEquals(400f, ui.ballX)
+        // The same as a screen never slowed, within a frame or so; at a quarter it would be 600ms more.
+        val extraMillis = (took - fullSpeed) / 1_000_000L
+        assertTrue(extraMillis in -20L..20L, "never slowed took $fullSpeed ns, sped back up took $took ns")
+    }
+
+    @Test
+    fun `stepping everything leaves the interface animating once it was let go`() {
+        val ui = screen(linear, slideClock = Clock.World)
+        val debug = ui.host.clocks.debug
+        debug.pause()
+        debug.resume(Clock.Ui)
+
+        ui.click("go")
+        ui.key(Key.F6)
+
+        assertTrue(ui.ballX > 0f && ui.ballX < 10f, "the world moved one frame: ${ui.ballX}")
+        assertEquals(1f, ui.node("fade").resolved.alpha, "and the interface's fade, let go, played out")
+        assertTrue(!debug.isPaused(Clock.Ui), "the step did not freeze the interface again")
+    }
+
+    @Test
     fun `stopping the world is the game's switch and the debug pause survives it`() {
         val ui = screen(linear, slideClock = Clock.World)
         val clocks = ui.host.clocks

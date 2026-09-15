@@ -129,6 +129,32 @@ class ClockDebugTest {
     }
 
     @Test
+    fun `stepping everything leaves a clock that was let go running`() {
+        start()
+        clocks.debug.pause()
+        clocks.debug.resume(Clock.Ui)
+
+        clocks.debug.step()
+        frames(3)
+
+        assertEquals(3 * frame, clocks.time(Clock.Ui), "the interface was let go and stays let go")
+        assertEquals(frame, clocks.time(Clock.World), "while the world moved its one frame")
+        assertFalse(clocks.debug.isPaused(Clock.Ui))
+    }
+
+    @Test
+    fun `stepping everything moves a clock paused on its own`() {
+        start()
+        clocks.debug.pause(Clock.World)
+
+        clocks.debug.step()
+        frames(3)
+
+        assertEquals(frame, clocks.time(Clock.World))
+        assertEquals(3 * frame, clocks.time(Clock.Ui), "nothing else was frozen by the step")
+    }
+
+    @Test
     fun `stepping several frames moves that many`() {
         start()
         clocks.debug.pause()
