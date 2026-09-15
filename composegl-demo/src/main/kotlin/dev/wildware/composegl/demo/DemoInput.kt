@@ -1,5 +1,7 @@
 package dev.wildware.composegl.demo
 
+import dev.wildware.composegl.ui.animation.ClockDebugKeys
+import dev.wildware.composegl.ui.animation.Clocks
 import dev.wildware.composegl.ui.backend.SystemCursor
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Offset
@@ -34,9 +36,17 @@ import dev.wildware.composegl.ui.node.UiNode
 internal class DemoInput(
     private val state: DemoState,
     root: UiNode,
+    clocks: Clocks,
     /** The backend's mouse cursor, so the callsign field shows an I-beam. */
     cursor: SystemCursor = SystemCursor.None,
 ) : InputSink {
+
+    /**
+     * F5 freezes every animation, F6 steps a frame, F7 and F8 slow down and speed back up.
+     *
+     * Asked before anything else, the same as F3: a debug key is the developer's, not the screen's.
+     */
+    private val clockKeys = ClockDebugKeys(clocks)
 
     /**
      * Focus, which on a console is the cursor.
@@ -100,6 +110,7 @@ internal class DemoInput(
             state.budget.toggle()
             return true
         }
+        if (clockKeys.onKey(event)) return true
         return tracked.onKey(event)
     }
 
@@ -183,12 +194,16 @@ internal class DemoInput(
             "enter" -> type(Key.Enter)
             "escape" -> type(Key.Escape)
             "f3" -> type(Key.F3)
+            "f5" -> type(Key.F5)
+            "f6" -> type(Key.F6)
+            "f7" -> type(Key.F7)
+            "f8" -> type(Key.F8)
             in numbers -> type(numbers.getValue(step))
             else -> {
                 val typed = step.removePrefix("text:")
                 if (typed == step) {
                     error(
-                        "a key script step is tab, shift-tab, a direction, enter, escape, f3, a " +
+                        "a key script step is tab, shift-tab, a direction, enter, escape, f3, f5 to f8, a " +
                             "digit or text:…, not '$step'",
                     )
                 }

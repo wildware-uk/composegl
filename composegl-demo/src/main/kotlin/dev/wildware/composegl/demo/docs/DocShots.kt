@@ -3,13 +3,17 @@ package dev.wildware.composegl.demo.docs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.animation.AnimatedVisibility
 import dev.wildware.composegl.ui.animation.Easings
+import dev.wildware.composegl.ui.animation.LocalClocks
+import dev.wildware.composegl.ui.animation.Spring
 import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.fadeOut
+import dev.wildware.composegl.ui.animation.animateFloatAsState
 import dev.wildware.composegl.ui.animation.scaleOut
 import androidx.compose.runtime.withFrameNanos
 import dev.wildware.composegl.ui.geometry.Rect
@@ -125,6 +129,7 @@ internal fun docShots(): List<DocShot> = buildList {
     widgets()
     game()
     modifiers()
+    animation()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -1118,6 +1123,43 @@ private fun Arrow(modifier: Modifier) {
     Row(modifier, verticalAlignment = VerticalAlignment.Centre) {
         Box(Modifier.size(30f, 10f).background(Accent)) {}
         Box(Modifier.size(18f, 30f).background(Accent, corner = 3f)) {}
+    }
+}
+
+// ---------------------------------------------------------------- animation
+
+private fun MutableList<DocShot>.animation() {
+    // A bouncy spring on paused clocks, stepped a frame at a time, with every frame it drew left
+    // behind. At full speed the overshoot is gone before anyone sees it; stepped, it is all there.
+    add(DocShot("clock-debug", 440, 110, seconds = 0.6f) {
+        Frame { SteppedSpring() }
+    })
+}
+
+@Composable
+private fun SteppedSpring() {
+    val clocks = LocalClocks.current
+    var go by remember { mutableStateOf(false) }
+    val trail = remember { mutableStateListOf<Float>() }
+    LaunchedEffect(Unit) {
+        clocks.debug.speed = 0.5f
+        clocks.debug.pause()
+        clocks.debug.step(frames = 24)
+        go = true
+    }
+    val x by animateFloatAsState(if (go) 1f else 0f, Spring(damping = 0.3f, stiffness = Spring.Medium))
+    LaunchedEffect(x) { if (go) trail += x }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+        Text("PAUSED - STEPPED ${trail.size} FRAMES AT 0.5x", style = "label.dim")
+        Box(Modifier.size(400f, 40f).background(Ink, corner = 4f)) {
+            // Where the spring is going. Everything right of this line is overshoot.
+            Box(Modifier.offset(x = 300f).size(2f, 40f).background(Steel)) {}
+            trail.forEachIndexed { frame, at ->
+                val fade = 0.2f + 0.8f * (frame + 1) / trail.size
+                Box(Modifier.offset(x = at * 300f - 7f, y = 13f).size(14f, 14f).alpha(fade).background(Accent, corner = 7f)) {}
+            }
+        }
     }
 }
 
