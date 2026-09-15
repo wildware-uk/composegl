@@ -88,6 +88,7 @@ import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.tint
 import dev.wildware.composegl.ui.modifier.debugBounds
+import dev.wildware.composegl.ui.debug.Inspector
 import dev.wildware.composegl.ui.debug.LayoutOverlay
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
@@ -1372,6 +1373,24 @@ private fun MutableList<DocShot>.modifiers() {
                 Scrolling("resting: delayMillis", "Sword of a Thousand Truths", delayMillis = 60_000, speed = 30f)
                 Scrolling("scrolling", "Sword of a Thousand Truths", delayMillis = 1_500, speed = 40f)
                 Scrolling("coming round", "Sword of a Thousand Truths", delayMillis = 0, speed = 55f)
+            }
+        }
+    })
+
+    // Clicked on the APPLY button's edge, so the picture shows a pinned button rather than its label.
+    add(DocShot("inspector", 640, 460, pointer = Offset(46f, 94f), click = true) {
+        Inspector(enabled = true) {
+            Box(Modifier.fillMaxSize().background(Colour.rgb(0x0B0E13))) {
+                Column(
+                    Modifier.offset(24f, 40f).background(Ink, corner = 6f).padding(18f),
+                    verticalArrangement = Arrangement.spacedBy(10f),
+                ) {
+                    Text("SETTINGS", style = "label.dim")
+                    Row(horizontalArrangement = Arrangement.spacedBy(16f)) {
+                        Button("APPLY", onClick = {})
+                        Button("CANCEL", onClick = {})
+                    }
+                }
             }
         }
     })

@@ -275,6 +275,33 @@ Gaps are shown for rows and columns; a `FlowRow` or a grid does not shade its ga
 
 ---
 
+## Pointing at one widget
+
+The overlay shows everything. `Inspector` answers "why is *this* that size?" for one thing:
+
+```kotlin
+Inspector(enabled = debug) { Game() }
+```
+
+While it is on, the game stops taking the mouse and the inspector takes it:
+
+| Do this | And you get |
+|---|---|
+| hover | the node under the pointer outlined in blue, its padding shaded green |
+| read the panel | its name and tag, position, size, the room its parent `given` it, padding, its `policy` (`Row spaced 12`, `Box`, `Grid`…), and its modifier chain in the order it was written |
+| click | the node pinned in orange, so the pointer can go; click again or Escape to let go |
+| arrow keys or d-pad, while pinned | Up to the parent, Down to the first child, Left and Right to siblings; East lets go |
+| the tree under the panel | every node on the screen, `-` and `+` to fold a branch, click a line to pin it; `tree` hides it and `<>` moves the panel to the other side |
+
+The deepest node wins, so clicking the middle of a button pins its label; press Up for the
+button. The panel reads the nodes again every frame while it is on, so a pinned node that
+grows shows its new size. It only redraws when something it shows changed, and turning it
+off rebuilds nothing: the screen keeps its state and focus.
+
+![a settings panel with its APPLY button pinned, and the inspector's panel listing the button's size, padding and modifiers above a tree of the screen](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/inspector.png)
+
+---
+
 ## Animations a frame at a time
 
 A spring that overshoots for three frames is over before you can see it. Freeze the
