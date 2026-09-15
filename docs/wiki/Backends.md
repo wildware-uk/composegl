@@ -22,10 +22,11 @@ Four ship. None is required: the toolkit names no engine anywhere.
 keyboard, Android and iOS. A game needs all of those and the toolkit provides none
 of them.
 
-The LWJGL3 backend exists to keep the others honest. It is written against the same
-interface, shares **no code** with the LibGDX one, and draws the same test scenes —
-so anything the toolkit quietly assumes about LibGDX shows up here as a picture
-that came out wrong or as code that will not compile.
+The LWJGL3 backend is the reference thin wrapper. It draws with the library's own
+renderer, `composegl-render`, and adds only what raw OpenGL needs: a `Gl` binding, a
+glyph rasteriser and a window. The other backends move onto the same renderer one at a
+time (see `docs/superpowers/specs/2026-09-15-shared-gl-renderer.md`), and until they do
+they carry renderers of their own.
 
 Each backend has its own golden images, and CI checks each backend against its own.
 The LibGDX and LWJGL3 sets are never compared with each other by a test — FreeType
@@ -252,71 +253,50 @@ an iPhone: `UiKitSoftKeyboard`, `UiKitTextInput` and `UiKitHaptics`.
 
 ## Writing your own
 
-Implement `UiBackend`:
+**The library draws; a backend is a thin wrapper.** `composegl-render` holds the one
+renderer: the canvas, the batch, the shape shader, layers, render targets, shader
+effects, the glyph atlas, fallback fonts, emoji and draw-call tracing. On OpenGL a
+backend supplies four small things and nothing that draws:
+
+| piece | what it is | lwjgl3's |
+|---|---|---|
+| a `Gl` binding | about seventy calls, each a one-liner onto your GL (`glDrawElements`, `glUniform4f`, …) | `LwjglGl.kt` |
+| a `GlyphRasteriser` | one font at one size, one glyph at a time: metrics, advance, a coverage or colour bitmap | `StbRasteriser` in `StbFonts.kt` |
+| a `TextureResolver` | your texture type as a GL name and texture coordinates | `GlTexture.Resolver` |
+| the engine handoff | what `raw { }` hands a game, and `HostState.Leave` or `Restore` | `GlCanvas` |
 
 ```kotlin
-interface UiBackend {
-    val canvas: UiCanvas
-    val fonts: FontProvider
-    val clipboard: Clipboard
-    val softKeyboard: SoftKeyboard
-    val textures: TextureSource
-    val cursor: SystemCursor          // optional: defaults to one that does nothing
-    val haptics: Haptics              // optional: defaults to Haptics.None
+class MyCanvas(fonts: MyFonts) : RenderCanvas(GlDevice(MyGl, HostState.Leave), fonts, MyTextures) {
+    override fun handOver(projection: FloatArray, viewport: Viewport): Any = MyFrame(projection, viewport)
 }
+class MyFonts : AtlasFonts(MyRasteriser, MyImageDecoder)
 ```
 
-The real work is `UiCanvas`, and it is deliberately short — about ten calls:
-`rect`, `border`, `shadow`, `text`, `image`, `fan`, a clip stack, an alpha stack,
-a blend stack, and `raw`.
+Pick `HostState.Leave` when your engine sets the GL state it needs before it draws;
+`Restore` when it caches GL state and believes the cache (KorGE, three.js). If your
+context can be lost (Android, the browser), call `canvas.contextLost()` when it is.
 
-A long drawing interface is a long list of things every future backend has to
-reimplement, and most of what an interface draws is a rounded rectangle with some
-text on it. Anything richer goes through `raw { }`, which hands your own drawing
-object back to whoever asked for it.
+Then implement `UiBackend` round them — `canvas`, `fonts`, `clipboard`,
+`softKeyboard`, `textures`, and optionally `cursor` and `haptics` — and translate your
+platform's input into the four [[Input|`InputSink`]] calls.
 
-The optional extras, each of which degrades rather than fails:
+`RendererConfinementCheck` keeps it thin. One line in your build file,
+`confineRenderer("MyGl.kt")`, fails the build if shader text appears anywhere in your
+module, if a draw, shader, blend or framebuffer call appears outside the binding file,
+or if the binding grows past 400 lines.
 
-- `cursor` — `set(PointerIcon)`, the mouse cursor's shape. Leave it and the shape
-  never changes; a phone has nothing to change anyway. Show the arrow for a shape you
-  have no picture for.
-- `layer(bounds) { }` and `drawLayer(...)` — offscreen drawing, which is what
-  [[Shaders|effects]] are built on. Return null and effects simply do not happen.
-- `cutLayer(layer, destination, outline)` — a layer put down through a convex outline,
-  which is what `Modifier.clipShape` is built on. `featherOutline` cuts the outline
-  into quads with a one-pixel soft edge for any batch that draws quads. Leave it and
-  shaped clips fall back to the node's rectangle; say so in `cutsLayers`.
-- `textRing(layout, x, y, colour)` — one copy stamped for a text outline's ring.
-  Leave it and it is plain `text`, which is right for letters. If you draw some
-  glyphs as pictures in their own colours (emoji), override it to leave those out,
-  or the ring is eight emoji smeared round the real one.
-- `drawCalls` — how many times you handed work to the GPU this frame. Return -1 and
-  the frame budget shows nothing for it.
-- `traceDrawCalls(trace)` — keep the trace, and each time you hand work to the GPU call
-  `trace.record(BatchBreak.Texture)` (or `Blend`, `Clip`, `Layer`, `Shader`, `Raw`,
-  `Full`, and `End` for the frame's last). Only when something was queued: an empty flush
-  is not a draw call. The trace already knows which node is drawing. Leave it and the
-  overlay lists no culprits; say so in `tracesDrawCalls`.
-- `image(texture, destination, degrees, …)` — a turned picture. Leave it and the
-  default draws it upright; say so in `rotatesImages`.
-- `drawLayer(layer, destination, mirrorX, mirrorY)` — a flipped picture, for
-  `Modifier.mirror`. Leave it and the default draws it the right way round; say so
-  in `mirrorsLayers`, and the toolkit skips the picture and keeps clicks unflipped.
-- `drawLayer(layer, destination, degrees, …)` and `drawLayerOnto(layer, destination,
-  corners)` — a layer turned, or put down on four corners, which is what
-  `Modifier.rotate` and `Modifier.skew` are composited with. Leave them and the
-  default puts the picture down upright in `destination`; say so in `turnsLayers`
-  and `drawsLayersOnto`.
-- `drawLayer(layer, destination, transform)` — a picture through a `Matrix4`, for
-  `Modifier.rotate3d`. Project each corner of `destination` with
-  `transform.project(x, y, into, at)` and hand the GPU the undivided x, y and w, so it
-  divides per pixel and the picture does not bend. Leave it and the default draws the
-  picture flat in `destination`; say so in `tiltsLayers`.
-- `pushBlend(mode)` / `popBlend()` — additive blending, for light. Leave them and
-  everything paints the ordinary way; say so in `supports(mode)`.
-- Everything in `raw { }` — your business entirely.
+A graphics API that is not OpenGL implements `GpuDevice` instead of `Gl` — about
+sixteen members — and ships its own port of the shape shader. Nothing above the device
+knows OpenGL exists.
 
-**The rule for `raw` and for `layer`: leave your own state as you found it.**
+### If you really must draw yourself
+
+`UiCanvas` is the interface `RenderCanvas` implements, and it is deliberately short: `rect`,
+`border`, `shadow`, `text`, `image`, `fan`, a clip stack, an alpha stack, a blend stack
+and `raw`. The richer calls — `layer`, `cutLayer`, `textRing`, turned and tilted
+layers, `drawCalls`, `traceDrawCalls` — each have a capability flag and a default that
+degrades rather than fails. **The rule for `raw` and for `layer`: leave your own state
+as you found it.**
 
 ### The escape hatch, in detail
 
@@ -337,9 +317,8 @@ approximate a block it knows nothing about. So it is a question instead.
   Override both or neither: an unmoved origin is not a lesser picture, it is the same
   drawing in the wrong place.
 
-Then translate your platform's input into the four [[Input|`InputSink`]] calls, and
-you are done. `composegl-lwjgl3` is about 2,700 lines all in, and it is a fair
-guide to the size of the job.
+`composegl-lwjgl3` is about 1,800 lines all in, and most of that is the window and its
+input rather than drawing.
 
 ---
 

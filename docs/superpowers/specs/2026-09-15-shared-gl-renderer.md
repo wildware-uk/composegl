@@ -1,8 +1,41 @@
 # One shared renderer; backends become thin wrappers
 
-Status: design, not built. Supersedes the "engine-agnostic toolkit, engine-specific renderer" row of
+Status: **step 1 built** — `composegl-render` exists and `composegl-lwjgl3` draws with it (steps 1, 2a
+and 2b of §8 landed together). gdx, webgl and korge still carry their own renderers. Supersedes the "engine-agnostic toolkit, engine-specific renderer" row of
 `2026-09-09-runtime-ui-design.md` §4, and the "shares no code with the LibGDX backend" promise in
 `docs/wiki/Backends.md` and `GlShapeBatch`.
+
+## Corrections from building step 1
+
+What the code does where this design said otherwise. The code is the reference.
+
+- **The vertex is 31 floats, not 33.** The attributes add up to 31 (3 + 4 + 4 + 4 + 2 + 2 + 2 + 3 +
+  4 + 3). The first port said 33 and drew nothing; a common test now pins the sum.
+- **`Gl` is 68 members, not about 55.** It also has `isEnabled`, `getIntegers`, `pixelStorei`,
+  `uniform1i/1f/2f/3f/4f`, both `bufferData` overloads and the three storage factories. lwjgl3's
+  binding, `LwjglGl.kt` (not `Lwjgl3Gl.kt`), is 160 lines of one-liners.
+- **`GpuDevice` is 21 members** and differs in shape from §2.2: `prepare`/`prepared` for `warmUp`;
+  `noScissor()` rather than a nullable box; `target(target, x, y, width, height)`;
+  `write(texture, x, y, width, height, source, sourceWidth)` takes the whole page and a rectangle;
+  `drawEffect(effect, picture, EffectQuad, blend)` with the quad already in clip space; `close()`.
+  There is **no `originBottomLeft`**: the canvas always hands a device bottom-left pixels and a
+  top-left device converts, since only it knows its target's height. `FrameTarget` is `Host` (what
+  the engine has bound) or a `DeviceTarget`; a game's own framebuffer is adopted with
+  `GlDeviceTarget.adopt`, not described by a `Bound(width, height, isTexture)`.
+- **A fifth dialect.** A GL 3.0 or 3.1 forward-compatible context compiles `#version 130`. A context
+  counts as core when it has the core profile bit *or* the forward-compatible flag, which is what
+  `MESA_GL_VERSION_OVERRIDE=3.2FC` gives, so `testGl30` really runs the `#version 150` path.
+- **Steps 2a and 2b went together.** `StbFonts` is an `AtlasFonts` with an stb rasteriser from the
+  start. It makes every registered glyph up front on one page (`maxPages = 1`), exactly like the old
+  baked atlas, so no golden and no draw count changed. `StbTextLayout` is now a type alias.
+- **A premultiplied picture drawn with `image()` is straightened in the shader.** That includes a
+  layer's picture handed to `image()`, which old lwjgl3 drew as if it were straight.
+- **`RenderTarget.read()` runs a device frame** and so leaves the `Leave` end state behind it.
+- **Not in step 1:** the `testGles3` run in §8's matrix. lwjgl3's window and binding are desktop GL
+  only; an ES run needs a GLES binding, and belongs with the first ES backend.
+- lwjgl3 `src/main` went from 4,574 lines to 1,782 (the estimate was 1,680). `composegl-render` is
+  3,949 lines, plus 1,706 of common tests (93 tests on jvm, linuxX64 and wasmJs) using a recording
+  `GpuDevice` and a recording `Gl`.
 
 ## The answer in one paragraph
 
