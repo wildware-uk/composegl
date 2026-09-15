@@ -27,6 +27,8 @@ kotlin {
 
         jvmTest.dependencies {
             implementation(project(":composegl-testing"))
+            // The shipped effects, drawn through this backend's shaders.
+            implementation(project(":composegl-effects"))
             implementation(libs.junit.jupiter)
             runtimeOnly(libs.junit.platform.launcher)
         }

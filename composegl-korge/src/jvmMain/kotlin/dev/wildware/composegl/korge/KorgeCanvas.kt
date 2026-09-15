@@ -15,9 +15,18 @@ import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextLayout
+import dev.wildware.composegl.ui.effect.ShaderEffect
+import dev.wildware.composegl.ui.geometry.Matrix4
+import dev.wildware.composegl.ui.graphics.featherOutline
 import korlibs.graphics.AGScissor
+import korlibs.graphics.clear
+import korlibs.image.color.RGBA
 import korlibs.korge.render.RenderContext
+import kotlin.math.PI
+import kotlin.math.ceil
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * The KorGE canvas.
@@ -67,6 +76,18 @@ class KorgeCanvas(private val atlas: KorgeAtlas? = null) : UiCanvas, AutoCloseab
     private var state = CanvasState(Rect.Zero)
     private var viewport: Viewport = Viewport.oneToOne(Size(1f, 1f))
     private var context: RenderContext? = null
+
+    /** Offscreen pictures, kept between frames. Nothing is made until the first [layer]. */
+    private val layers = KorgeLayers()
+
+    private var effects: KorgeEffects? = null
+
+    private fun effects() = effects ?: KorgeEffects().also { effects = it }
+
+    /** The layer being drawn into, or null for the frame's own framebuffer. The scissor asks. */
+    private var layer: LayerFrame? = null
+
+    private class LayerFrame(val bounds: Rect, val pixelWidth: Int, val pixelHeight: Int)
 
     /**
      * How wide a softened edge is, in design units: one screen pixel, whatever the screen is doing.
@@ -142,6 +163,7 @@ class KorgeCanvas(private val atlas: KorgeAtlas? = null) : UiCanvas, AutoCloseab
         checkNotNull(context) { "end() without a begin()" }
         batch().end()
         context = null
+        layers.trim()
         check(state.isBalanced) { "a clip, an alpha, a blend or a tint was pushed and never popped" }
     }
 
@@ -440,6 +462,10 @@ class KorgeCanvas(private val atlas: KorgeAtlas? = null) : UiCanvas, AutoCloseab
         val batch = batch ?: return
         if (context == null) return
         val clip = state.clip
+        layer?.let { into ->
+            batch.scissor(scissorInLayer(into, clip))
+            return
+        }
         // Never outside the viewport's area: in split screen that is the edge of this player's part.
         val area = viewport.area
         val topLeft = viewport.toScreen(Offset(clip.left, clip.top))
@@ -469,6 +495,266 @@ class KorgeCanvas(private val atlas: KorgeAtlas? = null) : UiCanvas, AutoCloseab
         )
     }
 
+    /**
+     * The same, in a layer's pixels: its own origin, and no letterbox — a layer is exactly the picture
+     * and nothing around it.
+     */
+    private fun scissorInLayer(into: LayerFrame, clip: Rect): AGScissor {
+        val bounds = into.bounds
+        if (clip.left <= bounds.left && clip.top <= bounds.top && clip.right >= bounds.right && clip.bottom >= bounds.bottom) {
+            return AGScissor.NIL
+        }
+        val left = ((clip.left - bounds.left) * viewport.scaleX).roundToInt().coerceIn(0, into.pixelWidth)
+        val right = ((clip.right - bounds.left) * viewport.scaleX).roundToInt().coerceIn(0, into.pixelWidth)
+        val top = ((clip.top - bounds.top) * viewport.scaleY).roundToInt().coerceIn(0, into.pixelHeight)
+        val bottom = ((clip.bottom - bounds.top) * viewport.scaleY).roundToInt().coerceIn(0, into.pixelHeight)
+        return AGScissor(left, top, (right - left).coerceAtLeast(0), (bottom - top).coerceAtLeast(0))
+    }
+
+    // --- layers ---
+
+    /** Framebuffers, so yes. */
+    override val drawsLayers: Boolean get() = true
+
+    /**
+     * Draws [block] into an offscreen picture of [bounds], at screen resolution, and hands it back.
+     *
+     * The framebuffer goes on KorGE's own stack for the block, so anything inside that asks KorGE where
+     * it is drawing — a layer inside this one, a `raw` block — is told the truth, and the one it found
+     * comes back afterwards whether that was the window or a render target in the world.
+     */
+    override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? {
+        val context = checkNotNull(context) { "layer() outside a frame" }
+        if (bounds.isEmpty) return null
+
+        // Screen resolution, not design resolution, so a layer drawn back is as sharp as what is round
+        // it. Rounded up, so nothing falls off the right or the bottom of a picture a fraction too big.
+        val pixelWidth = ceil(bounds.width * viewport.scaleX).toInt()
+        val pixelHeight = ceil(bounds.height * viewport.scaleY).toInt()
+        if (pixelWidth <= 0 || pixelHeight <= 0) return null
+        if (pixelWidth > MaxLayerPixels || pixelHeight > MaxLayerPixels) return null
+
+        val batch = batch()
+        // What is queued was queued for the framebuffer out here.
+        batch.flush(BatchBreak.Layer)
+        val target = layers.acquire(pixelWidth, pixelHeight)
+
+        val previousTransform = batch.transform()
+        val previousState = state
+        val previousLayer = layer
+
+        layer = LayerFrame(bounds, pixelWidth, pixelHeight)
+        // A fresh clip, full opacity and plain blending: the opacity out here is applied when the
+        // picture is drawn back, which is what makes a group fade as one object. The tint comes in.
+        state = previousState.forLayer(bounds)
+
+        context.pushFrameBuffer(target.buffer)
+        try {
+            context.ag.clear(target.buffer, color = RGBA(0, 0, 0, 0))
+            // The same arithmetic as [begin], with the layer's top-left at the corner of clip space.
+            val downwards = if (context.flipRenderTexture) 1f else -1f
+            val scaleX = 2f * viewport.scaleX / pixelWidth
+            val scaleY = downwards * 2f * viewport.scaleY / pixelHeight
+            batch.transform(scaleX, scaleY, -1f - bounds.left * scaleX, -downwards - bounds.top * scaleY)
+            batch.scissor(AGScissor.NIL)
+            applyBlend()
+
+            block()
+            batch.flush(BatchBreak.Layer)
+            check(state.isBalanced) { "a clip, an alpha, a blend or a tint was pushed inside a layer and never popped" }
+        } finally {
+            context.popFrameBuffer()
+            layer = previousLayer
+            state = previousState
+            batch.transform(previousTransform[0], previousTransform[1], previousTransform[2], previousTransform[3])
+            applyBlend()
+            // Worked out again rather than remembered: the clip out here is the one in force again.
+            applyScissor()
+            layers.release(target)
+        }
+        return target.picture
+    }
+
+    override fun drawLayer(layer: TextureHandle, destination: Rect, effect: ShaderEffect?) {
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layerPicture(layer)
+        if (effect != null) {
+            drawThrough(effect, picture, destination)
+            return
+        }
+        composite(picture, destination, mirrorX = false, mirrorY = false)
+    }
+
+    override fun drawLayer(layer: TextureHandle, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
+        if (state.isHidden || destination.isEmpty) return
+        composite(layerPicture(layer), destination, mirrorX, mirrorY)
+    }
+
+    /** It really mirrors one: the texture coordinates are swapped on the same quad. */
+    override val mirrorsLayers: Boolean get() = true
+
+    /** A layer put down upright, the plain way or with either axis of its picture swapped. */
+    private fun composite(picture: KorgeLayerPicture, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
+        premultiplied {
+            batch().layer(
+                picture.texture,
+                destination.left, destination.top, destination.width, destination.height,
+                u = if (mirrorX) 1f else 0f,
+                v = if (mirrorY) 1f else 0f,
+                u2 = if (mirrorX) 0f else 1f,
+                v2 = if (mirrorY) 0f else 1f,
+                colour = layerFade(),
+            )
+        }
+    }
+
+    override fun drawLayer(layer: TextureHandle, destination: Rect, degrees: Float, pivotX: Float, pivotY: Float) {
+        if (degrees == 0f) {
+            drawLayer(layer, destination)
+            return
+        }
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layerPicture(layer)
+        val centreX = destination.left + destination.width * pivotX
+        val centreY = destination.top + destination.height * pivotY
+        val radians = degrees * PI.toFloat() / 180f
+        val turnCos = cos(radians)
+        val turnSin = sin(radians)
+        // y grows downwards, so this is the ordinary rotation and a positive angle turns clockwise.
+        fun x(x: Float, y: Float) = centreX + (x - centreX) * turnCos - (y - centreY) * turnSin
+        fun y(x: Float, y: Float) = centreY + (x - centreX) * turnSin + (y - centreY) * turnCos
+        val (l, t, r, b) = listOf(destination.left, destination.top, destination.right, destination.bottom)
+        val fade = layerFade()
+        premultiplied {
+            batch().corners(
+                picture.texture,
+                x(l, t), y(l, t), 0f, 0f, fade,
+                x(r, t), y(r, t), 1f, 0f, fade,
+                x(r, b), y(r, b), 1f, 1f, fade,
+                x(l, b), y(l, b), 0f, 1f, fade,
+            )
+        }
+    }
+
+    /** It really turns one, on the same quad the upright composite uses. */
+    override val turnsLayers: Boolean get() = true
+
+    override fun drawLayerOnto(layer: TextureHandle, destination: Rect, corners: FloatArray) {
+        require(corners.size == 8) { "four corners are eight numbers, not ${corners.size}" }
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layerPicture(layer)
+        val fade = layerFade()
+        // KorGE counts y down, like the corners, so they go in as they came.
+        premultiplied {
+            batch().corners(
+                picture.texture,
+                corners[0], corners[1], 0f, 0f, fade,
+                corners[2], corners[3], 1f, 0f, fade,
+                corners[4], corners[5], 1f, 1f, fade,
+                corners[6], corners[7], 0f, 1f, fade,
+            )
+        }
+    }
+
+    /** It really does, on the same quad the upright composite uses. */
+    override val drawsLayersOnto: Boolean get() = true
+
+    override fun drawLayer(layer: TextureHandle, destination: Rect, transform: Matrix4) {
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layerPicture(layer)
+        // Each corner through the transform, left undivided: x, y and w. The GPU divides per pixel.
+        val corners = FloatArray(12)
+        transform.project(destination.left, destination.top, corners, 0)
+        transform.project(destination.right, destination.top, corners, 3)
+        transform.project(destination.right, destination.bottom, corners, 6)
+        transform.project(destination.left, destination.bottom, corners, 9)
+        premultiplied { batch().projected(picture.texture, corners, 0f, 0f, 1f, 1f, layerFade()) }
+    }
+
+    /** It really does, dividing by depth for every pixel in the same shader as everything else. */
+    override val tiltsLayers: Boolean get() = true
+
+    /**
+     * The picture as quads through [outline], with a ring one screen pixel wide round it that fades to
+     * nothing — see [featherOutline]. Same texture, same program and same batch as every other picture.
+     * The texture coordinates are held inside the picture, because the soft ring reaches past it.
+     */
+    override fun cutLayer(layer: TextureHandle, destination: Rect, outline: FloatArray) {
+        if (state.isHidden || destination.isEmpty || outline.size < 6) return
+        val texture = layerPicture(layer).texture
+        val solid = layerFade()
+        val left = destination.left
+        val top = destination.top
+        val width = destination.width
+        val height = destination.height
+        premultiplied {
+            val batch = batch()
+            featherOutline(outline, antialias) { ax, ay, aCover, bx, by, bCover, cx, cy, cCover, dx, dy, dCover ->
+                batch.corners(
+                    texture,
+                    ax, ay, ((ax - left) / width).coerceIn(0f, 1f), ((ay - top) / height).coerceIn(0f, 1f), if (aCover > 0f) solid else 0,
+                    bx, by, ((bx - left) / width).coerceIn(0f, 1f), ((by - top) / height).coerceIn(0f, 1f), if (bCover > 0f) solid else 0,
+                    cx, cy, ((cx - left) / width).coerceIn(0f, 1f), ((cy - top) / height).coerceIn(0f, 1f), if (cCover > 0f) solid else 0,
+                    dx, dy, ((dx - left) / width).coerceIn(0f, 1f), ((dy - top) / height).coerceIn(0f, 1f), if (dCover > 0f) solid else 0,
+                )
+            }
+        }
+    }
+
+    /** It really cuts one, with a soft edge, in the same batch as everything else. */
+    override val cutsLayers: Boolean get() = true
+
+    /**
+     * The same picture, through somebody's shader. The quad is worked out here, in clip space, from
+     * the batch's own transform — so it lands where the plain composite would, in a layer or out — and
+     * blends the way the canvas's blend stack says, because it does not go through the batch.
+     */
+    private fun drawThrough(effect: ShaderEffect, picture: KorgeLayerPicture, destination: Rect) {
+        val context = checkNotNull(context) { "drawLayer() outside a frame" }
+        val batch = batch()
+        // Whatever is queued was queued to land under this, so it goes first.
+        batch.flush(BatchBreak.Shader)
+        val t = batch.transform()
+        effects().draw(
+            context = context,
+            effect = effect,
+            texture = picture.texture,
+            left = destination.left * t[0] + t[2],
+            top = destination.top * t[1] + t[3],
+            right = destination.right * t[0] + t[2],
+            bottom = destination.bottom * t[1] + t[3],
+            textureWidth = picture.width.toFloat(),
+            textureHeight = picture.height.toFloat(),
+            designWidth = destination.width,
+            designHeight = destination.height,
+            alpha = state.alpha.coerceIn(0f, 1f),
+            mode = state.blend,
+            scissor = batch.currentScissor,
+        )
+    }
+
+    /**
+     * Blending and a fade for a layer: premultiplied, because that is what the layer's own drawing made,
+     * in the mode the blend stack says, so pushing Additive round a drawLayer makes a group glow.
+     */
+    private inline fun premultiplied(draw: () -> Unit) {
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
+        draw()
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
+    }
+
+    /**
+     * The opacity in all four channels, because a premultiplied colour that faded only its alpha would
+     * get brighter as it disappeared. No tint: the layer's picture already has it.
+     */
+    private fun layerFade(): Int {
+        val f = (state.alpha.coerceIn(0f, 1f) * 255f).roundToInt()
+        return (f shl 24) or (f shl 16) or (f shl 8) or f
+    }
+
+    private fun layerPicture(layer: TextureHandle): KorgeLayerPicture =
+        layer as? KorgeLayerPicture ?: error("this canvas can only draw layers it made, not ${layer::class}")
+
     // --- the escape hatch ---
 
     /**
@@ -494,6 +780,8 @@ class KorgeCanvas(private val atlas: KorgeAtlas? = null) : UiCanvas, AutoCloseab
      */
     override fun close() {
         batch?.close()
+        layers.close()
+        effects?.close()
     }
 
     /**
@@ -517,4 +805,9 @@ class KorgeCanvas(private val atlas: KorgeAtlas? = null) : UiCanvas, AutoCloseab
     private fun notOnePicture(texture: TextureHandle): Nothing =
         if (texture is NineRegions) throw IllegalArgumentException(NineRegions.NotOnePicture)
         else error("this canvas can only draw textures it made, not ${texture::class}")
+
+    private companion object {
+        /** Past this a layer is refused rather than asked of a driver that may not have it. */
+        const val MaxLayerPixels = 4096
+    }
 }

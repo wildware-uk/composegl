@@ -9,6 +9,7 @@ import korlibs.graphics.AGBuffer
 import korlibs.graphics.AGDrawType
 import korlibs.graphics.AGIndexType
 import korlibs.graphics.AGScissor
+import korlibs.graphics.AGTexture
 import korlibs.graphics.AGTextureUnitInfo
 import korlibs.graphics.AGTextureUnits
 import korlibs.graphics.AGVertexArrayObject
@@ -69,7 +70,9 @@ internal class KorgeShapeBatch(
     private val units = AGTextureUnits()
 
     private var used = 0
-    private var texture: Bitmap? = null
+
+    /** A [Bitmap] KorGE uploads for us, or an [AGTexture] that is already on the GPU — a layer's. */
+    private var texture: Any? = null
     private var smooth = false
     private var context: RenderContext? = null
     private var scissor: AGScissor = AGScissor.NIL
@@ -115,6 +118,12 @@ internal class KorgeShapeBatch(
         transform[3] = offsetY
     }
 
+    /** Scale x, scale y, offset x, offset y: where a design point lands in clip space right now. */
+    fun transform(): FloatArray = transform.copyOf()
+
+    /** The scissor box in force, so a layer can put it back. */
+    val currentScissor: AGScissor get() = scissor
+
     /** The scissor box, in framebuffer pixels y down, or [AGScissor.NIL] for none. */
     fun scissor(box: AGScissor) {
         if (box == scissor) return
@@ -137,13 +146,16 @@ internal class KorgeShapeBatch(
     fun flush(reason: BatchBreak) {
         if (used == 0) return
         val context = checkNotNull(context) { "drawing outside begin() and end()" }
-        val bitmap = checkNotNull(texture)
         val quads = used / (4 * FloatsPerVertex)
 
         vertexBuffer.upload(vertices, 0, used)
-        // KorGE uploads the bitmap here if it has never seen it, and again if its contents changed —
+        // KorGE uploads a bitmap here if it has never seen it, and again if its contents changed —
         // which is how a glyph packed during measuring reaches the GPU with no call of its own.
-        units.set(DefaultShaders.u_Tex, context.getTex(bitmap).base, AGTextureUnitInfo(linear = smooth))
+        val base = when (val source = checkNotNull(texture)) {
+            is AGTexture -> source
+            else -> context.getTex(source as Bitmap).base
+        }
+        units.set(DefaultShaders.u_Tex, base, AGTextureUnitInfo(linear = smooth))
         context.ag.draw(
             context.currentFrameBuffer,
             vertexData = vertexData,
@@ -309,7 +321,63 @@ internal class KorgeShapeBatch(
         radii[3] = bottomLeft.coerceIn(0f, most)
     }
 
-    private fun use(next: Bitmap, smooth: Boolean) {
+    // --- layers: a picture that is already a GPU texture, premultiplied, never straightened ---
+
+    /** A layer's picture on an upright quad. [colour] is ARGB, the fade in all four channels. */
+    @Suppress("LongParameterList")
+    fun layer(
+        texture: AGTexture,
+        left: Float, top: Float, width: Float, height: Float,
+        u: Float, v: Float, u2: Float, v2: Float,
+        colour: Int,
+    ) {
+        use(texture, smooth = true)
+        picture(left, top, u, v, colour, 0f)
+        picture(left + width, top, u2, v, colour, 0f)
+        picture(left + width, top + height, u2, v2, colour, 0f)
+        picture(left, top + height, u, v2, colour, 0f)
+    }
+
+    /**
+     * Four corners, each with its own texture coordinate and colour, wound 0, 1, 2 then 2, 3, 0. What
+     * a picture put on somebody else's corners, and each quad of a feathered cut, is made of.
+     */
+    @Suppress("LongParameterList")
+    fun corners(
+        texture: AGTexture,
+        ax: Float, ay: Float, au: Float, av: Float, aColour: Int,
+        bx: Float, by: Float, bu: Float, bv: Float, bColour: Int,
+        cx: Float, cy: Float, cu: Float, cv: Float, cColour: Int,
+        dx: Float, dy: Float, du: Float, dv: Float, dColour: Int,
+    ) {
+        use(texture, smooth = true)
+        picture(ax, ay, au, av, aColour, 0f)
+        picture(bx, by, bu, bv, bColour, 0f)
+        picture(cx, cy, cu, cv, cColour, 0f)
+        picture(dx, dy, du, dv, dColour, 0f)
+    }
+
+    /**
+     * A layer's picture through a transform in depth: [corners] is x, y and w for the top-left, the
+     * top-right, the bottom-right and the bottom-left, before the divide. The GPU divides per pixel,
+     * which keeps a tilted picture from bending along its diagonal, and clips a corner behind the
+     * camera away.
+     */
+    @Suppress("LongParameterList")
+    fun projected(texture: AGTexture, corners: FloatArray, u: Float, v: Float, u2: Float, v2: Float, colour: Int) {
+        use(texture, smooth = true)
+        deep(corners, 0, u, v, colour)
+        deep(corners, 3, u2, v, colour)
+        deep(corners, 6, u2, v2, colour)
+        deep(corners, 9, u, v2, colour)
+    }
+
+    private fun deep(corners: FloatArray, at: Int, u: Float, v: Float, colour: Int) {
+        val w = corners[at + 2]
+        vertex(corners[at], corners[at + 1], u, v, colour, 0, 0, 0f, 0f, 0f, 0f, noRadii, 0f, 0f, 0f, 0f, w = w)
+    }
+
+    private fun use(next: Any, smooth: Boolean) {
         if (texture !== next || this.smooth != smooth) {
             flush(BatchBreak.Texture)
             texture = next

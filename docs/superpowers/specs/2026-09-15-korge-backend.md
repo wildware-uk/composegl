@@ -52,16 +52,22 @@ Each item names the files it should touch. Items that name different files can g
    effect that draws outside the batch must follow `state.blend` itself.
 5. **Tint.** Done. `faded()` multiplies in the tint; `pushTint`/`popTint`; `tints` is true.
    Tests: `KorgeCanvasExtrasTest`, `KorgeCanvasExtrasScreenTest`.
-6. **Layers**, in a new `KorgeLayers.kt` (a pool of `AGFrameBuffer`s): `layer`, `drawLayer`, plus
-   turn, cut (`featherOutline`), mirror, onto and tilt (the `w` in `a_uiPos` is already in place).
-   Composite with `blend(…, premultiplied = true)`.
-7. **ShaderEffect programs**, in a new `KorgeEffects.kt`. It turns the toolkit's `ShaderSource` GLSL
-   into a KorGE program with `FragmentShaderRawGlSl` (check which GLSL version the context uses), and
-   is used by `drawLayer(…, effect)`.
-8. **Draw-call tracing.** Done: `KorgeDrawCallTraceTest`. When layers and effects land, add their
-   `Layer` and `Shader` reasons to its second test, as gdx's has.
-9. **Render target for in-world UI**, in a new `KorgeRenderTarget.kt`, modelled on
-   `GdxRenderTarget.kt`. It draws a screen into a texture a game can put on a sprite.
+6. **Layers.** Done. `KorgeLayers.kt` pools `AGFrameBuffer`s; `layer` pushes one on KorGE's own
+   framebuffer stack. `drawLayer` plain, turned, mirrored, onto four corners, tilted (`Matrix4`, divided
+   by depth per pixel) and `cutLayer` (feathered) all go through the batch, premultiplied, in the blend
+   stack's mode. All six capability flags are true. Tests: `KorgeLayersTest`, `KorgeLayerCanvasTest`.
+7. **ShaderEffect programs.** Done, in `KorgeEffects.kt`, with the same preamble and uniforms as
+   `GdxEffects`, cached by source. KorGE 6.0.0 has no `FragmentShaderRawGlSl`, and a KorGE `Program`
+   cannot set a uniform outside its uniform blocks, so effects draw through the context's `KmlGl` in
+   their own vertex array and put back every GL state KorGE caches. Both test contexts are
+   compatibility profiles (Mesa 4.5, NVIDIA 4.6), where the GLSL 1.10 effect source compiles as is;
+   a core-profile or GLES-only context would need a translated preamble. Non-ASCII characters are
+   blanked before compiling: KorGE's JVM binding passes a character count as the byte length.
+   The shipped `composegl-effects` shaders are tested in `KorgeShippedEffectsTest`.
+8. **Draw-call tracing.** Done: `KorgeDrawCallTraceTest`, including the `Layer` and `Shader` reasons.
+9. **Render target for in-world UI.** Done: `KorgeRenderTarget.kt` draws a screen into a framebuffer,
+   reads it back premultiplied, and resizes in place; `KorgeRenderTargetView` shows it on the stage like
+   any sprite, and `slice` hands it to `BatchBuilder2D.drawQuad`. Tests: `KorgeRenderTargetTest`.
 
 ### Fonts (`KorgeFonts.kt`, `KorgeFallback.kt`, `KorgeAtlas.kt`)
 
