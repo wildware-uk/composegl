@@ -56,6 +56,66 @@ to cap top, and `ascent` is the baseline.
 `TextAnchor.Baseline` is also how you line a label up with an icon, or two
 strings at different sizes against each other.
 
+### Styled runs: an underlined term, a struck word, a value in colour
+
+A `Text` draws one string in one style. When part of a sentence has to look
+different — a term the reader can tap for an explanation, a word struck through
+because it no longer applies, a number in another colour — say which characters:
+
+```kotlin
+val term = TextRange(4, 12)
+Text(
+    "The tincture wears off at dawn.",
+    runs = listOf(
+        TextRun(term, colour = Colour.Orange, decoration = TextDecoration.Underline, tag = "tincture"),
+    ),
+    onRunHover = { highlight(it?.tag) },
+    onRunClick = { explain(it.tag as String) },
+)
+```
+
+A `TextRun` is a range, a colour, a decoration (`Underline` or `Strike`) and a
+`tag` of your own that comes back when the pointer is over it. Runs may overlap;
+the later one wins for whichever of colour and decoration it names. A run cannot
+change the family or the size, on purpose: a run that changes the size changes
+the line height, and a paragraph whose lines are different heights is a much
+bigger problem than an underlined term.
+
+That is the whole of what you write. **The toolkit keeps ownership of measuring
+and line breaking**, so the sentence stays one node — no splitting it into one
+node per word, no hit region per word, no line-breaking rules of your own to keep
+in step with everybody else's.
+
+Two things change underneath, and both are worth knowing:
+
+- **Lines are aligned as well as the block.** Ordinary `Text` hands the string to
+  the backend and never sees where it wrapped, so `align` can only centre the
+  block and leave the lines ragged inside it. A run-styled `Text` breaks the lines
+  itself, so it centres them too.
+- **It costs more.** Text is measured per line and per run boundary rather than
+  once. Everything is cached on the text, the style and the width, so a paragraph
+  standing still measures nothing — but a plain label should stay plain.
+
+### Laying out text yourself
+
+If you are doing your own inline layout — an icon in the middle of a sentence,
+say — ask for the lines rather than approximating them:
+
+```kotlin
+val block = fonts.paragraph(story, style, maxWidth = 300f)
+
+block.lines          // where each one breaks, and its baseline
+block.words          // the stretches a line may break between
+block.boxesOf(term)  // one box per line the term touches
+block.indexAt(point) // which character is under the pointer
+```
+
+Greedy, like every interface text layout: a line takes as many words as fit. It
+breaks after spaces, after hyphens, and between ideographic characters — so
+Chinese and Japanese wrap without spaces, and a full stop or a closing bracket is
+never pushed onto a line of its own. A word longer than the whole width overflows
+rather than being chopped, and `TextLine.width` says that it did.
+
 ### Outlined text
 
 A ring round the letters, so a readout stays legible over a moving, colourful
