@@ -79,11 +79,50 @@ Modifier.border(Colour.rgb(0x2C3545), width = 1f, corner = 6f)
 Modifier.shadow(Colour.argb(0x80000000), spread = 12f, corner = 6f)
 Modifier.ninePatch(frame)          // skin art, stretched properly
 Modifier.background(Accent, Corners.top(8f))  // …with a radius per corner
-Modifier.clip(corner = 6f)         // children cannot draw outside
+Modifier.clip()                    // children cannot draw outside
+Modifier.clip(corner = 6f)         // …with rounded corners
+Modifier.clipShape(Shapes.Circle)  // …or any convex shape: a round portrait
 Modifier.alpha(0.4f)               // the subtree fades as one thing
 Modifier.scale(1.2f)               // …drawn bigger, without re-laying it out
 Modifier.effect(blur(radius = 8f)) // …through a shader
 ```
+
+**Clipping to a shape.** `clip()` is a rectangle, and free. `clipShape` cuts to any
+convex shape instead — a round portrait, a diamond minimap, a hexagon tile — from
+square art, at draw time:
+
+![Four square pictures cut to a circle, a diamond, a hexagon and a rounded rectangle](images/modifier-clip-shape.png)
+
+```kotlin
+Image(portrait, Modifier.size(64f).clipShape(Shapes.Circle))
+Box(Modifier.size(96f).clipShape(Shapes.Diamond)) { Minimap() }
+Box(Modifier.clipShape(Shapes.polygon(0.5f, 0f, 1f, 1f, 0f, 1f))) { … }  // fractions of the box
+```
+
+The shapes are `Shapes.Rectangle`, `Circle`, `Ellipse`, `Diamond`, `Hexagon`,
+`roundedRect(corner)` and `polygon(…)`. A polygon's points are fractions of the
+widget's box, so one shape fits every size; a concave one throws, because only a
+convex outline can be drawn in one piece.
+
+Chain order decides what is cut. What the chain paints *after* `clipShape` is cut
+with the content and children; what it paints *before* stays whole:
+
+```kotlin
+Modifier.border(ring, 2f).clipShape(Shapes.Circle).background(grey)  // square ring, round disc
+```
+
+What the shape cuts away cannot be clicked either — the click goes to whatever is
+drawn there instead. The same shape goes to `hitShape` to make the widget itself
+round to the pointer without cutting anything:
+
+```kotlin
+Modifier.hitShape(Shapes.Circle)
+```
+
+A shaped clip draws the widget into an offscreen picture and puts it back through the
+shape, with an edge softened over one screen pixel. That is one picture per clipped
+widget per frame: fine for portraits and a row of tiles, not for a thousand. A canvas
+that cannot make or cut pictures clips to the rectangle instead.
 
 **Scale is for arriving and for fitting.** The widget and everything under it are
 drawn into an offscreen picture at the size layout gave them, and that picture is
@@ -275,8 +314,8 @@ Give the border and the shadow the same `Corners` as the background, or they sho
 at the corner that differs. `Corners.top`, `bottom`, `left` and `right` round two;
 `Corners.all(r)` is exactly `corner = r`. A backend that cannot round corners one by
 one draws every corner at the smallest of the four and says so through
-`canvas.roundsCornersSeparately`; both backends here can. `clip(corners)` is
-accepted too, but a clip is still the node's plain rectangle on every backend.
+`canvas.roundsCornersSeparately`; both backends here can. `clip(corners)` rounds
+a clip the same way, through `clipShape` (see *Clipping to a shape* above).
 
 ![a tab rounded along its top, a speech bubble with one square corner, and a panel square on its right](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-corners.png)
 

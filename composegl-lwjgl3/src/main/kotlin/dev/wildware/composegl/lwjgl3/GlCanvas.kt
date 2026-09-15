@@ -11,6 +11,7 @@ import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.graphics.featherOutline
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextLayout
 import org.lwjgl.BufferUtils
@@ -676,6 +677,59 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
     /** It really turns one, on the same quad the upright composite uses. */
     override val turnsLayers: Boolean get() = true
+
+    /**
+     * The picture as a fan through [outline], with a ring one screen pixel wide round it that
+     * fades to nothing — see [featherOutline]. Same program and same batch as every other picture.
+     *
+     * The texture coordinates are held inside the picture: the soft ring reaches half a pixel past
+     * the outline, and a framebuffer texture left on the driver's default wrap would repeat the
+     * opposite edge into it.
+     */
+    override fun cutLayer(layer: TextureHandle, destination: Rect, outline: FloatArray) {
+        if (state.isHidden || destination.isEmpty || outline.size < 6) return
+        val picture = layer as? GlTexture
+            ?: error("this canvas can only draw layers it made, not ${layer::class}")
+
+        // Premultiplied and faded in all four channels, for the reasons drawLayer gives.
+        batch().blend(state.blend, premultiplied = true)
+        val fade = state.alpha.coerceIn(0f, 1f)
+        val grey = (fade * 255f).roundToInt().coerceIn(0, 255)
+        val solid = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey)
+        val clear = Colour.Transparent
+        val left = destination.left
+        val top = destination.top
+        val width = destination.width
+        val height = destination.height
+        val uSpan = picture.u2 - picture.u
+        val vSpan = picture.v2 - picture.v
+
+        featherOutline(outline, antialias) { ax, ay, aCover, bx, by, bCover, cx, cy, cCover, dx, dy, dCover ->
+            batch().corners(
+                picture.name,
+                ax, flip(ay),
+                picture.u + ((ax - left) / width).coerceIn(0f, 1f) * uSpan,
+                picture.v + ((ay - top) / height).coerceIn(0f, 1f) * vSpan,
+                if (aCover > 0f) solid else clear,
+                bx, flip(by),
+                picture.u + ((bx - left) / width).coerceIn(0f, 1f) * uSpan,
+                picture.v + ((by - top) / height).coerceIn(0f, 1f) * vSpan,
+                if (bCover > 0f) solid else clear,
+                cx, flip(cy),
+                picture.u + ((cx - left) / width).coerceIn(0f, 1f) * uSpan,
+                picture.v + ((cy - top) / height).coerceIn(0f, 1f) * vSpan,
+                if (cCover > 0f) solid else clear,
+                dx, flip(dy),
+                picture.u + ((dx - left) / width).coerceIn(0f, 1f) * uSpan,
+                picture.v + ((dy - top) / height).coerceIn(0f, 1f) * vSpan,
+                if (dCover > 0f) solid else clear,
+            )
+        }
+        batch().blend(state.blend, premultiplied = false)
+    }
+
+    /** It really cuts one, with a soft edge, in the same batch as everything else. */
+    override val cutsLayers: Boolean get() = true
 
     private fun bindFramebuffer(name: Int) {
         framebuffer = name

@@ -167,6 +167,11 @@ sealed interface DrawCall {
         val pivotY: Float = 0.5f,
         override val clip: Rect,
         override val alpha: Float,
+        /**
+         * The outline the picture was cut to as it was put down, x, y pairs in design coordinates,
+         * or null when it was put down whole. See [UiCanvas.cutLayer].
+         */
+        val outline: List<Float>? = null,
     ) : DrawCall
 
     /** Recorded but not run: a recording canvas has no backend object to hand the block. */
@@ -446,6 +451,13 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     /** It records the angle, so it really turns one. */
     override val turnsLayers: Boolean get() = true
+
+    override fun cutLayer(layer: TextureHandle, destination: Rect, outline: FloatArray) {
+        record(DrawCall.Layer(destination, null, clip = state.clip, alpha = state.alpha, outline = outline.toList()))
+    }
+
+    /** It records the outline, so it really cuts one. */
+    override val cutsLayers: Boolean get() = true
 
     /** A picture with nothing in it: there are no pixels here to be a handle to. */
     private class LayerHandle(bounds: Rect) : TextureHandle {

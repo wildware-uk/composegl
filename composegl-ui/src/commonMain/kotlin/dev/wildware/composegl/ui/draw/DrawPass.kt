@@ -3,6 +3,8 @@ package dev.wildware.composegl.ui.draw
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.geometry.Shape
+import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.graphics.box
 import dev.wildware.composegl.ui.graphics.boxBorder
@@ -221,6 +223,17 @@ class DrawPass(val canvas: UiCanvas) {
 
     /** Everything a node draws: what its chain put behind it, itself, its children, what is in front. */
     private fun contents(node: UiNode, resolved: ResolvedModifier, bounds: Rect) {
+        // A shape a scissor cannot be takes the other road. Asked of the canvas first: one that
+        // cannot cut a picture clips to the node's rectangle below, which is everything still
+        // there, square, rather than nothing. A node with no area takes no picture: the rectangle
+        // clip below is empty and already hides everything, for nothing.
+        val shape = resolved.clip?.shape
+        if (shape != null && shape !== Shapes.Rectangle && !bounds.isEmpty && canvas.cutsLayers &&
+            cut(node, resolved, bounds, shape)
+        ) {
+            return
+        }
+
         // Index loops rather than `forEach`, here and below: the lambda would capture `bounds`,
         // which makes a fresh object for it, per list, per node, every frame.
         val behind = resolved.behind
@@ -256,6 +269,60 @@ class DrawPass(val canvas: UiCanvas) {
 
         val inFront = resolved.inFront
         for (index in inFront.indices) paint(inFront[index], bounds)
+    }
+
+    /**
+     * [contents], with everything the clip covers drawn into a picture and put down through
+     * [shape].
+     *
+     * Chain order is kept: what the chain painted before the clip is painted plainly first, what
+     * it painted after goes into the picture with the content and the children, and a
+     * `drawInFront` from before the clip lands on top of the cut picture. So a ring round a round
+     * portrait can be square or round, depending on which side of the clip it was written.
+     *
+     * Returns false, having drawn nothing, when the canvas would not make the picture — a node
+     * bigger than a layer can be — so the caller clips to the rectangle instead. The outline is a
+     * fresh array a frame, the same kind of cost a scale or an effect pays for the frames it is on.
+     */
+    private fun cut(node: UiNode, resolved: ResolvedModifier, bounds: Rect, shape: Shape): Boolean {
+        val picture = canvas.layer(bounds) { insideClip(node, resolved, bounds) } ?: return false
+
+        val behind = resolved.behind
+        for (index in 0 until resolved.clipBehind) paint(behind[index], bounds)
+
+        val outline = shape.outline(bounds.width, bounds.height)
+        for (at in outline.indices) outline[at] += if (at % 2 == 0) bounds.left else bounds.top
+        canvas.cutLayer(picture, bounds, outline)
+
+        val inFront = resolved.inFront
+        for (index in 0 until resolved.clipInFront) paint(inFront[index], bounds)
+        return true
+    }
+
+    /** What a shaped clip covers: the later half of the chain's painting, the content, the children. */
+    private fun insideClip(node: UiNode, resolved: ResolvedModifier, bounds: Rect) {
+        val behind = resolved.behind
+        for (index in resolved.clipBehind until behind.size) paint(behind[index], bounds)
+
+        val content = node.content
+        if (content != null) {
+            val padding = resolved.padding
+            content(
+                canvas,
+                node.drawnContent.of(
+                    bounds.left + padding.left,
+                    bounds.top + padding.top,
+                    bounds.right - padding.right,
+                    bounds.bottom - padding.bottom,
+                ),
+            )
+        }
+
+        val children = node.children
+        for (index in children.indices) draw(children[index], bounds.left, bounds.top)
+
+        val inFront = resolved.inFront
+        for (index in resolved.clipInFront until inFront.size) paint(inFront[index], bounds)
     }
 
     /**

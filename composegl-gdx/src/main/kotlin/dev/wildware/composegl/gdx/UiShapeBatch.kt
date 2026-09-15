@@ -405,6 +405,28 @@ class UiShapeBatch(
     }
 
     /**
+     * Four corners of a picture, each with its own place, texture coordinate and colour.
+     *
+     * What a picture cut to a shape is drawn with — see `GdxCanvas.cutLayer`. The corners go in
+     * the order the quad is wound, 0, 1, 2 then 2, 3, 0, in coordinates already flipped. No shape
+     * maths: the colour at each corner is what softens the edge, and the texture is the picture.
+     */
+    @Suppress("LongParameterList")
+    fun corners(
+        texture: Texture,
+        ax: Float, ay: Float, au: Float, av: Float, aColour: Float,
+        bx: Float, by: Float, bu: Float, bv: Float, bColour: Float,
+        cx: Float, cy: Float, cu: Float, cv: Float, cColour: Float,
+        dx: Float, dy: Float, du: Float, dv: Float, dColour: Float,
+    ) {
+        use(texture)
+        flat(ax, ay, au, av, aColour)
+        flat(bx, by, bu, bv, bColour)
+        flat(cx, cy, cu, cv, cColour)
+        flat(dx, dy, du, dv, dColour)
+    }
+
+    /**
      * The fallback white pixel, made only if nobody supplied one.
      *
      * Held rather than created eagerly, so a batch sharing the glyph atlas never allocates a

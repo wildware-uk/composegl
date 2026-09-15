@@ -476,6 +476,35 @@ interface UiCanvas {
     val turnsLayers: Boolean get() = false
 
     /**
+     * The same picture, cut to [outline] as it is put down: nothing outside the outline lands.
+     *
+     * What `Modifier.clipShape` is composited with — a round portrait, a diamond minimap, a hexagon
+     * tile. A scissor can only ever be a rectangle, so a shape is a picture of the subtree drawn
+     * back through the shape instead.
+     *
+     * [outline] is x, y, x, y… in design coordinates, convex, in order round the edge, and at
+     * least three points. [destination] is the whole picture's rectangle; the outline says which
+     * part of it survives and normally lies inside it. A backend is expected to soften the edge
+     * over about one screen pixel, the way a rounded corner already is, so a curve does not come
+     * out as a staircase — [featherOutline] does that for any batch that draws quads.
+     *
+     * Blending and opacity are [drawLayer]'s: the picture is premultiplied.
+     *
+     * The default body puts the picture down whole, uncut, which is the nearest honest thing a
+     * canvas that cannot cut can do: everything is there, square. Ask [cutsLayers] first.
+     */
+    fun cutLayer(layer: TextureHandle, destination: Rect, outline: FloatArray) = drawLayer(layer, destination)
+
+    /**
+     * Whether [cutLayer] really cuts.
+     *
+     * False means it puts the picture down whole — the same bargain [turnsLayers] makes. The draw
+     * pass asks this before it takes a picture for a shaped clip at all, and clips to the node's
+     * rectangle instead when the answer is no.
+     */
+    val cutsLayers: Boolean get() = false
+
+    /**
      * The backend's own drawing object, for whatever this interface does not cover — a shader, a
      * particle system, a mesh, a game's existing render code.
      *
