@@ -427,7 +427,7 @@ private class TypewriterPainter(
         if (ring != null && ring.isVisible) {
             eachCharacter(line, shown, left, top, now) { glyph, x, y, tint ->
                 val faded = ring.colour.scaleAlpha(tint.alphaFraction)
-                ring.forEachStamp { dx, dy -> canvas.text(glyph, x + dx, y + dy, faded) }
+                ring.forEachStamp { dx, dy -> canvas.textRing(glyph, x + dx, y + dy, faded) }
             }
         }
         eachCharacter(line, shown, left, top, now) { glyph, x, y, tint ->
@@ -452,10 +452,16 @@ private class TypewriterPainter(
         for (offset in 0 until shown) {
             val character = line.text[offset]
             if (character == ' ') continue
+            // A character past U+FFFF — nearly every emoji — is two chars, and either half on its
+            // own is a missing-glyph box. It is drawn once, at its first half, and only once both
+            // halves have been revealed.
+            if (character.isLowSurrogate() && offset > 0 && line.text[offset - 1].isHighSurrogate()) continue
+            val pair = character.isHighSurrogate() && offset + 1 < line.text.length && line.text[offset + 1].isLowSurrogate()
+            if (pair && offset + 1 >= shown) continue
             scratch.begin(line.start + offset, character, state.ageOf(line.start + offset, now), colour)
             effect?.style(scratch)
             body(
-                line.glyph(character),
+                if (pair) line.glyph(line.text.substring(offset, offset + 2)) else line.glyph(character.toString()),
                 left + line.xOf(offset) + scratch.offsetX,
                 top + scratch.offsetY,
                 scratch.colour,
@@ -467,17 +473,22 @@ private class TypewriterPainter(
     private inner class Line(val start: Int, val text: String, val whole: TextLayout) {
 
         private val prefixes = HashMap<Int, TextLayout>()
-        private val glyphs = HashMap<Char, TextLayout>()
+        private val glyphs = HashMap<String, TextLayout>()
         private val xs = FloatArray(text.length + 1) { Unmeasured }
 
-        /** The first [count] characters, measured. Kept, because the same prefix is drawn for frames. */
-        fun prefix(count: Int): TextLayout =
-            if (count >= text.length) whole else prefixes.getOrPut(count) {
-                fonts.measure(text.substring(0, count), style)
-            }
+        /**
+         * The first [count] characters, measured. Kept, because the same prefix is drawn for frames.
+         * One shorter when [count] would end halfway through an emoji, so the frame between its two
+         * halves shows nothing new rather than a box.
+         */
+        fun prefix(count: Int): TextLayout {
+            if (count >= text.length) return whole
+            val whole = if (count > 0 && text[count - 1].isHighSurrogate()) count - 1 else count
+            return prefixes.getOrPut(whole) { fonts.measure(text.substring(0, whole), style) }
+        }
 
-        fun glyph(character: Char): TextLayout =
-            glyphs.getOrPut(character) { fonts.measure(character.toString(), style) }
+        fun glyph(character: String): TextLayout =
+            glyphs.getOrPut(character) { fonts.measure(character, style) }
 
         /** How far along the line character [offset] starts. */
         fun xOf(offset: Int): Float {

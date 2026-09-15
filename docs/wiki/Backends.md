@@ -35,6 +35,9 @@ LibGDX:
 ```kotlin
 val fonts = GdxFonts()
 fonts.registerTrueType("default", Gdx.files.internal("fonts/DejaVuSans.ttf"), listOf(13, 16, 20))
+// Optional: where characters DejaVu lacks come from. See Widgets → Characters your font does not have.
+fonts.registerTrueType("cjk", Gdx.files.internal("fonts/NotoSansCJK.ttf"), listOf(13, 16, 20), onDemand = true)
+fonts.fallBackTo(listOf("cjk"))
 
 val sprites = SpriteBatch()
 val backend = GdxBackend(fonts, sprites)          // canvas, fonts, clipboard, keyboard, cursor
@@ -197,6 +200,10 @@ The optional extras, each of which degrades rather than fails:
   which is what `Modifier.clipShape` is built on. `featherOutline` cuts the outline
   into quads with a one-pixel soft edge for any batch that draws quads. Leave it and
   shaped clips fall back to the node's rectangle; say so in `cutsLayers`.
+- `textRing(layout, x, y, colour)` — one copy stamped for a text outline's ring.
+  Leave it and it is plain `text`, which is right for letters. If you draw some
+  glyphs as pictures in their own colours (emoji), override it to leave those out,
+  or the ring is eight emoji smeared round the real one.
 - `drawCalls` — how many times you handed work to the GPU this frame. Return -1 and
   the frame budget shows nothing for it.
 - `image(texture, destination, degrees, …)` — a turned picture. Leave it and the

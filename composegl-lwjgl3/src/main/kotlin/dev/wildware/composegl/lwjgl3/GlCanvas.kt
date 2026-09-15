@@ -336,13 +336,27 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
     // --- text and pictures ---
 
-    override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) {
+    override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) =
+        drawText(layout, x, y, colour, ring = false)
+
+    /**
+     * A ring copy leaves picture glyphs out.
+     *
+     * A letter's copies are silhouettes in the ring colour; an emoji's would be eight more emoji in
+     * their own colours smeared round the real one. The picture has an edge of its own already.
+     */
+    override fun textRing(layout: TextLayout, x: Float, y: Float, colour: Colour) =
+        drawText(layout, x, y, colour, ring = true)
+
+    private fun drawText(layout: TextLayout, x: Float, y: Float, colour: Colour, ring: Boolean) {
         if (state.isHidden) return
         val measured = layout as? StbTextLayout
             ?: error("this canvas can only draw text measured by StbFonts, not ${layout::class}")
         val atlas = checkNotNull(fonts) { "this canvas was made without fonts, so it cannot draw text" }.texture()
 
         val tint = colour.inForce()
+        // A picture keeps its own colours and takes only the text's fade.
+        val pictureTint = Colour.White.scaleAlpha(colour.alphaFraction).inForce()
 
         // Indexed rather than `forEach`: that asks the list for an iterator, and an outlined run
         // comes through here nine times, so a HUD of labels would make an object per copy per run
@@ -350,6 +364,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         val placedGlyphs = measured.placed
         for (index in placedGlyphs.indices) {
             val placed = placedGlyphs[index]
+            if (ring && placed.glyph.colour) continue
             batch().textured(
                 name = atlas.name,
                 left = x + placed.left,
@@ -360,7 +375,7 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
                 v = placed.glyph.v,
                 u2 = placed.glyph.u2,
                 v2 = placed.glyph.v2,
-                tint = tint,
+                tint = if (placed.glyph.colour) pictureTint else tint,
             )
         }
     }

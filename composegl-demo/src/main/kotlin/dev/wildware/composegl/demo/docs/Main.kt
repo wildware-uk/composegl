@@ -56,6 +56,30 @@ fun main() {
     fonts.register("display", typeface, listOf(34))
     // What the toolkit's own skin asks for, for the pictures taken without the example's skin.
     fonts.register("default", typeface, listOf(12, 13, 14, 16, 18, 22, 26))
+    // Where characters DejaVu does not have come from, for the chat picture. Small cuts of Noto
+    // Sans CJK holding only what that picture says, and Noto's emoji as pictures, at every size any
+    // family above is asked for.
+    val everySize = fonts.families().flatMap { fonts.sizesOf(it) }.distinct()
+    fonts.register(
+        "cjk",
+        resource("fonts/NotoSansSC-Subset.ttf"),
+        everySize,
+        StbFonts.codepointsOf("你好！欢迎来到游戏玩家プレイヤーこんにちは"),
+    )
+    fonts.register("korean", resource("fonts/NotoSansKR-Subset.ttf"), everySize, StbFonts.codepointsOf("플레이어안녕하세요"))
+    fonts.registerPictures(
+        "emoji",
+        mapOf(
+            "👍" to resource("emoji/emoji_u1f44d.png"),
+            "🎮" to resource("emoji/emoji_u1f3ae.png"),
+            "😀" to resource("emoji/emoji_u1f600.png"),
+            "❤️" to resource("emoji/emoji_u2764.png"),
+            "🚀" to resource("emoji/emoji_u1f680.png"),
+            "🔥" to resource("emoji/emoji_u1f525.png"),
+        ),
+        everySize,
+    )
+    fonts.fallBackTo(listOf("cjk", "korean", "emoji"))
 
     val art = GlTexture.decode(resource("ui/ui.png"))
     val coins = coinSheet()

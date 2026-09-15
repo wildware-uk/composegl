@@ -139,6 +139,46 @@ fonts.registerTrueType("body", Gdx.files.internal("fonts/body.ttf"), sizes)
 
 Forget one and the error names the size it wanted and the sizes it has.
 
+### Characters your font does not have
+
+A display font rarely has Chinese, Japanese, Korean or emoji, and player names
+and chat have all of them. Name the fonts to borrow from, in order:
+
+```kotlin
+fonts.registerTrueType("body", Gdx.files.internal("fonts/body.ttf"), sizes)
+fonts.registerTrueType("cjk", Gdx.files.internal("fonts/NotoSansCJK.ttf"), sizes, onDemand = true)
+fonts.registerPictures("emoji", mapOf("😀" to smiley, "👍" to thumbsUp), sizes)
+
+fonts.fallBackTo(listOf("cjk", "emoji"))
+```
+
+![a chat panel mixing English, Chinese, Japanese, Korean and emoji in one skin](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-text-fallback.png)
+
+- **One character at a time.** `"Ace 玩家 😀"` takes its letters from `body`,
+  its Chinese from `cjk` and the smiley from `emoji`. Your font always wins for a
+  character it has; only a character nothing has comes out as a box.
+- **It sits on your font's line.** Borrowed glyphs are moved onto your font's
+  baseline, and the line height is still yours, so a label does not jump when a
+  name with 한글 in it arrives.
+- **`onDemand = true`** makes a character the first time text uses it, instead
+  of baking the whole font at startup — a CJK font has tens of thousands. The
+  atlas takes another page when one fills.
+- **Emoji are pictures.** Register one per character, from any emoji set. They
+  are drawn in their own colours whatever colour the text is, and an outline
+  rings the letters but not the pictures.
+- **Every size, again.** A fallback must be registered at every size it is asked
+  for, text scale included, or the error names the size it wanted.
+- `fallBackTo("display", listOf(...))` gives one family its own list.
+
+On the raw OpenGL backend, `StbFonts` has the same `fallBackTo` and
+`registerPictures` (from PNG bytes), but bakes everything up front: register a
+fallback with `codepoints = StbFonts.codepointsOf(textYouExpect)` rather than
+the whole font.
+
+Not yet: emoji made of several characters joined together (families, flags,
+skin tones), right-to-left scripts, and scripts that need shaping, like Arabic
+or Devanagari.
+
 ### Laying out text yourself
 
 If you are doing your own inline layout — an icon in the middle of a sentence,

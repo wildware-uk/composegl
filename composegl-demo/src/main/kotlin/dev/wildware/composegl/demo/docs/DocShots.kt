@@ -560,6 +560,20 @@ private fun MutableList<DocShot>.widgets() {
         }
     })
 
+    // A chat panel: every line mixes the skin's own font with characters it does not have, taken
+    // one at a time from the fallbacks Main registers — Chinese, Japanese, Korean and emoji.
+    add(DocShot("widget-text-fallback", 360, 190) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                Text("Ace: GG 👍", style = "label")
+                Text("玩家: 你好！欢迎来到游戏 🎮", style = "label")
+                Text("プレイヤー: こんにちは 😀", style = "label")
+                Text("플레이어: 안녕하세요 ❤️", style = "label")
+                Text("Nova: 🚀🔥", style = "label.dim")
+            }
+        }
+    })
+
     add(DocShot("widget-field", 320, 150) {
         Frame {
             Column(verticalArrangement = Arrangement.spacedBy(14f)) {
