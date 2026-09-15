@@ -1,4 +1,4 @@
-package dev.wildware.composegl.ui.debug
+package dev.wildware.composegl.debug
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.animation.Easings
 import dev.wildware.composegl.ui.animation.Tween
+import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour

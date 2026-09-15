@@ -83,6 +83,9 @@ See [[Input]].
 
 ## Debug tools
 
+After 0.5.0 the overlays and the inspector moved to their own module, `composegl-debug`: see
+[[Debugging]]. `debugBounds` stays in `composegl-ui`.
+
 - `Modifier.debugBounds()` shows where one widget landed.
 - `LayoutOverlay` draws boxes, padding and gaps across the whole screen.
 - `Inspector`: point at a widget and read its size, constraints and modifiers.

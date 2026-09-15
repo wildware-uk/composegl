@@ -282,7 +282,7 @@ to fail a strict check.
 
 To see all three on a running screen, turn on `LayoutOverlay`: blue for the laid-out
 box, yellow for where a scale draws it, pink for the ink. See
-[Testing](Testing.md#the-layout-on-the-screen).
+[Debugging](Debugging.md#the-layout-on-the-screen).
 
 A few things to know. It magnifies a picture, so past about 1.15 it is visibly
 soft and text is soft sooner — a world that wants to be crisp at three times the
@@ -369,7 +369,7 @@ Modifier.drawBehind { bounds ->
 draw call per ray — but a blend mode is a batch boundary, so push it round the whole
 group rather than per call: a dozen quads between one push and one pop cost two
 boundaries, not twenty-four. To find the nodes that do cut a batch on a running screen,
-see [where the draw calls go](Testing.md#where-the-draw-calls-go).
+see [where the draw calls go](Debugging.md#where-the-draw-calls-go).
 
 Both degrade honestly on a backend that cannot do them: the picture is drawn upright
 and the glow is drawn as ordinary paint. Ask `canvas.rotatesImages` and
@@ -395,12 +395,12 @@ often the answer. The label's digits are drawn with rectangles, so they need no
 font and look the same on every backend.
 
 For every widget on the screen at once — boxes, padding and the gaps between
-children — use `LayoutOverlay` instead ([Testing](Testing.md#the-layout-on-the-screen)).
+children — use `LayoutOverlay` instead ([Debugging](Debugging.md#the-layout-on-the-screen)).
 To point at one widget and read its size, the room it was given and its modifier
-chain, wrap the screen in `Inspector` ([Testing](Testing.md#pointing-at-one-widget)).
+chain, wrap the screen in `Inspector` ([Debugging](Debugging.md#pointing-at-one-widget)).
 To see which parts of the screen are painted over and over — stacked translucent panels,
 a scrim over everything — use `OverdrawOverlay`
-([Testing](Testing.md#how-many-times-each-pixel-is-painted)).
+([Debugging](Debugging.md#how-many-times-each-pixel-is-painted)).
 
 ![a panel, its padding, a button and a zero-width box, each outlined with its size](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-debug-bounds.png)
 

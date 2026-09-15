@@ -6,7 +6,7 @@ import androidx.compose.runtime.remember
 import dev.wildware.composegl.effects.dissolve
 import dev.wildware.composegl.effects.outline
 import dev.wildware.composegl.ui.debug.FrameBudget
-import dev.wildware.composegl.ui.debug.FrameBudgetOverlay
+import dev.wildware.composegl.debug.FrameBudgetOverlay
 import dev.wildware.composegl.game.Bar
 import dev.wildware.composegl.game.BarThreshold
 import dev.wildware.composegl.game.DamageNumberLayer

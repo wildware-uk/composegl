@@ -1,13 +1,14 @@
-package dev.wildware.composegl.ui.debug
+package dev.wildware.composegl.debug
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
-import dev.wildware.composegl.ui.layout.LinearPolicy
+import dev.wildware.composegl.ui.layout.linearOrientation
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.widget.Orientation
 import kotlin.math.max
 import kotlin.math.min
 
@@ -139,17 +140,15 @@ internal class LayoutOverlayPainter(private val show: Set<Show>) : OverlayPainte
 
     /** Four bands between the box and its content box: padding, and the room `paddingFrom` added. */
     private fun shadePadding(canvas: UiCanvas, node: UiNode, dx: Float, dy: Float) {
-        val padding = node.resolved.padding
-        val top = padding.top + node.baselineTop
-        val bottom = padding.bottom + node.baselineBottom
-        if (padding.left <= 0f && top <= 0f && padding.right <= 0f && bottom <= 0f) return
-
         val box = node.layoutBoundsInRoot
+        val inner = node.contentBoundsInRoot
+        if (inner.left <= box.left && inner.top <= box.top && inner.right >= box.right && inner.bottom >= box.bottom) return
+
         // Kept inside the box, so padding bigger than the node shades the node rather than past it.
-        val innerTop = min(box.top + top, box.bottom)
-        val innerBottom = max(box.bottom - bottom, innerTop)
-        val innerLeft = min(box.left + padding.left, box.right)
-        val innerRight = max(box.right - padding.right, innerLeft)
+        val innerTop = min(inner.top, box.bottom)
+        val innerBottom = max(inner.bottom, innerTop)
+        val innerLeft = min(inner.left, box.right)
+        val innerRight = max(inner.right, innerLeft)
         val colour = LayoutOverlayColours.Padding
         fill(canvas, box.left, box.top, box.right, innerTop, colour, dx, dy)
         fill(canvas, box.left, innerBottom, box.right, box.bottom, colour, dx, dy)
@@ -164,14 +163,14 @@ internal class LayoutOverlayPainter(private val show: Set<Show>) : OverlayPainte
      * `spacedBy` and a child pushed along by `offset` all show the gap that is really there.
      */
     private fun shadeGaps(canvas: UiCanvas, node: UiNode, dx: Float, dy: Float) {
-        val policy = node.measurePolicy as? LinearPolicy ?: return
+        val orientation = node.measurePolicy.linearOrientation ?: return
         val placed = node.children.filter { it.everMeasured }
         if (placed.size < 2) return
 
-        val horizontal = policy.horizontal
+        val horizontal = orientation == Orientation.Horizontal
         val ordered = if (horizontal) placed.sortedBy { it.x } else placed.sortedBy { it.y }
         val box = node.layoutBoundsInRoot
-        val padding = node.resolved.padding
+        val inner = node.contentBoundsInRoot
         val colour = LayoutOverlayColours.Gaps
         for (index in 1 until ordered.size) {
             val before = ordered[index - 1]
@@ -179,15 +178,15 @@ internal class LayoutOverlayPainter(private val show: Set<Show>) : OverlayPainte
             if (horizontal) {
                 fill(
                     canvas,
-                    box.left + before.x + before.width, box.top + padding.top + node.baselineTop,
-                    box.left + after.x, box.bottom - padding.bottom - node.baselineBottom,
+                    box.left + before.x + before.width, inner.top,
+                    box.left + after.x, inner.bottom,
                     colour, dx, dy,
                 )
             } else {
                 fill(
                     canvas,
-                    box.left + padding.left, box.top + before.y + before.height,
-                    box.right - padding.right, box.top + after.y,
+                    inner.left, box.top + before.y + before.height,
+                    inner.right, box.top + after.y,
                     colour, dx, dy,
                 )
             }

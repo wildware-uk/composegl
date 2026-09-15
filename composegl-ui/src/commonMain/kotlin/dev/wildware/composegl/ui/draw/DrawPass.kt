@@ -1,7 +1,9 @@
 package dev.wildware.composegl.ui.draw
 
 import dev.wildware.composegl.ui.debug.DebugBounds
+import dev.wildware.composegl.ui.debug.DebugOverlay
 import dev.wildware.composegl.ui.debug.DrawCallTrace
+import dev.wildware.composegl.ui.debug.OverdrawCanvas
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
@@ -554,7 +556,8 @@ class DrawPass(val canvas: UiCanvas) {
         // Only when something is actually drawn into it. Most nodes are a box round other boxes
         // and have no content of their own, and the inset rectangle would be made and dropped.
         val content = node.content
-        if (content != null) {
+        // A debug overlay's marks are not the screen's paint, and an overdraw count leaves them out.
+        if (content != null && !(content is DebugOverlay && canvas is OverdrawCanvas)) {
             val padding = resolved.padding
             content(
                 canvas,

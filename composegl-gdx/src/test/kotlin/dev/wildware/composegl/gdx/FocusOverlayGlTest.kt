@@ -8,7 +8,7 @@ import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.Pixmap
-import dev.wildware.composegl.ui.debug.FocusOverlay
+import dev.wildware.composegl.debug.FocusOverlay
 import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.input.GamepadButton

@@ -48,7 +48,7 @@ class UiNode(var name: String = "node") {
      * The tree this node belongs to, so a change here can be reported without walking upwards.
      * Null while the node is detached — a node the runtime has built but not yet inserted.
      */
-    internal var tree: UiTree? = null
+    var tree: UiTree? = null
         private set
 
     private val mutableChildren = mutableListOf<UiNode>()
@@ -160,8 +160,8 @@ class UiNode(var name: String = "node") {
      * it before its first move rather than after some unrelated change. Managers are built once per
      * screen, so that is one frame.
      */
-    internal var focusManager: dev.wildware.composegl.ui.focus.FocusManager? = null
-        set(value) {
+    var focusManager: dev.wildware.composegl.ui.focus.FocusManager? = null
+        internal set(value) {
             if (field === value) return
             field = value
             invalidate()
@@ -207,12 +207,13 @@ class UiNode(var name: String = "node") {
     /**
      * Whether layout has ever given this node a rectangle.
      *
-     * Only [paintedInRoot] reads it, to tell "drew nothing" from "has not been laid out yet" — two
-     * answers a caller has to be able to separate and that a zero-sized rectangle at the origin
-     * cannot. Ever rather than this frame: a node measured last frame and skipped this one is laid
-     * out, and its rectangle is the one it still has.
+     * What tells "drew nothing" from "has not been laid out yet" — two answers a caller has to be
+     * able to separate and that a zero-sized rectangle at the origin cannot. Ever rather than this
+     * frame: a node measured last frame and skipped this one is laid out, and its rectangle is the
+     * one it still has. A debug tool walking the tree leaves out a node that has never been.
      */
-    internal var everMeasured = false
+    var everMeasured = false
+        internal set
 
     /**
      * How many frames changed this node while its tree was counting: a different chain, a new
@@ -224,14 +225,18 @@ class UiNode(var name: String = "node") {
      * stand still; one that climbs every frame is the lambda written inline.
      *
      * Zero until something turns counting on — [UiTree.countChanges], a
-     * [dev.wildware.composegl.ui.debug.RedrawOverlay], a budget listing its busiest nodes — and
+     * `RedrawOverlay` from `composegl-debug`, a budget listing its busiest nodes — and
      * back to zero after [UiTree.resetChangeCounts].
      */
     var changes: Int = 0
         internal set
 
-    /** The frame time [changes] last went up at, or [NeverChanged]. What a redraw overlay flashes by. */
-    internal var changedAtNanos: Long = NeverChanged
+    /**
+     * The frame time [changes] last went up at, or [NeverChanged]. What a redraw overlay flashes by,
+     * against [Clocks.frameNanos][dev.wildware.composegl.ui.animation.Clocks.frameNanos].
+     */
+    var changedAtNanos: Long = NeverChanged
+        internal set
 
     internal fun noteChange(frameNanos: Long) {
         if (changes > 0 && changedAtNanos == frameNanos) return
@@ -356,7 +361,7 @@ class UiNode(var name: String = "node") {
      *
      * The draw pass and the pointer both ask, so what is cut off on screen is not clickable either.
      */
-    internal val isResizing: Boolean get() = sizeAnimation?.isRunning == true
+    val isResizing: Boolean get() = sizeAnimation?.isRunning == true
 
     /** The room this node was offered, and the room left inside its padding. */
     internal val outerConstraints = ConstraintsCache()
@@ -413,6 +418,25 @@ class UiNode(var name: String = "node") {
     internal var baselineTop = 0f
     internal var baselineBottom = 0f
 
+    /**
+     * Where layout put this node's content box in the root's coordinates, before any scaling: the
+     * [layoutBoundsInRoot] less its padding and the room `paddingFrom` added.
+     *
+     * The rectangle a node's [content] is handed, when nothing above it moved the canvas. A debug
+     * overlay compares the two to find where the canvas it is drawing into has its origin.
+     */
+    val contentBoundsInRoot: Rect
+        get() {
+            val box = layoutBoundsInRoot
+            val padding = resolved.padding
+            return Rect(
+                box.left + padding.left,
+                box.top + padding.top + baselineTop,
+                box.right - padding.right,
+                box.bottom - padding.bottom - baselineBottom,
+            )
+        }
+
     val size: Size get() = Size(width, height)
 
     /** Where this node sits inside its parent. */
@@ -436,10 +460,10 @@ class UiNode(var name: String = "node") {
 
     /**
      * This node's own scale as it is actually drawn: what its chain asked for, unless the canvas
-     * refused the picture. Internal, because the pointer router works the same rectangles out on
-     * its way down the tree and must use the same number.
+     * refused the picture. The pointer router works the same rectangles out on its way down the tree
+     * and uses the same number, so a tool that follows the pointer's reasoning reads it here.
      */
-    internal val drawnScale: Float get() = if (scaleApplied) resolved.scale else 1f
+    val drawnScale: Float get() = if (scaleApplied) resolved.scale else 1f
 
     /**
      * Whether the last draw pass managed the mirror a [dev.wildware.composegl.ui.modifier.mirror]
@@ -449,10 +473,10 @@ class UiNode(var name: String = "node") {
     internal var mirrorApplied: Boolean = true
 
     /** Whether this node's left and right are swapped as it is actually drawn. */
-    internal val drawnMirrorX: Boolean get() = mirrorApplied && resolved.mirrorX
+    val drawnMirrorX: Boolean get() = mirrorApplied && resolved.mirrorX
 
     /** Whether this node's top and bottom are swapped as it is actually drawn. */
-    internal val drawnMirrorY: Boolean get() = mirrorApplied && resolved.mirrorY
+    val drawnMirrorY: Boolean get() = mirrorApplied && resolved.mirrorY
 
     /**
      * Whether this node's own x runs right to left on screen: an odd number of drawn horizontal
@@ -915,7 +939,7 @@ class UiTree(val root: UiNode = UiNode("root")) {
      * Whether every node keeps [UiNode.changes]: how many frames changed it.
      *
      * Off by default. On, a change costs an increment on the node that changed, and a frame where
-     * nothing changed costs nothing at all. A [dev.wildware.composegl.ui.debug.RedrawOverlay] and a
+     * nothing changed costs nothing at all. A `RedrawOverlay` from `composegl-debug` and a
      * budget listing its busiest nodes turn counting on for as long as they need it without touching
      * this; this is for a test or a game that wants the numbers on their own.
      */
@@ -924,14 +948,19 @@ class UiTree(val root: UiNode = UiNode("root")) {
     /** Overlays and budgets currently relying on the counts. See [watchChanges]. */
     private var changeWatchers = 0
 
-    internal val counting: Boolean get() = countChanges || changeWatchers > 0
+    /** Whether changes are being counted now: [countChanges] is on, or something is [watching][watchChanges]. */
+    val counting: Boolean get() = countChanges || changeWatchers > 0
 
-    /** Counts changes until the matching [stopWatchingChanges], whatever [countChanges] says. */
-    internal fun watchChanges() {
+    /**
+     * Counts changes until the matching [stopWatchingChanges], whatever [countChanges] says. What an
+     * overlay that needs the counts calls while it is on, so two of them and a game's own setting
+     * never turn each other's counting off.
+     */
+    fun watchChanges() {
         changeWatchers++
     }
 
-    internal fun stopWatchingChanges() {
+    fun stopWatchingChanges() {
         if (changeWatchers > 0) changeWatchers--
     }
 
@@ -968,7 +997,8 @@ class UiTree(val root: UiNode = UiNode("root")) {
      * A [dev.wildware.composegl.ui.host.UiHost] hands its own over when it is made, so a long press
      * and an animation in the same interface agree about what "half a second" means.
      */
-    internal var clocks: Clocks = Clocks()
+    var clocks: Clocks = Clocks()
+        internal set
 
     /** Presses being held that are waiting on a clock. Empty on nearly every frame there has ever been. */
     private val waiting = ArrayList<FrameWaiter>(2)
@@ -996,4 +1026,4 @@ class UiTree(val root: UiNode = UiNode("root")) {
 }
 
 /** The frame time of a node that has not changed since counting began. */
-internal const val NeverChanged = Long.MIN_VALUE
+const val NeverChanged = Long.MIN_VALUE

@@ -1,4 +1,4 @@
-package dev.wildware.composegl.ui.debug
+package dev.wildware.composegl.debug
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -137,14 +137,7 @@ internal class TextMetricsPainter(private val show: Set<TextGuide>) : OverlayPai
     ) {
         val source = node.measurePolicy as? TextGuideSource ?: return
         val laid = node.layoutBoundsInRoot
-        val padding = node.resolved.padding
-        val content = Rect(
-            laid.left + padding.left,
-            laid.top + padding.top + node.baselineTop,
-            laid.right - padding.right,
-            laid.bottom - padding.bottom - node.baselineBottom,
-        )
-        val guides = source.textGuides(content) ?: return
+        val guides = source.textGuides(node.contentBoundsInRoot) ?: return
         val place = Placement(laid, node.boundsInRoot)
         for (line in guides.lines) visit(place, line, guides.metrics)
     }

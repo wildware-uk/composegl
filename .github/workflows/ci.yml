@@ -46,7 +46,7 @@ jobs:
       - name: The toolkit and the WebGL backend, in a real browser
         run: |
           export CHROME_BIN="$(command -v google-chrome || command -v chromium)"
-          ./gradlew :composegl-ui:wasmJsBrowserTest :composegl-render:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserWebGl1Test :composegl-demo-web:wasmJsBrowserTest :composegl-demo-web:wasmJsBrowserDistribution --stacktrace
+          ./gradlew :composegl-ui:wasmJsBrowserTest :composegl-debug:wasmJsBrowserTest :composegl-render:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserWebGl1Test :composegl-demo-web:wasmJsBrowserTest :composegl-demo-web:wasmJsBrowserDistribution --stacktrace
 
       - name: Keep what went wrong
         if: failure()

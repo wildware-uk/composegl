@@ -227,14 +227,14 @@ class DumpTest {
 
     @Test
     fun `numbers print the same on every platform`() {
-        assertEquals("1280", number(1280f))
-        assertEquals("12.5", number(12.5f))
-        assertEquals("0.33", number(1f / 3f))
-        assertEquals("-2.25", number(-2.25f))
-        assertEquals("0.05", number(0.05f))
-        assertEquals("0", number(-0.001f))
-        assertEquals("10000000", number(1e7f))
-        assertEquals("∞", number(Float.POSITIVE_INFINITY))
+        assertEquals("1280", describeNumber(1280f))
+        assertEquals("12.5", describeNumber(12.5f))
+        assertEquals("0.33", describeNumber(1f / 3f))
+        assertEquals("-2.25", describeNumber(-2.25f))
+        assertEquals("0.05", describeNumber(0.05f))
+        assertEquals("0", describeNumber(-0.001f))
+        assertEquals("10000000", describeNumber(1e7f))
+        assertEquals("∞", describeNumber(Float.POSITIVE_INFINITY))
     }
 
     @Test

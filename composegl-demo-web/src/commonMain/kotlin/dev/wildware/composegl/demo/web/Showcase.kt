@@ -11,12 +11,12 @@ import dev.wildware.composegl.ui.animation.fadeIn
 import dev.wildware.composegl.ui.animation.fadeOut
 import dev.wildware.composegl.ui.animation.scaleIn
 import dev.wildware.composegl.ui.animation.scaleOut
-import dev.wildware.composegl.ui.debug.FocusOverlay
+import dev.wildware.composegl.debug.FocusOverlay
 import dev.wildware.composegl.ui.debug.FrameBudget
-import dev.wildware.composegl.ui.debug.Inspector
-import dev.wildware.composegl.ui.debug.LayoutOverlay
-import dev.wildware.composegl.ui.debug.RedrawOverlay
-import dev.wildware.composegl.ui.debug.TextMetricsOverlay
+import dev.wildware.composegl.debug.Inspector
+import dev.wildware.composegl.debug.LayoutOverlay
+import dev.wildware.composegl.debug.RedrawOverlay
+import dev.wildware.composegl.debug.TextMetricsOverlay
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement

@@ -225,8 +225,8 @@ opinion about. Everything after the hit is `WorldPointer`, and is the same code 
 
 When a frame goes over budget the first question is which part of it, and `FrameBudget` answers it:
 the Compose runtime's own work, the layout pass and the draw pass, timed apart, with the worst frame
-in the window and the ratio of frames that actually redrew. `FrameBudgetOverlay` puts them in a
-corner. Press F3 in any of the three demos. Switched off it costs a boolean — the three wrappers are
+in the window and the ratio of frames that actually redrew. `FrameBudgetOverlay`, from `composegl-debug`,
+puts them in a corner. Press F3 in any of the three demos. Switched off it costs a boolean — the three wrappers are
 inline, so a disabled budget compiles down to a comparison and the call that was there anyway, which
 is what makes it a thing to leave in a shipped game rather than a thing to add and then remove.
 

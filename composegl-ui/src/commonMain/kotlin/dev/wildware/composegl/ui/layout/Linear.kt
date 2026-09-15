@@ -3,6 +3,7 @@ package dev.wildware.composegl.ui.layout
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.widget.Orientation
 
 /**
  * A row or a column: children in a line, with weights sharing out whatever is left over.
@@ -241,6 +242,15 @@ internal data class LinearPolicy(
     private val Placeable.main get() = if (horizontal) width else height
     private val Placeable.cross get() = if (horizontal) height else width
 }
+
+/**
+ * Which way a [Row] or a [Column] lines its children up, or null for any other policy.
+ *
+ * What a tool reading a laid-out tree asks to know which gaps are the arrangement's: the layout
+ * overlay in `composegl-debug` shades them.
+ */
+val MeasurePolicy.linearOrientation: Orientation?
+    get() = (this as? LinearPolicy)?.let { if (it.horizontal) Orientation.Horizontal else Orientation.Vertical }
 
 /**
  * Children in a line, from the start: left to right, or right to left in a right-to-left screen.

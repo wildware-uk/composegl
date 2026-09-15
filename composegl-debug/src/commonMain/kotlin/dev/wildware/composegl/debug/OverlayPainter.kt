@@ -1,7 +1,8 @@
-package dev.wildware.composegl.ui.debug
+package dev.wildware.composegl.debug
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
+import dev.wildware.composegl.ui.debug.DebugOverlay
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.layout.MeasurePolicy
@@ -43,23 +44,21 @@ private val NoInk: (Rect) -> Rect? = { null }
  * Every overlay walks the tree the draw pass draws, and every overlay leaves out every other
  * overlay — two on one screen have no size, and would otherwise mark each other as dots.
  */
-internal abstract class OverlayPainter : DebugOverlayPainter {
+internal abstract class OverlayPainter : DebugOverlay {
 
     /** The node this draws for. Set when it is handed over, and how it finds the tree. */
     var node: UiNode? = null
 
     override fun invoke(canvas: UiCanvas, content: Rect) {
-        // Drawn into OverdrawOverlay's count: its marks are not what the screen paints.
-        if (canvas is OverdrawCanvas) return
         val self = node ?: return
         var root = self
         while (true) root = root.parent ?: break
 
         // The canvas is in the root's coordinates everywhere except a picture a caller drew a subtree
         // into at some other origin. Where this node's own content box landed says which.
-        val box = self.layoutBoundsInRoot
-        val dx = content.left - box.left - self.resolved.padding.left
-        val dy = content.top - box.top - self.resolved.padding.top - self.baselineTop
+        val inner = self.contentBoundsInRoot
+        val dx = content.left - inner.left
+        val dy = content.top - inner.top
         paint(canvas, root, self, dx, dy)
     }
 
@@ -68,7 +67,7 @@ internal abstract class OverlayPainter : DebugOverlayPainter {
 
     /** Every node the draw pass would draw, but overlays, parents first. */
     protected fun walk(node: UiNode, self: UiNode, visit: (UiNode) -> Unit) {
-        if (node === self || node.content is DebugOverlayPainter || !node.everMeasured) return
+        if (node === self || node.content is DebugOverlay || !node.everMeasured) return
         val resolved = node.resolved
         if (resolved.alpha <= 0f || resolved.scale <= 0f) return
         visit(node)

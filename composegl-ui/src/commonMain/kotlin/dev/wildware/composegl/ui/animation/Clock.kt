@@ -63,7 +63,7 @@ class Clocks {
      * The wall time of the frame [advance] was last handed, or [NoFrameYet]. What a change is stamped
      * with, so a redraw overlay can fade a flash by how many frames ago the change was.
      */
-    internal val frameNanos: Long get() = last
+    val frameNanos: Long get() = last
 
     /** How long [clock] has been running, in nanoseconds. Zero for a clock never advanced. */
     fun time(clock: Clock): Long = elapsed[clock] ?: 0L

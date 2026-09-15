@@ -64,7 +64,7 @@ strings at different sizes against each other.
 To see where those lines are, turn on `TextMetricsOverlay`: line box, ascent, cap
 height, baseline and descent, in five colours, through every label, text field,
 typewriter, tooltip and prompt glyph. See
-[Testing](Testing.md#the-lines-inside-text-on-the-screen).
+[Debugging](Debugging.md#the-lines-inside-text-on-the-screen).
 
 ### Styled runs: an underlined term, a struck word, a value in colour
 

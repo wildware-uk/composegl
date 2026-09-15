@@ -14,6 +14,8 @@ import dev.wildware.composegl.ui.host.UiRenderer
 import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
+import dev.wildware.composegl.ui.layout.Layout
+import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.fillMaxSize
@@ -23,6 +25,7 @@ import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.testing.UiTest
 import dev.wildware.composegl.ui.testing.uiTest
 import dev.wildware.composegl.ui.widget.Button
+import dev.wildware.composegl.ui.widget.Text
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -30,8 +33,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * The frame budget's busiest nodes: the ones the most frames changed, named in its reading and listed
- * in its overlay, on a real screen a test clicks and types at.
+ * The frame budget's busiest nodes: the ones the most frames changed, named in its reading, on a real
+ * screen a test clicks and types at. The overlay that lists them is `composegl-debug`'s, tested there.
  */
 class BusiestNodesTest {
 
@@ -55,7 +58,7 @@ class BusiestNodesTest {
 
     private val remembered: UiCanvas.(Rect) -> Unit = { rect(it, Colour.Green) }
 
-    /** A button that ticks, a box handed a new lambda each tick, a box handed the same one, and the overlay. */
+    /** A button that ticks, a box handed a new lambda each tick, a box handed the same one, and the budget's numbers. */
     @Composable
     private fun Screen(budget: FrameBudget) {
         var tick by remember { mutableStateOf(0) }
@@ -66,12 +69,26 @@ class BusiestNodesTest {
                 Box(Modifier.size(40f, 40f).drawBehind { if (seen >= 0) rect(it, Colour.Red) }.testTag("inline"))
                 Box(Modifier.size(40f, 40f).drawBehind(remembered).testTag("remembered"))
             }
-            FrameBudgetOverlay(budget, Modifier.testTag("budget"))
+            BudgetNumbers(budget)
         }
     }
 
+    /**
+     * What the frame budget overlay in `composegl-debug` is to the tree: a box named
+     * [FrameBudget.OverlayName] whose numbers change whenever the budget publishes.
+     */
+    @Composable
+    private fun BudgetNumbers(budget: FrameBudget) {
+        Layout(
+            Modifier.testTag("budget"),
+            name = FrameBudget.OverlayName,
+            content = { Text("${budget.reading.frames} frames") },
+            measurePolicy = MeasurePolicy.Stack,
+        )
+    }
+
     @Test
-    fun `the node a click keeps changing is listed with its count and the overlay shows it`() {
+    fun `the node a click keeps changing is listed with its count`() {
         val budget = budget()
         val game = open(budget) { Screen(budget) }
         game.frame()
@@ -88,12 +105,6 @@ class BusiestNodesTest {
         assertEquals("#inline", inline.label)
         assertTrue(busiest.none { it.tag == "remembered" }, "the box handed the same lambda never changed: $busiest")
         assertEquals(busiest.sortedByDescending { it.changes }, busiest, "most first")
-
-        val shown = game.ui.texts("budget")
-        assertTrue("busiest" in shown, "the overlay has the heading: $shown")
-        val at = shown.indexOf("  #inline")
-        assertTrue(at >= 0, "and the node: $shown")
-        assertEquals("6", shown[at + 1], "with its count beside it")
     }
 
     @Test
@@ -136,7 +147,7 @@ class BusiestNodesTest {
         val game = open(budget) {
             Box(Modifier.fillMaxSize()) {
                 Box(Modifier.size(40f, 40f).drawBehind(remembered).testTag("still"))
-                FrameBudgetOverlay(budget, Modifier.testTag("budget"))
+                BudgetNumbers(budget)
             }
         }
 
@@ -147,7 +158,7 @@ class BusiestNodesTest {
 
         val underBudget = mutableListOf<UiNode>()
         game.ui.node("budget").forEach { underBudget += it }
-        assertTrue(underBudget.any { it.changes > 0 }, "the overlay's numbers did change and were counted")
+        assertTrue(underBudget.any { it.changes > 0 }, "the budget's numbers did change and were counted")
         assertEquals(emptyList(), budget.reading.busiest, "but are not what anybody is looking for")
     }
 

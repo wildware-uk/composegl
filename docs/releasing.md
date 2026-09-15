@@ -9,7 +9,7 @@ already set up.
 
 ## What is published
 
-Eleven modules, under `dev.wildware.composegl`:
+Thirteen modules, under `dev.wildware.composegl`:
 
 | | |
 |---|---|
@@ -17,6 +17,7 @@ Eleven modules, under `dev.wildware.composegl`:
 | `composegl-render` | the renderer every backend draws with. The same four as the toolkit |
 | `composegl-effects` | the shipped shader effects. The same four as the toolkit |
 | `composegl-game` | the game widgets. The same four as the toolkit |
+| `composegl-debug` | the inspector and the debug overlays. The same four as the toolkit |
 | `composegl-gdx` | the LibGDX backend. JVM |
 | `composegl-korge` | the KorGE backend. JVM |
 | `composegl-lwjgl3` | the raw OpenGL backend. JVM |

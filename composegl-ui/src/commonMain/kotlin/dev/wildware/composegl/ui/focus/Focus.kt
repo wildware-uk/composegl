@@ -100,6 +100,18 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
      */
     internal val movedListeners = mutableListOf<() -> Unit>()
 
+    /** Tells [listener] of every focus move from now on, until [removeMovedListener]. */
+    fun addMovedListener(listener: () -> Unit) {
+        movedListeners += listener
+    }
+
+    fun removeMovedListener(listener: () -> Unit) {
+        movedListeners -= listener
+    }
+
+    /** How many listeners [addMovedListener] has now: what a test checks a tool left none behind by. */
+    val movedListenerCount: Int get() = movedListeners.size
+
     /**
      * Where [moveFocus] would take focus from where it is now, without moving it. Null when nothing
      * is focused or there is nowhere to go.
@@ -111,10 +123,10 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     fun targetOf(direction: FocusDirection): UiNode? = peek(direction)?.node
 
     /** Where a direction goes, and whether a `focusOrder` named it rather than the geometry finding it. */
-    internal class Step(val node: UiNode, val ordered: Boolean)
+    class Step(val node: UiNode, val ordered: Boolean)
 
     /** [targetOf], saying which rule chose. The same order [moveFocus] asks in, less the node's own handlers. */
-    internal fun peek(direction: FocusDirection): Step? {
+    fun peek(direction: FocusDirection): Step? {
         val from = current ?: return null
         val focusable = focusables()
         if (focusable.isEmpty()) return null
@@ -128,7 +140,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     }
 
     /** Every node Tab and the pad can reach now, inside the innermost trap. */
-    internal fun reachable(): List<UiNode> = focusables()
+    fun reachable(): List<UiNode> = focusables()
 
     /**
      * How a direction press picks its winner, for the times a screen's geometry is the exception.

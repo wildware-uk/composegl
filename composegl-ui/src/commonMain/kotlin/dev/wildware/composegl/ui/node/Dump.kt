@@ -5,7 +5,12 @@ import dev.wildware.composegl.ui.graphics.BorderSide
 import dev.wildware.composegl.ui.graphics.BorderStyle
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Alignment
+import dev.wildware.composegl.ui.layout.BoxPolicy
 import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.FlowPolicy
+import dev.wildware.composegl.ui.layout.GridPolicy
+import dev.wildware.composegl.ui.layout.LinearPolicy
+import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.modifier.AlignElement
 import dev.wildware.composegl.ui.modifier.AlphaElement
@@ -77,13 +82,13 @@ private fun UiNode.dumpInto(out: StringBuilder, indent: String, modifiers: Boole
     testTag?.let { out.append(" #").append(it) }
 
     val box = layoutBoundsInRoot
-    out.append(' ').append(number(box.left)).append(',').append(number(box.top))
-    out.append(' ').append(number(width)).append('x').append(number(height))
+    out.append(' ').append(describeNumber(box.left)).append(',').append(describeNumber(box.top))
+    out.append(' ').append(describeNumber(width)).append('x').append(describeNumber(height))
 
     val drawn = boundsInRoot
     if (drawn != box) {
-        out.append("  drawn ").append(number(drawn.left)).append(',').append(number(drawn.top))
-        out.append(' ').append(number(drawn.width)).append('x').append(number(drawn.height))
+        out.append("  drawn ").append(describeNumber(drawn.left)).append(',').append(describeNumber(drawn.top))
+        out.append(' ').append(describeNumber(drawn.width)).append('x').append(describeNumber(drawn.height))
     }
 
     val resolved = resolved
@@ -91,8 +96,8 @@ private fun UiNode.dumpInto(out: StringBuilder, indent: String, modifiers: Boole
 
     val given = givenConstraints
     if (given != null) out.append("  given ").append(describeConstraints(given))
-    if (resolved.zIndex != 0f) out.append("  z ").append(number(resolved.zIndex))
-    if (resolved.alpha != 1f) out.append("  alpha ").append(number(resolved.alpha))
+    if (resolved.zIndex != 0f) out.append("  z ").append(describeNumber(resolved.zIndex))
+    if (resolved.alpha != 1f) out.append("  alpha ").append(describeNumber(resolved.alpha))
     if (this === focused) out.append("  focused")
     if (!everMeasured) out.append("  not laid out")
 
@@ -116,18 +121,18 @@ private fun UiNode.dumpInto(out: StringBuilder, indent: String, modifiers: Boole
  * Elements that hold a lambda say only what they are, because a lambda prints differently on every
  * platform and says nothing a person reading a dump can use.
  */
-internal fun describe(element: Modifier.Element): String = when (element) {
+fun describe(element: Modifier.Element): String = when (element) {
     is SizeElement -> when {
         element.width != null && element.height != null ->
-            "size(${number(element.width)}x${number(element.height)})"
-        element.width != null -> "width(${number(element.width)})"
-        element.height != null -> "height(${number(element.height)})"
+            "size(${describeNumber(element.width)}x${describeNumber(element.height)})"
+        element.width != null -> "width(${describeNumber(element.width)})"
+        element.height != null -> "height(${describeNumber(element.height)})"
         else -> "size()"
     }
     is FillElement -> {
         val w = element.widthFraction
         val h = element.heightFraction
-        fun share(f: Float) = if (f == 1f) "" else "(${number(f)})"
+        fun share(f: Float) = if (f == 1f) "" else "(${describeNumber(f)})"
         when {
             w != null && h != null && w == h -> "fillMaxSize${share(w)}"
             w != null && h != null -> "fillMaxWidth${share(w)} -> fillMaxHeight${share(h)}"
@@ -137,44 +142,44 @@ internal fun describe(element: Modifier.Element): String = when (element) {
         }
     }
     is AspectRatioElement ->
-        "aspectRatio(${number(element.ratio)}${if (element.matchHeightConstraintsFirst) " height first" else ""})"
+        "aspectRatio(${describeNumber(element.ratio)}${if (element.matchHeightConstraintsFirst) " height first" else ""})"
     is SizeInElement -> {
         val bounds = listOfNotNull(
-            element.minWidth?.let { "minWidth ${number(it)}" },
-            element.maxWidth?.let { "maxWidth ${number(it)}" },
-            element.minHeight?.let { "minHeight ${number(it)}" },
-            element.maxHeight?.let { "maxHeight ${number(it)}" },
+            element.minWidth?.let { "minWidth ${describeNumber(it)}" },
+            element.maxWidth?.let { "maxWidth ${describeNumber(it)}" },
+            element.minHeight?.let { "minHeight ${describeNumber(it)}" },
+            element.maxHeight?.let { "maxHeight ${describeNumber(it)}" },
         )
         "sizeIn(${bounds.joinToString(" ")})"
     }
     is DefaultMinSizeElement -> {
         val bounds = listOfNotNull(
-            element.minWidth?.let { "minWidth ${number(it)}" },
-            element.minHeight?.let { "minHeight ${number(it)}" },
+            element.minWidth?.let { "minWidth ${describeNumber(it)}" },
+            element.minHeight?.let { "minHeight ${describeNumber(it)}" },
         )
         "defaultMinSize(${bounds.joinToString(" ")})"
     }
     is PaddingElement -> "padding(${describePadding(element.padding)})"
-    is OffsetElement -> "offset(${number(element.x)},${number(element.y)})"
-    is WeightElement -> "weight(${number(element.weight)})"
+    is OffsetElement -> "offset(${describeNumber(element.x)},${describeNumber(element.y)})"
+    is WeightElement -> "weight(${describeNumber(element.weight)})"
     is AlignElement -> "align(${alignment(element.alignment)})"
     is LayoutIdElement -> "layoutId(${element.layoutId})"
     is BackgroundElement -> "background(${colour(element.colour)}${corners(element.corners)})"
     is BorderElement ->
-        "border(${colour(element.colour)} ${number(element.width)}${corners(element.corners)}${style(element.style)})"
+        "border(${colour(element.colour)} ${describeNumber(element.width)}${corners(element.corners)}${style(element.style)})"
     is BorderSidesElement -> listOfNotNull(
         element.left?.let { "left ${side(it)}" },
         element.top?.let { "top ${side(it)}" },
         element.right?.let { "right ${side(it)}" },
         element.bottom?.let { "bottom ${side(it)}" },
     ).joinToString(", ", "border(", ")")
-    is ShadowElement -> "shadow(${colour(element.colour)} spread ${number(element.spread)}${corners(element.corners)})"
+    is ShadowElement -> "shadow(${colour(element.colour)} spread ${describeNumber(element.spread)}${corners(element.corners)})"
     is ClipElement -> if (element.corners == Corners.None) "clip" else "clip(${corners(element.corners).trim()})"
-    is AlphaElement -> "alpha(${number(element.alpha)})"
+    is AlphaElement -> "alpha(${describeNumber(element.alpha)})"
     is BlendElement -> "blend(${element.mode.name})"
-    is ZIndexElement -> "zIndex(${number(element.z)})"
-    is ScaleElement -> "scale(${number(element.factor)}${origin(element.origin)})"
-    is RotateElement -> "rotate(${number(element.degrees)}${origin(element.origin)})"
+    is ZIndexElement -> "zIndex(${describeNumber(element.z)})"
+    is ScaleElement -> "scale(${describeNumber(element.factor)}${origin(element.origin)})"
+    is RotateElement -> "rotate(${describeNumber(element.degrees)}${origin(element.origin)})"
     is ClickableElement -> if (element.enabled) "clickable" else "clickable(disabled)"
     is FocusableElement -> buildString {
         append("focusable")
@@ -201,14 +206,16 @@ private val NamesByElement = mapOf(
     "SkinBackground" to "styled",
 )
 
-internal fun describeConstraints(given: Constraints) =
+/** The room a parent gave, as `0..200 x 40`: a range per axis, or one number where it is fixed. */
+fun describeConstraints(given: Constraints): String =
     axis(given.minWidth, given.maxWidth) + " x " + axis(given.minHeight, given.maxHeight)
 
-private fun axis(min: Float, max: Float) = if (min == max) number(min) else "${number(min)}..${number(max)}"
+private fun axis(min: Float, max: Float) = if (min == max) describeNumber(min) else "${describeNumber(min)}..${describeNumber(max)}"
 
-internal fun describePadding(padding: Padding) = with(padding) {
-    if (left == top && top == right && right == bottom) number(left)
-    else "${number(left)},${number(top)},${number(right)},${number(bottom)}"
+/** Padding as `8`, or left, top, right and bottom as `8,4,8,4` where the sides differ. */
+fun describePadding(padding: Padding): String = with(padding) {
+    if (left == top && top == right && right == bottom) describeNumber(left)
+    else "${describeNumber(left)},${describeNumber(top)},${describeNumber(right)},${describeNumber(bottom)}"
 }
 
 private fun colour(colour: Colour) = "#" + colour.argb.toUInt().toString(16).uppercase().padStart(8, '0')
@@ -217,19 +224,19 @@ private fun colour(colour: Colour) = "#" + colour.argb.toUInt().toString(16).upp
 private fun corners(corners: Corners) = with(corners) {
     when {
         corners == Corners.None -> ""
-        isUniform -> " corner ${number(topLeft)}"
-        else -> " corners ${number(topLeft)},${number(topRight)},${number(bottomRight)},${number(bottomLeft)}"
+        isUniform -> " corner ${describeNumber(topLeft)}"
+        else -> " corners ${describeNumber(topLeft)},${describeNumber(topRight)},${describeNumber(bottomRight)},${describeNumber(bottomLeft)}"
     }
 }
 
 /** Nothing for a solid line, which is what a border is unless it says otherwise. */
 private fun style(style: BorderStyle) = when (style) {
     BorderStyle.Solid -> ""
-    is BorderStyle.Dashed -> " dashed ${number(style.on)},${number(style.off)}"
+    is BorderStyle.Dashed -> " dashed ${describeNumber(style.on)},${describeNumber(style.off)}"
     BorderStyle.Dotted -> " dotted"
 }
 
-private fun side(side: BorderSide) = "${colour(side.colour)} ${number(side.width)}${style(side.style)}"
+private fun side(side: BorderSide) = "${colour(side.colour)} ${describeNumber(side.width)}${style(side.style)}"
 
 private fun origin(origin: Alignment) = if (origin == Alignment.Centre) "" else " about ${alignment(origin)}"
 
@@ -246,12 +253,27 @@ private fun alignment(alignment: Alignment) = when (alignment) {
 }
 
 /**
+ * What arranges a node's children, as somebody would have written it: `Row`, `Column spaced 8`.
+ * A policy a game wrote itself is called by its class name, or `custom` when it has none.
+ */
+fun describePolicy(policy: MeasurePolicy): String = when {
+    policy === MeasurePolicy.Stack -> "Stack"
+    policy === MeasurePolicy.Empty -> "Empty"
+    policy is LinearPolicy -> (if (policy.horizontal) "Row" else "Column") +
+        (policy.arrangement.spacing.takeIf { it > 0f }?.let { " spaced ${describeNumber(it)}" } ?: "")
+    policy is BoxPolicy -> "Box"
+    policy is FlowPolicy -> if (policy.horizontal) "FlowRow" else "FlowColumn"
+    policy is GridPolicy -> "Grid"
+    else -> policy::class.simpleName?.takeIf { it.isNotEmpty() && '$' !in it } ?: "custom"
+}
+
+/**
  * A float the same way on every platform: two places at most, and no `.0` on a whole number.
  *
  * `Float.toString` is not that — a JVM writes `1280.0` and `1.0E7`, and Native has its own
  * opinions — and a dump that differs between the two cannot be pasted into a test.
  */
-internal fun number(value: Float): String {
+fun describeNumber(value: Float): String {
     if (value.isNaN()) return "NaN"
     if (value.isInfinite()) return if (value > 0f) "∞" else "-∞"
     val hundredths = (value.toDouble() * 100.0).roundToLong()

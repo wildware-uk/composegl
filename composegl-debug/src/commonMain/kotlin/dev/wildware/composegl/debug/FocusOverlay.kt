@@ -1,9 +1,10 @@
-package dev.wildware.composegl.ui.debug
+package dev.wildware.composegl.debug
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import dev.wildware.composegl.ui.debug.DebugOverlay
 import dev.wildware.composegl.ui.focus.FocusDirection
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Offset
@@ -135,9 +136,6 @@ internal object FocusOverlayColours {
     val Hole = Colour.argb(0x60FF2040)
 }
 
-/** Every debug overlay's painter, so each one's walk can leave the others out. */
-internal interface DebugOverlayPainter : (UiCanvas, Rect) -> Unit
-
 /**
  * The drawing itself, handed to the overlay node as its content.
  *
@@ -147,7 +145,7 @@ internal interface DebugOverlayPainter : (UiCanvas, Rect) -> Unit
 internal class FocusOverlayPainter(
     private val show: Set<FocusShow>,
     private val focus: FocusManager?,
-) : DebugOverlayPainter {
+) : DebugOverlay {
 
     /** The node this draws for. Set when it is handed over, and how it finds the tree. */
     var node: UiNode? = null
@@ -172,19 +170,17 @@ internal class FocusOverlayPainter(
     fun listen() {
         val manager = manager()
         if (manager === listening) return
-        listening?.movedListeners?.remove(moved)
-        manager?.movedListeners?.add(moved)
+        listening?.removeMovedListener(moved)
+        manager?.addMovedListener(moved)
         listening = manager
     }
 
     fun stopListening() {
-        listening?.movedListeners?.remove(moved)
+        listening?.removeMovedListener(moved)
         listening = null
     }
 
     override fun invoke(canvas: UiCanvas, content: Rect) {
-        // Drawn into OverdrawOverlay's count: its washes and arrows are not what the screen paints.
-        if (canvas is OverdrawCanvas) return
         val self = node ?: return
         listen()
         var root = self
@@ -192,9 +188,9 @@ internal class FocusOverlayPainter(
         val manager = manager()
 
         // The same reading of where the canvas's zero is as LayoutOverlay makes.
-        val box = self.layoutBoundsInRoot
-        val dx = content.left - box.left - self.resolved.padding.left
-        val dy = content.top - box.top - self.resolved.padding.top - self.baselineTop
+        val inner = self.contentBoundsInRoot
+        val dx = content.left - inner.left
+        val dy = content.top - inner.top
 
         if (FocusShow.Traps in show) {
             walk(root, Unbounded, emptyList()) { node, _, _ ->
@@ -240,7 +236,7 @@ internal class FocusOverlayPainter(
      * cuts off what is outside the node's rectangle, and a shaped clip what is outside its shape.
      */
     private fun walk(node: UiNode, clip: Rect, shaped: List<UiNode>, visit: (UiNode, Rect, List<UiNode>) -> Unit) {
-        if (node.content is DebugOverlayPainter || !node.everMeasured) return
+        if (node.content is DebugOverlay || !node.everMeasured) return
         val resolved = node.resolved
         if (resolved.alpha <= 0f || resolved.scale <= 0f) return
         val cuts = resolved.clip != null || node.drawnScale != 1f || node.drawnMirrorX || node.drawnMirrorY ||
