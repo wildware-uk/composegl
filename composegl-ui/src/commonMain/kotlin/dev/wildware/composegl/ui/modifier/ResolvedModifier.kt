@@ -74,6 +74,11 @@ class ResolvedModifier private constructor(
     val alignment: Alignment?,
     /** The name a parent layout can find this node by; see [dev.wildware.composegl.ui.modifier.layoutId]. */
     val layoutId: Any?,
+    /**
+     * Whether this node keeps its own size inside a bigger slot, and where it sits in it. Null for
+     * almost every node there has ever been; see [dev.wildware.composegl.ui.modifier.wrapContentSize].
+     */
+    val wrap: WrapContentElement?,
     val alpha: Float,
     /**
      * How much bigger or smaller this node is drawn than it was laid out. One for almost every
@@ -212,6 +217,7 @@ class ResolvedModifier private constructor(
             var weight: Float? = null
             var alignment: Alignment? = null
             var layoutId: Any? = null
+            var wrap: WrapContentElement? = null
             var alpha = 1f
             var blend = BlendMode.SourceOver
             var zIndex = 0f
@@ -275,6 +281,11 @@ class ResolvedModifier private constructor(
                     is AlignElement -> alignment = element.alignment
                     // A choice: a node has one name, and a later one is a rename.
                     is LayoutIdElement -> layoutId = element.layoutId
+                    // Per axis, like a size: `wrapContentWidth().wrapContentHeight()` is both.
+                    is WrapContentElement -> wrap = WrapContentElement(
+                        element.horizontal ?: wrap?.horizontal,
+                        element.vertical ?: wrap?.vertical,
+                    )
                     is AlphaElement -> alpha *= element.alpha.coerceIn(0f, 1f)
                     // A choice rather than a quantity: two blend functions on one node are two
                     // answers to the same question, so the later one is the answer. Nesting still
@@ -359,7 +370,7 @@ class ResolvedModifier private constructor(
             }
 
             return ResolvedModifier(
-                size, fill, aspectRatio, sizeIn, defaultMinSize, padding, offset, weight, alignment, layoutId, alpha,
+                size, fill, aspectRatio, sizeIn, defaultMinSize, padding, offset, weight, alignment, layoutId, wrap, alpha,
                 scale, scaleOrigin,
                 rotation, rotationOrigin, mirrorX, mirrorY,
                 if (skewSlopeX == 0f) 0f else atan(skewSlopeX) / DegreesToRadians,

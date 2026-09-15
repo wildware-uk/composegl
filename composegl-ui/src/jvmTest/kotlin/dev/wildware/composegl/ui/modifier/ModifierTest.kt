@@ -3,6 +3,8 @@ package dev.wildware.composegl.ui.modifier
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Alignment
+import dev.wildware.composegl.ui.layout.HorizontalAlignment
+import dev.wildware.composegl.ui.layout.VerticalAlignment
 import dev.wildware.composegl.ui.layout.Padding
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -176,6 +178,26 @@ class ResolvedModifierTest {
 
         assertEquals(AspectRatioElement(16f / 9f, matchHeightConstraintsFirst = true), resolved.aspectRatio)
         assertNull(Modifier.size(10f).resolve().aspectRatio, "a node nobody shaped has no shape")
+    }
+
+    @Test
+    fun `wrapping content settles per axis and the later one wins`() {
+        assertNull(Modifier.size(4f).resolve().wrap)
+        assertEquals(
+            WrapContentElement(HorizontalAlignment.Centre, VerticalAlignment.Centre),
+            Modifier.wrapContentSize().resolve().wrap,
+        )
+        assertEquals(
+            WrapContentElement(HorizontalAlignment.End, VerticalAlignment.Top),
+            Modifier.wrapContentWidth(HorizontalAlignment.End)
+                .wrapContentHeight(VerticalAlignment.Top).resolve().wrap,
+        )
+        assertEquals(
+            WrapContentElement(HorizontalAlignment.Start, VerticalAlignment.Bottom),
+            Modifier.wrapContentSize(Alignment.BottomEnd)
+                .wrapContentWidth(HorizontalAlignment.Start).resolve().wrap,
+        )
+        assertEquals(Modifier.wrapContentSize(), Modifier.wrapContentSize(), "compares by value")
     }
 
     @Test

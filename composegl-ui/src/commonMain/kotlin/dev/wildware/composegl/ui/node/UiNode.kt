@@ -260,6 +260,9 @@ class UiNode(var name: String = "node") {
     internal val outerConstraints = ConstraintsCache()
     internal val contentConstraints = ConstraintsCache()
 
+    /** The parent's offer with its minimum taken away, for a node that wraps its content. */
+    internal val wrapConstraints = ConstraintsCache()
+
     /** Where this node sits on screen, and where its contents sit inside it. */
     internal val drawnBounds = RectCache()
     internal val drawnContent = RectCache()

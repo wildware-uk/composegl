@@ -1,6 +1,7 @@
 package dev.wildware.composegl.ui.layout
 
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
+import dev.wildware.composegl.ui.modifier.WrapContentElement
 import dev.wildware.composegl.ui.node.UiNode
 
 /**
@@ -72,7 +73,11 @@ class MeasurePass {
             // It may have had handlers last frame; if they come back they hear about it afresh.
             node.forgetReportedLayout()
         }
-        val outer = resolved.applyTo(incoming, node.outerConstraints)
+        val wrap = resolved.wrap
+        // A node that wraps its content is not held to the parent's minimum: it measures at its
+        // own size and is put inside the slot below, rather than being stretched across it.
+        val offered = if (wrap == null) incoming else incoming.unforced(wrap, node.wrapConstraints)
+        val outer = resolved.applyTo(offered, node.outerConstraints)
         val padding = resolved.padding
         // Not loosened. A policy has to see the minimum it was given, or a row told to be 200
         // wide arranges its children inside the 40 they happen to add up to. Loosening for
@@ -88,11 +93,34 @@ class MeasurePass {
         node.height = outer.constrainHeight(result.height + padding.vertical)
         node.everMeasured = true
 
+        // The parent is told about the slot it insisted on, so its own arithmetic is unchanged,
+        // and the node sits inside that slot where it asked to. With no wrap the two are the same.
+        val placeable = node.placeable.on(resolved)
+        if (wrap == null) {
+            placeable.slot(node.width, node.height, 0f, 0f)
+        } else {
+            val slotWidth = incoming.constrainWidth(node.width)
+            val slotHeight = incoming.constrainHeight(node.height)
+            // Worked out from the two enums directly: an Alignment made here to ask would be one
+            // more object per wrapped node, every frame.
+            val dx = when (wrap.horizontal) {
+                HorizontalAlignment.Centre -> (slotWidth - node.width) / 2f
+                HorizontalAlignment.End -> slotWidth - node.width
+                HorizontalAlignment.Start, null -> 0f
+            }
+            val dy = when (wrap.vertical) {
+                VerticalAlignment.Centre -> (slotHeight - node.height) / 2f
+                VerticalAlignment.Bottom -> slotHeight - node.height
+                VerticalAlignment.Top, null -> 0f
+            }
+            placeable.slot(slotWidth, slotHeight, dx, dy)
+        }
+
         // Children are placed now, in this node's coordinates. Where *this* node ends up is its
         // parent's business and does not change any of them.
         result.placeChildren(node.inset.at(padding.left, padding.top))
 
-        return node.placeable.on(resolved)
+        return placeable
     }
 
     /**
@@ -172,17 +200,33 @@ internal class NodePlaceable(private val node: UiNode) : Placeable() {
 
     private var resolved: ResolvedModifier = ResolvedModifier.None
 
+    private var slotWidth = 0f
+    private var slotHeight = 0f
+    private var dx = 0f
+    private var dy = 0f
+
     fun on(resolved: ResolvedModifier): NodePlaceable {
         this.resolved = resolved
         return this
     }
 
-    override val width get() = node.width
-    override val height get() = node.height
+    /**
+     * The room the parent reserves for this node, and where the node sits inside it. The node's
+     * own size, unless `wrapContentSize` let it be smaller than what it was made to take.
+     */
+    fun slot(width: Float, height: Float, dx: Float, dy: Float) {
+        slotWidth = width
+        slotHeight = height
+        this.dx = dx
+        this.dy = dy
+    }
+
+    override val width get() = slotWidth
+    override val height get() = slotHeight
 
     override fun placeAt(x: Float, y: Float) {
-        node.x = x + resolved.offset.x
-        node.y = y + resolved.offset.y
+        node.x = x + dx + resolved.offset.x
+        node.y = y + dy + resolved.offset.y
     }
 }
 
@@ -349,6 +393,18 @@ internal fun ResolvedModifier.applyTo(incoming: Constraints, cache: ConstraintsC
         return incoming
     }
     return cache.of(minWidth, maxWidth, minHeight, maxHeight)
+}
+
+/**
+ * The same room with the minimum taken off the axes [wrap] names: the parent's slot becomes
+ * the most the node may take rather than the least it must. The maximum stays, so a node that
+ * wraps still cannot escape its parent by asking to be enormous.
+ */
+internal fun Constraints.unforced(wrap: WrapContentElement, cache: ConstraintsCache): Constraints {
+    val minW = if (wrap.horizontal != null) 0f else minWidth
+    val minH = if (wrap.vertical != null) 0f else minHeight
+    if (minW == minWidth && minH == minHeight) return this
+    return cache.of(minW, maxWidth, minH, maxHeight)
 }
 
 /**

@@ -31,7 +31,10 @@ import dev.wildware.composegl.ui.modifier.onPlaced
 import dev.wildware.composegl.ui.modifier.onSizeChanged
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
+import dev.wildware.composegl.ui.modifier.height
+import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
+import dev.wildware.composegl.ui.modifier.wrapContentSize
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.ProvideFonts
@@ -191,6 +194,31 @@ class FrameCostTest {
         // The same ratchet as a still HUD: forty watchers add one small list to the pass, not an
         // object each.
         assertTrue(perFrame < 1_536, "a still frame with forty watchers allocated $perFrame bytes")
+    }
+
+    @Test
+    fun `a still screen of wrapped badges lays out without making anything per badge`() {
+        host.setContent {
+            Column {
+                repeat(40) {
+                    Row(Modifier.width(600f).height(30f)) {
+                        repeat(3) {
+                            Box(Modifier.weight(1f).wrapContentSize(Alignment.BottomEnd).size(12f)) {}
+                        }
+                    }
+                }
+            }
+        }
+        repeat(3) { frame() }
+        repeat(20) { MeasurePass().run(host.root, Constraints.atMost(1280f, 720f)) }
+
+        val before = allocatedBytes()
+        repeat(20) { MeasurePass().run(host.root, Constraints.atMost(1280f, 720f)) }
+        val perPass = (allocatedBytes() - before) / 20
+
+        // A hundred and twenty wrapped nodes. Anything made per node per pass — an Alignment to
+        // ask where it sits, a Constraints for the loosened offer — is thousands of bytes here.
+        assertTrue(perPass < 512, "a layout pass over 120 wrapped badges allocated $perPass bytes")
     }
 
     @Test
