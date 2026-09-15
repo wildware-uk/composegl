@@ -7,9 +7,11 @@ import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.input.GamepadAxis
 import dev.wildware.composegl.ui.input.GamepadEvent
+import dev.wildware.composegl.ui.input.GamepadId
 import dev.wildware.composegl.ui.input.InputSink
 import dev.wildware.composegl.ui.input.KeyEvent
 import dev.wildware.composegl.ui.input.PointerEvent
+import dev.wildware.composegl.ui.input.PointerId
 import dev.wildware.composegl.ui.input.PointerType
 import dev.wildware.composegl.ui.input.TextEvent
 import dev.wildware.composegl.ui.widget.ScrollState
@@ -46,16 +48,26 @@ class PointerParallax(centre: Offset) : ParallaxSource {
 
     private var pointer: Offset? by mutableStateOf(null)
 
+    /**
+     * The pointer that last moved. With two fingers down, lifting the other one is not a reason to
+     * send the scenery home while this one is still pressing.
+     */
+    private var following: PointerId? = null
+
     override val position: Offset
         get() = pointer?.let { it - centre } ?: Offset.Zero
 
     fun saw(event: PointerEvent) {
         when (event) {
-            is PointerEvent.Move, is PointerEvent.Press -> pointer = event.position
+            is PointerEvent.Move, is PointerEvent.Press -> {
+                pointer = event.position
+                following = event.pointerId
+            }
             // A mouse still has a place after it lets go. A finger does not.
-            is PointerEvent.Release ->
+            is PointerEvent.Release -> if (event.pointerId == following) {
                 pointer = if (event.type.hovers) event.position else null
-            is PointerEvent.Exit -> pointer = null
+            }
+            is PointerEvent.Exit -> if (event.pointerId == following) pointer = null
             // A cancel takes the gesture away, not the pointer: the mouse is still where it was.
             is PointerEvent.Cancel, is PointerEvent.Scroll -> Unit
         }
@@ -90,18 +102,27 @@ class StickParallax(
 
     private var deflection: Offset by mutableStateOf(Offset.Zero)
 
+    /** The pad that last pushed this stick, so a second pad being unplugged does not undo its lean. */
+    private var leaning: GamepadId? = null
+
     override val position: Offset
         get() = Offset(deflection.x * reach.x, deflection.y * reach.y)
 
     fun saw(event: GamepadEvent) {
         when (event) {
             is GamepadEvent.Axis -> when (event.axis) {
-                x -> deflection = Offset(event.value, deflection.y)
-                y -> deflection = Offset(deflection.x, event.value)
+                x -> {
+                    deflection = Offset(event.value, deflection.y)
+                    leaning = event.gamepadId
+                }
+                y -> {
+                    deflection = Offset(deflection.x, event.value)
+                    leaning = event.gamepadId
+                }
                 else -> Unit
             }
             // A pad pulled out mid-lean would otherwise leave the menu leaning for good.
-            is GamepadEvent.Disconnected -> deflection = Offset.Zero
+            is GamepadEvent.Disconnected -> if (event.gamepadId == leaning) deflection = Offset.Zero
             else -> Unit
         }
     }

@@ -522,6 +522,44 @@ class ParallaxTest {
     }
 
     @Test
+    fun `lifting a second finger leaves the layer with the one still pressing`() {
+        val pointer = PointerParallax(middle)
+        val (ui, sink) = openWithSink(pointer) {
+            Box(Modifier.size(100f, 100f).parallax(pointer, 1f).testTag("layer"))
+        }
+        val first = PointerId(3)
+        val second = PointerId(4)
+
+        sink.onPointer(PointerEvent.Press(second, Offset(100f, 100f), type = PointerType.Touch))
+        sink.onPointer(PointerEvent.Press(first, Offset(260f, 200f), type = PointerType.Touch))
+        sink.onPointer(PointerEvent.Release(second, Offset(100f, 100f), type = PointerType.Touch))
+        ui.settle()
+
+        assertEquals(Rect.of(60f, 0f, 100f, 100f), ui.at("layer"), "the finger still down is still leaning it")
+
+        sink.onPointer(PointerEvent.Release(first, Offset(260f, 200f), type = PointerType.Touch))
+        ui.settle()
+        assertEquals(Rect.of(0f, 0f, 100f, 100f), ui.at("layer"), "and lifting that one sends it home")
+    }
+
+    @Test
+    fun `unplugging a pad that is not leaning the layer leaves it leaning`() {
+        val stick = StickParallax(reach = 100f)
+        val (ui, sink) = openWithSink(stick = stick) {
+            Box(Modifier.size(100f, 100f).parallax(stick, 0.5f).testTag("layer"))
+        }
+        ui.stick(1f, 0f, horizontal = GamepadAxis.RightX, vertical = GamepadAxis.RightY)
+
+        sink.onGamepad(GamepadEvent.Disconnected(GamepadId(1)))
+        ui.settle()
+        assertEquals(Rect.of(50f, 0f, 100f, 100f), ui.at("layer"), "the other pad had nothing to do with it")
+
+        sink.onGamepad(GamepadEvent.Disconnected(GamepadId.First))
+        ui.settle()
+        assertEquals(Rect.of(0f, 0f, 100f, 100f), ui.at("layer"), "the pad that pushed it going does")
+    }
+
+    @Test
     fun `moving the centre moves the layers on the screen`() {
         val pointer = PointerParallax(middle)
         val ui = open(pointer) {
