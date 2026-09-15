@@ -197,6 +197,10 @@ class UiTest(
      * the player will see 100. A caret that blinks twice a second is not an animation and changes
      * one frame in thirty, so a focused field does not keep a test waiting. Something that waits
      * without changing anything — a countdown, a hold delay — is what [advanceBy] is for.
+     *
+     * A frame that only moved a `marquee` along counts as quiet too. A marquee goes round for ever,
+     * and moves nothing a test can ask about — no box, no text, no focus — so waiting for it to
+     * stop would be failing every screen that has a long name on it.
      */
     fun settle(turns: Int = 300) {
         var quiet = 0
@@ -237,7 +241,7 @@ class UiTest(
         val cursorWas = cursor.position
         cursor.frame(nanos / 1_000_000L)
         padNavigator.frame(nanos / 1_000_000L)
-        val changed = host.settle(viewport, focus, nanos = nanos)
+        val changed = host.settle(viewport, focus, nanos = nanos) && !host.onlyRedrawn
         return changed || focus.focused !== before || cursor.position != cursorWas
     }
 
@@ -409,7 +413,8 @@ class UiTest(
         if (node.hiddenByAncestor()) return emptyList()
         val canvas = RecordingCanvas(Rect.of(0f, 0f, size.width, size.height))
         val bounds = node.layoutBoundsInRoot
-        DrawPass(canvas).draw(node, bounds.left - node.x, bounds.top - node.y)
+        // A scrolling marquee is read as one title, not as the title and its copy coming round.
+        DrawPass(canvas).apply { marqueesAtRest = true }.draw(node, bounds.left - node.x, bounds.top - node.y)
         return canvas.texts()
     }
 

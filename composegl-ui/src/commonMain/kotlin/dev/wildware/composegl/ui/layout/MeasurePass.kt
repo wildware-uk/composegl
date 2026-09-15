@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.layout
 
+import dev.wildware.composegl.ui.modifier.MarqueeRun
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.modifier.WrapContentElement
 import dev.wildware.composegl.ui.node.UiNode
@@ -88,8 +89,19 @@ class MeasurePass {
         // children is each policy's own decision, and every one of them makes it.
         val content = outer.shrink(padding.horizontal, padding.vertical, node.contentConstraints)
 
+        // A marquee's contents are as wide as they like: that is how it finds out they overflow.
+        // The minimum is kept, so contents that fit still fill the slot and a centred label stays
+        // centred. One null check for every node without one.
+        val marquee = resolved.marquee
+        val run = if (marquee == null) null else node.marquee ?: MarqueeRun(node).also { node.marquee = it }
+        val offer = if (run == null) {
+            content
+        } else {
+            run.offers.of(content.minWidth, Float.POSITIVE_INFINITY, content.minHeight, content.maxHeight)
+        }
+
         val measurables = measurables(node)
-        val result = with(node.measurePolicy) { node.scope.measure(measurables, content) }
+        val result = with(node.measurePolicy) { node.scope.measure(measurables, offer) }
 
         // Children are placed now, in this node's coordinates. Where *this* node ends up is its
         // parent's business and does not change any of them.
@@ -128,6 +140,14 @@ class MeasurePass {
             )
         } else {
             node.sizeAnimation?.forget()
+        }
+
+        if (run != null && marquee != null) {
+            run.measured(marquee, (node.width - padding.horizontal).coerceAtLeast(0f), result.width)
+        } else if (node.marquee != null) {
+            // The chain lost its marquee: back to rest, and no more frames.
+            node.marquee?.stop()
+            node.marquee = null
         }
 
         // The parent is told about the slot it insisted on, so its own arithmetic is unchanged,

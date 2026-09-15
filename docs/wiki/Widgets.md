@@ -15,7 +15,11 @@ Text("HULL INTEGRITY")
 Text("148", colour = Colour.rgb(0xE5484D))
 Text(story, softWrap = true, maxLines = 3, ellipsis = "…")
 Text(name, Modifier.weight(1f), align = HorizontalAlignment.End)
+Text(trackName, Modifier.width(160f).marquee())   // too long? it scrolls round
 ```
+
+A name too long for a fixed slot can scroll instead of wrapping or ellipsising: see
+**Marquee** in [[Modifiers]].
 
 What was measured is what is drawn — the layout object the font produced at
 measure time is the object handed to the canvas, so text never wraps differently

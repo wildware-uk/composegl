@@ -149,6 +149,9 @@ that changes nothing until it ends, like a countdown or a held stick's repeat, n
 printed, instead of hanging the build. That includes an animation that never ends, like
 a pulsing low-health bar: put it on a clock and stop that clock
 (`ui.host.clocks.stop(clock)`), since an animation on a stopped clock is not waited for.
+A `marquee` is the exception that needs nothing: it only moves the drawing, never a box,
+a text or focus, so a frame where it slid along counts as quiet. `advanceBy` moves it.
+`assertText` reads a scrolling title once, even while its copy is coming round behind it.
 
 **Text is read off the drawing.** `assertText` draws the node and what is inside it into
 a recording and joins the text, one run per line. That is what a player reads: the label

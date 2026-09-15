@@ -21,6 +21,7 @@ import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.SizeAnimation
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
+import dev.wildware.composegl.ui.modifier.MarqueeRun
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.modifier.resolve
@@ -311,6 +312,12 @@ class UiNode(var name: String = "node") {
     internal val drawnBounds = RectCache()
     internal val drawnContent = RectCache()
 
+    /**
+     * How this node's `marquee` is getting on, made by layout the first time it meets one. Null for
+     * almost every node there has ever been.
+     */
+    internal var marquee: MarqueeRun? = null
+
     private var cachedResolution: ResolvedModifier? = null
 
     /** The chain read into the answers layout and drawing ask, computed once per change. */
@@ -556,17 +563,27 @@ class UiNode(var name: String = "node") {
     val paintedInRoot: Rect?
         get() {
             if (!everMeasured) return null
-            var painted = ownPaint()
+            val window = scrollingWindow()
+            var painted = ownPaint(window)
             val children = this.children
             for (index in children.indices) {
-                val under = children[index].paintedInRoot ?: continue
+                var under = children[index].paintedInRoot ?: continue
+                // A scrolling marquee cuts what is inside it to its window, however wide it is.
+                if (window != null) under = under.intersect(window).takeIf { !it.isEmpty } ?: continue
                 painted = painted?.union(under) ?: under
             }
             return painted
         }
 
+    /** The content box in the root's coordinates while a marquee here is scrolling, or null. */
+    private fun scrollingWindow(): Rect? {
+        if (marquee?.isScrolling != true) return null
+        val padding = resolved.padding
+        return inRoot(padding.left, padding.top, width - padding.right, height - padding.bottom)
+    }
+
     /** What this node itself put on the canvas, ignoring its children, in the root's coordinates. */
-    private fun ownPaint(): Rect? {
+    private fun ownPaint(window: Rect?): Rect? {
         val resolved = this.resolved
         // A paint op is painted into the node's rectangle less its own inset, which is what makes
         // `padding(8f).background(blue)` and `background(blue).padding(8f)` different pictures.
@@ -588,7 +605,11 @@ class UiNode(var name: String = "node") {
             // as having no ink function at all — that means "wherever you put me, I filled it".
             val declared = ink
             val drawn = if (declared == null) box else declared(box)
-            if (drawn != null) painted = painted.grownBy(inRoot(drawn.left, drawn.top, drawn.right, drawn.bottom))
+            if (drawn != null) {
+                var inked = inRoot(drawn.left, drawn.top, drawn.right, drawn.bottom)
+                if (window != null) inked = inked.intersect(window)
+                if (window == null || !inked.isEmpty) painted = painted.grownBy(inked)
+            }
         }
         return painted
     }
@@ -691,6 +712,9 @@ class UiNode(var name: String = "node") {
 
     private fun attachTo(tree: UiTree?) {
         if (this.tree === tree) return
+        // A marquee waits on its tree's frames, and a node leaving must stop it waiting there. It
+        // starts again from rest when layout next reaches the node, wherever that is.
+        marquee?.stop()
         this.tree = tree
         if (tree == null) {
             forgetReportedLayout()
@@ -799,6 +823,9 @@ class UiTree(val root: UiNode = UiNode("root")) {
 
     private var changed = true
 
+    /** Whether something wants drawing again without anything about the tree having changed. */
+    private var moved = false
+
     init {
         root.becomeRootOf(this)
     }
@@ -807,15 +834,32 @@ class UiTree(val root: UiNode = UiNode("root")) {
         changed = true
     }
 
+    /**
+     * Asks for the next frame to be drawn, for something that moved only in the drawing — a
+     * marquee sliding along. The tree still reports a change, because the picture is different.
+     */
+    internal fun redraw() {
+        moved = true
+    }
+
+    /**
+     * Whether the change [consumeChanges] last reported was only a redraw, with nothing composed,
+     * added, removed or re-modified. What lets a test harness stop waiting on a marquee.
+     */
+    internal var onlyRedrawn = false
+        private set
+
     /** True when the tree needs laying out and drawing again. Clears the flag. */
     fun consumeChanges(): Boolean {
-        val was = changed
+        val was = changed || moved
+        onlyRedrawn = moved && !changed
         changed = false
+        moved = false
         return was
     }
 
     /** Whether a change is pending, without clearing it. For tests and for assertions. */
-    val hasChanges: Boolean get() = changed
+    val hasChanges: Boolean get() = changed || moved
 
     /**
      * The time every timed gesture on this tree is measured in.

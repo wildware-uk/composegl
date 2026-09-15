@@ -19,6 +19,7 @@ import dev.wildware.composegl.ui.modifier.BorderSidesElement
 import dev.wildware.composegl.ui.modifier.DebugBoundsElement
 import dev.wildware.composegl.ui.modifier.DrawBehindElement
 import dev.wildware.composegl.ui.modifier.DrawInFrontElement
+import dev.wildware.composegl.ui.modifier.MarqueeRun
 import dev.wildware.composegl.ui.modifier.NinePatchElement
 import dev.wildware.composegl.ui.modifier.SkinBackgroundElement
 import dev.wildware.composegl.ui.modifier.PaintOp
@@ -50,6 +51,12 @@ private const val DegreesToRadians = (PI / 180.0).toFloat()
  * one.
  */
 class DrawPass(val canvas: UiCanvas) {
+
+    /**
+     * Draws every marquee where layout put it, once, as if it were resting. For reading the words
+     * off a drawing: a title with its copy coming round behind it is still one title.
+     */
+    internal var marqueesAtRest = false
 
     /** Draws [node] and everything under it. [origin] is where its parent's content box starts. */
     fun draw(node: UiNode, origin: Offset = Offset.Zero) = draw(node, origin.x, origin.y)
@@ -395,28 +402,9 @@ class DrawPass(val canvas: UiCanvas) {
         val clipped = resolved.clip != null || node.isResizing
         if (clipped) canvas.pushClip(bounds)
 
-        // Only when something is actually drawn into it. Most nodes are a box round other boxes
-        // and have no content of their own, and the inset rectangle would be made and dropped.
-        val content = node.content
-        if (content != null) {
-            val padding = resolved.padding
-            content(
-                canvas,
-                node.drawnContent.of(
-                    bounds.left + padding.left,
-                    // `paddingFrom` is padding decided by layout rather than written down, so the
-                    // content box moves in by it the same way.
-                    bounds.top + padding.top + node.baselineTop,
-                    bounds.right - padding.right,
-                    bounds.bottom - padding.bottom - node.baselineBottom,
-                ),
-            )
-        }
-
         // By zIndex, not by source order, and the same list the pointer walks backwards — so what
         // is drawn on top is what gets the click. Nearly always `children` itself.
-        val children = node.drawOrder
-        for (index in children.indices) draw(children[index], bounds.left, bounds.top)
+        inside(node, resolved, bounds, node.drawOrder)
 
         if (clipped) canvas.popClip()
 
@@ -457,27 +445,63 @@ class DrawPass(val canvas: UiCanvas) {
         val behind = resolved.behind
         for (index in resolved.clipBehind until behind.size) paint(behind[index], bounds)
 
+        // By zIndex, as in the plain path: the pointer does not know the children went into a picture.
+        inside(node, resolved, bounds, node.drawOrder)
+
+        val inFront = resolved.inFront
+        for (index in resolved.clipInFront until inFront.size) paint(inFront[index], bounds)
+    }
+
+    /**
+     * A node's own content and its [children], where a marquee on it has scrolled them to.
+     *
+     * Almost every node has no marquee, or one whose contents fit, and is drawn exactly where layout
+     * put it. A scrolling one is cut to its content box and drawn [MarqueeRun.offset] to the left,
+     * and again one trip further right while that copy has come far enough in to be seen — so both
+     * ends of the loop are on the screen at the moment it comes round.
+     */
+    private fun inside(node: UiNode, resolved: ResolvedModifier, bounds: Rect, children: List<UiNode>) {
+        val run = node.marquee
+        if (run == null || !run.isScrolling || marqueesAtRest) {
+            shifted(node, resolved, bounds, children, 0f)
+            return
+        }
+        val padding = resolved.padding
+        canvas.pushClip(
+            run.window.of(
+                bounds.left + padding.left,
+                bounds.top + padding.top,
+                bounds.right - padding.right,
+                bounds.bottom - padding.bottom,
+            ),
+        )
+        val offset = run.offset
+        if (offset < run.content) shifted(node, resolved, bounds, children, -offset)
+        val behind = run.distance - offset
+        if (behind < run.visible) shifted(node, resolved, bounds, children, behind)
+        canvas.popClip()
+    }
+
+    /** The content, then the children, [dx] to the right of where layout put them. */
+    private fun shifted(node: UiNode, resolved: ResolvedModifier, bounds: Rect, children: List<UiNode>, dx: Float) {
+        // Only when something is actually drawn into it. Most nodes are a box round other boxes
+        // and have no content of their own, and the inset rectangle would be made and dropped.
         val content = node.content
         if (content != null) {
             val padding = resolved.padding
             content(
                 canvas,
                 node.drawnContent.of(
-                    bounds.left + padding.left,
-                    // The room `paddingFrom` added, the same as the plain path.
+                    bounds.left + padding.left + dx,
+                    // `paddingFrom` is padding decided by layout rather than written down, so the
+                    // content box moves in by it the same way.
                     bounds.top + padding.top + node.baselineTop,
-                    bounds.right - padding.right,
+                    bounds.right - padding.right + dx,
                     bounds.bottom - padding.bottom - node.baselineBottom,
                 ),
             )
         }
-
-        // By zIndex, as in the plain path: the pointer does not know the children went into a picture.
-        val children = node.drawOrder
-        for (index in children.indices) draw(children[index], bounds.left, bounds.top)
-
-        val inFront = resolved.inFront
-        for (index in resolved.clipInFront until inFront.size) paint(inFront[index], bounds)
+        for (index in children.indices) draw(children[index], bounds.left + dx, bounds.top)
     }
 
     /**

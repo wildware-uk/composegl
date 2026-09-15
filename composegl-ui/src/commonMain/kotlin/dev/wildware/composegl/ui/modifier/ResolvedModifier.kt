@@ -222,6 +222,11 @@ class ResolvedModifier private constructor(
      * placement is measured from. See [dev.wildware.composegl.ui.modifier.placementFrame].
      */
     internal val placementFrame: PlacementFrame?,
+    /**
+     * Whether this node's contents scroll sideways when they overflow, and how. Null for almost
+     * every node there has ever been; see [dev.wildware.composegl.ui.modifier.marquee].
+     */
+    val marquee: MarqueeElement? = null,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
@@ -305,6 +310,7 @@ class ResolvedModifier private constructor(
             var contentSize: AnimateContentSizeElement? = null
             var placement: PlacementAnimation? = null
             var placementFrame: PlacementFrame? = null
+            var marquee: MarqueeElement? = null
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -438,6 +444,8 @@ class ResolvedModifier private constructor(
                     // A choice: one node plays one slide, and a later one is a replacement.
                     is AnimatePlacementElement -> placement = element.animation
                     is PlacementFrameElement -> placementFrame = element.frame
+                    // A choice: a node scrolls one way at one speed, so the later one is it.
+                    is MarqueeElement -> marquee = element
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
             }
@@ -457,7 +465,7 @@ class ResolvedModifier private constructor(
                 focusable, pointerFocus, focusRequester, focusOrder, focusDirections.toList(),
                 reveals.toList(), focusWithin.toList(), focusTrap, testTag,
                 sizeChanged.toList(), placed.toList(), contentSize,
-                placement, placementFrame,
+                placement, placementFrame, marquee,
             )
         }
     }
