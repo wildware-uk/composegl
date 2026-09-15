@@ -1,5 +1,7 @@
 package dev.wildware.composegl.lwjgl3
 
+import dev.wildware.composegl.ui.debug.DrawCallTrace
+import dev.wildware.composegl.ui.debug.BatchBreak
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import org.lwjgl.BufferUtils
@@ -52,6 +54,9 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
     var renderCalls = 0
         private set
 
+    /** Told why, each time [renderCalls] goes up. Null tells nobody. */
+    var trace: DrawCallTrace? = null
+
     init {
         val indices = BufferUtils.createShortBuffer(maxQuads * 6)
         for (quad in 0 until maxQuads) {
@@ -81,7 +86,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
 
     fun end() {
         check(drawing) { "end() without a begin()" }
-        flush()
+        flush(BatchBreak.End)
         drawing = false
     }
 
@@ -93,7 +98,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
      */
     fun projection(projection: FloatArray) {
         require(projection.size == 16) { "a projection is sixteen floats, not ${projection.size}" }
-        flush()
+        flush(BatchBreak.Layer)
         projection.copyInto(this.projection)
     }
 
@@ -114,9 +119,11 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
      * @param premultiplied true for a layer being drawn back onto the screen, since that is what
      *   the blending above produced when the layer was drawn. Blending it the ordinary way would
      *   multiply by the opacity a second time and edge every soft thing in black.
+     * @param reason what the flush this makes is blamed on: a layer's composite switching to
+     *   premultiplied is the layer's cost, not a blend anybody asked for.
      */
-    fun blend(mode: BlendMode, premultiplied: Boolean) {
-        flush()
+    fun blend(mode: BlendMode, premultiplied: Boolean, reason: BatchBreak = BatchBreak.Blend) {
+        flush(reason)
         setBlend(mode, premultiplied)
     }
 
@@ -141,7 +148,11 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         )
     }
 
-    fun flush() {
+    /**
+     * Hands what is queued to the GPU, blaming [reason] on the trace — but only when something was
+     * queued, since an empty flush costs no draw call.
+     */
+    fun flush(reason: BatchBreak) {
         if (used == 0) return
         val quads = used / (4 * FloatsPerVertex)
 
@@ -176,6 +187,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0)
 
         renderCalls++
+        trace?.record(reason)
         used = 0
     }
 
@@ -619,10 +631,10 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
 
     private fun use(next: Int) {
         if (texture != next) {
-            flush()
+            flush(BatchBreak.Texture)
             texture = next
         } else if (used + 4 * FloatsPerVertex > vertices.size) {
-            flush()
+            flush(BatchBreak.Full)
         }
     }
 

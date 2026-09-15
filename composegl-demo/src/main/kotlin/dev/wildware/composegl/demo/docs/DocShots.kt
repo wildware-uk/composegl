@@ -1,5 +1,10 @@
 package dev.wildware.composegl.demo.docs
 
+import dev.wildware.composegl.ui.modifier.testTag
+import dev.wildware.composegl.ui.modifier.blend
+import dev.wildware.composegl.ui.graphics.BlendMode
+import dev.wildware.composegl.ui.debug.FrameBudgetOverlay
+import dev.wildware.composegl.ui.debug.FrameBudget
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -1456,6 +1461,34 @@ private fun MutableList<DocShot>.modifiers() {
             }
             Box(Modifier.offset(210f, 0f).size(210f, 190f).background(Colour.argb(0x60000000)))
             OverdrawOverlay(enabled = true)
+        }
+    })
+
+    // A hotbar with one slot glowing and a clipped panel under it: two nodes that each cost the
+    // batch two cuts, and the overlay beside them saying so. Traced by the budget the shot renders
+    // with, published every frame so the picture is of the frame it was taken on.
+    val culpritBudget = FrameBudget(publishEveryMillis = 0L)
+    add(DocShot("frame-budget-culprits", 560, 250, budget = culpritBudget) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(24f), verticalAlignment = VerticalAlignment.Centre) {
+                Column(verticalArrangement = Arrangement.spacedBy(12f)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
+                        repeat(4) { slot ->
+                            Box(
+                                Modifier.size(44f, 44f)
+                                    .background(Ink, corner = 6f)
+                                    .padding(8f)
+                                    .then(if (slot == 1) Modifier.blend(BlendMode.Additive).testTag("glow") else Modifier)
+                                    .background(if (slot == 1) Accent else Colour.rgb(0x3A4458), corner = 4f),
+                            )
+                        }
+                    }
+                    Box(Modifier.size(200f, 60f).background(Ink, corner = 6f).clip().testTag("quests").padding(10f)) {
+                        Text("Find the lost map")
+                    }
+                }
+                FrameBudgetOverlay(culpritBudget)
+            }
         }
     })
 

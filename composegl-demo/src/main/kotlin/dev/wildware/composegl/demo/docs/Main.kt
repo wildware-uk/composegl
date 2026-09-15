@@ -6,6 +6,7 @@ import dev.wildware.composegl.lwjgl3.GlCanvas
 import dev.wildware.composegl.lwjgl3.GlTexture
 import dev.wildware.composegl.lwjgl3.GlfwWindow
 import dev.wildware.composegl.lwjgl3.StbFonts
+import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.graphics.ArtAtlas
 import dev.wildware.composegl.ui.geometry.Size
@@ -238,7 +239,7 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
         // Focus is drawn only where a pad moved it: the split-screen picture is about whose focus
         // is where, and every other picture shows its widgets the way they look before anyone
         // reaches for a pad.
-        UiRenderer(hosts[player], canvas).also { if (shot.players > 1) it.focus = focuses[player] }
+        UiRenderer(hosts[player], canvas, shot.budget?.takeIf { player == 0 } ?: FrameBudget()).also { if (shot.players > 1) it.focus = focuses[player] }
     }
     // After layout, because a pointer lands on whatever is under it and nothing is anywhere until
     // the tree has been measured.

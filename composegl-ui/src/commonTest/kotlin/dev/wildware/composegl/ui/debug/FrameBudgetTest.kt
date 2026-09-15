@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.debug
 
+import dev.wildware.composegl.ui.node.UiNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -169,6 +170,43 @@ class FrameBudgetTest {
         budget.endFrame(drawCalls = 2, redrew = false)
         assertEquals(1L, budget.reading.frames)
         assertEquals(0L, budget.reading.redraws)
+    }
+
+    @Test
+    fun `the frame's culprits are published beside its draw calls and then forgotten`() {
+        val budget = budget()
+        budget.trace.node = UiNode("hotbar")
+        budget.trace.record(BatchBreak.Blend)
+        budget.trace.record(BatchBreak.Blend)
+        budget.trace.node = null
+        budget.trace.record(BatchBreak.End)
+        budget.endFrame(drawCalls = 3)
+
+        val culprits = budget.reading.culprits
+        assertEquals(listOf("hotbar" to BatchBreak.Blend), culprits.map { it.name to it.reason })
+        assertEquals(2, culprits.single().calls)
+        assertEquals(0, budget.trace.total, "the next frame starts with nothing blamed")
+
+        budget.endFrame(drawCalls = 1)
+        assertTrue(budget.reading.culprits.isEmpty(), "a frame that cut nothing blames nothing")
+    }
+
+    @Test
+    fun `a frame that is not published still forgets what it traced`() {
+        val budget = FrameBudget(window = 4, publishEveryMillis = 60_000L)
+        budget.endFrame()
+        budget.trace.record(BatchBreak.Clip)
+        budget.endFrame()
+
+        assertEquals(0, budget.trace.total, "otherwise a quiet minute adds up to one enormous frame")
+    }
+
+    @Test
+    fun `reset forgets what was traced`() {
+        val budget = budget()
+        budget.trace.record(BatchBreak.Texture)
+        budget.reset()
+        assertEquals(0, budget.trace.total)
     }
 
     private var sink = 0

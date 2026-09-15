@@ -1,5 +1,7 @@
 package dev.wildware.composegl.webgl
 
+import dev.wildware.composegl.ui.debug.BatchBreak
+import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import org.khronos.webgl.Float32Array
@@ -50,6 +52,9 @@ class WebGlShapeBatch(private val gl: GL, private val maxQuads: Int = 2048) : Au
     var renderCalls = 0
         private set
 
+    /** Told why, each time [renderCalls] goes up. Null tells nobody. */
+    var trace: DrawCallTrace? = null
+
     init {
         val indices = Uint16Array(maxQuads * 6)
         for (quad in 0 until maxQuads) {
@@ -79,14 +84,14 @@ class WebGlShapeBatch(private val gl: GL, private val maxQuads: Int = 2048) : Au
 
     fun end() {
         check(drawing) { "end() without a begin()" }
-        flush()
+        flush(BatchBreak.End)
         drawing = false
     }
 
     /** Points the following quads somewhere else — an offscreen layer, and back. Flushes first. */
     fun projection(projection: FloatArray) {
         require(projection.size == 16) { "a projection is sixteen floats, not ${projection.size}" }
-        flush()
+        flush(BatchBreak.Layer)
         setProjection(projection)
     }
 
@@ -102,9 +107,11 @@ class WebGlShapeBatch(private val gl: GL, private val maxQuads: Int = 2048) : Au
      *
      * @param premultiplied true for a layer being drawn back, since its colours already carry their
      *   own opacity.
+     * @param reason what the flush this makes is blamed on: a layer's composite switching to
+     *   premultiplied is the layer's cost, not a blend anybody asked for.
      */
-    fun blend(mode: BlendMode, premultiplied: Boolean) {
-        flush()
+    fun blend(mode: BlendMode, premultiplied: Boolean, reason: BatchBreak = BatchBreak.Blend) {
+        flush(reason)
         setBlend(mode, premultiplied)
     }
 
@@ -115,7 +122,11 @@ class WebGlShapeBatch(private val gl: GL, private val maxQuads: Int = 2048) : Au
         gl.blendFuncSeparate(if (premultiplied) GL.ONE else GL.SRC_ALPHA, destination, GL.ONE, destination)
     }
 
-    fun flush() {
+    /**
+     * Hands what is queued to the GPU, blaming [reason] on the trace — but only when something was
+     * queued, since an empty flush costs no draw call.
+     */
+    fun flush(reason: BatchBreak) {
         if (used == 0) return
         val quads = used / (4 * FloatsPerVertex)
 
@@ -141,6 +152,7 @@ class WebGlShapeBatch(private val gl: GL, private val maxQuads: Int = 2048) : Au
         gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, null)
 
         renderCalls++
+        trace?.record(reason)
         used = 0
     }
 
@@ -408,10 +420,10 @@ class WebGlShapeBatch(private val gl: GL, private val maxQuads: Int = 2048) : Au
 
     private fun use(next: WebGLTexture) {
         if (texture != next) {
-            flush()
+            flush(BatchBreak.Texture)
             texture = next
         } else if (used + 4 * FloatsPerVertex > maxQuads * 4 * FloatsPerVertex) {
-            flush()
+            flush(BatchBreak.Full)
         }
     }
 

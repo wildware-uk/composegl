@@ -90,6 +90,16 @@ class FrameBudget(
     private var frames = 0L
     private var redraws = 0L
 
+    /**
+     * Who cut this frame's batch, and why.
+     *
+     * A [dev.wildware.composegl.ui.host.UiRenderer] hands it to the canvas and the draw pass while
+     * the budget [isOn], so a game drawing through one has it already. A game writing the frame out
+     * itself sets `DrawPass.trace` and calls `canvas.traceDrawCalls` with it. Cleared by [endFrame],
+     * which publishes what it holds as [FrameReading.culprits].
+     */
+    val trace = DrawCallTrace()
+
     /** One mark, made once: the difference between two readings off it is monotonic elapsed time. */
     private val started = TimeSource.Monotonic.markNow()
     private var lastPublishNanos = -publishEveryMillis * 1_000_000
@@ -173,7 +183,10 @@ class FrameBudget(
         if (redrew) redraws++
 
         val stamp = started.elapsedNow().inWholeNanoseconds
-        if (stamp - lastPublishNanos < publishEveryMillis * 1_000_000) return
+        if (stamp - lastPublishNanos < publishEveryMillis * 1_000_000) {
+            trace.clear()
+            return
+        }
         lastPublishNanos = stamp
         reading = FrameReading(
             recomposeMillis = mean(recomposeNanos),
@@ -184,7 +197,11 @@ class FrameBudget(
             drawCalls = drawCalls,
             redraws = redraws,
             frames = frames,
+            // The published frame's, like the draw call count beside it: a still screen cuts its
+            // batch in the same places every frame, and an average of whole calls reads worse.
+            culprits = trace.culprits(),
         )
+        trace.clear()
     }
 
     private fun mean(values: LongArray): Float {
@@ -214,6 +231,7 @@ class FrameBudget(
         frames = 0L
         redraws = 0L
         lastPublishNanos = -publishEveryMillis * 1_000_000
+        trace.clear()
         reading = FrameReading.Nothing
     }
 }
@@ -237,6 +255,12 @@ data class FrameReading(
     val redraws: Long,
     /** How many frames there have been. */
     val frames: Long,
+    /**
+     * What the published frame's draw calls went on, most first, the frame's closing call left out.
+     * Empty when the canvas does not trace them; see
+     * [dev.wildware.composegl.ui.graphics.UiCanvas.tracesDrawCalls].
+     */
+    val culprits: List<DrawCallCulprit> = emptyList(),
 ) {
     companion object {
         val Nothing = FrameReading(0f, 0f, 0f, 0f, 0f, -1, 0L, 0L)

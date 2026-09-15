@@ -5,6 +5,7 @@ import dev.wildware.composegl.ui.backend.HeadlessBackend
 import dev.wildware.composegl.ui.backend.UiBackend
 import dev.wildware.composegl.ui.debug.OverdrawMap
 import dev.wildware.composegl.ui.debug.measureOverdraw
+import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Offset
@@ -85,6 +86,8 @@ import dev.wildware.composegl.ui.widget.ProvideSoftKeyboard
  * @param viewport where on the window the screen is laid out and drawn. One to one over [size] by
  *   default. A split-screen test hands each player one of `Viewport.splitScreen`, so [render] draws
  *   into that player's part of the window and an [InputRouter] routes by the same areas.
+ * @param budget what [UiTest.render] times each frame with, and where it says which nodes cut the
+ *   batch. A test asserting on its reading usually wants `publishEveryMillis = 0`.
  * @param content the screen.
  */
 fun uiTest(
@@ -93,9 +96,10 @@ fun uiTest(
     onBack: () -> Unit = {},
     input: (InputSink) -> InputSink = { it },
     viewport: Viewport = Viewport.oneToOne(size),
+    budget: FrameBudget = FrameBudget(),
     content: @Composable () -> Unit,
 ): UiTest {
-    val test = UiTest(size, backend, onBack, input, viewport)
+    val test = UiTest(size, backend, onBack, input, viewport, budget)
     try {
         test.setContent(content)
     } catch (failure: Throwable) {
@@ -114,6 +118,8 @@ class UiTest(
     private val onBack: () -> Unit,
     wrapInput: (InputSink) -> InputSink = { it },
     val viewport: Viewport = Viewport.oneToOne(size),
+    /** What [render] times frames with. Its reading says what the last rendered frame cost. */
+    val budget: FrameBudget = FrameBudget(),
 ) : AutoCloseable {
 
     val host = UiHost()
@@ -146,7 +152,7 @@ class UiTest(
     private val keyRouter = KeyRouter(focus, host.root)
     private val keyNavigator = KeyNavigator(focus, onBack = back)
     private val padNavigator = GamepadNavigator(focus, onBack = back)
-    private val renderer by lazy { UiRenderer(host, backend.canvas).also { it.focus = focus } }
+    private val renderer by lazy { UiRenderer(host, backend.canvas, budget).also { it.focus = focus } }
 
     /**
      * The pad's cursor, for a `VirtualCursor` in the content to switch on. Straight into the pointer

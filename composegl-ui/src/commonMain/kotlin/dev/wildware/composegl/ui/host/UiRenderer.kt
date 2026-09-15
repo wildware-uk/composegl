@@ -95,6 +95,11 @@ class UiRenderer(
         val changed = host.settle(viewport, focus, nanos, budget)
         onLaidOut?.invoke(nanos / 1_000_000)
 
+        // Only while the budget is on: switched off, nobody is told anything and nothing is blamed.
+        val trace = if (budget.measuring) budget.trace else null
+        draw.trace = trace
+        canvas.traceDrawCalls(trace)
+
         canvas.begin(viewport)
         drawBehind?.invoke(canvas)
         budget.draw { draw.draw(host.root) }
