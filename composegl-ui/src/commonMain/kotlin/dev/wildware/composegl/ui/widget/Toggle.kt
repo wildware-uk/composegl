@@ -3,6 +3,7 @@ package dev.wildware.composegl.ui.widget
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import dev.wildware.composegl.ui.input.InteractionState
+import dev.wildware.composegl.ui.input.LocalUiSounds
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
@@ -90,6 +91,7 @@ fun RadioButton(
         initialFocus = initialFocus,
         interaction = interaction,
         onClick = onSelect,
+        changes = !selected,
         label = label,
         labelStyle = labelStyle,
     ) { states ->
@@ -152,7 +154,7 @@ fun Toggle(
 
 /**
  * What the three of them share: something small that shows a value, a label you can also hit, and
- * one set of states driving both.
+ * one set of states driving both — and the sound a change of value makes.
  *
  * Written once because the interesting part is identical and the drawing is not. The states are
  * handed to the control rather than read again inside it, so the box and the label can never
@@ -167,14 +169,21 @@ private fun Control(
     onClick: () -> Unit,
     label: String?,
     labelStyle: String,
+    changes: Boolean = true,
     spacing: Float = 8f,
     control: @Composable (Set<WidgetState>) -> Unit,
 ) {
     val states = rememberStates(interaction, enabled)
+    // A click on one of these is a change of value, and says so. Not for a radio button that is
+    // already chosen: clicking it again changes nothing, and a sound would say it had.
+    val sounds = LocalUiSounds.current
     val touchable = modifier
         .interaction(interaction)
         .focusable(interaction, enabled = enabled, initial = initialFocus)
-        .clickable(enabled = enabled, onClick = onClick)
+        .clickable(enabled = enabled) {
+            if (changes) sounds.change()
+            onClick()
+        }
 
     if (label == null) {
         Box(touchable) { control(states) }

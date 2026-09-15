@@ -96,7 +96,7 @@ You need `composegl-ui` and exactly one backend.
 | [Your first screen](docs/wiki/Your-first-screen.md) | a window with a button in it, start to finish |
 | [Widgets](docs/wiki/Widgets.md) · [Layout](docs/wiki/Layout.md) · [Modifiers](docs/wiki/Modifiers.md) | what there is, and how it fits together — down to a panel that shakes on a wrong password, parallax layers that follow the mouse, stick or scroll, panels that animate out before they go, a small thing kept small in a big slot, and borders that are one-sided, dashed or dotted, and text lined up by its baseline |
 | [Skins](docs/wiki/Skins.md) | every colour, gradient and corner — one radius, or one per corner — comes out of a JSON file |
-| [Input](docs/wiki/Input.md) · [Backends](docs/wiki/Backends.md) · [Shaders](docs/wiki/Shaders.md) | mouse, keyboard, gamepad, the cursor's shape; long press, double click, hold to repeat; and writing your own |
+| [Input](docs/wiki/Input.md) · [Backends](docs/wiki/Backends.md) · [Shaders](docs/wiki/Shaders.md) | mouse, keyboard, gamepad, the cursor's shape, UI sounds; long press, double click, hold to repeat; and writing your own |
 | [Testing](docs/wiki/Testing.md) | screens tested with no window: tag a widget, then click, type and press pad buttons on it with `uiTest` |
 | [How it works](docs/how-it-works.md) | the long version: what is built, and why |
 | [Releasing](docs/releasing.md) | how a version gets to Maven Central |

@@ -123,6 +123,51 @@ focus.focusSearch = object : BeamFocusSearch() {
 
 ---
 
+## Sounds
+
+The toolkit never plays audio, but it knows when something happened. Hand it your
+sounds once, round the whole screen:
+
+```kotlin
+ProvideUiSounds(object : UiSounds {
+    override fun hover() = audio.play("tick")        // the mouse came onto a control
+    override fun press() = audio.play("click")       // a control went down: mouse, Enter, Space or South
+    override fun focusMove() = audio.play("move")    // arrows, Tab, d-pad or stick stepped focus
+    override fun change() = audio.play("toggle")     // a checkbox, switch, radio button or slider changed
+}) {
+    MainMenu()
+}
+```
+
+Every method does nothing unless you override it, so name only the sounds you have.
+
+No widget has sound code in it. The pointer router hears every hover and press and
+the focus manager hears every step, so a control you build yourself out of
+`clickable` and `focusable` ticks exactly like a `Button`. The rules:
+
+- **Only usable things sound**: enabled and `clickable`, or enabled and `focusable`.
+  A disabled button is silent, and so is a panel that only watches the pointer.
+- **One hover per arrival.** Moving inside a button is silent; moving onto a button
+  inside a clickable card ticks once, for the button.
+- **Press on the way down**, as a real button clicks. Dragging off and back on does
+  not press again, and letting go does not hover again — unless you let go over a
+  different button, which ticks for that one.
+- **Focus moves the player asked for.** A click focusing what it clicked, the first
+  frame's auto-focus and a dialogue handing focus back are all silent. So is Left on
+  a slider, which is a change, not a move.
+- **A slider** changes once per step as its knob lands, and a continuous one plays a
+  single change when it is let go, not a buzz every frame.
+
+`ProvideUiSounds` nests: the pause menu and the HUD behind it can sound different.
+A control of your own that changes a value reports it the same way the stock ones do:
+
+```kotlin
+val sounds = LocalUiSounds.current
+Box(Modifier.focusable().clickable { sounds.change(); level++ })
+```
+
+---
+
 ## Which device is the player using?
 
 ```kotlin

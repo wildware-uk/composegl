@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.input.LocalUiSounds
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.node.UiApplier
 import dev.wildware.composegl.ui.node.UiNode
@@ -38,10 +39,12 @@ fun Layout(
     content: @Composable () -> Unit = {},
     measurePolicy: MeasurePolicy,
 ) {
+    val sounds = LocalUiSounds.current
     ComposeNode<UiNode, UiApplier>(
         factory = { UiNode() },
         update = {
             set(name) { this.name = it }
+            set(sounds) { this.sounds = it }
             set(modifier) { this.modifier = it }
             set(measurePolicy) { this.measurePolicy = it }
             set(draw) { this.content = it }
@@ -90,10 +93,12 @@ fun LeafLayout(
     draw: (UiCanvas.(Rect) -> Unit)? = null,
     ink: ((Rect) -> Rect?)?,
 ) {
+    val sounds = LocalUiSounds.current
     ComposeNode<UiNode, UiApplier>(
         factory = { UiNode() },
         update = {
             set(name) { this.name = it }
+            set(sounds) { this.sounds = it }
             set(modifier) { this.modifier = it }
             set(measurePolicy) { this.measurePolicy = it }
             set(draw) { this.content = it }

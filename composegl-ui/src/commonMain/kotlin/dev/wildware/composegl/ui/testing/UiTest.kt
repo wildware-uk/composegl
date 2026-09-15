@@ -26,6 +26,7 @@ import dev.wildware.composegl.ui.input.KeyEventType
 import dev.wildware.composegl.ui.input.KeyNavigator
 import dev.wildware.composegl.ui.input.KeyRouter
 import dev.wildware.composegl.ui.input.Modifiers
+import dev.wildware.composegl.ui.input.PointerButton
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerIcon
 import dev.wildware.composegl.ui.input.PointerId
@@ -249,6 +250,13 @@ class UiTest(
         moveTo(at)
         return send(PointerEvent.Press(PointerId.Mouse, at))
     }
+
+    /**
+     * Moves the mouse to [at] with its button held, which is a drag once [press] has started one:
+     * a slider's knob, a scrollbar, a window by its title.
+     */
+    fun dragTo(at: Offset): Boolean =
+        send(PointerEvent.Move(PointerId.Mouse, at, setOf(PointerButton.Primary))).also { pointerAt = at }
 
     /** Lets go of the mouse wherever it is now, which is where a drag ended. */
     fun release(): Boolean = send(PointerEvent.Release(PointerId.Mouse, pointerAt))

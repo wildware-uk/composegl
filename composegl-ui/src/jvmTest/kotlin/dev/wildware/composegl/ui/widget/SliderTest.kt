@@ -23,6 +23,8 @@ import dev.wildware.composegl.ui.input.PointerButton
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerId
 import dev.wildware.composegl.ui.input.PointerRouter
+import dev.wildware.composegl.ui.input.ProvideUiSounds
+import dev.wildware.composegl.ui.input.UiSounds
 import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.MeasurePass
@@ -306,6 +308,84 @@ class SliderTest {
         pad.frame(2_000L)
         frame()
         assertEquals(20f, value, "letting go stops it")
+    }
+
+    // --- sounds ------------------------------------------------------------------------------
+
+    /** Counts the changes a game would have been asked to play. */
+    private class Changes : UiSounds {
+        var count = 0
+        override fun change() { count++ }
+    }
+
+    @Test
+    fun `several moves onto one step before a frame play one change`() {
+        val changes = Changes()
+        var value by mutableStateOf(0f)
+        show {
+            ProvideUiSounds(changes) {
+                Slider(value, onValueChange = { value = it }, range = 0f..4f, step = 1f, length = length)
+            }
+        }
+
+        // A mouse reports far more often than the screen draws, so a drag lands on the same step
+        // several times before the slider is handed the value the first move produced.
+        press(knob / 2f, 8f)
+        drag(knob / 2f + travel / 4f, 8f)
+        drag(knob / 2f + travel / 4f + 3f, 8f)
+        drag(knob / 2f + travel / 4f + 6f, 8f)
+        assertEquals(1, changes.count, "one step, however many moves reported it")
+
+        frame()
+        drag(knob / 2f + travel / 2f, 8f)
+        drag(knob / 2f + travel / 2f + 3f, 8f)
+        assertEquals(2, changes.count, "the next step is heard once too")
+
+        frame()
+        drag(knob / 2f + travel / 4f, 8f)
+        release(knob / 2f + travel / 4f, 8f)
+        frame()
+        assertEquals(1f, value)
+        assertEquals(3, changes.count, "and back onto a step it has already played is a change again")
+    }
+
+    @Test
+    fun `two nudges before a frame move one step and play one change`() {
+        val changes = Changes()
+        var value by mutableStateOf(0f)
+        show {
+            ProvideUiSounds(changes) {
+                Slider(value, onValueChange = { value = it }, range = 0f..4f, step = 1f, initialFocus = true, length = length)
+            }
+        }
+
+        keys.onKey(KeyEvent(Key.Right, KeyEventType.Down))
+        keys.onKey(KeyEvent(Key.Right, KeyEventType.Up))
+        keys.onKey(KeyEvent(Key.Right, KeyEventType.Down))
+        keys.onKey(KeyEvent(Key.Right, KeyEventType.Up))
+        frame()
+
+        assertEquals(1f, value)
+        assertEquals(1, changes.count, "the knob moved once, so it is heard once")
+    }
+
+    @Test
+    fun `a value the game puts back can be changed to again with a sound`() {
+        val changes = Changes()
+        var value by mutableStateOf(0f)
+        show {
+            ProvideUiSounds(changes) {
+                Slider(value, onValueChange = { value = it }, range = 0f..4f, step = 1f, initialFocus = true, length = length)
+            }
+        }
+
+        key(Key.Right)
+        value = 0f
+        frame()
+        key(Key.Right)
+
+        assertEquals(1f, value)
+        assertEquals(2, changes.count)
     }
 
     @Test

@@ -59,6 +59,8 @@ class PointerRouter(
         val first: PointerButton,
         /** Where it started, in the root's coordinates, so slop is measured from here. */
         val pressedAt: Offset,
+        /** What the pointer was hovering before the press, so letting go over it again is quiet. */
+        val hovered: List<UiNode>,
     ) {
         /** True while the pointer is inside the captured node, which is what "pressed" means. */
         var inside = true
@@ -153,9 +155,12 @@ class PointerRouter(
         val taker = candidatesUnder(event.position).firstOrNull { consumes(it, event) } ?: return false
 
         // A gesture has started, so nothing is merely hovered any more.
+        val hovered = hovering[event.pointerId].orEmpty()
         hover(event.pointerId, emptyList())
-        captures[event.pointerId] = Capture(taker, mutableSetOf(event.button), event.button, event.position)
+        captures[event.pointerId] =
+            Capture(taker, mutableSetOf(event.button), event.button, event.position, hovered)
         taker.resolved.interactions.forEach { it.press() }
+        if (taker.usable) taker.sounds.press()
         focus?.focusOn(taker)
         return true
     }
@@ -225,10 +230,12 @@ class PointerRouter(
             clicks.forget()
         }
 
-        // The gesture is over, so whatever the pointer is now over is hovered again, and the cursor
-        // it held still through the drag is free to be that thing's.
+        // The gesture is over, so whatever the pointer is now over is hovered again. Quietly when
+        // that is the node it pressed or something it was already on, since as far as the player
+        // is concerned the pointer never left; a drag let go over another button has arrived there.
+        // The cursor it held still through the drag is free to be that thing's.
         val path = hoverPathFrom(candidatesUnder(event.position).firstOrNull(), event.position)
-        hover(event.pointerId, path)
+        hover(event.pointerId, path, after = capture)
         if (event.type.hasCursor) show(iconOf(path))
         return true
     }
@@ -620,12 +627,23 @@ class PointerRouter(
     private val PointerType.hasCursor: Boolean
         get() = this == PointerType.Mouse || this == PointerType.Stylus
 
-    /** Moves a pointer's hover from whatever it was on to [now], touching only the difference. */
-    private fun hover(id: PointerId, now: List<UiNode>) {
+    /**
+     * Moves a pointer's hover from whatever it was on to [now], touching only the difference.
+     *
+     * One hover sound at most, for the deepest usable node the pointer has just arrived on. The
+     * path includes ancestors, and a button inside a clickable card ticking twice is two sounds for
+     * one movement of the hand. [after] is the gesture that has just ended, if one has: the node it
+     * pressed and what was hovered before it stay quiet.
+     */
+    private fun hover(id: PointerId, now: List<UiNode>, after: Capture? = null) {
         val before = hovering[id].orEmpty()
         if (before == now) return
         before.forEach { if (it !in now) it.resolved.interactions.forEach { state -> state.leave() } }
         now.forEach { if (it !in before) it.resolved.interactions.forEach { state -> state.enter() } }
+        val arrived = now.firstOrNull { it !in before && it.usable }
+        if (arrived != null && (after == null || arrived !== after.node && arrived !in after.hovered)) {
+            arrived.sounds.hover()
+        }
         if (now.isEmpty()) hovering.remove(id) else hovering[id] = now
     }
 }
