@@ -1,7 +1,8 @@
 # Widgets
 
-Everything that ships. Two sets: the ordinary interface controls, and a tier of
-things only games need.
+Everything that ships in `composegl-ui`: the ordinary interface controls. The tier
+of things only games need — bars, a reticle, a hotbar — is in `composegl-game`, on
+**[[Game widgets]]**.
 
 None of it is Material. There is no theme to fight, and every widget takes its
 look from a [[skin|Skins]] file rather than from code.
@@ -123,7 +124,7 @@ text in it wraps sooner. Icons, bars and padding do not move.
 ![text at 100%, 125% and 150%: the labels and the button grow, the panel and the icon do not](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-text-scale.png)
 
 - **Every text widget follows it**: `Text`, `Typewriter`, `TextField`,
-  `Tooltip`, `PromptGlyph`, `DamageNumberLayer` and `Minimap`'s compass, and so
+  `Tooltip`, `PromptGlyph`, and from [[Game widgets]] `DamageNumberLayer` and `MinimapFrame`'s compass, and so
   everything built from them, like `Button` and `Stepper`. A `textStyle` you pass by hand is scaled too.
 - **Nested, they multiply.** A dense panel that asks for `0.85f` inside a
   player's `1.5f` draws at 1.275, so it still honours the setting.
@@ -220,7 +221,7 @@ ProvideTextOutline(Colour.Black, width = 2f) {
 ```
 
 `ProvideTextOutline` reaches `Text`, `Typewriter`, `Tooltip`,
-`DamageNumberLayer` and `Minimap`'s compass letters. Not `TextField` or
+and from [[Game widgets]] `DamageNumberLayer` and `MinimapFrame`'s compass letters. Not `TextField` or
 `PromptGlyph`, which have backgrounds of their own; give those an explicit
 outline if you ever want one.
 
@@ -271,7 +272,7 @@ the whole label, and shift with the arrows, Home and End moves the far end.
   stop or somewhere the d-pad lands. `Modifier.focusableByPointer()` is that rule
   on its own, for widgets of your own.
 - **Controls stay controls.** The labels on `Button`, `Checkbox`, `Toggle`,
-  `RadioButton`, `Stepper`, a `Hotbar` slot and a click-to-dismiss notification
+  `RadioButton`, `Stepper`, and from [[Game widgets]] a `Hotbar` slot and a click-to-dismiss notification
   are not selectable, so pressing them still presses. Anything else
   you press — a `clickable` save slot or list row — needs its text wrapped in
   `DisableSelection { }`, or the label takes the press first.
@@ -653,96 +654,15 @@ the whole string up front, so the box does not grow as the words appear.
 
 # Game widgets
 
-These are the ones that made this toolkit worth building. They live in
-`dev.wildware.composegl.ui.game`.
-
-## Bars
-
-```kotlin
-Bar(hull, Modifier.fillMaxWidth())
-Bar(
-    health,
-    segments = 5,                   // pips, not a smooth bar
-    thresholds = listOf(BarThreshold(below = 0.25f, style = "bar.critical")),
-    trail = true,                   // the white "you just lost this much" tail
-    holdMillis = 300,
-    drainMillis = 450,
-)
-```
-
-![four bars: health, a segmented shield, stamina, and stamina under its threshold](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-bars.png)
-
-The trail is the thing: a hit drops the bar instantly and leaves a pale tail that
-catches up a moment later, which is how a player sees *how much* they just lost.
-
-## Reticle
-
-```kotlin
-val reticle = rememberReticleState()
-Reticle(reticle, Modifier.align(Alignment.Centre))
-
-// …from the game
-reticle.spread = movement * 1.4f
-reticle.hit(kill = true)
-```
-
-![a crosshair standing still, and a wider red one over something hostile](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-reticle.png)
-
-Spread, bloom, hit markers. It is driven from your game code, not from state the
-interface owns.
-
-## Damage numbers
-
-```kotlin
-val numbers = rememberDamageNumbers()
-DamageNumberLayer(numbers, projection = projection)
-
-// …when something is hit
-numbers.show("148", WorldAnchor.at(enemy.x, enemy.y + 2f, enemy.z), critical = true)
-```
-
-They float, fade, and are placed in the world through the same `WorldProjection`
-your camera already provides.
-
-## Cooldowns, hotbars, minimaps, notifications
-
-```kotlin
-val dash = rememberCooldown(durationMillis = 4_000)
-RadialCooldown(dash)                   // the sweeping wedge over an ability icon
-
-Hotbar(slots, selected = selected, onSelect = { selected = it }, onUse = { use(it) })
-
-MinimapFrame(Modifier.size(160f), markers = contacts, range = 120f) { bounds ->
-    drawWorld(bounds)               // `this` is the UiCanvas
-}
-
-val alerts = rememberNotifications()
-Notifications(alerts)
-alerts.show("SHIELD DOWN")
-```
-
-| | |
-|---|---|
-| ![a dark wedge over an ability icon, with the seconds left on it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-cooldown.png) | the wedge sweeps away as the ability comes back |
-| ![five hotbar slots, one selected, two holding charges](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-hotbar.png) | slots, charges, and which one is selected |
-| ![a minimap frame with a compass and three markers](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-minimap.png) | your own map in the middle, the chrome and the markers from the skin |
-
-## Particles
-
-```kotlin
-val sparks = rememberParticles(capacity = 240, seed = 11L)
-ParticleLayer(sparks, Modifier.fillMaxSize())
-
-sparks.burst(count = 24, x = hit.x, y = hit.y, style = HitSparks)
-```
-
-Bursts and streams, simulated with no allocation per particle. Seeded, so the same
-seed gives the same burst — which is what makes it testable against a golden image.
+Bars, the reticle, damage numbers, cooldowns, the hotbar, the minimap frame,
+notifications and particles live in their own module, `composegl-game`. They
+have **[[their own page|Game-widgets]]**.
 
 ---
 
 ## What next
 
+- **[[Game widgets]]** — bars, reticle, damage numbers, cooldowns, hotbar, minimap, particles
 - **[[Skins]]** — how all of these get their look
 - **[[Input]]** — focus, pads, and keyboard
 - **[[Shaders]]** — blurring, outlining or dissolving any of the above

@@ -13,7 +13,7 @@ import dev.wildware.composegl.effects.outline
 import dev.wildware.composegl.ui.animation.Spring
 import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.animateFloatAsState
-import dev.wildware.composegl.ui.game.Bar
+import dev.wildware.composegl.game.Bar
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Shape
 import dev.wildware.composegl.ui.geometry.Shapes

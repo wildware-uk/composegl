@@ -5,10 +5,6 @@ import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.backend.MonospaceFontProvider
 import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.focus.FocusManager
-import dev.wildware.composegl.ui.game.DamageNumberLayer
-import dev.wildware.composegl.ui.game.DamageNumbers
-import dev.wildware.composegl.ui.game.MinimapFrame
-import dev.wildware.composegl.ui.game.WorldAnchor
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
@@ -39,13 +35,14 @@ import kotlin.test.assertTrue
 /**
  * Every widget [dev.wildware.composegl.ui.widget.LocalTextOutline] names really does draw the ring.
  *
- * That KDoc is a promise to a game: put a ring round the HUD and these five take it. A promise kept
+ * That KDoc is a promise to a game: put a ring round the HUD and these take it. A promise kept
  * by one line of wiring per widget is a promise that can be deleted by one line, and a widget that
  * quietly stopped outlining would look exactly like a widget nobody had outlined yet. So there is a
  * test per widget here, and each one counts the copies rather than trusting the wiring.
  *
- * [dev.wildware.composegl.ui.widget.Text], the fifth, is covered next door in
- * `TextOutlineWidgetTest` along with everything about layout not moving.
+ * [dev.wildware.composegl.ui.widget.Text] is covered next door in `TextOutlineWidgetTest` along
+ * with everything about layout not moving, and the damage numbers and minimap compass in
+ * `composegl-game`'s `GameTextOutlineTest`.
  */
 class TextOutlineReachTest {
 
@@ -139,47 +136,6 @@ class TextOutlineReachTest {
             letters.take(16).all { abs(it.colour.alpha - faceAlpha) <= 2 },
             "every ring copy is as faded as its letter: ${letters.take(16).map { it.colour.alpha }}",
         )
-    }
-
-    @Test
-    fun `damage numbers take the ring from around them`() {
-        val numbers = DamageNumbers(clock = Clock.Ui)
-        show { DamageNumberLayer(numbers) }
-        numbers.show("42", WorldAnchor.at(100f, 100f))
-        frames(2)
-
-        assertEquals(9, runsOf("42").size, "the layer is the case the whole feature was written for")
-        assertTrue(runsOf("42").take(8).all { it.colour.argb and 0xFFFFFF == Ring.colour.argb and 0xFFFFFF })
-    }
-
-    @Test
-    fun `a damage number's ring goes out with the number`() {
-        val numbers = DamageNumbers(lifeMillis = 900, clock = Clock.Ui)
-        show { DamageNumberLayer(numbers) }
-        numbers.show("42", WorldAnchor.at(100f, 100f))
-        frames(2)
-        assertEquals(255, runsOf("42").last().colour.alpha, "it starts at full strength")
-
-        // Past the point where a number starts fading, well before it expires.
-        frames(10, 80)
-
-        val drawn = runsOf("42")
-        assertEquals(9, drawn.size, "still on screen")
-        val faceAlpha = drawn.last().colour.alpha
-        assertTrue(faceAlpha < 200, "it should be well into its fade by now: $faceAlpha")
-        assertTrue(
-            drawn.take(8).all { it.colour.alpha == faceAlpha },
-            "the ring fades with the digits, or a faded-out number leaves a solid silhouette behind",
-        )
-    }
-
-    @Test
-    fun `the minimap's compass letters are outlined`() {
-        show { MinimapFrame(Modifier.size(200f, 120f), compass = "N", live = false) }
-        frames(2)
-
-        assertEquals(9, runsOf("N").size, "north is drawn over whatever the game drew underneath it")
-        assertTrue(runsOf("N").take(8).all { it.colour.argb and 0xFFFFFF == Ring.colour.argb and 0xFFFFFF })
     }
 
     @Test

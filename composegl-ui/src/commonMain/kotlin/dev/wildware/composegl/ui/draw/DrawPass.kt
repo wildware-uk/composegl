@@ -656,11 +656,15 @@ class DrawPass(val canvas: UiCanvas) {
  *
  * [Rect] is immutable, so handing the same one back twice is safe however far it travels — a
  * recording canvas that keeps it is keeping a value, not a view onto something that will change.
+ *
+ * Public so a widget outside the toolkit that draws its own shapes every frame — a crosshair's
+ * arms in `composegl-game`, say — can hold one per shape and stay as cheap as the draw pass.
  */
-internal class RectCache {
+class RectCache {
 
     private var held: Rect? = null
 
+    /** A rectangle with these edges: the one handed back last time if nothing moved. */
     fun of(left: Float, top: Float, right: Float, bottom: Float): Rect {
         val held = held
         if (held != null &&

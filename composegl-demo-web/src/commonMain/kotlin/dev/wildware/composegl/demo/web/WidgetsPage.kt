@@ -7,7 +7,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import dev.wildware.composegl.ui.game.Bar
+import dev.wildware.composegl.game.Bar
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.InputBinding
 import dev.wildware.composegl.ui.input.Key

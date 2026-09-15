@@ -180,6 +180,9 @@ Image("sword", Modifier.tint(Colour.Grey))                   // locked
 Image("banner", Modifier.tint(team.colour))                  // one banner, four teams
 ```
 
+`Hotbar` is a game widget from `composegl-game` (import `dev.wildware.composegl.game`);
+see [[Game widgets]].
+
 The colour's alpha is **how strong the tint is**, not an opacity: at 0 nothing changes,
 at 1 the colour applies in full. So a flash is one number animating back to zero. Fade
 with `alpha`, not with this.

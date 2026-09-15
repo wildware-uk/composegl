@@ -27,6 +27,9 @@ kotlin {
             // The effects the toolkit ships, so every backend draws the same blur, outline, grade
             // and dissolve and the goldens can be compared side by side.
             api(project(":composegl-effects"))
+
+            // The game widgets, for the particle scene every backend must draw the same.
+            api(project(":composegl-game"))
         }
     }
 }

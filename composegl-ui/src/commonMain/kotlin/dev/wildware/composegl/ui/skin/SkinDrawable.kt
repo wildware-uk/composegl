@@ -157,8 +157,11 @@ sealed interface SkinDrawable {
  * A [SkinDrawable.Fill]'s colour, or a [SkinDrawable.Gradient]'s first — the same colour a canvas
  * with no gradients would paint, so a skin that gives one of those widgets a gradient gets what
  * it starts from rather than nothing at all. Null for art and for nothing.
+ *
+ * Public because those widgets live in `composegl-game`, and a game's own shape-drawing widget
+ * reads its skin the same way.
  */
-internal val SkinDrawable.flatColour: Colour?
+val SkinDrawable.flatColour: Colour?
     get() = when (this) {
         is SkinDrawable.Fill -> colour
         is SkinDrawable.Gradient -> brush.first

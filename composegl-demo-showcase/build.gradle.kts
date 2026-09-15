@@ -11,6 +11,8 @@ dependencies {
 
     // The shipped effects, so the showcase runs the same blur a game would.
     implementation(project(":composegl-effects"))
+    // The game-widget tier the showcase is named for.
+    implementation(project(":composegl-game"))
     implementation(libs.gdx.backend.lwjgl3)
     runtimeOnly(variantOf(libs.gdx.platform) { classifier("natives-desktop") })
     runtimeOnly(variantOf(libs.gdx.freetype.platform) { classifier("natives-desktop") })

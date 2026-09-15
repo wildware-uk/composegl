@@ -1,6 +1,6 @@
 package dev.wildware.composegl.korge.demo
 
-import dev.wildware.composegl.ui.game.WorldAnchor
+import dev.wildware.composegl.game.WorldAnchor
 import korlibs.image.color.RGBA
 import korlibs.korge.view.Container
 import korlibs.korge.view.SolidRect

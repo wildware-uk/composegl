@@ -36,6 +36,7 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":composegl-ui"))
             implementation(project(":composegl-effects"))
+            implementation(project(":composegl-game"))
         }
 
         jvmTest.dependencies {

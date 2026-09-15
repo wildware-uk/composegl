@@ -807,9 +807,9 @@ interface UiCanvas {
 /**
  * One run of text, with a ring round it only if there is a ring worth drawing.
  *
- * Every widget in this module that draws text goes through here rather than calling the
- * five-argument [UiCanvas.text] straight, for two reasons that both come down to the plain call
- * being the one everything already knows about.
+ * Every widget that draws text — in this module, in `composegl-game`, or in a game's own code —
+ * should go through here rather than calling the five-argument [UiCanvas.text] straight, for two
+ * reasons that both come down to the plain call being the one everything already knows about.
  *
  * A canvas is very often a wrapper — `UiCanvas by inner` in a test, something that counts clips or
  * tints a subtree — and a wrapper written before outlines existed overrides the four-argument call
@@ -819,7 +819,7 @@ interface UiCanvas {
  * And it keeps the ordinary path exactly as cheap as it was: a label with no outline reaches the
  * backend through the same one call it always did.
  */
-internal fun UiCanvas.textRun(
+fun UiCanvas.textRun(
     layout: TextLayout,
     x: Float,
     y: Float,

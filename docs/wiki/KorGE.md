@@ -31,6 +31,8 @@ dependencies {
 ```
 
 `composegl-korge` brings `composegl-ui`, `composegl-render` and KorGE 6.0.0 with it.
+The health bars, hotbar and damage numbers are in `composegl-game`; add it too if
+you want them (see [[Game widgets]]).
 You do not need the KorGE Gradle plugin; a plain Kotlin JVM build works.
 
 ### JVM flags
