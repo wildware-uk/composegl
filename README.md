@@ -99,7 +99,7 @@ You need `composegl-ui` and exactly one backend.
 | [Skins](docs/wiki/Skins.md) | every colour, gradient and corner — one radius, or one per corner — comes out of a JSON file |
 | [Input](docs/wiki/Input.md) · [Backends](docs/wiki/Backends.md) · [Shaders](docs/wiki/Shaders.md) | mouse, keyboard, gamepad, the cursor's shape, UI sounds; long press, double click, hold to repeat; and writing your own |
 | [Saving state](docs/wiki/Saving-state.md) | `rememberSaveable`: the tab, the scroll and the half-typed name survive leaving a screen |
-| [Testing](docs/wiki/Testing.md) | screens tested with no window: tag a widget, then click, type and press pad buttons on it with `uiTest`; and `@Preview` composables drawn to PNGs with `renderPreviews` |
+| [Testing](docs/wiki/Testing.md) | screens tested with no window: tag a widget, then click, type and press pad buttons on it with `uiTest`; and `@Preview` composables drawn to PNGs with `renderPreviews`; print the tree with `dump` |
 | [How it works](docs/how-it-works.md) | the long version: what is built, and why |
 | [Releasing](docs/releasing.md) | how a version gets to Maven Central |
 

@@ -183,6 +183,56 @@ examples.
 
 ---
 
+## The tree as text
+
+`dump` prints the tree, one node per line, with where everything ended up:
+
+```kotlin
+println(host.root.dump())
+println(ui.dump())                  // from a uiTest, with focus marked
+```
+
+```
+root 0,0 400x300  given 400 x 300
+  column #buttons 0,0 82.4x88  pad 8  given 0..400 x 0..300
+    box #show 8,8 66.4x36  pad 14,8,14,8  given 0..384 x 0..284  focused
+      text 22,16 38.4x20  given 0..356 x 0..268
+    box #go 8,44 47.2x36  pad 14,8,14,8  given 0..384 x 0..248
+      text 22,52 19.2x20  given 0..356 x 0..232
+```
+
+It is plain text, so it works where there is no screen: Native, a CI log, a bug report.
+
+| On a line | What it means |
+|---|---|
+| `box #show` | the node's name, and its test tag |
+| `8,8 66.4x36` | left,top and width x height on the screen, where layout put it |
+| `drawn 0,0 50x25` | where it is really drawn, when a `scale` makes that differ |
+| `pad 14,8,14,8` | padding, left, top, right, bottom; one number when all four match |
+| `given 0..384 x 0..284` | the room its parent offered, width then height: one number if only one size was allowed, `∞` for no limit |
+| `z 1` | a `zIndex` lifting it over its siblings, or sinking it under them |
+| `alpha 0.5` · `focused` · `not laid out` | see-through, has focus, or no layout pass has reached it yet |
+
+"Why is this 40 wide?" is nearly always answered by `given`. It is what the parent
+allowed on the last layout pass, before the node's own `size` or `fill` had a say, and it
+is also on the node as `givenConstraints`.
+
+Add the modifier chain with `dump(modifiers = true)`. It goes on a line under each node,
+in chain order:
+
+```
+    box #show 8,8 66.4x36  pad 14,8,14,8  given 0..384 x 0..284
+        modifier testTag("show") -> interaction -> focusable(initial) -> clickable -> styled -> padding(14,8,14,8)
+```
+
+Numbers are rounded to two places and lose a trailing `.0`, so a dump is the same on a
+JVM and on Native and can be pasted into a test. A failed `find` or `uiTest` assertion
+prints the dump, so a failing test already says where everything was.
+
+`debugTree` is still there for the shape alone: names, tags, and boxes inside the parent.
+
+---
+
 ## One call instead of three
 
 A test that only wants to *read* the tree — what is on the screen, where it is,
