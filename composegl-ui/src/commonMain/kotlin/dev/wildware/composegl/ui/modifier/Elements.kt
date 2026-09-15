@@ -29,6 +29,8 @@ import dev.wildware.composegl.ui.layout.VerticalAlignment
 import dev.wildware.composegl.ui.skin.ResolvedStyle
 import dev.wildware.composegl.ui.skin.SkinDrawable
 import dev.wildware.composegl.ui.graphics.BlendMode
+import dev.wildware.composegl.ui.graphics.BorderSide
+import dev.wildware.composegl.ui.graphics.BorderStyle
 
 // --- what a node is ------------------------------------------------------------------------
 
@@ -155,15 +157,25 @@ data class BorderElement(
     val colour: Colour,
     val width: Float,
     val corners: Corners = Corners.None,
+    val style: BorderStyle = BorderStyle.Solid,
 ) : Modifier.Element {
-    constructor(colour: Colour, width: Float, corner: Float) : this(colour, width, Corners.single(corner))
+    constructor(colour: Colour, width: Float, corner: Float, style: BorderStyle = BorderStyle.Solid) :
+        this(colour, width, Corners.single(corner), style)
 
-    init { require(width >= 0f) { "border width cannot be negative, was $width" } }
+    init { require(width >= 0f && width.isFinite()) { "border width cannot be negative, was $width" } }
 
     /** Kept so code that read the one radius still compiles. It is the smallest of the four. */
     @Deprecated("A border has a radius per corner now.", ReplaceWith("corners"))
     val corner: Float get() = corners.smallest
 }
+
+/** A border with each edge its own, or missing. @see dev.wildware.composegl.ui.modifier.border */
+data class BorderSidesElement(
+    val left: BorderSide? = null,
+    val top: BorderSide? = null,
+    val right: BorderSide? = null,
+    val bottom: BorderSide? = null,
+) : Modifier.Element
 
 data class ShadowElement(
     val colour: Colour,
@@ -661,12 +673,47 @@ fun Modifier.background(colour: Colour, corners: Corners) = then(BackgroundEleme
  */
 fun Modifier.background(brush: Brush, corner: Float = 0f) = then(BrushBackgroundElement(brush, corner))
 
-fun Modifier.border(colour: Colour, width: Float = 1f, corner: Float = 0f) =
-    then(BorderElement(colour, width, corner))
+/**
+ * An outline drawn inside this node, the same on all four sides.
+ *
+ * ```kotlin
+ * Modifier.border(colour, width = 2f, corner = 6f)
+ * Modifier.border(colour, width = 2f, style = BorderStyle.Dashed(on = 6f, off = 4f))
+ * Modifier.border(colour, width = 2f, style = BorderStyle.Dotted)
+ * ```
+ */
+fun Modifier.border(
+    colour: Colour,
+    width: Float = 1f,
+    corner: Float = 0f,
+    style: BorderStyle = BorderStyle.Solid,
+) = then(BorderElement(colour, width, corner, style))
 
-/** An outline with its own radius on each corner. Give it the same [Corners] as the background. */
-fun Modifier.border(colour: Colour, width: Float = 1f, corners: Corners) =
-    then(BorderElement(colour, width, corners))
+/**
+ * An outline with each edge given separately. A side left out is not drawn.
+ *
+ * ```kotlin
+ * Modifier.border(bottom = BorderSide(1f, divider))                  // a divider under a header
+ * Modifier.border(bottom = BorderSide(3f, accent))                   // a tab's underline
+ * Modifier.border(left = BorderSide(2f, accent, BorderStyle.Dotted))
+ * ```
+ *
+ * Square-cornered: the edges meet in square corners, top and bottom running the full width.
+ * A rounded outline is the all-sides [border], where one line can follow the curve.
+ */
+fun Modifier.border(
+    left: BorderSide? = null,
+    top: BorderSide? = null,
+    right: BorderSide? = null,
+    bottom: BorderSide? = null,
+) = then(BorderSidesElement(left, top, right, bottom))
+
+/**
+ * An outline with its own radius on each corner. Give it the same [Corners] as the background.
+ * Dashed and dotted follow the four curves the same way they follow one.
+ */
+fun Modifier.border(colour: Colour, width: Float = 1f, corners: Corners, style: BorderStyle = BorderStyle.Solid) =
+    then(BorderElement(colour, width, corners, style))
 
 fun Modifier.shadow(colour: Colour, spread: Float, corner: Float = 0f) =
     then(ShadowElement(colour, spread, corner))

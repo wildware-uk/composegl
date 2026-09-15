@@ -17,6 +17,10 @@ import dev.wildware.composegl.ui.geometry.Shape
 import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Brush
+import dev.wildware.composegl.ui.graphics.BorderSide
+import dev.wildware.composegl.ui.graphics.BorderStyle
+import dev.wildware.composegl.ui.graphics.border
+import dev.wildware.composegl.ui.graphics.borders
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.EdgeMode
 import dev.wildware.composegl.ui.graphics.NinePatch
@@ -220,6 +224,29 @@ fun scenes(): List<Scene> = listOf(
         val docked = Rect.of(176f, 124f, 64f, 96f)
         rect(docked, Panel, Corners.left(20f))
         border(docked, Accent, width = 2f, corners = Corners.left(20f))
+    },
+
+    Scene("borders") { _ ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+        // A header with a divider under it, and a row of tabs with the middle one underlined.
+        rect(Rect.of(10f, 10f, 220f, 30f), Panel)
+        borders(Rect.of(10f, 10f, 220f, 30f), null, null, null, BorderSide(1f, Paper))
+        borders(Rect.of(10f, 50f, 70f, 24f), null, null, null, BorderSide(1f, Panel))
+        borders(Rect.of(85f, 50f, 70f, 24f), null, null, null, BorderSide(3f, Accent))
+        borders(Rect.of(160f, 50f, 70f, 24f), null, null, null, BorderSide(1f, Panel))
+        // Dashed and dotted, square and rounded: each one's corners are what the golden watches.
+        border(Rect.of(10f, 90f, 105f, 60f), Accent, width = 2f, corner = 0f, style = BorderStyle.Dashed(8f, 5f))
+        border(Rect.of(125f, 90f, 105f, 60f), Paper, width = 2f, corner = 14f, style = BorderStyle.Dashed(8f, 5f))
+        border(Rect.of(10f, 160f, 105f, 70f), Paper, width = 3f, corner = 0f, style = BorderStyle.Dotted)
+        border(Rect.of(125f, 160f, 105f, 70f), Accent, width = 4f, corner = 24f, style = BorderStyle.Dotted)
+        // Four sides, four colours, meeting in square corners.
+        borders(
+            Rect.of(150f, 180f, 60f, 30f),
+            left = BorderSide(3f, Colour.rgb(0xFF5C5C)),
+            top = BorderSide(3f, Paper),
+            right = BorderSide(3f, Colour.rgb(0x7CFF8A)),
+            bottom = BorderSide(3f, Accent, BorderStyle.Dashed(4f, 3f)),
+        )
     },
 
     Scene("text") { art ->

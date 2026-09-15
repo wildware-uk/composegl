@@ -7,12 +7,14 @@ import dev.wildware.composegl.ui.geometry.Shape
 import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.graphics.box
-import dev.wildware.composegl.ui.graphics.boxBorder
 import dev.wildware.composegl.ui.graphics.boxShadow
+import dev.wildware.composegl.ui.graphics.border
+import dev.wildware.composegl.ui.graphics.borders
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.modifier.BackgroundElement
 import dev.wildware.composegl.ui.modifier.BrushBackgroundElement
 import dev.wildware.composegl.ui.modifier.BorderElement
+import dev.wildware.composegl.ui.modifier.BorderSidesElement
 import dev.wildware.composegl.ui.modifier.DrawBehindElement
 import dev.wildware.composegl.ui.modifier.DrawInFrontElement
 import dev.wildware.composegl.ui.modifier.NinePatchElement
@@ -480,7 +482,8 @@ class DrawPass(val canvas: UiCanvas) {
             // Through the helpers rather than the canvas's own calls: four equal corners go to
             // the single-radius call, so a canvas that wraps another still sees every box.
             is BackgroundElement -> canvas.box(rect, element.colour, element.corners)
-            is BorderElement -> canvas.boxBorder(rect, element.colour, element.width, element.corners)
+            is BorderElement -> canvas.border(rect, element.colour, element.width, element.corners, element.style)
+            is BorderSidesElement -> canvas.borders(rect, element.left, element.top, element.right, element.bottom)
             is ShadowElement -> canvas.boxShadow(rect, element.colour, element.spread, element.corners)
             is BrushBackgroundElement -> canvas.rect(rect, element.brush, element.corner)
             is NinePatchElement -> element.patch.drawInto(canvas, rect, element.tint)

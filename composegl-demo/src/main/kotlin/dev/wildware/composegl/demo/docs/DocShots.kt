@@ -31,6 +31,8 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Shape
 import dev.wildware.composegl.ui.geometry.Shapes
 import dev.wildware.composegl.ui.graphics.Brush
+import dev.wildware.composegl.ui.graphics.BorderSide
+import dev.wildware.composegl.ui.graphics.BorderStyle
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerId
@@ -790,6 +792,31 @@ private fun MutableList<DocShot>.modifiers() {
                 Tile("fade") {
                     Modifier.background(Steel, corner = 6f)
                         .background(Brush.linear(Accent, Accent.withAlpha(0), degrees = 45f), corner = 6f)
+                }
+            }
+        }
+    })
+
+    add(DocShot("modifier-borders", 460, 200) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(14f)) {
+                Text(
+                    "INVENTORY",
+                    modifier = Modifier.width(430f).border(bottom = BorderSide(1f, Steel)).padding(bottom = 6f),
+                )
+                Row {
+                    listOf("MAP", "GEAR", "QUESTS").forEachIndexed { index, name ->
+                        val underline = if (index == 1) BorderSide(3f, Accent) else BorderSide(1f, Steel)
+                        Box(Modifier.border(bottom = underline).padding(horizontal = 18f, vertical = 6f)) {
+                            Text(name, style = if (index == 1) "label" else "label.dim")
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(14f)) {
+                    Tile("dashed") { Modifier.border(Accent, width = 2f, style = BorderStyle.Dashed(on = 6f, off = 4f)) }
+                    Tile("rounded") { Modifier.border(Accent, width = 2f, corner = 10f, style = BorderStyle.Dashed(on = 6f, off = 4f)) }
+                    Tile("dotted") { Modifier.border(Accent, width = 2f, corner = 8f, style = BorderStyle.Dotted) }
+                    Tile("left only") { Modifier.background(Steel).border(left = BorderSide(4f, Accent)) }
                 }
             }
         }
