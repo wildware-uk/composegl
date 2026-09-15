@@ -124,7 +124,9 @@ class KorgeDemo(val stage: Stage, val options: DemoOptions = DemoOptions()) : Au
             }
             // A few frames first: focus moves by where things are, and nothing is anywhere before layout.
             if (frames > WarmUpFrames) script.frame(stage.views)
-            while (true) (afterFrame.poll() ?: break).invoke(ctx)
+            // Only the work already waiting: a test that posts again from inside its work gets the
+            // next frame, not this one a second time.
+            repeat(afterFrame.size) { (afterFrame.poll() ?: return@repeat).invoke(ctx) }
         }
     }
 
