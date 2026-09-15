@@ -180,6 +180,9 @@ private const val Window = 640
 /** Frames drawn before the shutter, so that anything with a first-frame animation has settled. */
 private const val Settle = 3
 
+/** The frames after a click on which the pointer moves on to a shot's `then`. */
+private val ThenFrames = 2..3
+
 /** How many moves a doc shot's drag is made of. */
 private const val DragSteps = 12
 
@@ -249,6 +252,7 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
     // the tree has been measured.
     var dragged = false
     var clicked = false
+    var sinceClick = 0
     renderers[0].onLaidOut = { nanos ->
         shot.padCursor?.let { at ->
             cursor.moveTo(at)
@@ -256,14 +260,20 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
         }
         val to = shot.dragTo
         shot.pointer?.let { at ->
-            if (to == null) {
+            val then = shot.then
+            if (to == null && clicked && then != null) {
+                // A few frames after the click, so what it opened is laid out to land on, and then left
+                // alone rather than moved every frame, because a rest is measured from the last move.
+                sinceClick++
+                if (sinceClick in ThenFrames) mouse.onPointer(PointerEvent.Move(PointerId.Mouse, then))
+            } else if (to == null) {
                 mouse.onPointer(PointerEvent.Move(PointerId.Mouse, at))
                 if (shot.press) mouse.onPointer(PointerEvent.Press(PointerId.Mouse, at))
                 // Once, not every frame: a click every frame on a dropdown opens and closes it in turn.
                 if (shot.click && !clicked) {
                     clicked = true
-                    mouse.onPointer(PointerEvent.Press(PointerId.Mouse, at))
-                    mouse.onPointer(PointerEvent.Release(PointerId.Mouse, at))
+                    mouse.onPointer(PointerEvent.Press(PointerId.Mouse, at, shot.button))
+                    mouse.onPointer(PointerEvent.Release(PointerId.Mouse, at, shot.button))
                 }
             } else if (!dragged) {
                 // Once, in steps, the way a hand does it: a drag is a gesture rather than a state,
