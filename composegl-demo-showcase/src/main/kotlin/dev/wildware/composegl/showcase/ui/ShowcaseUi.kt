@@ -3,7 +3,9 @@ package dev.wildware.composegl.showcase.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import dev.wildware.composegl.effects.blur
 import dev.wildware.composegl.effects.colourGrade
 import dev.wildware.composegl.effects.dissolve
@@ -61,6 +63,7 @@ import dev.wildware.composegl.ui.widget.CollapsingHeader
 import dev.wildware.composegl.ui.widget.LocalFonts
 import dev.wildware.composegl.ui.widget.MenuBar
 import dev.wildware.composegl.ui.widget.PopupHost
+import dev.wildware.composegl.ui.widget.Splitter
 import dev.wildware.composegl.ui.widget.contextMenu
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.Text
@@ -184,6 +187,8 @@ private fun ShowcaseMenus(state: ShowcaseState, budget: FrameBudget) {
  * written against the same public API a game's own shader uses. That is the claim this exhibit is
  * making, and it is why the module is separate: if a blur needed something a game could not have,
  * this would not compile.
+ *
+ * The two halves sit either side of a [Splitter], so the shelf is also where its divider is on show.
  */
 @Composable
 private fun ShaderShelf(state: ShowcaseState) {
@@ -193,15 +198,31 @@ private fun ShaderShelf(state: ShowcaseState) {
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8f)) {
             Text("SHADERS", style = "label.title")
-            Row(horizontalArrangement = Arrangement.spacedBy(12f)) {
-                ShaderTile("BLUR", Modifier.blur(3f))
-                ShaderTile("LINE", Modifier.outline(Colour.White, width = 2f))
-                ShaderTile("GRADE", Modifier.colourGrade(brightness = 0.7f, saturation = 0f))
-                ShaderTile(
-                    "GONE",
-                    Modifier.dissolve(state.dissolve, scale = 12f, edge = Colour.rgb(0x4CC2FF)),
-                )
-            }
+            // Two halves of the shelf on a splitter: drag the bar between them, nudge it with the
+            // arrows once it has focus, or double-click it to put it back in the middle.
+            var split by remember { mutableStateOf(0.5f) }
+            Splitter(
+                fraction = split,
+                onFractionChange = { split = it },
+                modifier = Modifier.size(410f, 56f),
+                minFirst = 86f,
+                minSecond = 86f,
+                first = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12f)) {
+                        ShaderTile("BLUR", Modifier.blur(3f))
+                        ShaderTile("LINE", Modifier.outline(Colour.White, width = 2f))
+                    }
+                },
+                second = {
+                    Row(Modifier.padding(left = 12f), horizontalArrangement = Arrangement.spacedBy(12f)) {
+                        ShaderTile("GRADE", Modifier.colourGrade(brightness = 0.7f, saturation = 0f))
+                        ShaderTile(
+                            "GONE",
+                            Modifier.dissolve(state.dissolve, scale = 12f, edge = Colour.rgb(0x4CC2FF)),
+                        )
+                    }
+                },
+            )
         }
     }
 }

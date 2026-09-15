@@ -60,6 +60,15 @@
 
     "toggle.knob": { "background": { "fill": "#E8F4FF", "corner": 8 } },
 
+    // The splitter on the shader shelf: a faint blue bar that brightens under the pointer.
+
+    "splitter": {
+      "background": { "fill": "#304CC2FF", "corner": 3 },
+      "hovered": { "background": { "fill": "#904CC2FF", "corner": 3 } },
+      "pressed": { "background": { "fill": "#4CC2FF", "corner": 3 } },
+      "focused": { "background": { "fill": "#904CC2FF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
     // The header the switches fold away under: a quiet strip, lit while it is open.
 
     "collapsingheader": {

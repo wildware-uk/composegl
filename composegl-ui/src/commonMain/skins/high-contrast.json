@@ -175,6 +175,17 @@
       "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#FFD600", "borderWidth": 2 } }
     },
 
+    // A splitter's divider is a white bar on the black, yellow while it is held; focus is the yellow
+    // edge round it.
+
+    "splitter": {
+      "background": { "fill": "#FFFFFF", "corner": 2 },
+      "hovered": { "background": { "fill": "#FFFFFF", "corner": 2 } },
+      "pressed": { "background": { "fill": "#FFD600", "corner": 2 } },
+      "focused": { "background": { "fill": "#FFFFFF", "corner": 2, "border": "#FFD600", "borderWidth": 2 } },
+      "disabled": { "background": { "fill": "#B0B0B0", "corner": 2 } }
+    },
+
     // A stepper is picked with left and right, so its arrows are what say it is one. An arrow at an
     // end it cannot pass is dimmed rather than hidden, so the value does not jump sideways.
 
