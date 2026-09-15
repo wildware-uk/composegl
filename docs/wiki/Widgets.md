@@ -349,6 +349,50 @@ NumberStepper(fov, range = 60..110, step = 5, format = { "$it°" }, onValueChang
 Styles: `stepper` behind it, `stepper.arrow` for the two arrows (pressed while
 held, disabled at an end), `stepper.value` for the words.
 
+### Dropdowns
+
+One choice out of a list that opens and closes — resolution, language,
+difficulty, a quality preset:
+
+```kotlin
+PopupHost {                           // once, around the screen
+    Dropdown(
+        options = resolutions,
+        selected = current,
+        onSelect = { current = it },
+        modifier = Modifier.width(200f),
+        label = { Text(it.toString()) },
+    )
+}
+```
+
+![a resolution dropdown open over the settings under it, with the chosen option lit](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-dropdown.png)
+
+A click, Enter or the pad's South opens the list under the field, **over
+everything else on the screen**, with focus on the option that is chosen now.
+The arrows or the d-pad move, and the same press chooses. While it is open:
+
+- **Focus cannot leave the list.** A pad pressing down past the last option
+  stays on it, rather than wandering into the screen behind.
+- **Escape, East and Back close it** without choosing, before they reach any
+  `OnBack` behind it. Focus goes back to the field either way.
+- **A press outside closes it and does nothing else.** It is not also a click
+  on whatever was under the pointer.
+
+The list is as wide as the field, so give the field a width that fits the
+longest option. It opens upwards when there is no room below, and scrolls when
+it is taller than `maxListHeight` or than the room it has.
+
+`PopupHost` is what draws it on top. Draw order is tree order, so the only
+place a list can be drawn over its neighbours — and escape a `ScrollArea` that
+would clip it — is the end of the screen. The host composes the list there, but
+**as if it were where the dropdown is**: it still gets the skin, the fonts and
+anything else you provided around the dropdown. Forget the host and the screen
+fails as it is built, saying so.
+
+The field is the `"dropdown"` style, the list's panel `"dropdown.list"`, and
+the options are `"item"` and `"item.selected"` — the same ones a menu uses.
+
 ---
 
 ## Lists and scrolling

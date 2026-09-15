@@ -17,6 +17,9 @@ import dev.wildware.composegl.ui.geometry.Offset
  * @param press whether that pointer is held down.
  * @param dragTo where to drag that pointer to, pressed at [pointer] and let go here, once, before
  *   the settling frames — for a picture of something a drag moved. Null drags nothing.
+ * @param click whether that pointer clicks once, pressed and let go on the first frame, and then stays
+ *   where it is. For a picture of what a click opens — a dropdown's list — which a held press never
+ *   shows, because a click happens on the release.
  * @param seconds how long to let the interface run before the shutter. Anything animated — a bar
  *   draining, a cooldown sweeping, a caret blinking — is a different picture at a different moment.
  * @param stock whether to take it through `Skin.Default` rather than the example's skin. For the
@@ -29,6 +32,7 @@ internal class DocShot(
     val pointer: Offset? = null,
     val press: Boolean = false,
     val dragTo: Offset? = null,
+    val click: Boolean = false,
     val seconds: Float = 0f,
     val stock: Boolean = false,
     val content: @Composable () -> Unit,
