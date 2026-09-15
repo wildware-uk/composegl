@@ -618,7 +618,8 @@ AnimatedVisibility(
 
 ![a menu half way through fading and shrinking out](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-animated-visibility.png)
 
-- **Parts:** `fadeIn`/`fadeOut`, `scaleIn`/`scaleOut`, `slideIn`/`slideOut`. Join
+- **Parts:** `fadeIn`/`fadeOut`, `scaleIn`/`scaleOut`, `slideIn`/`slideOut`, and `slideInRelative`/`slideOutRelative` for a slide measured in
+  the panel's own size (`Offset(1f, 0f)` is one whole width to the right). Join
   them with `+`. Each takes its own spec, so a fade can be quick while a scale
   settles on a spring.
 - **Changing your mind** turns round from where it is. Reopen a menu half way out
@@ -705,7 +706,42 @@ Crossfade(targetState = page) { page ->
   the new page, to its `initialFocus` button if it has one.
 - **Cost:** settled, it is one page at full opacity and asks for no frames.
 - A leaving page can still be clicked until it is gone.
-- Only a fade. There is no slide or scale between pages yet.
+- Only a fade. For a slide or a scale, use `AnimatedContent` below.
+
+---
+
+## Sliding between pages: AnimatedContent
+
+`Crossfade` always fades. `AnimatedContent` asks you how to get from one page to the
+next, each time the page changes, given the page it is leaving and the one it is going to.
+Slide left going deeper into a menu and right coming back:
+
+```kotlin
+AnimatedContent(
+    targetState = page,
+    transition = { from, to -> if (to > from) slideLeft() else slideRight() },
+) { page -> PageContent(page) }
+```
+
+![a card carousel at rest, and the same carousel half way through sliding to the next card](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-animated-content.png)
+
+- **Ready-made:** `slideLeft()`, `slideRight()`, `slideUp()` (a score rolling up) and
+  `slideDown()`. Each slides by the page's own size, so it looks the same on any screen.
+- **Your own:** an enter and an exit, joined with `togetherWith`:
+  `scaleIn(from = 0.8f) + fadeIn() togetherWith fadeOut()`. Any of `fadeIn`, `scaleIn`,
+  `slideIn`, and `slideInRelative` (a slide measured in the page's own size) works here.
+- **Size:** the space is the size of the page being shown. When the new page is bigger or
+  smaller, the space grows or shrinks to it on a spring, and what is under it moves with it.
+  `.using(Tween(200))` picks the timing; `.using(null)` turns it off, so the space is as big
+  as the biggest page while they change, the way `Crossfade` does it.
+- **Cut off at the edge:** while pages change, a page is cut off at the edge of the space,
+  so a card sliding out does not draw over its neighbours. Settled, nothing is cut.
+  `ContentTransform(enter, exit, clip = false)` turns that off.
+- **Changing your mind** turns round from wherever the slide had got to, with the page's
+  state intact. The transition is asked again for the new change.
+- **Everything else is as `Crossfade`:** `contentKey`, `contentAlignment`,
+  `clock = Clock.World`, focus moving into the new page, clicks reaching a leaving page,
+  and no frames once settled.
 
 ---
 

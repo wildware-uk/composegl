@@ -300,6 +300,66 @@ class AnimatedVisibilityTest {
     }
 
     @Test
+    fun `a relative slide moves the panel by its own size and back out the other way`() {
+        var open by mutableStateOf(false)
+        val spec = Tween(200, easing = Easings.Linear)
+        show {
+            Column {
+                AnimatedVisibility(
+                    open,
+                    enter = slideInRelative(Offset(1f, 0f), spec),
+                    exit = slideOutRelative(Offset(0f, -1f), spec),
+                ) {
+                    Box(Modifier.size(120f, 40f).testTag("panel").background(PanelColour))
+                }
+                Box(Modifier.size(100f, 20f).testTag("below"))
+            }
+        }
+
+        open = true
+        frame()
+        assertEquals(120f, host.root.find("panel").boundsInRoot.left, "arriving one whole width to the right")
+        val below = host.root.find("below").boundsInRoot
+        play(100)
+        val arriving = host.root.find("panel").boundsInRoot.left
+        assertTrue(arriving in 40f..80f, "half way in, at $arriving")
+        assertEquals(below, host.root.find("below").boundsInRoot, "a slide is not a layout change")
+        play(200)
+        assertEquals(0f, host.root.find("panel").boundsInRoot.left)
+
+        open = false
+        play(100)
+        val leaving = host.root.find("panel").boundsInRoot.top
+        assertTrue(leaving in -30f..-10f, "half its own height up and away, at $leaving")
+        play(200)
+        assertNull(host.root.findOrNull("panel"))
+    }
+
+    @Test
+    fun `content aligned in a sliding panel keeps its alignment the whole way in`() {
+        var open by mutableStateOf(false)
+        show {
+            AnimatedVisibility(
+                open,
+                modifier = Modifier.size(200f, 100f),
+                enter = slideInRelative(Offset(1f, 0f), Tween(200, easing = Easings.Linear)),
+            ) {
+                Box(Modifier.align(Alignment.Centre).size(50f).testTag("badge"))
+            }
+        }
+
+        open = true
+        frame()
+        assertEquals(275f, host.root.find("badge").boundsInRoot.left, "centred, one whole width to the right")
+        assertEquals(25f, host.root.find("badge").boundsInRoot.top, "and centred top to bottom")
+        play(100)
+        val half = host.root.find("badge").boundsInRoot.left
+        assertTrue(half in 145f..205f, "half way in and still centred, at $half")
+        play(200)
+        assertEquals(75f, host.root.find("badge").boundsInRoot.left, "and at rest exactly where it was sliding to")
+    }
+
+    @Test
     fun `a panel that opens with the screen is simply there`() {
         show {
             AnimatedVisibility(true, enter = fadeIn() + scaleIn()) {
