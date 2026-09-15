@@ -406,6 +406,8 @@ default), and `fraction` is how much of the rest the first pane gets. Each pane 
 clipped to its share, so a squeezed pane cuts its contents off rather than drawing
 over its neighbour. Like a slider, it reports and the screen holds the answer.
 
+![a level editor in nested splitters: a hierarchy beside a map stacked over a log, with the hierarchy's divider held and dragged right, lit blue](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-splitter.png)
+
 - **Mouse or finger.** Over the divider the cursor becomes a resize arrow. A press
   takes the pointer, so the drag carries on outside the splitter and even outside the
   window.
@@ -419,6 +421,8 @@ over its neighbour. Like a slider, it reports and the screen holds the answer.
 `minFirst` and `minSecond` hold whatever `fraction` says. When there is not room for
 both, the space is shared in proportion to them. On a right-to-left screen a
 side-by-side splitter mirrors: the first pane is on the right.
+
+![the same editor right to left in the high-contrast skin: the hierarchy on the right, and a yellow focus ring on its divider](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-splitter-rtl.png)
 
 The divider's look is the skin's `"splitter"` style, in its hovered, pressed, focused
 and disabled states. Pass `style = "splitter.thin"` to use another.
