@@ -42,6 +42,7 @@ dependencyResolutionManagement {
 
 include(
     "composegl-ui",
+    "composegl-render",
     "composegl-effects",
     "composegl-gdx",
     "composegl-korge",
