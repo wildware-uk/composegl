@@ -92,6 +92,9 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
         private set
 
     init {
+        // A long press on this tree is measured in the same time as every animation in it.
+        tree.clocks = clocks
+
         // UNDISPATCHED so the recomposer is already running before the first frame, rather than
         // waiting in the queue for a drain that has not happened yet.
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -119,6 +122,9 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
 
         // Before anything else: an animation waking up this frame must see this frame's time.
         clocks.advance(nanos)
+        // Then the held presses, which fire callbacks that write state — before the drain below, so
+        // a long press or a repeat step is drawn this frame rather than the next.
+        tree.runWaiters()
 
         dispatcher.drain()
         // Nobody runs the global snapshot manager for us, so state writes are published here.

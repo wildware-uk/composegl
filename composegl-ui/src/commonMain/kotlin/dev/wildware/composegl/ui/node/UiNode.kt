@@ -1,6 +1,8 @@
 package dev.wildware.composegl.ui.node
 
+import dev.wildware.composegl.ui.animation.Clocks
 import dev.wildware.composegl.ui.draw.RectCache
+import dev.wildware.composegl.ui.input.FrameWaiter
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
@@ -664,6 +666,36 @@ class UiTree(val root: UiNode = UiNode("root")) {
 
     /** Whether a change is pending, without clearing it. For tests and for assertions. */
     val hasChanges: Boolean get() = changed
+
+    /**
+     * The time every timed gesture on this tree is measured in.
+     *
+     * A [dev.wildware.composegl.ui.host.UiHost] hands its own over when it is made, so a long press
+     * and an animation in the same interface agree about what "half a second" means.
+     */
+    internal var clocks: Clocks = Clocks()
+
+    /** Presses being held that are waiting on a clock. Empty on nearly every frame there has ever been. */
+    private val waiting = ArrayList<FrameWaiter>(2)
+
+    internal fun wait(waiter: FrameWaiter) {
+        if (waiter !in waiting) waiting += waiter
+    }
+
+    internal fun stopWaiting(waiter: FrameWaiter) {
+        waiting -= waiter
+    }
+
+    /**
+     * Lets every held press see the time move on. Called by the host once a frame, straight after
+     * the clocks advance and before the recompose, so what a long press changes is drawn this frame.
+     *
+     * Walked over a copy, because a waiter that finishes takes itself off the list.
+     */
+    internal fun runWaiters() {
+        if (waiting.isEmpty()) return
+        waiting.toList().forEach { it.onFrame(clocks) }
+    }
 
     override fun toString(): String = root.debugTree()
 }

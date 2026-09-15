@@ -2,6 +2,8 @@ package dev.wildware.composegl.ui.focus
 
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.input.ClickMemory
+import dev.wildware.composegl.ui.input.PressGesture
 import dev.wildware.composegl.ui.node.UiNode
 import kotlin.math.abs
 
@@ -135,25 +137,45 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
 
     private var pressing: UiNode? = null
 
+    /** The held press's long press and repeat. Held Enter is paused while focus is elsewhere. */
+    private var gesture: PressGesture? = null
+
+    /** The last click from a key or the pad, for telling whether the next one is a double. */
+    private val clicks = ClickMemory()
+
     /** The focused node goes down. False when nothing is focused or it cannot be clicked. */
     fun pressFocused(): Boolean {
         if (pressing != null) return true
         val node = current ?: return false
         if (node.resolved.click?.enabled != true) return false
         pressing = node
+        gesture = PressGesture(node)
         node.resolved.interactions.forEach { it.press() }
         return true
     }
 
-    /** The focused node comes up, and that is a click — unless focus moved out from under it. */
+    /**
+     * The focused node comes up, and that is a click — unless focus moved out from under it, or a
+     * long press or a repeat has already spent the press.
+     */
     fun releaseFocused(): Boolean {
         val node = pressing ?: return false
         pressing = null
+        val held = gesture
+        gesture = null
+        val stillAClick = held?.finish() ?: true
         node.resolved.interactions.forEach { it.release() }
-        if (node !== current) return false
+        if (node !== current) {
+            clicks.forget()
+            return false
+        }
         val click = node.resolved.click ?: return false
         if (!click.enabled) return false
-        click.onClick()
+        if (!stillAClick || held == null) {
+            clicks.forget()
+            return true
+        }
+        clicks.click(node, click, held)
         return true
     }
 
@@ -161,6 +183,8 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     fun cancelPress() {
         val node = pressing ?: return
         pressing = null
+        gesture?.cancel()
+        gesture = null
         node.resolved.interactions.forEach { it.release() }
     }
 
@@ -347,6 +371,8 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         if (node === current) return
         release(current)
         current = node
+        // A held Enter only counts while focus is on what it pressed: moving away is sliding off.
+        gesture?.inside = node === pressing
         node?.resolved?.focusable?.state?.focus()
         if (node != null) {
             tellAncestors(node, focused = true)
