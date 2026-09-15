@@ -406,6 +406,52 @@ class PointerHoverIconTest {
     }
 
     @Test
+    fun `a press with no move before it drags with the shape under it`() {
+        var value by mutableStateOf(0f)
+        show {
+            Slider(
+                value = value,
+                onValueChange = { value = it },
+                modifier = Modifier.width(200f).pointerHoverIcon(PointerIcon.ResizeHorizontal).testTag("volume"),
+            )
+        }
+        val bounds = host.root.find("volume").boundsInRoot
+        val start = Offset(bounds.left + 2f, bounds.centre.y)
+
+        // The first thing the mouse does is press, the way a tap on a touchpad can.
+        pointer.onPointer(PointerEvent.Press(PointerId.Mouse, start))
+        assertEquals(PointerIcon.ResizeHorizontal, cursor.icon)
+
+        moveTo(Offset(390f, 390f), pressed = setOf(PointerButton.Primary))
+        settle()
+        assertEquals(1f, value, "the drag really is dragging")
+        assertEquals(PointerIcon.ResizeHorizontal, cursor.icon, "and holds the shape the press found")
+    }
+
+    @Test
+    fun `a press where a still mouse was left shows what is under it now`() {
+        var fieldOnTop by mutableStateOf(false)
+        show {
+            if (fieldOnTop) {
+                TextField("", onValueChange = {}, modifier = Modifier.width(200f).testTag("name"))
+            } else {
+                Button(onClick = {}, modifier = Modifier.width(200f).testTag("go")) {}
+            }
+        }
+        val at = centreOf("go")
+        moveTo(at)
+        assertEquals(PointerIcon.Default, cursor.icon)
+
+        // The screen changes under a mouse that does not move, then the mouse presses.
+        fieldOnTop = true
+        settle()
+        pointer.onPointer(PointerEvent.Press(PointerId.Mouse, at))
+        assertEquals(PointerIcon.Text, cursor.icon)
+        pointer.onPointer(PointerEvent.Release(PointerId.Mouse, at))
+        assertEquals(PointerIcon.Text, cursor.icon)
+    }
+
+    @Test
     fun `a drag let go over a field takes the field's I-beam`() {
         show {
             Column(Modifier.width(300f)) {

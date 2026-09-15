@@ -456,8 +456,9 @@ The rules, all of them things you would otherwise find out by accident:
 - **Only a mouse or a stylus changes it.** A finger has no cursor and a ray in the world
   is not the one on the desktop.
 - **The backend is asked when the shape changes**, never per mouse move.
-- **The shape is read when the mouse moves.** A field switched off under a still mouse
-  keeps its I-beam until the mouse next twitches.
+- **The shape is read when the mouse moves or presses.** A field switched off under a
+  still mouse keeps its I-beam until the mouse next twitches or clicks, and a drag always
+  starts with the shape of what the press landed on.
 
 `pointer.pointerIcon` says what the shape should be, for a game that draws its own
 cursor. `GdxBackend` and `Lwjgl3Backend` change the real one; on Android and iOS there

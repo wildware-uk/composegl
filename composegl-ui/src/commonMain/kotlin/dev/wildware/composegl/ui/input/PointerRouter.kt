@@ -152,7 +152,12 @@ class PointerRouter(
             return true
         }
 
-        val taker = candidatesUnder(event.position).firstOrNull { consumes(it, event) } ?: return false
+        val candidates = candidatesUnder(event.position)
+        // The shape is read here as well as on a move, because the press is what the drag will hold
+        // it at. A press with no move before it, or after a scroll slid something new under a still
+        // mouse, would otherwise drag with whatever shape the last move left.
+        if (event.type.hasCursor) show(iconOf(hoverPathFrom(candidates.firstOrNull(), event.position)))
+        val taker = candidates.firstOrNull { consumes(it, event) } ?: return false
 
         // A gesture has started, so nothing is merely hovered any more.
         val hovered = hovering[event.pointerId].orEmpty()
