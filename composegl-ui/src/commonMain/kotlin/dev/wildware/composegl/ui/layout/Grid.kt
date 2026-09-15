@@ -128,6 +128,82 @@ internal data class GridPolicy(
         return layout(width, height, count)
     }
 
+    // Written out rather than left to the default, which runs measure with unbounded room along the
+    // axis asked about — and an adaptive grid offered an unbounded width cannot tell how many
+    // columns fit, so it throws. Asked directly, the answer is about cells rather than room.
+    //
+    // Across: a fixed grid is its columns of the widest child. An adaptive one counts its columns
+    // from minSize, not from its children, so its answer is in minSize cells: one at its narrowest,
+    // and every child on one row at its widest. Any wider and it would fit more columns and squeeze
+    // them. Down: the rows the width makes, each as tall as its tallest child at the cell width.
+
+    override fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        across(measurables, max = false)
+
+    override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        across(measurables, max = true)
+
+    override fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        down(measurables, width, max = false)
+
+    override fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        down(measurables, width, max = true)
+
+    private fun across(measurables: List<IntrinsicMeasurable>, max: Boolean): Float {
+        val count = measurables.size
+        if (count == 0) return 0f
+        val cell: Float
+        val across: Int
+        when (columns) {
+            is GridCells.Adaptive -> {
+                cell = columns.minSize
+                across = if (max) count else 1
+            }
+            is GridCells.Fixed -> {
+                var widest = 0f
+                for (index in 0 until count) {
+                    val measurable = measurables[index]
+                    val wanted = if (max) {
+                        measurable.maxIntrinsicWidth(Float.POSITIVE_INFINITY)
+                    } else {
+                        measurable.minIntrinsicWidth(Float.POSITIVE_INFINITY)
+                    }
+                    if (wanted > widest) widest = wanted
+                }
+                cell = widest
+                across = columns.count
+            }
+        }
+        return cell * across + horizontalSpacing * (across - 1)
+    }
+
+    private fun down(measurables: List<IntrinsicMeasurable>, width: Float, max: Boolean): Float {
+        val count = measurables.size
+        if (count == 0) return 0f
+        val bounded = width.isFinite()
+        val across = when {
+            bounded -> columnCount(width)
+            columns is GridCells.Fixed -> columns.count
+            else -> count
+        }
+        val rows = (count - 1) / across + 1
+        val cell =
+            if (bounded) ((width - horizontalSpacing * (across - 1)) / across).coerceAtLeast(0f)
+            else Float.POSITIVE_INFINITY
+        var total = verticalSpacing * (rows - 1)
+        for (row in 0 until rows) {
+            var tallest = 0f
+            val first = row * across
+            for (index in first until minOf(first + across, count)) {
+                val measurable = measurables[index]
+                val wanted = if (max) measurable.maxIntrinsicHeight(cell) else measurable.minIntrinsicHeight(cell)
+                if (wanted > tallest) tallest = wanted
+            }
+            total += tallest
+        }
+        return total
+    }
+
     /** How many columns fit in [available], which may be unbounded. */
     internal fun columnCount(available: Float): Int = when (columns) {
         is GridCells.Fixed -> columns.count

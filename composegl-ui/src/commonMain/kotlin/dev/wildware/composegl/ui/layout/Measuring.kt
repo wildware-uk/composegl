@@ -46,8 +46,11 @@ abstract class Placeable {
  *
  * A parent gets these, not nodes: it can ask how big a child would like to be, and nothing else.
  * That is what stops layouts reaching into each other.
+ *
+ * It can also ask before measuring — see [IntrinsicMeasurable] — which is how a column learns how
+ * wide its widest child is before it decides how wide to make all of them.
  */
-interface Measurable {
+interface Measurable : IntrinsicMeasurable {
 
     fun measure(constraints: Constraints): Placeable
 
@@ -55,7 +58,7 @@ interface Measurable {
      * What the child said about itself that its parent needs — a weight in a row, an alignment in
      * a box. Null when the child said nothing.
      */
-    val layoutData: LayoutData
+    override val layoutData: LayoutData
 }
 
 /**
@@ -217,6 +220,36 @@ interface MeasureScope {
 fun interface MeasurePolicy {
 
     fun MeasureScope.measure(measurables: List<Measurable>, constraints: Constraints): MeasureResult
+
+    /**
+     * How narrow this layout can be, [height] tall, given what its children say about themselves.
+     *
+     * The four intrinsic questions have an answer already: [measure] is run over stand-ins that
+     * report each child's own intrinsic size, so a layout that arranges its children gets
+     * intrinsics that agree with the arrangement without writing any. Override them when the
+     * answer is cheaper to work out directly, or when measuring cannot tell — a leaf of text knows
+     * its longest word, and measuring it at a width does not.
+     *
+     * An answer must not measure anything. Ask [IntrinsicMeasurable]s instead.
+     *
+     * A policy whose [measure] writes anything down — a scroll position clamped to the window, a
+     * list of lines to draw — must override all four. The default runs [measure] with made-up room,
+     * and whatever it writes down there is wrong by the time the real measure comes.
+     */
+    fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float): Float =
+        probe(this, measurables, Intrinsic.MinWidth, height)
+
+    /** How wide this layout would be, [height] tall, if room were no object. */
+    fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float): Float =
+        probe(this, measurables, Intrinsic.MaxWidth, height)
+
+    /** How short this layout can be, [width] wide. */
+    fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float): Float =
+        probe(this, measurables, Intrinsic.MinHeight, width)
+
+    /** How tall this layout would be, [width] wide, if room were no object. */
+    fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float): Float =
+        probe(this, measurables, Intrinsic.MaxHeight, width)
 
     companion object {
 

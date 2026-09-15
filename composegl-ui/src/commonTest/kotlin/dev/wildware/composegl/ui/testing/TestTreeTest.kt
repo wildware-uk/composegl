@@ -3,6 +3,7 @@ package dev.wildware.composegl.ui.testing
 import dev.wildware.composegl.ui.focus.FocusDirection
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.IntrinsicSize
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -10,6 +11,7 @@ import dev.wildware.composegl.ui.modifier.focusable
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
+import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.node.UiNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -105,6 +107,7 @@ class TestTreeTest {
             Modifier.size(60f),
             Modifier.fillMaxWidth(),
             Modifier.padding(8f),
+            Modifier.width(IntrinsicSize.Max),
         ).map { modifier ->
             assertFailsWith<IllegalStateException> {
                 screen.box("a", x = 10f, modifier = modifier)

@@ -45,6 +45,7 @@ import dev.wildware.composegl.ui.layout.FlowRow
 import dev.wildware.composegl.ui.layout.Grid
 import dev.wildware.composegl.ui.layout.GridCells
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
+import dev.wildware.composegl.ui.layout.IntrinsicSize
 import dev.wildware.composegl.ui.layout.Layout
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.Row
@@ -251,6 +252,28 @@ private fun MutableList<DocShot>.layout() {
                     Grid(GridCells.Adaptive(minSize = 40f), Modifier.width(140f), spacing = 4f) {
                         repeat(7) { index -> GridTile(index, Deep) }
                     }
+                }
+            }
+        }
+    })
+
+    // A menu whose buttons all stop at the longest label, and a divider exactly as tall as the
+    // row it splits — both sized by asking the contents first.
+    add(DocShot("layout-intrinsic", 420, 170) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(28f), verticalAlignment = VerticalAlignment.Centre) {
+                Column(Modifier.width(IntrinsicSize.Max), verticalArrangement = Arrangement.spacedBy(8f)) {
+                    Button("PLAY", onClick = {}, modifier = Modifier.fillMaxWidth())
+                    Button("OPTIONS", onClick = {}, modifier = Modifier.fillMaxWidth())
+                    Button("QUIT", onClick = {}, modifier = Modifier.fillMaxWidth())
+                }
+                Row(
+                    Modifier.height(IntrinsicSize.Min).background(Ink, corner = 6f).padding(12f),
+                    horizontalArrangement = Arrangement.spacedBy(12f),
+                ) {
+                    Text("HP")
+                    Box(Modifier.width(2f).fillMaxHeight().background(Accent)) {}
+                    Text("SHIELD\nHULL")
                 }
             }
         }

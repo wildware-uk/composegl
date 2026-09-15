@@ -68,6 +68,8 @@ class ResolvedModifier private constructor(
     val sizeIn: SizeInElement?,
     /** See [dev.wildware.composegl.ui.modifier.defaultMinSize]. */
     val defaultMinSize: DefaultMinSizeElement?,
+    /** Which axes are sized to what the contents would like, asked before measuring them. */
+    val intrinsicSize: IntrinsicSizeElement?,
     val padding: Padding,
     /**
      * Room measured from a line of text, in chain order. Empty for almost every node there has ever
@@ -217,6 +219,7 @@ class ResolvedModifier private constructor(
             var aspectRatio: AspectRatioElement? = null
             var sizeIn: SizeInElement? = null
             var defaultMinSize: DefaultMinSizeElement? = null
+            var intrinsicSize: IntrinsicSizeElement? = null
             var padding = Padding.None
             val baselinePadding = mutableListOf<BaselinePaddingElement>()
             var offset = Offset.Zero
@@ -280,6 +283,10 @@ class ResolvedModifier private constructor(
                     is DefaultMinSizeElement -> defaultMinSize = DefaultMinSizeElement(
                         element.minWidth ?: defaultMinSize?.minWidth,
                         element.minHeight ?: defaultMinSize?.minHeight,
+                    )
+                    is IntrinsicSizeElement -> intrinsicSize = IntrinsicSizeElement(
+                        element.width ?: intrinsicSize?.width,
+                        element.height ?: intrinsicSize?.height,
                     )
                     is PaddingElement -> padding += element.padding
                     // Kept, not folded: each one is measured from a line that is not known until
@@ -379,7 +386,7 @@ class ResolvedModifier private constructor(
             }
 
             return ResolvedModifier(
-                size, fill, aspectRatio, sizeIn, defaultMinSize, padding, baselinePadding.toList(), offset, weight, alignment, layoutId, wrap, alpha,
+                size, fill, aspectRatio, sizeIn, defaultMinSize, intrinsicSize, padding, baselinePadding.toList(), offset, weight, alignment, layoutId, wrap, alpha,
                 scale, scaleOrigin,
                 rotation, rotationOrigin, mirrorX, mirrorY,
                 if (skewSlopeX == 0f) 0f else atan(skewSlopeX) / DegreesToRadians,

@@ -4,6 +4,7 @@ import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.MeasurePass
 import dev.wildware.composegl.ui.modifier.DefaultMinSizeElement
 import dev.wildware.composegl.ui.modifier.FillElement
+import dev.wildware.composegl.ui.modifier.IntrinsicSizeElement
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.OffsetElement
 import dev.wildware.composegl.ui.modifier.PaddingElement
@@ -48,8 +49,8 @@ import dev.wildware.composegl.ui.node.UiTree
  * it.
  *
  * That promise is why the modifier you pass may say anything at all except where a node is or how
- * big: `offset`, `size`, `width`, `height`, the `fillMax` family and `padding` are refused, with a
- * message saying so. They are refused rather than quietly overruled because the fixture cannot
+ * big: `offset`, `size`, `width`, `height` (intrinsic ones too), the `fillMax` family and
+ * `padding` are refused, with a message saying so. They are refused rather than quietly overruled because the fixture cannot
  * overrule them. Its own `offset` is appended to your chain and two offsets add up, so a box at
  * 100 carrying `Modifier.offset(5f, 0f)` sits at 100 until the pass and at 105 after it; `fill`
  * beats `size` on the axis it names whatever the order, so a 40-wide box carrying `fillMaxWidth()`
@@ -206,12 +207,14 @@ private fun Modifier.checkSaysNothingAboutTheRectangle(name: String) {
     check(
         !any {
             it is OffsetElement || it is SizeElement || it is FillElement || it is PaddingElement ||
-                it is SizeInElement || it is DefaultMinSizeElement
+                it is SizeInElement || it is DefaultMinSizeElement ||
+                it is IntrinsicSizeElement
         },
     ) {
         val said = elements().first {
             it is OffsetElement || it is SizeElement || it is FillElement || it is PaddingElement ||
-                it is SizeInElement || it is DefaultMinSizeElement
+                it is SizeInElement || it is DefaultMinSizeElement ||
+                it is IntrinsicSizeElement
         }
         "the modifier for $name says where it is or how big: $said. Where a box is and how big " +
             "is what x, y, width and height are for, and this fixture writes them into the " +

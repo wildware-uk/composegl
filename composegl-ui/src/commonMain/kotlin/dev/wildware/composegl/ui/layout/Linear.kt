@@ -120,6 +120,94 @@ internal data class LinearPolicy(
         return layout(width, height, count)
     }
 
+    // Written out rather than left to the default, because of weights. Measured with unbounded
+    // room, a weighted child gets a share of nothing; asked directly, a line of weights has to be
+    // long enough that every weighted child's share fits what it wants.
+
+    override fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        if (horizontal) along(measurables, height, max = false) else across(measurables, height, max = false)
+
+    override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        if (horizontal) along(measurables, height, max = true) else across(measurables, height, max = true)
+
+    override fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        if (horizontal) across(measurables, width, max = false) else along(measurables, width, max = false)
+
+    override fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        if (horizontal) across(measurables, width, max = true) else along(measurables, width, max = true)
+
+    /**
+     * The length of the line: the fixed children end to end, the gaps between them, and enough
+     * for the weights that the hungriest one, per unit of weight, gets what it asked for.
+     */
+    private fun along(measurables: List<IntrinsicMeasurable>, cross: Float, max: Boolean): Float {
+        val count = measurables.size
+        var fixed = arrangement.spacing * (count - 1).coerceAtLeast(0)
+        var totalWeight = 0f
+        var perWeight = 0f
+        for (index in 0 until count) {
+            val measurable = measurables[index]
+            val wanted = measurable.main(cross, max)
+            val weight = measurable.layoutData.weight
+            if (weight == null) {
+                fixed += wanted
+            } else {
+                totalWeight += weight
+                if (wanted / weight > perWeight) perWeight = wanted / weight
+            }
+        }
+        return fixed + perWeight * totalWeight
+    }
+
+    /**
+     * The thickness of the line: its thickest child, each asked at the length the line would give
+     * it — a fixed child as long as it likes within what is left, a weighted child its share.
+     */
+    private fun across(measurables: List<IntrinsicMeasurable>, length: Float, max: Boolean): Float {
+        val count = measurables.size
+        var used = arrangement.spacing * (count - 1).coerceAtLeast(0)
+        var totalWeight = 0f
+        var thickest = 0f
+        for (index in 0 until count) {
+            val measurable = measurables[index]
+            val weight = measurable.layoutData.weight
+            if (weight != null) {
+                totalWeight += weight
+                continue
+            }
+            val wanted = measurable.main(Float.POSITIVE_INFINITY, max = true)
+            val given = if (length.isFinite()) wanted.coerceAtMost((length - used).coerceAtLeast(0f)) else wanted
+            used += given
+            val thickness = measurable.cross(given, max)
+            if (thickness > thickest) thickest = thickness
+        }
+        if (totalWeight > 0f) {
+            val spare = if (length.isFinite()) (length - used).coerceAtLeast(0f) else Float.POSITIVE_INFINITY
+            for (index in 0 until count) {
+                val measurable = measurables[index]
+                val weight = measurable.layoutData.weight ?: continue
+                val share = if (spare.isFinite()) spare * (weight / totalWeight) else spare
+                val thickness = measurable.cross(share, max)
+                if (thickness > thickest) thickest = thickness
+            }
+        }
+        return thickest
+    }
+
+    private fun IntrinsicMeasurable.main(cross: Float, max: Boolean) = when {
+        horizontal && max -> maxIntrinsicWidth(cross)
+        horizontal -> minIntrinsicWidth(cross)
+        max -> maxIntrinsicHeight(cross)
+        else -> minIntrinsicHeight(cross)
+    }
+
+    private fun IntrinsicMeasurable.cross(main: Float, max: Boolean) = when {
+        horizontal && max -> maxIntrinsicHeight(main)
+        horizontal -> minIntrinsicHeight(main)
+        max -> maxIntrinsicWidth(main)
+        else -> minIntrinsicWidth(main)
+    }
+
     /**
      * What a child is offered: as much of the main axis as is left, and the whole cross axis to
      * shrink inside. A weighted child gets a main axis it cannot argue with — that is what asking

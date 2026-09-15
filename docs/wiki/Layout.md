@@ -163,6 +163,62 @@ As in Compose, `weight` only means anything inside a `Row` or a `Column`.
 
 ---
 
+## As big as the contents: `IntrinsicSize`
+
+Sometimes a layout needs to know how big a child *would like* to be before it decides
+how big to make it. A menu whose buttons are all as wide as the longest label:
+
+```kotlin
+Column(Modifier.width(IntrinsicSize.Max), verticalArrangement = Arrangement.spacedBy(8f)) {
+    Button("PLAY", onClick = { }, modifier = Modifier.fillMaxWidth())
+    Button("OPTIONS", onClick = { }, modifier = Modifier.fillMaxWidth())
+    Button("QUIT", onClick = { }, modifier = Modifier.fillMaxWidth())
+}
+```
+
+The column asks each button how wide it would be with all the room in the world, takes
+the widest, and is exactly that wide. So `fillMaxWidth` inside it fills to "OPTIONS",
+not to the screen.
+
+A form whose label column fits its longest label, with the labels right-aligned against
+the fields:
+
+```kotlin
+Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8f)) {
+    Column(Modifier.width(IntrinsicSize.Max)) {
+        Text("NAME", Modifier.fillMaxWidth(), align = HorizontalAlignment.End)
+        Text("CALLSIGN", Modifier.fillMaxWidth(), align = HorizontalAlignment.End)
+    }
+    Column(Modifier.weight(1f)) { /* the fields */ }
+}
+```
+
+And the other axis — a divider exactly as tall as the row it splits:
+
+```kotlin
+Row(Modifier.height(IntrinsicSize.Min)) {
+    Text("HP")
+    Box(Modifier.width(2f).fillMaxHeight().background(rule)) {}
+    Text("SHIELD\nHULL")
+}
+```
+
+![a menu whose buttons stop at the longest label, and a divider as tall as its row](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-intrinsic.png)
+
+`Max` is how big it would be with unlimited room: a label on one line. `Min` is the
+least it can be squeezed to: a label broken at every space, as wide as its longest word.
+A `width` or `fillMaxWidth` on the same node wins over an intrinsic one.
+
+What a child says it wants follows the same rules as measuring it: a `widthIn` range
+holds its answer inside the range, a `defaultMinSize` lifts it, and a child keeping an
+`aspectRatio` works out one side from the other.
+
+Asking is not measuring, so it does not break the measure-once rule below. It does walk
+the subtree under the node that asked, every frame, so put it on the menu rather than
+round the whole screen.
+
+---
+
 ## Spacing them out: `Arrangement`
 
 `Arrangement` is what a `Row` or `Column` does with space it has left over.
@@ -377,6 +433,11 @@ Grid(columns = GridCells.Adaptive(minSize = 64f)) {
   64 wide, and shares out what is left. Make the screen narrower and it wraps.
   It needs a width to fit into, so it fails inside anything that scrolls sideways.
 
+Inside something sized to its contents, like `Column(Modifier.width(IntrinsicSize.Max))`,
+a `Fixed` grid wants its columns at its widest child. An `Adaptive` grid wants
+cells of exactly `minSize`: one column at its narrowest, every child on one row
+at its widest. Any wider and it would fit more columns and squeeze them.
+
 Every row is as tall as its tallest child. A child smaller than its cell sits in
 the top-left corner, or wherever `contentAlignment` or its own `Modifier.align`
 says. `horizontalSpacing` and `verticalSpacing` set the two gaps separately.
@@ -464,7 +525,9 @@ It is an error rather than a warning because measuring twice doubles the cost of
 everything underneath, and two of them nested squares it. At 60 frames a second
 that is the difference between a HUD costing nothing and a HUD costing the frame.
 
-Measure once, keep the `Placeable`, place it.
+Measure once, keep the `Placeable`, place it. If you need a child's size before
+deciding what to offer it, ask with `maxIntrinsicWidth` and friends — asking is not
+measuring.
 
 ---
 

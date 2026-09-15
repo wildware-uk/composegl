@@ -14,6 +14,7 @@ import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
@@ -342,6 +343,13 @@ internal class ScrollBarLogic(
         length = if (vertical) height else width
         return layout(width, height) {}
     }
+
+    // A bar is whatever size it is told and wants nothing of its own. Written out because measuring
+    // writes down its length, and a question must not.
+    override fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) = 0f
+    override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) = 0f
+    override fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) = 0f
+    override fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) = 0f
 
     val isNeeded: Boolean get() = axis.canScroll && length > 0f
 

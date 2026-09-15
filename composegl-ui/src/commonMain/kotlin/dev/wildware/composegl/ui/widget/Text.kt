@@ -12,7 +12,9 @@ import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
+import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
@@ -226,6 +228,20 @@ private class TextPainter(
         val last = block.firstBaseline + (block.lineCount - 1).coerceAtLeast(0) * style.lineHeight
         return layout(width, constraints.constrainHeight(block.size.height), block.firstBaseline, last) {}
     }
+
+    private val intrinsics = TextIntrinsics(text, softWrap) { piece, room -> fonts.measure(piece, style, room).size }
+
+    override fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        intrinsics.minWidth()
+
+    override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        intrinsics.maxWidth()
+
+    override fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        intrinsics.height(width)
+
+    override fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        intrinsics.height(width)
 
     /**
      * The glyphs, rather than the line boxes they sit in.
@@ -494,6 +510,24 @@ private class RunPainter(
         val room = if (softWrap) constraints.maxWidth else Float.POSITIVE_INFINITY
         val kept = measured
         val block = if (kept != null && room == measuredFor) kept else fonts.paragraph(text, style, room, align)
+        return placed(block, room, constraints)
+    }
+
+    private val intrinsics = TextIntrinsics(text, softWrap) { piece, room -> fonts.paragraph(piece, style, room, align).size }
+
+    override fun MeasureScope.minIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        intrinsics.minWidth()
+
+    override fun MeasureScope.maxIntrinsicWidth(measurables: List<IntrinsicMeasurable>, height: Float) =
+        intrinsics.maxWidth()
+
+    override fun MeasureScope.minIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        intrinsics.height(width)
+
+    override fun MeasureScope.maxIntrinsicHeight(measurables: List<IntrinsicMeasurable>, width: Float) =
+        intrinsics.height(width)
+
+    private fun MeasureScope.placed(block: Paragraph, room: Float, constraints: Constraints): MeasureResult {
         measured = block
         measuredFor = room
 
@@ -625,5 +659,56 @@ private class RunPainter(
             if (run.decoration != TextDecoration.None) found = run.decoration
         }
         return found
+    }
+}
+
+/**
+ * A run of text's intrinsic sizes, worked out when first asked and kept.
+ *
+ * Kept apart from the layout the painter draws, because asking must not change what is drawn: a
+ * question about the text on one line, asked in the middle of a frame, would otherwise replace the
+ * wrapped layout the label is about to paint.
+ *
+ * The widest is the text on one line. The narrowest is its longest word, since that is where
+ * wrapping stops helping — measured word by word, because measuring the whole text at no width at
+ * all is a question each backend answers differently. Text that does not wrap is one line either
+ * way.
+ */
+private class TextIntrinsics(
+    private val text: String,
+    private val softWrap: Boolean,
+    private val sizeOf: (String, Float) -> Size,
+) {
+    private var natural = Float.NaN
+    private var longestWord = Float.NaN
+    private var heightFor = Float.NaN
+    private var height = 0f
+
+    fun maxWidth(): Float {
+        if (natural.isNaN()) natural = sizeOf(text, Float.POSITIVE_INFINITY).width
+        return natural
+    }
+
+    fun minWidth(): Float {
+        if (!softWrap) return maxWidth()
+        if (longestWord.isNaN()) {
+            var widest = 0f
+            for (word in text.split(' ', '\n', '\t')) {
+                if (word.isEmpty()) continue
+                val width = sizeOf(word, Float.POSITIVE_INFINITY).width
+                if (width > widest) widest = width
+            }
+            longestWord = widest
+        }
+        return longestWord
+    }
+
+    fun height(width: Float): Float {
+        val room = if (softWrap) width else Float.POSITIVE_INFINITY
+        if (room != heightFor) {
+            height = sizeOf(text, room).height
+            heightFor = room
+        }
+        return height
     }
 }
