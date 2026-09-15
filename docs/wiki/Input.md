@@ -133,7 +133,7 @@ ProvideUiSounds(object : UiSounds {
     override fun hover() = audio.play("tick")        // the mouse came onto a control
     override fun press() = audio.play("click")       // a control went down: mouse, Enter, Space or South
     override fun focusMove() = audio.play("move")    // arrows, Tab, d-pad or stick stepped focus
-    override fun change() = audio.play("toggle")     // a checkbox, switch, radio button or slider changed
+    override fun change() = audio.play("toggle")     // a checkbox, switch, radio button, slider, stepper or tab changed
 }) {
     MainMenu()
 }
@@ -157,6 +157,10 @@ the focus manager hears every step, so a control you build yourself out of
   a slider, which is a change, not a move.
 - **A slider** changes once per step as its knob lands, and a continuous one plays a
   single change when it is let go, not a buzz every frame.
+- **A stepper** changes once per step, whether the step came from a key, the pad, a
+  click or an arrow held down and repeating. Pushing against an end is silent.
+- **Tabs** change when you pick a different tab. Picking the one already showing
+  only presses, like a radio button that is already chosen.
 
 `ProvideUiSounds` nests: the pause menu and the HUD behind it can sound different.
 A control of your own that changes a value reports it the same way the stock ones do:

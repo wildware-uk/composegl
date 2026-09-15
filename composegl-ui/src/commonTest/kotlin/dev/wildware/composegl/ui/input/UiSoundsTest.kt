@@ -20,8 +20,11 @@ import dev.wildware.composegl.ui.testing.UiTest
 import dev.wildware.composegl.ui.testing.uiTest
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Checkbox
+import dev.wildware.composegl.ui.widget.NumberStepper
 import dev.wildware.composegl.ui.widget.RadioButton
 import dev.wildware.composegl.ui.widget.Slider
+import dev.wildware.composegl.ui.widget.Stepper
+import dev.wildware.composegl.ui.widget.Tabs
 import dev.wildware.composegl.ui.widget.Text
 import dev.wildware.composegl.ui.widget.Toggle
 import kotlin.test.AfterTest
@@ -447,5 +450,128 @@ class UiSoundsTest {
         ui.key(Key.Enter)
 
         assertEquals(2, clicks)
+    }
+
+    // --- steppers and tabs ---------------------------------------------------------------------
+
+    @Test
+    fun `a stepper changes for each step the keys and the pad take and hands focus on at the end`() {
+        val heard = Heard()
+        val ui = open(heard) {
+            var quality by remember { mutableStateOf("Low") }
+            Row {
+                Stepper(
+                    options = listOf("Low", "Medium", "High"),
+                    selected = quality,
+                    onSelect = { quality = it },
+                    initialFocus = true,
+                    modifier = Modifier.testTag("quality"),
+                )
+                Text(quality, Modifier.testTag("shown"))
+                Button("DONE", onClick = {}, modifier = Modifier.testTag("done"))
+            }
+        }
+        ui.assertFocused("quality")
+
+        ui.key(Key.Right)
+        ui.pad(GamepadButton.DpadRight)
+        ui.assertText("shown", "High")
+        assertEquals(listOf("change", "change"), heard.log)
+
+        // Nowhere further to go: the press leaves the stepper, which is a move and not a change.
+        ui.pad(GamepadButton.DpadRight)
+        ui.assertFocused("done")
+        ui.assertText("shown", "High")
+        assertEquals(listOf("change", "change", "focusMove"), heard.log)
+    }
+
+    @Test
+    fun `a stepper arrow held down changes once for every repeat and stops at the end`() {
+        val heard = Heard()
+        val ui = open(heard) {
+            var lives by remember { mutableStateOf(0) }
+            Column {
+                NumberStepper(lives, { lives = it }, range = 0..3, modifier = Modifier.testTag("lives"))
+                Text("lives $lives", Modifier.testTag("shown"))
+            }
+        }
+        val rightArrow = ui.node("lives").children[2].boundsInRoot.centre
+
+        ui.press(rightArrow)
+        ui.assertText("shown", "lives 1")
+        assertEquals(1, heard.log.count { it == "change" })
+
+        ui.advanceBy(3_000)
+        ui.assertText("shown", "lives 3")
+        assertEquals(3, heard.log.count { it == "change" }, "one change per value, none for pushing on the end: ${heard.log}")
+
+        ui.release()
+        ui.advanceBy(1_000)
+        assertEquals(3, heard.log.count { it == "change" })
+    }
+
+    @Test
+    fun `clicking the value of a stepper or pressing Enter or South goes round with a change each`() {
+        val heard = Heard()
+        val ui = open(heard) {
+            var quality by remember { mutableStateOf("Medium") }
+            Column {
+                Stepper(
+                    options = listOf("Low", "Medium", "High"),
+                    selected = quality,
+                    onSelect = { quality = it },
+                    initialFocus = true,
+                    modifier = Modifier.testTag("quality"),
+                )
+                Stepper(options = listOf("Only"), selected = "Only", onSelect = {}, modifier = Modifier.testTag("only"))
+                Text(quality, Modifier.testTag("shown"))
+            }
+        }
+        val value = ui.node("quality").children[1].boundsInRoot.centre
+
+        ui.click(value)
+        ui.assertText("shown", "High")
+        assertEquals(listOf("hover", "press", "change"), heard.log)
+
+        heard.log.clear()
+        ui.key(Key.Enter)
+        ui.assertText("shown", "Low")
+        ui.pad(GamepadButton.South)
+        ui.assertText("shown", "Medium")
+        assertEquals(listOf("press", "change", "press", "change"), heard.log)
+
+        // One option has nowhere to go round to: the press is heard, and no change.
+        heard.log.clear()
+        ui.click(ui.node("only").children[1].boundsInRoot.centre)
+        assertEquals(listOf("hover", "press"), heard.log)
+    }
+
+    @Test
+    fun `choosing another tab changes and choosing the one showing does not`() {
+        val heard = Heard()
+        val ui = open(heard) {
+            var tab by remember { mutableStateOf(0) }
+            Column {
+                Tabs(tab, { tab = it }, titles = listOf("VIDEO", "AUDIO"), modifier = Modifier.testTag("tabs")) { page ->
+                    Text(if (page == 0) "video page" else "audio page")
+                }
+                Text("tab $tab", Modifier.testTag("shown"))
+            }
+        }
+        fun heading(index: Int) = ui.node("tabs").children[0].children[index].boundsInRoot.centre
+
+        ui.click(heading(1))
+        ui.assertText("shown", "tab 1")
+        assertEquals(listOf("hover", "press", "change"), heard.log)
+
+        heard.log.clear()
+        ui.click(heading(1))
+        assertEquals(listOf("press"), heard.log, "the tab already showing did not change")
+
+        heard.log.clear()
+        ui.key(Key.Left)
+        ui.pad(GamepadButton.South)
+        ui.assertText("shown", "tab 0")
+        assertEquals(listOf("focusMove", "press", "change"), heard.log)
     }
 }
