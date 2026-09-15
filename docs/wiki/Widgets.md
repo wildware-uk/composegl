@@ -381,6 +381,50 @@ the divider a height there. The pad and the mouse pass straight over a divider.
 
 ---
 
+## Splitters
+
+Two panes sharing one space, with a divider the player drags to give one of them
+more — a hierarchy on the left and its properties on the right, a map over a log:
+
+```kotlin
+var split by remember { mutableStateOf(0.3f) }
+
+Splitter(
+    fraction = split,
+    onFractionChange = { split = it },
+    modifier = Modifier.fillMaxSize(),
+    orientation = Orientation.Horizontal,   // side by side; Vertical stacks them
+    minFirst = 120f,
+    minSecond = 200f,
+    first = { Hierarchy() },
+    second = { Properties() },
+)
+```
+
+The splitter fills the room it is given. The divider is `thickness` of it (6 by
+default), and `fraction` is how much of the rest the first pane gets. Each pane is
+clipped to its share, so a squeezed pane cuts its contents off rather than drawing
+over its neighbour. Like a slider, it reports and the screen holds the answer.
+
+- **Mouse or finger.** Over the divider the cursor becomes a resize arrow. A press
+  takes the pointer, so the drag carries on outside the splitter and even outside the
+  window.
+- **Keys or pad.** The divider is focusable. Focused, the arrows or the d-pad across
+  it move it by `step` (a twentieth of the space by default), the way they point. At
+  a pane's minimum it lets the next press move focus on instead.
+- **Double click** puts it back at `defaultFraction`, which is where `fraction`
+  started unless you pass one. Enter or South twice quickly on the focused divider
+  does the same.
+
+`minFirst` and `minSecond` hold whatever `fraction` says. When there is not room for
+both, the space is shared in proportion to them. On a right-to-left screen a
+side-by-side splitter mirrors: the first pane is on the right.
+
+The divider's look is the skin's `"splitter"` style, in its hovered, pressed, focused
+and disabled states. Pass `style = "splitter.thin"` to use another.
+
+---
+
 ## Collapsing headers
 
 A title bar that folds away the section under it — a long settings page, a debug

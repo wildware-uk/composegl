@@ -41,7 +41,7 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
 | **[[Your first screen]]** | a window, a panel and a working button, in about eighty lines |
 | **[[Layout]]** | `Column`, `Row`, `Box`, `FlowRow`, `Grid`, lazy lists and grids, `weight`, and what differs from Compose |
 | **[[Modifiers]]** | the full list, and the three rules that are ours |
-| **[[Widgets]]** | everything that ships in the toolkit: text, buttons, fields, collapsing headers, lists, tooltips |
+| **[[Widgets]]** | everything that ships in the toolkit: text, buttons, fields, collapsing headers, splitters, lists, tooltips |
 | **[[Game widgets]]** | the game tier, in `composegl-game`: bars, reticle, damage numbers, cooldowns, hotbar, minimap, particles |
 | **[[Animation]]** | clocks, springs, panels that animate in and out, screens that crossfade or slide, and pausing it all to look |
 
