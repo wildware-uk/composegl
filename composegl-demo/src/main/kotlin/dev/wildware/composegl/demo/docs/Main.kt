@@ -212,7 +212,8 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
                     val along = at + (to - at) * (step / DragSteps.toFloat())
                     router.onPointer(PointerEvent.Move(PointerId.Mouse, along, setOf(PointerButton.Primary)))
                 }
-                router.onPointer(PointerEvent.Release(PointerId.Mouse, to))
+                // Held, for a picture of something still being carried.
+                if (!shot.hold) router.onPointer(PointerEvent.Release(PointerId.Mouse, to))
             }
         }
     }

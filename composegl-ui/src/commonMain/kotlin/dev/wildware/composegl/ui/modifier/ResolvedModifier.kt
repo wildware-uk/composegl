@@ -7,6 +7,7 @@ import dev.wildware.composegl.ui.focus.FocusWithinHandler
 import dev.wildware.composegl.ui.focus.RevealHandler
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.input.ActivateHandler
 import dev.wildware.composegl.ui.input.DirectionHandler
 import dev.wildware.composegl.ui.input.GamepadHandler
 import dev.wildware.composegl.ui.input.InteractionState
@@ -192,6 +193,8 @@ class ResolvedModifier private constructor(
     val focusOrder: FocusOrderElement?,
     /** Directions this node uses itself, asked before focus looks for a neighbour. */
     val focusDirections: List<DirectionHandler>,
+    /** South or Enter on the focused node, asked before it is a click. */
+    val activations: List<ActivateHandler>,
     /** Asked to bring a descendant into view when focus lands on it. */
     val reveals: List<RevealHandler>,
     /** Told when focus arrives anywhere inside this node, or leaves it. */
@@ -301,6 +304,7 @@ class ResolvedModifier private constructor(
             var focusRequester: FocusRequester? = null
             var focusOrder: FocusOrderElement? = null
             val focusDirections = mutableListOf<DirectionHandler>()
+            val activations = mutableListOf<ActivateHandler>()
             val reveals = mutableListOf<RevealHandler>()
             val focusWithin = mutableListOf<FocusWithinHandler>()
             var focusTrap = false
@@ -433,6 +437,7 @@ class ResolvedModifier private constructor(
                     is FocusRequesterElement -> focusRequester = element.requester
                     is FocusOrderElement -> focusOrder = element
                     is FocusDirectionElement -> focusDirections += element.handler
+                    is ActivateElement -> activations += element.handler
                     is RevealElement -> reveals += element.handler
                     is FocusWithinElement -> focusWithin += element.handler
                     is FocusTrapElement -> focusTrap = element.enabled
@@ -462,7 +467,7 @@ class ResolvedModifier private constructor(
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), gamepadHandlers.toList(), click, drag,
-                focusable, pointerFocus, focusRequester, focusOrder, focusDirections.toList(),
+                focusable, pointerFocus, focusRequester, focusOrder, focusDirections.toList(), activations.toList(),
                 reveals.toList(), focusWithin.toList(), focusTrap, testTag,
                 sizeChanged.toList(), placed.toList(), contentSize,
                 placement, placementFrame, marquee,

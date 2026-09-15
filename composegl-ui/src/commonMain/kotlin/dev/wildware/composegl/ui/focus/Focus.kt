@@ -149,7 +149,8 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     fun pressFocused(): Boolean {
         if (pressing != null) return true
         val node = current ?: return false
-        if (node.resolved.click?.enabled != true) return false
+        // Something to activate is enough: a slot with nothing to click can still pick an item up.
+        if (node.resolved.click?.enabled != true && node.resolved.activations.isEmpty()) return false
         pressing = node
         gesture = PressGesture(node)
         node.resolved.interactions.forEach { it.press() }
@@ -171,6 +172,12 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         if (node !== current) {
             clicks.forget()
             return false
+        }
+        // Asked before the click, and instead of it when one says yes: South on an inventory slot
+        // picks the item up rather than selecting the slot as well.
+        if (stillAClick && node.resolved.activations.any { it.onActivate() }) {
+            clicks.forget()
+            return true
         }
         val click = node.resolved.click ?: return false
         if (!click.enabled) return false
