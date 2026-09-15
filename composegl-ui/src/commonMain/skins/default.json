@@ -385,6 +385,67 @@
 
     "collapsingheader.body": { "padding": [12, 6] },
 
+    // --- tables ---
+    //
+    // A table is a panel with a strip of titles across the top. Every other row is a shade lighter
+    // so a long line of numbers can be followed across, the chosen row is the accent, and the
+    // divider between two titles is a hairline that lights up when the pointer finds it. Rows and
+    // the header have no padding of their own: the cells carry it, so titles and values line up.
+
+    "table": { "background": { "fill": "#1A1F28", "corner": 4, "border": "#2C3545", "padding": 2 } },
+    "table.header": { "background": { "fill": "#232A35" } },
+
+    "table.header.cell": {
+      "background": "none",
+      "textColour": "#9BA6B6",
+      "padding": [8, 6],
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#2C3545" }, "textColour": "#E8ECF2" },
+      "focused": { "background": { "fill": "#2C3545", "border": "#5B8DEF" }, "textColour": "#E8ECF2" },
+      "pressed": { "background": { "fill": "#39445A" } }
+    },
+
+    "table.header.cell.sorted": {
+      "background": "none",
+      "textColour": "#E8ECF2",
+      "padding": [8, 6],
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#2C3545" } },
+      "focused": { "background": { "fill": "#2C3545", "border": "#5B8DEF" } },
+      "pressed": { "background": { "fill": "#39445A" } }
+    },
+
+    // The grab area is nine wide; the padding is what is left either side of the line drawn in it.
+    "table.divider": {
+      "background": { "fill": "#39445A" },
+      "padding": [4, 6],
+      "hovered": { "background": { "fill": "#5B8DEF" } },
+      "pressed": { "background": { "fill": "#7BA5F5" } }
+    },
+
+    "table.row": {
+      "background": "none",
+      "hovered": { "background": { "fill": "#232A35" } },
+      "focused": { "background": { "fill": "#232A35", "border": "#5B8DEF" } },
+      "pressed": { "background": { "fill": "#2C3545" } }
+    },
+
+    "table.row.alt": {
+      "background": { "fill": "#1E242E" },
+      "hovered": { "background": { "fill": "#232A35" } },
+      "focused": { "background": { "fill": "#232A35", "border": "#5B8DEF" } },
+      "pressed": { "background": { "fill": "#2C3545" } }
+    },
+
+    "table.row.selected": {
+      "background": { "fill": "#2F53A8" },
+      "hovered": { "background": { "fill": "#3F6BD6" } },
+      "focused": { "background": { "fill": "#2F53A8", "border": "#7BA5F5" } }
+    },
+
+    "table.cell": { "padding": [8, 5] },
+    "table.empty": { "textColour": "#9BA6B6", "padding": 16 },
+
     // --- menus ---
     //
     // A menu bar is a strip of quiet titles, and the one whose menu is open is lit so the menu hanging
