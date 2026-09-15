@@ -68,12 +68,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       # No GPU on a runner, so OpenGL comes from Mesa's software rasteriser. That is a feature:
-      # if ComposeGL needs anything exotic from a driver, it fails here first.
+      # if ComposeGL needs anything exotic from a driver, it fails here first. The EGL and GBM
+      # libraries are what KorGE's KORGE_HEADLESS mode opens a context through with no display.
       - name: Install a software OpenGL stack
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             xvfb libgl1 libglx-mesa0 libgl1-mesa-dri libglu1-mesa \
+            libegl1 libegl-mesa0 libgbm1 \
             libxi6 libxcursor1 libxrandr2 libxinerama1
 
       - name: Renderer tests with a real GL context
@@ -107,6 +109,9 @@ jobs:
 
       # And again with no display at all: KorGE renders offscreen with llvmpipe. Both ways must agree.
       - name: KorGE with no display
+        # The whole suite takes under a minute. A context that never comes up must fail the job, not
+        # hold master's queue for the runner's six-hour limit.
+        timeout-minutes: 10
         env:
           KORGE_HEADLESS: 'true'
           LIBGL_ALWAYS_SOFTWARE: '1'
@@ -115,6 +120,7 @@ jobs:
 
       # The KorGE demo booted for real with no display, driven from its menu into settings and the game.
       - name: The KorGE demo, booted and played with no display
+        timeout-minutes: 10
         env:
           KORGE_HEADLESS: 'true'
           LIBGL_ALWAYS_SOFTWARE: '1'
