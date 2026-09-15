@@ -174,6 +174,8 @@ import dev.wildware.composegl.ui.widget.SelectionContainer
 import dev.wildware.composegl.ui.widget.Slider
 import dev.wildware.composegl.ui.widget.Stepper
 import dev.wildware.composegl.ui.widget.Text
+import dev.wildware.composegl.ui.widget.TreeView
+import dev.wildware.composegl.ui.widget.rememberTreeState
 import dev.wildware.composegl.ui.widget.TextField
 import dev.wildware.composegl.ui.widget.Toggle
 import dev.wildware.composegl.ui.widget.Tooltip
@@ -1043,6 +1045,32 @@ private fun MutableList<DocShot>.widgets() {
                         repeat(12) { Text("Save ${it + 1} — Sector ${it + 3}") }
                     }
                 }
+            }
+        }
+    })
+
+    // A scene hierarchy with two levels open, the guides running down beside them and one row chosen.
+    add(DocShot("widget-tree", 260, 250, stock = true) {
+        class Entry(val name: String, vararg val kids: Entry)
+        val roots = listOf(
+            Entry(
+                "World",
+                Entry("Player", Entry("Camera"), Entry("Weapon")),
+                Entry("Enemies", Entry("Drone"), Entry("Turret")),
+            ),
+            Entry("Lights", Entry("Sun")),
+            Entry("Sky"),
+        )
+        Frame {
+            Panel(Modifier.width(220f).height(210f)) {
+                TreeView(
+                    roots = roots,
+                    children = { it.kids.toList() },
+                    key = { it.name },
+                    modifier = Modifier.fillMaxWidth(),
+                    selected = roots[0].kids[0].kids[1],
+                    state = rememberTreeState("World", "Player"),
+                ) { entry, _ -> Text(entry.name) }
             }
         }
     })

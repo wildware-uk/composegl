@@ -46,6 +46,7 @@ import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
+import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onKeyEvent
 import dev.wildware.composegl.ui.modifier.padding
@@ -71,6 +72,8 @@ import dev.wildware.composegl.ui.widget.Table
 import dev.wildware.composegl.ui.widget.rememberTableState
 import dev.wildware.composegl.ui.widget.Text
 import dev.wildware.composegl.ui.widget.Toggle
+import dev.wildware.composegl.ui.widget.TreeView
+import dev.wildware.composegl.ui.widget.rememberTreeState
 
 /**
  * The showcase's interface: a combat HUD over a 3D scene.
@@ -111,6 +114,7 @@ fun ShowcaseUi(
                     if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
 
                     if (state.isOn(Exhibit.Contacts)) Contacts(state)
+                    if (state.isOn(Exhibit.Tree)) SceneTree(state)
 
                     // Over the scene and under the panels, which is where a hit happens. The game
                     // fills the pool from its own loop; this only draws it.
@@ -403,6 +407,76 @@ private fun TargetTags(state: ShowcaseState) {
         }
     }
 }
+
+/** One line in the scene tree. [drone] is which target it is, for the rows that are one. */
+private class SceneEntry(
+    val id: String,
+    val label: String,
+    val drone: Int = -1,
+    val children: () -> List<SceneEntry> = { emptyList() },
+)
+
+/**
+ * What is in the scene, as a tree: the ship, the drones and the effects on show.
+ *
+ * The drones are read from the game's state each time the row is opened, so a drone that arrives
+ * appears under it. Choosing one locks it, and the locked drone is the chosen row, so the tree and
+ * the target panel always agree. A right-click, Shift+F10 or the pad's North on a drone opens what
+ * can be done to it.
+ */
+@Composable
+private fun SceneTree(state: ShowcaseState) {
+    val roots = remember(state) {
+        listOf(
+            SceneEntry("ship", "Ship") {
+                listOf(
+                    SceneEntry("reticle", "Reticle"),
+                    SceneEntry("weapons", "Weapons") {
+                        listOf(SceneEntry("cannon", "Cannon"), SceneEntry("missiles", "Missiles"))
+                    },
+                )
+            },
+            SceneEntry("drones", "Drones") {
+                state.targets.mapIndexed { index, target -> SceneEntry("drone-$index", target.callsign, drone = index) }
+            },
+            SceneEntry("effects", "Effects") {
+                Exhibit.entries.filter { state.isOn(it) }.map { SceneEntry("exhibit-${it.name}", it.title) }
+            },
+        )
+    }
+    val tree = rememberTreeState("drones")
+
+    Panel(
+        // Beside the contacts table rather than under it, so both fit on a 720-high screen.
+        Modifier.align(Alignment.TopStart).padding(left = 364f, top = BelowMenus + 196f).width(240f),
+        style = "panel.quiet",
+    ) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8f)) {
+            Text("SCENE", style = "label.title")
+            TreeView(
+                roots = roots,
+                children = { it.children() },
+                key = { it.id },
+                modifier = Modifier.fillMaxWidth().height(200f),
+                selected = roots[1].children().getOrNull(state.locked),
+                onSelect = { entry -> if (entry.drone >= 0) state.locked = entry.drone },
+                state = tree,
+                hasChildren = { it.id in Branches },
+                rowModifier = { entry ->
+                    if (entry.drone < 0) Modifier else Modifier.contextMenu {
+                        Item("&Lock") { state.locked = entry.drone }
+                        Item("&Release lock", enabled = state.locked == entry.drone) { state.locked = -1 }
+                    }
+                },
+            ) { entry, _ ->
+                Text(entry.label, style = if (entry.drone >= 0) "label" else "label.dim")
+            }
+        }
+    }
+}
+
+/** The rows that open. Known without asking, the way a real scene knows which nodes are groups. */
+private val Branches = setOf("ship", "weapons", "drones", "effects")
 
 /**
  * The switches: every exhibit can be turned off, which is how you see what each one costs. They sit

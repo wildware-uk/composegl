@@ -22,6 +22,7 @@ enum class Exhibit(val title: String, val blurb: String) {
     Shaders("Shaders", "Blur, outline, grade, dissolve"),
     Sparks("Hit sparks", "A seeded burst off every hit"),
     Contacts("Contacts table", "Sort, resize and pick a drone"),
+    Tree("Scene tree", "Rows that open, by mouse or pad"),
 }
 
 /** What one of the scene's drones looks like to the interface. */
