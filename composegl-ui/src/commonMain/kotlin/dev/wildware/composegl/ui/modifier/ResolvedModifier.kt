@@ -130,6 +130,13 @@ class ResolvedModifier private constructor(
     /** The point a 3D rotation turns about and the camera looks at, as a place inside the node. */
     val rotation3dOrigin: Alignment,
     /**
+     * How far away the one camera this node gives every 3D rotation inside it is, in pixels, or
+     * zero for none, which is almost every node. See [dev.wildware.composegl.ui.modifier.perspective].
+     */
+    val perspective: Float,
+    /** Where that camera looks from, as a place inside this node. */
+    val perspectiveOrigin: Alignment,
+    /**
      * The blend function this node and its subtree are drawn with. [BlendMode.SourceOver] for
      * almost every node there has ever been; see [dev.wildware.composegl.ui.modifier.blend].
      */
@@ -284,6 +291,8 @@ class ResolvedModifier private constructor(
             var rotation3dZ = 0f
             var cameraDistance = DefaultCameraDistance
             var rotation3dOrigin = Alignment.Centre
+            var perspective = 0f
+            var perspectiveOrigin = Alignment.Centre
             var clip: ClipElement? = null
             var clipBehind = 0
             var clipInFront = 0
@@ -409,6 +418,11 @@ class ResolvedModifier private constructor(
                         cameraDistance = element.cameraDistance
                         rotation3dOrigin = element.origin
                     }
+                    // A choice: a node is one scene with one camera, so a later one moves it.
+                    is PerspectiveElement -> {
+                        perspective = element.distance
+                        perspectiveOrigin = element.origin
+                    }
                     // A choice rather than a quantity, like an alignment: two shapes on one node
                     // are two answers to the same question, so the later one is the answer.
                     is HitShapeElement -> {
@@ -463,6 +477,7 @@ class ResolvedModifier private constructor(
                 if (skewSlopeY == 0f) 0f else atan(skewSlopeY) / DegreesToRadians,
                 skewOrigin,
                 rotation3dX, rotation3dY, rotation3dZ, cameraDistance, rotation3dOrigin,
+                perspective, perspectiveOrigin,
                 blend, zIndex, tint, clip, clipBehind, clipInFront, hitShape, hoverIcon, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),

@@ -313,6 +313,28 @@ Clicks do not follow it: a tilted widget is hit inside its flat box, like a turn
 (`hitShape` is the escape hatch). Two `rotate3d`s add angle by angle. On a canvas that
 cannot tilt a picture (`canvas.tiltsLayers`) the widget is drawn without the depth.
 
+**Perspective gives a group one camera.** On its own each tilted widget has a camera
+straight in front of its own middle, so five cards turned the same way are five
+identical shapes. Put `perspective` on their parent and they share one vanishing
+point, like cards on a table:
+
+```kotlin
+Row(Modifier.perspective(distance = 800f, origin = Alignment.Centre)) {
+    cards.forEach { Card(Modifier.rotate3d(y = tilt)) }
+}
+```
+
+![Three cards each with their own camera, and the same three sharing one](images/modifier-perspective.png)
+
+The card left of the camera shows more of its face than the one to the right. The
+distance is in pixels, as in CSS's `perspective`, and `origin` is where on the parent
+the camera sits. Every `rotate3d` anywhere inside uses it, not only direct children,
+and it replaces their own `cameraDistance`; each card still turns about its own
+`origin`. A nearer `perspective` wins. A tilted widget flattens what is inside it, so
+a tilt inside a tilted card goes back to its own camera, unless that card has a
+`perspective` of its own. The parent itself is not tilted by it, and it costs no
+picture.
+
 **Scale is for arriving and for fitting.** The widget and everything under it are
 drawn into an offscreen picture at the size layout gave them, and that picture is
 put down bigger or smaller:
