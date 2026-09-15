@@ -551,6 +551,10 @@ PopupHost {
 }
 ```
 
+![a menu bar with File open: items with Ctrl shortcuts beside them, a greyed-out Save as, a ticked Autosave and lines between the groups](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-menu-bar.png)
+
+![the View menu open with its Render submenu beside it, Shaded chosen with a dot](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-menu-submenu.png)
+
 The bar is as wide as what holds it: the top of the screen, or the top of a
 window. The menu scope is plain Kotlin, not composables. It runs every time the
 bar is composed, so `enabled = dirty` greys Save out the moment nothing needs
@@ -582,6 +586,8 @@ saving, and a shortcut works while its menu is closed.
 - **Right to left**, the bar reads from the right, menus hang from a title's
   right edge, submenus open to the left, and Left opens a submenu.
 
+![the same menu bar right to left in the high-contrast skin: titles read from the right and the submenu opens to the left](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-menu-rtl.png)
+
 Items can be disabled (`enabled = false`), which greys them out, skips them on
 the arrows and stops their shortcut. `icon = { Image("icons/save", Modifier.size(16f)) }`
 puts a picture in the column before the label. A submenu with no room on its
@@ -603,6 +609,8 @@ Box(Modifier.size(64f).contextMenu {
     Item("&Drop") { drop(item) }
 })
 ```
+
+![a row of inventory slots with a menu opened by right-clicking the Sword slot: Use, a greyed-out Split stack, and Drop](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-context-menu.png)
 
 It opens four ways:
 

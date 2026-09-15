@@ -6,6 +6,7 @@ import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.GamepadId
+import dev.wildware.composegl.ui.input.PointerButton
 
 /**
  * One picture for the documentation.
@@ -24,6 +25,9 @@ import dev.wildware.composegl.ui.input.GamepadId
  * @param click whether that pointer clicks once, pressed and let go on the first frame, and then stays
  *   where it is. For a picture of what a click opens — a dropdown's list — which a held press never
  *   shows, because a click happens on the release.
+ * @param button which button that click is made with: `Secondary` for a picture of a right-click menu.
+ * @param then where the pointer goes a couple of frames after the click, and rests there — for a
+ *   picture of what resting on something inside the opened thing opens, like a menu's submenu.
  * @param padCursor where to put a pad's cursor, for a picture of a `VirtualCursor`. The player is
  *   on a pad in that picture, so the arrow is drawn. Null leaves the pad out of it.
  * @param hold whether that drag stays pressed at [dragTo] instead of letting go, for a picture of
@@ -50,6 +54,8 @@ internal class DocShot(
     val press: Boolean = false,
     val dragTo: Offset? = null,
     val click: Boolean = false,
+    val button: PointerButton = PointerButton.Primary,
+    val then: Offset? = null,
     val padCursor: Offset? = null,
     val hold: Boolean = false,
     val seconds: Float = 0f,

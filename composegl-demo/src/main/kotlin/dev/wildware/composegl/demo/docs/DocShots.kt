@@ -147,6 +147,13 @@ import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.Divider
 import dev.wildware.composegl.ui.widget.Dropdown
 import dev.wildware.composegl.ui.widget.PopupHost
+import dev.wildware.composegl.ui.widget.MenuBar
+import dev.wildware.composegl.ui.widget.contextMenu
+import dev.wildware.composegl.ui.input.Modifiers
+import dev.wildware.composegl.ui.input.plus
+import dev.wildware.composegl.ui.input.PointerButton
+import dev.wildware.composegl.ui.layout.LayoutDirection
+import dev.wildware.composegl.ui.layout.ProvideLayoutDirection
 import dev.wildware.composegl.ui.widget.DragAndDropHost
 import dev.wildware.composegl.ui.widget.DropTargetState
 import dev.wildware.composegl.ui.widget.Image
@@ -863,6 +870,50 @@ private fun MutableList<DocShot>.widgets() {
                     Checkbox(false, onCheckedChange = {}, label = "Show frame rate")
                     Slider(0.6f, onValueChange = {}, modifier = Modifier.width(220f))
                 }
+            }
+        }
+    })
+
+    // Opened by a real click on File, so the picture is the menu the bar actually drops: shortcuts
+    // written beside their items, a greyed-out one, a tick and a line between the groups.
+    add(DocShot("widget-menu-bar", 420, 260, pointer = Offset(22f, 13f), click = true, stock = true) {
+        PopupHost { EditorMenuBar() }
+    })
+
+    // A click on View and then a rest on its Render row, which opens the submenu beside it.
+    add(DocShot("widget-menu-submenu", 420, 230, pointer = Offset(70f, 13f), click = true, then = Offset(90f, 108f), seconds = 0.5f, stock = true) {
+        PopupHost { EditorMenuBar() }
+    })
+
+    // A real right-click on the second slot, and the menu opens where the pointer is.
+    add(DocShot("widget-context-menu", 380, 190, pointer = Offset(136f, 58f), click = true, button = PointerButton.Secondary, stock = true) {
+        Frame {
+            PopupHost {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
+                        listOf("Potion", "Sword", "Rope", "Map").forEach { item ->
+                            Box(
+                                Modifier.size(76f, 64f).styled("panel").contextMenu {
+                                    Item("&Use") {}
+                                    Item("S&plit stack", enabled = item == "Potion") {}
+                                    Separator()
+                                    Item("&Drop") {}
+                                },
+                                contentAlignment = Alignment.Centre,
+                            ) { Text(item, style = "label.dim") }
+                        }
+                    }
+                }
+            }
+        }
+    })
+
+    // The same bar right to left, in the high-contrast skin: it reads from the right, the menu hangs
+    // from its title's right edge, and the submenu opens to the left.
+    add(DocShot("widget-menu-rtl", 420, 230, pointer = Offset(350f, 13f), click = true, then = Offset(330f, 108f), seconds = 0.5f, stock = true) {
+        ProvideSkin(Skin.HighContrast) {
+            ProvideLayoutDirection(LayoutDirection.Rtl) {
+                PopupHost { EditorMenuBar() }
             }
         }
     })
@@ -2111,5 +2162,35 @@ private fun BindRow(action: String, binding: InputBinding, listening: Boolean = 
     Row(Modifier.width(300f), verticalAlignment = VerticalAlignment.Centre) {
         Text(action, Modifier.weight(1f))
         KeyBindButton(binding, onBind = {}, state = state, modifier = Modifier.width(150f))
+    }
+}
+
+/** A level editor's menu bar over an empty editor, for the menu pictures. */
+@Composable
+private fun EditorMenuBar() {
+    Column(Modifier.fillMaxSize().background(Colour.rgb(0x0B0E13))) {
+        MenuBar {
+            Menu("&File") {
+                Item("&New level", shortcut = Modifiers.Primary + Key.N) {}
+                Item("&Open...", shortcut = Modifiers.Primary + Key.O) {}
+                Item("&Save", shortcut = Modifiers.Primary + Key.S) {}
+                Item("Save &as...", shortcut = Modifiers.Primary + Modifiers.Shift + Key.S, enabled = false) {}
+                Separator()
+                CheckItem("Auto&save", checked = true) {}
+                Separator()
+                Item("&Quit", shortcut = Modifiers.Primary + Key.Q) {}
+            }
+            Menu("&View") {
+                CheckItem("&Grid", checked = true, shortcut = Modifiers.Primary + Key.G) {}
+                CheckItem("S&nap to grid", checked = false) {}
+                Separator()
+                Submenu("&Render") {
+                    RadioItem("&Wireframe", selected = false) {}
+                    RadioItem("&Shaded", selected = true) {}
+                    RadioItem("&Lit", selected = false) {}
+                }
+            }
+            Menu("&Help") { Item("&About") {} }
+        }
     }
 }
