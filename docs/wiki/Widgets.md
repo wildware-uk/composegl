@@ -250,7 +250,8 @@ A divider is as long as the room it is given, and `thickness` across. The colour
 the skin's `divider` style, so one line in the skin file recolours every divider.
 
 A vertical divider takes all the height its row may have. Give the row a height, or
-it grows to fill whatever holds it. Inside a `ScrollArea` there is no limit, so give
+it grows to fill whatever holds it. `Row(Modifier.height(IntrinsicSize.Min))` makes
+the row, and so the line, as tall as the tallest thing in it. Inside a `ScrollArea` there is no limit, so give
 the divider a height there. The pad and the mouse pass straight over a divider.
 
 ---
