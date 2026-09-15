@@ -43,6 +43,8 @@ the same things back.
   and `LazyColumn` use when you do not pass a state.
 - **Which sections are open**, with no code either: a `CollapsingHeader` given
   `initiallyExpanded` rather than `expanded` keeps its answer the same way.
+- **A table's sort, dragged column widths and scroll**: `rememberTableState()`,
+  and the default `Table` uses, is saveable too.
 - The saved value is **the object itself**, kept in memory. A `MutableState`
   comes back as the same `MutableState`. Nothing needs to be serialisable.
 

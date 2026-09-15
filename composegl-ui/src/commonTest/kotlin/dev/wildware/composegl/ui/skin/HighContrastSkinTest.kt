@@ -54,6 +54,8 @@ class HighContrastSkinTest {
         "stepper.arrow" to "stepper", "stepper.value" to "stepper",
         "field" to null, "field.placeholder" to "field",
         "item" to null, "item.selected" to null, "tab" to null, "tab.selected" to null,
+        "table.header.cell" to "table.header", "table.header.cell.sorted" to "table.header",
+        "table.row" to "table", "table.row.alt" to "table", "table.row.selected" to "table", "table.empty" to "table",
         "hotbar.prompt" to "hotbar.slot", "hotbar.charges" to "hotbar.slot",
         "damage" to null, "damage.critical" to null,
     )

@@ -779,6 +779,69 @@ back to, as long as a `SaveableStateHolder` is above them — see
 
 ---
 
+## Tables
+
+Rows with columns that line up, sort and resize: a scoreboard, a server browser,
+a list of items and their stats.
+
+```kotlin
+var picked by remember { mutableStateOf<Player?>(null) }
+
+Table(rows = players, key = { it.id }, selected = picked, onSelect = { picked = it }) {
+    column("Name", weight = 1f) { Text(it.name) }
+    column("Kills", width = 64f, sortBy = { it.kills }) { Text("${it.kills}") }
+    column("Ping", width = 64f, sortBy = { it.ping }, align = HorizontalAlignment.End) { Text("${it.ping}") }
+}
+```
+
+A column is either `width` wide or shares out what the fixed ones leave by
+`weight` (1 when it says neither), and never goes under `minWidth`. The header
+stays put while the rows scroll under it, and the body is a `LazyColumn`, so only
+the rows on screen are built.
+
+- **Sorting.** Click a title with a `sortBy` to sort by it, lowest first; click
+  again to turn it round. Enter or the pad's South on a focused title does the
+  same, and Up from the first row reaches the titles. `sortButton` — the pad's
+  North unless you say — cycles through the sortable columns from anywhere in
+  the table. It is an `InputBinding`, so a controls screen can rebind it to a key
+  (`InputBinding.Keyboard(Key.S)`) or a mouse button. The sort is stable, and the
+  rows slide to their new places, which needs a `key`. A value read from state
+  — a live distance — re-sorts the table as it changes.
+- **Resizing.** Drag the divider between two columns and the edge follows the
+  pointer: the column before it grows as the one after it shrinks, so the last
+  column is resized from the divider at its start. A double click puts both back
+  to their declared widths. `resizable = false` on a column takes away the
+  dividers on either side of it.
+- **Selection.** Rows take focus, so the arrows and the d-pad walk them in the
+  order they are shown. A click, Enter or South on one calls `onSelect`; the
+  screen keeps the answer and hands it back as `selected`.
+- **Right to left**, the first column is on the right and a divider drags left
+  to widen.
+
+The sort, the dragged widths and the scroll live in a `TableState`. The one
+`rememberTableState()` makes is kept by a `SaveableStateHolder` like a list's
+scroll (see [[Saving state]]), and it can be read and set from outside:
+
+```kotlin
+val scores = rememberTableState(sortColumn = 1, descending = true)
+Table(rows = players, state = scores) { … }
+
+scores.sortBy(2)                          // by ping
+scores.setColumnWidth(0, 180f)            // as if it had been dragged
+settings.widths = scores.columnWidths     // to keep a layout between runs
+```
+
+`empty = { Text("No servers found") }` is what the body shows with no rows.
+
+Every piece of it is the skin's: `table` round it, `table.header` and
+`table.header.cell` for the titles (`table.header.cell.sorted` for the one sorted
+by), `table.divider` for the handles — its padding is how far in the line is
+drawn — `table.row`, `table.row.alt` for every other row and
+`table.row.selected`, `table.cell` for the padding round each cell, and
+`table.empty`. Pass `style = "scores"` to use `scores.row` and so on instead.
+
+---
+
 ## Pictures
 
 ```kotlin

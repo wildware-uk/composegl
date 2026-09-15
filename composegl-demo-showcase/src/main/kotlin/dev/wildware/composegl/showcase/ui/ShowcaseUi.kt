@@ -36,6 +36,7 @@ import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
+import dev.wildware.composegl.ui.layout.HorizontalAlignment
 import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.layout.VerticalAlignment
 import dev.wildware.composegl.ui.modifier.Modifier
@@ -66,6 +67,8 @@ import dev.wildware.composegl.ui.widget.PopupHost
 import dev.wildware.composegl.ui.widget.Splitter
 import dev.wildware.composegl.ui.widget.contextMenu
 import dev.wildware.composegl.ui.widget.Panel
+import dev.wildware.composegl.ui.widget.Table
+import dev.wildware.composegl.ui.widget.rememberTableState
 import dev.wildware.composegl.ui.widget.Text
 import dev.wildware.composegl.ui.widget.Toggle
 
@@ -106,6 +109,8 @@ fun ShowcaseUi(
                     if (state.isOn(Exhibit.Tracking)) TargetTags(state)
 
                     if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
+
+                    if (state.isOn(Exhibit.Contacts)) Contacts(state)
 
                     // Over the scene and under the panels, which is where a hit happens. The game
                     // fills the pool from its own loop; this only draws it.
@@ -293,6 +298,35 @@ private fun TargetPanel(target: TargetReadout, state: ShowcaseState) {
                 Modifier.fillMaxWidth(),
                 thresholds = listOf(BarThreshold(0.35f, "low"), BarThreshold(0.15f, "critical")),
             )
+        }
+    }
+}
+
+/**
+ * Every drone in a table: sorted by a click on a title or the pad's North, columns dragged wider at
+ * the dividers, and a click or South on a row locks on to that drone.
+ *
+ * Distance and integrity are live numbers, so a table sorted by either re-sorts itself as the drones
+ * move and take hits, and the rows slide past each other to their new places.
+ */
+@Composable
+private fun Contacts(state: ShowcaseState) {
+    val table = rememberTableState(sortColumn = 1)
+    Table(
+        rows = state.targets,
+        modifier = Modifier.align(Alignment.TopStart).padding(left = 28f, top = BelowMenus + 196f).size(320f, 150f),
+        key = { it.callsign },
+        state = table,
+        selected = state.targets.getOrNull(state.locked),
+        onSelect = { state.locked = state.targets.indexOf(it) },
+        empty = { Text("No contacts", style = "label.dim") },
+    ) {
+        column("Callsign", weight = 1f, sortBy = { it.callsign }) { Text(it.callsign) }
+        column("Range", width = 76f, sortBy = { it.distance }, align = HorizontalAlignment.End) {
+            Text("${it.distance.toInt()}m")
+        }
+        column("Hull", width = 76f, sortBy = { it.integrity }, align = HorizontalAlignment.End) {
+            Text("${(it.integrity * 100f).toInt()}%")
         }
     }
 }

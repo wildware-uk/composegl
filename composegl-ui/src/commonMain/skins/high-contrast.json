@@ -379,6 +379,64 @@
 
     "collapsingheader.body": { "padding": [12, 6] },
 
+    // --- tables ---
+    //
+    // Black rows with white words, the chosen one filled in blue, focus the yellow edge. Alternate
+    // rows are a dark grey, which white text still stands well clear of.
+
+    "table": { "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "padding": 2, "borderWidth": 2 } },
+    "table.header": { "background": { "fill": "#000000" } },
+
+    "table.header.cell": {
+      "background": "none",
+      "textColour": "#FFFFFF",
+      "padding": [8, 6],
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#333333" }, "textColour": "#FFFFFF" },
+      "focused": { "background": { "fill": "#000000", "border": "#FFD600", "borderWidth": 2 }, "textColour": "#FFFFFF" },
+      "pressed": { "background": { "fill": "#333333", "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "table.header.cell.sorted": {
+      "background": { "fill": "#0033AA" },
+      "textColour": "#FFFFFF",
+      "padding": [8, 6],
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#0033AA", "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#0033AA", "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#002277", "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "table.divider": {
+      "background": { "fill": "#FFFFFF" },
+      "padding": [4, 6],
+      "hovered": { "background": { "fill": "#FFD600" } },
+      "pressed": { "background": { "fill": "#FFD600" } }
+    },
+
+    "table.row": {
+      "background": "none",
+      "hovered": { "background": { "fill": "#333333" } },
+      "focused": { "background": { "fill": "#000000", "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#333333", "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "table.row.alt": {
+      "background": { "fill": "#1A1A1A" },
+      "hovered": { "background": { "fill": "#333333" } },
+      "focused": { "background": { "fill": "#1A1A1A", "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#333333", "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "table.row.selected": {
+      "background": { "fill": "#0033AA" },
+      "hovered": { "background": { "fill": "#002277" } },
+      "focused": { "background": { "fill": "#0033AA", "border": "#FFD600", "borderWidth": 2 } }
+    },
+
+    "table.cell": { "padding": [8, 5] },
+    "table.empty": { "textColour": "#FFFFFF", "padding": 16 },
+
     // --- menus ---
     //
     // Titles and rows are black with white words; the open title is filled in blue so the menu under
