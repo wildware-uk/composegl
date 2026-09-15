@@ -138,6 +138,7 @@ class HighContrastSkinTest {
             "progress.fill" to "progress.track", "progress.fill.danger" to "progress.track",
             "progress.fill.good" to "progress.track",
             "bar.fill" to "bar.track", "bar.fill.low" to "bar.track", "bar.fill.critical" to "bar.track",
+            "indeterminatebar.fill" to "indeterminatebar.track",
             "checkbox.tick" to "checkbox", "radio.dot" to "radio",
             "toggle.knob" to "toggle", "toggle.knob" to "toggle.on",
         )
@@ -149,6 +150,16 @@ class HighContrastSkinTest {
         }
 
         assertEquals(emptyList(), lost)
+    }
+
+    @Test
+    fun `a spinner's arc stands out from its ring and from the screen`() {
+        val screen = fillOf(skin.resolve("screen"))!!
+        val arc = skin.resolve("spinner").textColour
+        val ring = skin.resolve("spinner.track").textColour
+
+        assertTrue(contrast(arc, ring) >= 3f, "arc on ring at ${contrast(arc, ring).format()}")
+        assertTrue(contrast(arc, screen) >= 3f, "arc on the screen at ${contrast(arc, screen).format()}")
     }
 
     @Test

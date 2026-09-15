@@ -63,7 +63,7 @@ What runs on which clock unless you say otherwise:
 | animated values, `Animatable`, `updateTransition` | `Bar`'s trail |
 | `AnimatedVisibility`, `Crossfade`, `AnimatedContent` | `Reticle` |
 | `animateContentSize`, `animatePlacement` | `DamageNumberLayer` |
-| `shake`, `marquee`, `repeatingClickable` | `ParticleLayer` |
+| `shake`, `marquee`, `repeatingClickable`, `Spinner`, `IndeterminateBar` | `ParticleLayer` |
 | sprite-sheet animations, `Typewriter`, `Notifications` | `RadialCooldown` |
 
 ### Pausing and stepping, while you debug

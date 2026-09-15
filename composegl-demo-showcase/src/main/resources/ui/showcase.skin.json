@@ -115,6 +115,13 @@
     "bar.shield.trail": { "background": { "fill": "#708AFFD8", "corner": 3 } },
     "bar.shield.segment": { "background": { "fill": "#0A1018" } },
 
+    // The scanning readout while nothing is locked: the same blue as the bars, over the same dark track.
+
+    "spinner": { "textColour": "#4CC2FF" },
+    "spinner.track": { "textColour": "#304CC2FF" },
+    "indeterminatebar.track": { "background": { "fill": "#60000000", "corner": 3 } },
+    "indeterminatebar.fill": { "background": { "fill": "#4CC2FF", "corner": 3 } },
+
     // --- the ability bar ---
 
     "hotbar.slot": {

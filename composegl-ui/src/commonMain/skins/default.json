@@ -52,6 +52,14 @@
     // what it looks like.
     "divider": { "background": { "fill": "#2C3545" } },
 
+    // Working, for an unknown length of time. The spinner's arc is its text colour, turning over a
+    // faint ring; the indeterminate bar's block slides along a track like a bar's.
+
+    "spinner": { "textColour": "#5B8DEF" },
+    "spinner.track": { "textColour": "#2C3545" },
+    "indeterminatebar.track": { "background": { "fill": "#10131A", "corner": 3, "border": "#2C3545" } },
+    "indeterminatebar.fill": { "background": { "fill": "#5B8DEF", "corner": 3 } },
+
     "tooltip": {
       "background": { "fill": "#232A35", "corner": 4, "border": "#39445A", "padding": [8, 5] },
       "text": { "size": 14 }

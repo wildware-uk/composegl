@@ -62,6 +62,10 @@ Bar(
 The trail is the thing: a hit drops the bar instantly and leaves a pale tail that
 catches up a moment later, which is how a player sees *how much* they just lost.
 
+A bar shows a known amount. For "working on it" with no amount to show, use
+`IndeterminateBar` or `Spinner` from the core toolkit: see
+[Widgets](Widgets.md#spinners-and-indeterminate-progress).
+
 ## Reticle
 
 ```kotlin

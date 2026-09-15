@@ -956,6 +956,42 @@ Moved to [Animation](Animation.md#sprite-sheet-animation).
 
 ---
 
+## Spinners and indeterminate progress
+
+For "working, nobody knows how long": saving, loading, connecting, finding a match.
+
+```kotlin
+if (saving) Spinner(Modifier.size(24f))          // the turning arc in the corner
+IndeterminateBar(Modifier.fillMaxWidth())        // a block sliding along a track
+
+Spinner(Modifier.size(32f), clock = Clock.World) // stops when the game is paused
+Spinner(rememberSpriteAnimation("spinner_", fps = 12f), Modifier.size(24f))  // frames from the atlas
+```
+
+A `Spinner` is an arc that chases its tail round a circle, once every
+`revolutionMillis` (1000 by default). It is 24 across unless you size it, and
+`thickness` sets how wide the arc is. An `IndeterminateBar` is `length` long (160) and
+`thickness` across (6) unless you size it; its block crosses the track every
+`sweepMillis` and is cut off at the ends. `orientation = Orientation.Vertical` runs it
+up from the bottom, and on a right-to-left screen a flat one runs right to left.
+
+- **A named clock.** Both run on `Clock.Ui` by default, so they keep moving over a
+  paused world. Pass `clock = Clock.World` for one that should stop with the game.
+- **Cheap.** Only the drawing moves. Nothing recomposes and nothing is laid out again;
+  each frame the clock moves, the widget asks for a redraw and reads the time as it
+  draws. On a stopped clock it asks for nothing. A test's `settle()` does not wait for
+  one.
+- **Scenery.** Neither takes focus or clicks, so the pad and the mouse pass over them.
+
+Their look is the skin's. The spinner's arc is the `"spinner"` style's text colour,
+with that style's background behind it, and `"spinner.track"`'s text colour is a ring
+under the arc when the skin names it. The bar draws `"indeterminatebar.track"` under
+the whole bar (its padding insets the block) and `"indeterminatebar.fill"` as the block.
+Pass `style =` to use other names. For a picture instead, such as a turning disc or an
+hourglass, hand `Spinner` a looping `SpriteAnimation`; it plays it as an `AnimatedImage`.
+
+---
+
 ## Tooltips and prompts
 
 ```kotlin

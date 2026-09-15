@@ -814,12 +814,21 @@ class UiNode(var name: String = "node") {
      */
     internal var watcher: (() -> Unit)? = null
 
+    /**
+     * Told each time this node joins a tree or leaves one, with ancestors or on its own, after [tree]
+     * has changed. Null on nearly every node; a spinner sets it, because it waits on its tree's frames
+     * and a node can be composed long before it is in a tree — a popup's contents are — or moved
+     * between trees while its composition lives on.
+     */
+    internal var onTreeChanged: (() -> Unit)? = null
+
     private fun attachTo(tree: UiTree?) {
         if (this.tree === tree) return
         // A marquee waits on its tree's frames, and a node leaving must stop it waiting there. It
         // starts again from rest when layout next reaches the node, wherever that is.
         marquee?.stop()
         this.tree = tree
+        onTreeChanged?.invoke()
         if (tree == null) {
             forgetReportedLayout()
             // Otherwise a node removed mid-resize counts as playing for ever, and anything waiting

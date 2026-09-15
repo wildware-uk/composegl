@@ -28,6 +28,7 @@ class DefaultSkinTest {
             "screen", "panel", "separator", "divider", "tooltip",
             "label", "button", "button.primary", "button.danger", "button.quiet",
             "checkbox", "radio", "slider.track", "slider.knob", "progress.track", "progress.fill",
+            "spinner", "spinner.track", "indeterminatebar.track", "indeterminatebar.fill",
             "field", "selection", "item", "scrollbar.thumb", "focusRing",
         )
 
