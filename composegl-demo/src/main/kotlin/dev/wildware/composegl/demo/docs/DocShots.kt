@@ -10,6 +10,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.animation.AnimatedVisibility
 import dev.wildware.composegl.ui.animation.Crossfade
+import dev.wildware.composegl.ui.animation.AnimatedContent
+import dev.wildware.composegl.ui.animation.slideLeft
+import dev.wildware.composegl.ui.animation.slideRight
 import dev.wildware.composegl.ui.animation.Easings
 import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.animation.Spring
@@ -940,6 +943,33 @@ private fun MutableList<DocShot>.widgets() {
                             Modifier.offset(y = lift).size(size.width, size.height).background(colour),
                             contentAlignment = Alignment.Centre,
                         ) { Text(title) }
+                    }
+                }
+            }
+        }
+    })
+
+    // A card carousel at rest beside the same carousel a fifth of a second into sliding to the next
+    // card: the old card half gone to the left, the new one half in from the right, both cut off at
+    // the carousel's edge.
+    add(DocShot("widget-animated-content", 460, 150, seconds = 0.2f) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(20f)) {
+                listOf(false, true).forEach { slides ->
+                    var card by remember { mutableStateOf(1) }
+                    LaunchedEffect(slides) { if (slides) card = 2 }
+                    AnimatedContent(
+                        card,
+                        transition = { from, to ->
+                            if (to > from) slideLeft(Tween(400, easing = Easings.Linear)) else slideRight(Tween(400, easing = Easings.Linear))
+                        },
+                    ) { shown ->
+                        Panel(Modifier.size(200f, 110f)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                                Text("CARD $shown")
+                                Button(if (shown == 1) "FIRE BOLT" else "ICE LANCE", onClick = {})
+                            }
+                        }
                     }
                 }
             }

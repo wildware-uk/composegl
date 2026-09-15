@@ -1,13 +1,8 @@
 package dev.wildware.composegl.ui.animation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.layout.Alignment
-import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.modifier.Modifier
 
 /**
@@ -39,7 +34,8 @@ import dev.wildware.composegl.ui.modifier.Modifier
  * - **Clicks and focus** still reach a page while it leaves. Focus on a button in the old page stays
  *   there until the page is gone, then moves into the new one the way it does after any screen change.
  *
- * The pages sit on top of each other in one [Box] carrying [modifier], in the order they arrived — a
+ * A crossfade is an [AnimatedContent] that always fades and never animates its size. The pages sit
+ * on top of each other in one box carrying [modifier], in the order they arrived — a
  * page gone back to keeps its place under the one it was leaving for — so the box is as
  * big as the biggest page while a fade plays and [contentAlignment] places the smaller ones. Settled,
  * there is one page, drawn at full opacity, and it asks for no frames.
@@ -79,61 +75,19 @@ internal fun <T> Crossfade(
     contentKey: (T) -> Any?,
     pages: CrossfadePages<T>,
     content: @Composable (T) -> Unit,
-) {
-    val targetKey = contentKey(targetState)
-    // Read, so that a page being forgotten recomposes this. Written only from the fade's effect.
-    pages.forgotten
-    pages.show(targetKey, targetState)
+) = AnimatedContent(
+    targetState, modifier,
+    // No size animation and nothing cut off: the box is as big as the biggest page, as it always was.
+    transition = { _, _ -> ContentTransform(fadeIn(spec = spec), fadeOut(spec = spec), sizeSpec = null, clip = false) },
+    contentAlignment, clock, contentKey,
+    restingSizeSpec = null,
+    pages,
+    content,
+)
 
-    Box(modifier, contentAlignment = contentAlignment) {
-        for (page in pages.all) {
-            // Keyed, so a page keeps what it remembers while pages before it in the list come and go.
-            key(page.key) {
-                AnimatedPresence(
-                    visible = page.key == targetKey,
-                    modifier = Modifier,
-                    enter = fadeIn(spec = spec),
-                    exit = fadeOut(spec = spec),
-                    initiallyVisible = page.initiallyVisible,
-                    clock = clock,
-                    onGone = { pages.forget(page) },
-                ) { content(page.state) }
-            }
-        }
-    }
-}
+/** The pages a [Crossfade] has on screen: an [AnimatedContent]'s. */
+internal typealias CrossfadePages<T> = ContentPages<T>
 
-/**
- * The pages a [Crossfade] has on screen, oldest first.
- *
- * A plain list rather than a state list, because pages are added while composing — which must not
- * invalidate the composition doing the adding — and taken away from a finished fade, which must.
- * [forgotten] is the one piece of state, and it is only there to be read.
- */
-internal class CrossfadePages<T>(initial: T, initialKey: Any?) {
-
-    class Page<T>(val key: Any?, var state: T, val initiallyVisible: Boolean)
-
-    private val pages = mutableListOf(Page(initialKey, initial, initiallyVisible = true))
-
-    val all: List<Page<T>> get() = pages
-
-    /** How many pages have faded out and been let go. Read by the composition, so a change recomposes. */
-    var forgotten by mutableIntStateOf(0)
-        private set
-
-    /**
-     * Makes [key] the page on top of the fade, with [state] as what it shows.
-     *
-     * A page already on screen — fading out, or the current one — keeps its place and is handed the
-     * newer state. One that is not arrives at the end of the list, starting from nothing.
-     */
-    fun show(key: Any?, state: T) {
-        val existing = pages.firstOrNull { it.key == key }
-        if (existing != null) existing.state = state else pages += Page(key, state, initiallyVisible = false)
-    }
-
-    fun forget(page: Page<T>) {
-        if (pages.remove(page)) forgotten++
-    }
-}
+/** For a test that shows pages by hand: every change a plain fade. */
+internal fun <T> CrossfadePages<T>.show(key: Any?, state: T) =
+    show(key, state) { _, _ -> fadeIn() togetherWith fadeOut() }

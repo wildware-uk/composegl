@@ -9,7 +9,13 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.layout.Alignment
-import dev.wildware.composegl.ui.layout.Box
+import dev.wildware.composegl.ui.layout.BoxPolicy
+import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.Layout
+import dev.wildware.composegl.ui.layout.Measurable
+import dev.wildware.composegl.ui.layout.MeasurePolicy
+import dev.wildware.composegl.ui.layout.MeasureResult
+import dev.wildware.composegl.ui.layout.MeasureScope
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.modifier.offset
@@ -21,7 +27,7 @@ import kotlinx.coroutines.launch
  * How something arrives: where it starts, as a fade, a scale and a slide, and how it gets from there
  * to where it rests.
  *
- * Built from [fadeIn], [scaleIn] and [slideIn], and put together with `+`:
+ * Built from [fadeIn], [scaleIn], [slideIn] and [slideInRelative], and put together with `+`:
  *
  * ```kotlin
  * enter = fadeIn() + scaleIn(from = 0.9f)
@@ -43,7 +49,7 @@ class EnterTransition internal constructor(internal val parts: TransitionParts) 
 /**
  * How something leaves: where it ends up, as a fade, a scale and a slide, before it is taken away.
  *
- * The mirror of [EnterTransition], built from [fadeOut], [scaleOut] and [slideOut]. [None] takes the
+ * The mirror of [EnterTransition], built from [fadeOut], [scaleOut], [slideOut] and [slideOutRelative]. [None] takes the
  * thing away the frame it is hidden, which is exactly what an `if` does.
  */
 class ExitTransition internal constructor(internal val parts: TransitionParts) {
@@ -95,6 +101,22 @@ fun slideOut(to: Offset, spec: AnimationSpec = Tween()) =
     ExitTransition(TransitionParts(slide = Slide(to, spec)))
 
 /**
+ * Slides in from [from], measured in its own size rather than in pixels: `Offset(1f, 0f)` starts one
+ * whole width to the right, `Offset(0f, -1f)` one whole height above.
+ *
+ * What a page coming in from the side wants, because a page does not know how wide it is when it is
+ * written and a slide of a fixed number of pixels is either too short or too long on some screen.
+ * The contents move inside the space they take, so like [slideIn] nothing around them moves and they
+ * are hit where they are drawn. A separate part from [slideIn]: one of each adds up.
+ */
+fun slideInRelative(from: Offset, spec: AnimationSpec = Tween()) =
+    EnterTransition(TransitionParts(push = Push(from, spec)))
+
+/** Slides away to [to], measured in its own size: `Offset(-1f, 0f)` leaves one whole width to the left. */
+fun slideOutRelative(to: Offset, spec: AnimationSpec = Tween()) =
+    ExitTransition(TransitionParts(push = Push(to, spec)))
+
+/**
  * Shows [content] when [visible] is true, and animates it in and out rather than adding and removing
  * it.
  *
@@ -112,7 +134,7 @@ fun slideOut(to: Offset, spec: AnimationSpec = Tween()) =
  * a toast dismissed half-way in fades out from half, and a menu reopened half-way out comes back
  * without ever leaving the tree.
  *
- * The content sits in one [Box] carrying [modifier] and the transition, so a `Modifier.align` in
+ * The content sits in one box carrying [modifier] and the transition, so a `Modifier.align` in
  * [modifier] places the whole thing. At rest the transition is an offset of nothing, an alpha of one
  * and a scale of one — no picture taken, nothing to redraw — and hidden, there is nothing composed at
  * all. Neither state asks for frames.
@@ -145,7 +167,7 @@ fun AnimatedVisibility(
  * [AnimatedVisibility], and told when the content has finished leaving.
  *
  * [onGone] runs once an exit has played to its end and the content is out of the tree — never when
- * the exit is cut short by showing it again. It is how [Crossfade] knows when to forget a page.
+ * the exit is cut short by showing it again. It is how [AnimatedContent] knows when to forget a page.
  */
 @Composable
 internal fun AnimatedPresence(
@@ -190,13 +212,56 @@ internal fun AnimatedPresence(
     val alpha = if (arriving) parts.fade?.alpha ?: 1f else state.alpha.value
     val scale = if (arriving) parts.scale?.factor ?: 1f else state.scale.value
     val origin = if (arriving) parts.scale?.origin ?: state.origin else state.origin
-    Box(
+    val push = if (arriving) parts.push?.fraction ?: Offset.Zero else state.push.value
+    Layout(
         modifier
             .offset(shift.x, shift.y)
             .alpha(alpha)
             // A bouncy spring overshoots below zero on the way out, and a negative scale throws.
             .scale(scale.coerceAtLeast(0f), origin),
-    ) { content() }
+        name = "box",
+        content = content,
+        // At rest, the plain box every other box is, so a settled panel makes nothing new per frame.
+        measurePolicy = if (push == Offset.Zero) RestingPolicy else PushPolicy(push),
+    )
+}
+
+private val RestingPolicy = BoxPolicy(Alignment.TopStart)
+
+/**
+ * A box whose contents are moved by a fraction of its own size, for [slideInRelative].
+ *
+ * The fraction is read where the size is known, in layout, rather than turned into pixels in
+ * composition — where the size of the frame being composed is not known yet, and last frame's would
+ * be wrong the frame a page arrives. A data class, so the same fraction twice is the same policy.
+ */
+private data class PushPolicy(val fraction: Offset) : MeasurePolicy {
+
+    override fun MeasureScope.measure(measurables: List<Measurable>, constraints: Constraints): MeasureResult {
+        val count = measurables.size
+        val placeables = placeables(count)
+        val offered = if (count == 0) constraints else constraints.loosen(offers(1)[0])
+        var widest = 0f
+        var tallest = 0f
+        for (index in 0 until count) {
+            val placeable = measurables[index].measure(offered)
+            placeables[index] = placeable
+            if (placeable.width > widest) widest = placeable.width
+            if (placeable.height > tallest) tallest = placeable.height
+        }
+        val width = constraints.constrainWidth(widest)
+        val height = constraints.constrainHeight(tallest)
+        val placements = placements(count)
+        for (index in 0 until count) {
+            val placeable = placeables[index] ?: continue
+            // Where the resting box would put it, so a centred child slides in centred rather than
+            // jumping to the corner for the length of the slide.
+            val alignment = measurables[index].layoutData.alignment ?: Alignment.TopStart
+            placements[index * 2] = alignment.xIn(width, placeable.width) + fraction.x * width
+            placements[index * 2 + 1] = alignment.yIn(height, placeable.height) + fraction.y * height
+        }
+        return layout(width, height, count)
+    }
 }
 
 // --- the machinery --------------------------------------------------------------------------
@@ -206,14 +271,16 @@ internal data class TransitionParts(
     val fade: Fade? = null,
     val scale: Grow? = null,
     val slide: Slide? = null,
+    val push: Push? = null,
 ) {
     /** Nothing named, as with [EnterTransition.None] and [ExitTransition.None]. */
-    val isEmpty get() = fade == null && scale == null && slide == null
+    val isEmpty get() = fade == null && scale == null && slide == null && push == null
 
     operator fun plus(other: TransitionParts) = TransitionParts(
         fade = other.fade ?: fade,
         scale = other.scale ?: scale,
         slide = other.slide ?: slide,
+        push = other.push ?: push,
     )
 }
 
@@ -224,10 +291,13 @@ internal class Grow(val factor: Float, val origin: Alignment, val spec: Animatio
 
 internal class Slide(val offset: Offset, val spec: AnimationSpec)
 
+/** A slide measured in the thing's own size. */
+internal class Push(val fraction: Offset, val spec: AnimationSpec)
+
 /**
  * Whether the content is in the tree, and where each part of its transition has got to.
  *
- * Three animatables rather than one progress fraction, because each part has its own spec, and
+ * An animatable per part rather than one progress fraction, because each part has its own spec, and
  * because turning round mid-flight has to carry each part's own speed into the new direction — a
  * shared fraction would make a spring scale and a tween fade agree about a speed neither of them has.
  */
@@ -240,6 +310,7 @@ internal class VisibilityState(initiallyVisible: Boolean, clocks: Clocks, clock:
     val alpha = Animatable(1f, FloatVectoriser, clock, clocks)
     val scale = Animatable(1f, FloatVectoriser, clock, clocks)
     val offset = Animatable(Offset.Zero, OffsetVectoriser, clock, clocks)
+    val push = Animatable(Offset.Zero, OffsetVectoriser, clock, clocks)
 
     /** Whichever transition set it last, so a scale-in about the top and a scale-out about the
      *  bottom each grow from their own corner. */
@@ -253,17 +324,19 @@ internal class VisibilityState(initiallyVisible: Boolean, clocks: Clocks, clock:
             alpha.snapTo(enter.fade?.alpha ?: 1f)
             scale.snapTo(enter.scale?.factor ?: 1f)
             offset.snapTo(enter.slide?.offset ?: Offset.Zero)
+            push.snapTo(enter.push?.fraction ?: Offset.Zero)
             isPresent = true
         }
         enter.scale?.let { origin = it.origin }
-        playTo(1f, 1f, Offset.Zero, enter)
+        playTo(1f, 1f, Offset.Zero, Offset.Zero, enter)
     }
 
     /** Every part already where [parts] would leave it, so playing them would move nothing. */
     fun hasArrivedAt(parts: TransitionParts) =
         alpha.value == (parts.fade?.alpha ?: 1f) &&
             scale.value == (parts.scale?.factor ?: 1f) &&
-            offset.value == (parts.slide?.offset ?: Offset.Zero)
+            offset.value == (parts.slide?.offset ?: Offset.Zero) &&
+            push.value == (parts.push?.fraction ?: Offset.Zero)
 
     suspend fun hide(exit: TransitionParts) {
         if (!isPresent) return
@@ -274,7 +347,13 @@ internal class VisibilityState(initiallyVisible: Boolean, clocks: Clocks, clock:
             return
         }
         exit.scale?.let { origin = it.origin }
-        playTo(exit.fade?.alpha ?: 1f, exit.scale?.factor ?: 1f, exit.slide?.offset ?: Offset.Zero, exit)
+        playTo(
+            exit.fade?.alpha ?: 1f,
+            exit.scale?.factor ?: 1f,
+            exit.slide?.offset ?: Offset.Zero,
+            exit.push?.fraction ?: Offset.Zero,
+            exit,
+        )
         // Only reached when every part arrived. Shown again part-way, this coroutine is cancelled
         // and the content never leaves the tree.
         isPresent = false
@@ -286,10 +365,11 @@ internal class VisibilityState(initiallyVisible: Boolean, clocks: Clocks, clock:
      * A part the transition does not name still has to get back to rest if an interrupted transition
      * left it somewhere else, and it does so on a default tween rather than jumping.
      */
-    private suspend fun playTo(toAlpha: Float, toScale: Float, toOffset: Offset, parts: TransitionParts) =
+    private suspend fun playTo(toAlpha: Float, toScale: Float, toOffset: Offset, toPush: Offset, parts: TransitionParts) =
         coroutineScope {
             if (alpha.value != toAlpha) launch { alpha.animateTo(toAlpha, parts.fade?.spec ?: Tween()) }
             if (scale.value != toScale) launch { scale.animateTo(toScale, parts.scale?.spec ?: Tween()) }
             if (offset.value != toOffset) launch { offset.animateTo(toOffset, parts.slide?.spec ?: Tween()) }
+            if (push.value != toPush) launch { push.animateTo(toPush, parts.push?.spec ?: Tween()) }
         }
 }
