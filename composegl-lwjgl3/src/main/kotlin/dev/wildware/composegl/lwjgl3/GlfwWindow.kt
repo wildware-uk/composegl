@@ -7,8 +7,47 @@ import dev.wildware.composegl.ui.layout.Viewport
 import org.lwjgl.glfw.Callbacks
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFWErrorCallback
+import dev.wildware.composegl.render.gl.Gl
 import org.lwjgl.opengl.GL
+import org.lwjgl.opengles.GLES
 import org.lwjgl.system.MemoryStack
+
+/**
+ * Which OpenGL a [GlfwWindow] asks for, and the [Gl] binding that draws on it.
+ *
+ * Desktop GL unless told otherwise. The ES contexts come through EGL, which is how a phone's GPU is
+ * reached and, on Linux, what Mesa hands out as real OpenGL ES 2 and ES 3.
+ */
+enum class GlfwContext(val binding: Gl, internal val esMajor: Int) {
+    /** Whatever desktop OpenGL the driver gives when nothing is asked for. */
+    Desktop(LwjglGl, 0),
+
+    /** OpenGL ES 3.0 or later, through EGL. */
+    Es3(LwjglGles, 3),
+
+    /** OpenGL ES 2.0, through EGL. */
+    Es2(LwjglGles, 2),
+    ;
+
+    /** Binds LWJGL's functions on this thread to the context current on it. */
+    internal fun createCapabilities() {
+        if (this == Desktop) GL.createCapabilities() else GLES.createCapabilities()
+    }
+
+    companion object {
+        /**
+         * What a window or canvas uses when it is not told: the `composegl.lwjgl3.context` system
+         * property (`desktop`, `es3` or `es2`), and desktop GL without it. The tests run the whole
+         * suite on each by setting it.
+         */
+        val Default: GlfwContext = when (System.getProperty("composegl.lwjgl3.context")?.lowercase()) {
+            null, "", "desktop", "gl" -> Desktop
+            "es3" -> Es3
+            "es2" -> Es2
+            else -> error("composegl.lwjgl3.context must be desktop, es3 or es2")
+        }
+    }
+}
 
 /**
  * A window with an OpenGL context in it, and nothing else.
@@ -26,6 +65,7 @@ import org.lwjgl.system.MemoryStack
  *   [framebuffer] is the one that matters for drawing.
  * @param visible false for a window that draws without appearing, which is how the screenshot
  *   tests work.
+ * @param context desktop OpenGL, or OpenGL ES 2 or 3 through EGL. Draw on it with [context]'s binding.
  */
 class GlfwWindow(
     title: String,
@@ -33,6 +73,7 @@ class GlfwWindow(
     height: Int = 720,
     visible: Boolean = true,
     vsync: Boolean = true,
+    val context: GlfwContext = GlfwContext.Default,
 ) : AutoCloseable {
 
     val handle: Long
@@ -48,15 +89,29 @@ class GlfwWindow(
 
         GLFW.glfwDefaultWindowHints()
         GLFW.glfwWindowHint(GLFW.GLFW_VISIBLE, if (visible) GLFW.GLFW_TRUE else GLFW.GLFW_FALSE)
-        // No version or profile asked for, so the driver gives its most capable compatible
-        // context. The shader here is old enough to compile on any of them.
+        if (context == GlfwContext.Desktop) {
+            // No version or profile asked for, so the driver gives its most capable compatible
+            // context. The renderer's shaders compile on any of them.
+        } else {
+            GLFW.glfwWindowHint(GLFW.GLFW_CLIENT_API, GLFW.GLFW_OPENGL_ES_API)
+            GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_CREATION_API, GLFW.GLFW_EGL_CONTEXT_API)
+            GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MAJOR, context.esMajor)
+            GLFW.glfwWindowHint(GLFW.GLFW_CONTEXT_VERSION_MINOR, 0)
+        }
         handle = GLFW.glfwCreateWindow(width, height, title, 0L, 0L)
-        check(handle != 0L) { "GLFW could not make a ${width}x$height window with an OpenGL context" }
+        check(handle != 0L) { "GLFW could not make a ${width}x$height window with a $context OpenGL context" }
 
-        GLFW.glfwMakeContextCurrent(handle)
-        // Binds this thread's GL functions. Nothing in this module may be called before it.
-        GL.createCapabilities()
+        makeCurrent()
         GLFW.glfwSwapInterval(if (vsync) 1 else 0)
+    }
+
+    /**
+     * Makes this window's context current on the calling thread, and binds LWJGL's GL functions
+     * there to it. Nothing in this module may draw before it.
+     */
+    fun makeCurrent() {
+        GLFW.glfwMakeContextCurrent(handle)
+        context.createCapabilities()
     }
 
     /** The framebuffer, in real pixels. Larger than the window on a scaled display. */

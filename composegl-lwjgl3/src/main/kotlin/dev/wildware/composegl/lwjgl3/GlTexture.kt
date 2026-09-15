@@ -2,6 +2,7 @@ package dev.wildware.composegl.lwjgl3
 
 import dev.wildware.composegl.render.BoundPicture
 import dev.wildware.composegl.render.TextureResolver
+import dev.wildware.composegl.render.gl.Gl
 import dev.wildware.composegl.render.gl.GlDeviceTexture
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import org.lwjgl.BufferUtils
@@ -30,6 +31,7 @@ class GlTexture(
     val u2: Float = 1f,
     val v2: Float = 1f,
     private val owned: Boolean = false,
+    private val gl: Gl = GlfwContext.Default.binding,
 ) : TextureHandle, AutoCloseable {
 
     private var bound: BoundPicture? = null
@@ -51,7 +53,7 @@ class GlTexture(
 
     /** Deletes the texture, if this handle is the one that owns it. */
     override fun close() {
-        if (owned) GL11.glDeleteTextures(name)
+        if (owned) gl.deleteTexture(name)
     }
 
     companion object {
@@ -70,37 +72,38 @@ class GlTexture(
          * Uploads [pixels] — four bytes each, red first, the top row first — as a new texture.
          *
          * @param smooth true to sample it smoothly. False keeps pixel art crisp.
+         * @param gl the binding for the context it goes up on: the window's [GlfwWindow.context] binding.
          */
-        fun rgba(width: Int, height: Int, pixels: ByteBuffer, smooth: Boolean = true): GlTexture {
+        fun rgba(width: Int, height: Int, pixels: ByteBuffer, smooth: Boolean = true, gl: Gl = GlfwContext.Default.binding): GlTexture {
             require(width > 0 && height > 0) { "a texture cannot be ${width}x$height" }
-            val name = GL11.glGenTextures()
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, name)
-            GL11.glTexImage2D(
-                GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, width, height, 0,
-                GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pixels,
+            val name = gl.createTexture()
+            gl.bindTexture(GL11.GL_TEXTURE_2D, name)
+            gl.texImage2D(
+                GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA, width, height,
+                GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, LwjglGl.Bytes.wrap(pixels.slice()),
             )
             val filter = if (smooth) GL11.GL_LINEAR else GL11.GL_NEAREST
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, filter)
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, filter)
+            gl.texParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, filter)
+            gl.texParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, filter)
             // Clamped: repeating an edge is how a nine-patch corner gets a stripe of the opposite one.
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE)
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE)
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0)
-            return GlTexture(name, width, height, owned = true)
+            gl.texParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE)
+            gl.texParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE)
+            gl.bindTexture(GL11.GL_TEXTURE_2D, 0)
+            return GlTexture(name, width, height, owned = true, gl = gl)
         }
 
         /** The same, from an ordinary byte array. */
-        fun rgba(width: Int, height: Int, pixels: ByteArray, smooth: Boolean = true): GlTexture {
+        fun rgba(width: Int, height: Int, pixels: ByteArray, smooth: Boolean = true, gl: Gl = GlfwContext.Default.binding): GlTexture {
             require(pixels.size >= width * height * 4) {
                 "a ${width}x$height picture needs ${width * height * 4} bytes, got ${pixels.size}"
             }
             val buffer = BufferUtils.createByteBuffer(pixels.size).put(pixels)
             buffer.flip()
-            return rgba(width, height, buffer, smooth)
+            return rgba(width, height, buffer, smooth, gl)
         }
 
         /** Decodes a PNG, JPEG or the other formats stb_image reads, and uploads it. */
-        fun decode(encoded: ByteArray, smooth: Boolean = true): GlTexture {
+        fun decode(encoded: ByteArray, smooth: Boolean = true, gl: Gl = GlfwContext.Default.binding): GlTexture {
             val bytes = BufferUtils.createByteBuffer(encoded.size).put(encoded)
             bytes.flip()
             MemoryStack.stackPush().use { stack ->
@@ -111,7 +114,7 @@ class GlTexture(
                 val pixels = STBImage.stbi_load_from_memory(bytes, width, height, channels, 4)
                     ?: error("stb_image could not read that picture: ${STBImage.stbi_failure_reason()}")
                 try {
-                    return rgba(width[0], height[0], pixels, smooth)
+                    return rgba(width[0], height[0], pixels, smooth, gl)
                 } finally {
                     STBImage.stbi_image_free(pixels)
                 }

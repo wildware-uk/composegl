@@ -41,7 +41,7 @@ class Lwjgl3Backend(
     override val textures: TextureSource = MapTextureSource(),
 ) : UiBackend, AutoCloseable {
 
-    override val canvas = GlCanvas(fonts)
+    override val canvas = GlCanvas(fonts, window.context.binding)
 
     override val clipboard: Clipboard = GlfwClipboard(window)
 

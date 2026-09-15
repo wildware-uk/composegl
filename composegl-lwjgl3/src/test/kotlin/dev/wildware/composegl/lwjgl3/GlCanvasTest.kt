@@ -67,8 +67,8 @@ class GlCanvasTest {
     private fun draw(fonts: StbFonts? = null, content: GlCanvas.(StbFonts?) -> Unit): Frame = Gl.render {
         val canvas = GlCanvas(fonts)
         try {
-            GL11.glClearColor(0f, 0f, 0f, 1f)
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+            Gl.gl.clearColor(0f, 0f, 0f, 1f)
+            Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
             canvas.begin(viewport)
             canvas.content(fonts)
             canvas.end()
@@ -232,8 +232,8 @@ class GlCanvasTest {
             )
             val texture = GlTexture.rgba(1, 2, rows, smooth = false)
             try {
-                GL11.glClearColor(0f, 0f, 0f, 1f)
-                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+                Gl.gl.clearColor(0f, 0f, 0f, 1f)
+                Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
                 canvas.begin(viewport)
                 canvas.image(texture, Rect.of(10f, 10f, 40f, 40f))
                 canvas.end()
@@ -294,8 +294,8 @@ class GlCanvasTest {
         val pixels = Gl.render {
             val canvas = GlCanvas(null)
             try {
-                GL11.glClearColor(0f, 0f, 0f, 1f)
-                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+                Gl.gl.clearColor(0f, 0f, 0f, 1f)
+                Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
                 canvas.begin(left)
                 canvas.rect(Rect.of(0f, 0f, window.width, window.height), red)
                 // And after a layer, which sets a scissor of its own and has to give this one back.
@@ -957,8 +957,8 @@ class GlCanvasTest {
         val canvas = GlCanvas()
         val texture = stripes()
         try {
-            GL11.glClearColor(0f, 0f, 0f, 1f)
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+            Gl.gl.clearColor(0f, 0f, 0f, 1f)
+            Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
             canvas.begin(viewport)
             canvas.content(texture)
             canvas.end()

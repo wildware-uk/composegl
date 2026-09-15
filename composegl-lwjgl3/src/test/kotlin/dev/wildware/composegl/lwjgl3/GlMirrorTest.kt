@@ -40,8 +40,8 @@ class GlMirrorTest {
     private fun draw(content: GlCanvas.() -> Unit): Frame = Gl.render {
         val canvas = GlCanvas()
         try {
-            GL11.glClearColor(0f, 0f, 0f, 1f)
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+            Gl.gl.clearColor(0f, 0f, 0f, 1f)
+            Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
             canvas.begin(viewport)
             canvas.content()
             canvas.end()

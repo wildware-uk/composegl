@@ -436,7 +436,10 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         val vertex = compile(GlConst.VERTEX_SHADER, dialect.vertex(GlslSources.EffectVertex)) {
             throw IllegalArgumentException("the effect shader \"${source.name}\" would not compile (vertex):\n$it")
         }
-        val fragment = compile(GlConst.FRAGMENT_SHADER, dialect.fragment(GlslSources.EffectPreamble + source.fragment)) {
+        // High precision where the device has it, as the shape shader does. A phone's medium
+        // precision is 16 bits, and an effect's arithmetic runs out of it without saying so: the
+        // dissolve's noise hash drew nothing at all on OpenGL ES 3 until this was highp.
+        val fragment = compile(GlConst.FRAGMENT_SHADER, dialect.fragment(GlslSources.EffectPreamble + source.fragment, highPrecision = true)) {
             gl.deleteShader(vertex)
             throw IllegalArgumentException("the effect shader \"${source.name}\" would not compile (fragment):\n$it")
         }

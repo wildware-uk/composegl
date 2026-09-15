@@ -74,6 +74,9 @@ val backend = Lwjgl3Backend(window, StbFonts().apply { registerTrueType(…) })
 val canvas = backend.canvas
 ```
 
+The window asks for desktop OpenGL. `GlfwWindow(…, context = GlfwContext.Es3)` (or `Es2`)
+asks for OpenGL ES through EGL instead, and the backend draws on it with `LwjglGles`.
+
 Then the same loop, whichever you chose — one renderer, made once:
 
 ```kotlin
@@ -354,6 +357,25 @@ COMPOSEGL_UPDATE_GOLDENS=1 ./gradlew :your-backend:test
 The comparison has tolerance in it — a channel or two, on under 1% of pixels —
 because two glyph rasterisers will never agree exactly, and nothing else about a
 frame should differ at all.
+
+### Which OpenGL is tested for real
+
+One device, `GlDevice`, draws on every OpenGL. Each kind of context it meets has a
+real run in CI, with Mesa's llvmpipe or Chrome's SwiftShader doing the drawing:
+
+| context | shaders | tested by |
+|---|---|---|
+| GL 2.1 | GLSL 1.10, as written | `:composegl-lwjgl3:test`, `:composegl-gdx:test` |
+| GL 3.2 core | `#version 150` | `:composegl-lwjgl3:testGl30`, `:composegl-gdx:testGl30` |
+| OpenGL ES 3 | `#version 300 es` | `:composegl-lwjgl3:testGles3` (EGL) |
+| OpenGL ES 2 | `#version 100` | `:composegl-lwjgl3:testGles2` (EGL, held to 2.0 with `MESA_GLES_VERSION_OVERRIDE`) |
+| WebGL 2 | `#version 300 es` | `:composegl-webgl:wasmJsBrowserTest` |
+| WebGL 1 | `#version 100` | `:composegl-webgl:wasmJsBrowserWebGl1Test` (WebGL 2 switched off in Chrome) |
+
+Every one runs the whole suite, goldens included, against the same golden images.
+Each run checks it really got the context it asked for and fails if the driver
+handed back another. The ES runs need `libgles2` and `libegl-mesa0` and a display
+(CI uses Xvfb).
 
 ---
 

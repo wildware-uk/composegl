@@ -1,6 +1,7 @@
 package dev.wildware.composegl.lwjgl3
 
 import dev.wildware.composegl.render.RenderCanvas
+import dev.wildware.composegl.render.gl.Gl
 import dev.wildware.composegl.render.gl.GlDevice
 import dev.wildware.composegl.render.gl.GlDeviceTarget
 import dev.wildware.composegl.ui.layout.Viewport
@@ -20,13 +21,14 @@ class GlFrame(val projection: FloatArray, val viewport: Viewport)
 /**
  * The shared renderer, on raw OpenGL through LWJGL.
  *
- * All the drawing is [RenderCanvas]'s. This class only says which GL to call ([LwjglGl]), which
+ * All the drawing is [RenderCanvas]'s. This class only says which GL to call ([LwjglGl] or [LwjglGles]), which
  * textures it can draw ([GlTexture]) and what a game gets from `raw` ([GlFrame]).
  *
  * @param fonts where text is measured, and where solid colour is sampled from. Without it the
  *   canvas keeps a one-pixel white texture of its own and cannot draw text at all.
+ * @param gl the binding for the context it draws on: the window's [GlfwWindow.context] binding.
  */
-class GlCanvas(fonts: StbFonts? = null) : RenderCanvas(GlDevice(LwjglGl), fonts, GlTexture.Resolver) {
+class GlCanvas(fonts: StbFonts? = null, gl: Gl = GlfwContext.Default.binding) : RenderCanvas(GlDevice(gl), fonts, GlTexture.Resolver) {
 
     /**
      * A frame drawn into the framebuffer called [framebuffer] rather than the window — an interface

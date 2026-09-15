@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL30
 import kotlin.math.abs
@@ -53,8 +52,7 @@ class GlRenderTargetTest {
     }
 
     private fun readPixels(width: Int, height: Int): IntArray {
-        val bytes = BufferUtils.createByteBuffer(width * height * 4)
-        GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes)
+        val bytes = Gl.readBytes(width, height)
         return IntArray(width * height) { at ->
             val byte = at * 4
             (bytes.get(byte).toInt() and 0xFF shl 24) or
@@ -73,8 +71,8 @@ class GlRenderTargetTest {
         val target = GlRenderTarget(size, size)
         try {
             Gl.render {
-                GL11.glClearColor(0f, 0f, 0f, 1f)
-                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+                Gl.gl.clearColor(0f, 0f, 0f, 1f)
+                Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
 
                 target.draw(canvas, clear = Colour.rgb(0x000000)) {
                     val bounds = Rect.of(0f, 0f, size.toFloat(), size.toFloat())
@@ -82,9 +80,9 @@ class GlRenderTargetTest {
                     canvas.drawLayer(checkNotNull(picture) { "this driver gave us no layer" }, bounds)
                 }
 
-                GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, target.framebufferName)
+                Gl.gl.bindFramebuffer(GL30.GL_FRAMEBUFFER, target.framebufferName)
                 val inside = readPixels(size, size)
-                GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, 0)
+                Gl.gl.bindFramebuffer(GL30.GL_FRAMEBUFFER, 0)
                 val window = readPixels(Gl.size, Gl.size)
 
                 // The panel's own pixels have the rectangle; the window behind it is still the
@@ -118,9 +116,9 @@ class GlRenderTargetTest {
         val target = GlRenderTarget(size, size)
         try {
             // On the HUD: straight into the window, on an opaque background.
-            GL11.glViewport(0, 0, Gl.size, Gl.size)
-            GL11.glClearColor(0f, 0f, 0f, 1f)
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+            Gl.gl.viewport(0, 0, Gl.size, Gl.size)
+            Gl.gl.clearColor(0f, 0f, 0f, 1f)
+            Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
             canvas.begin(Viewport(Size(size.toFloat(), size.toFloat()), Size(size.toFloat(), size.toFloat()), ScalePolicy.Stretch))
             canvas.scene()
             canvas.end()
@@ -130,9 +128,9 @@ class GlRenderTargetTest {
             // that the two are comparable without thinking about premultiplied alpha.
             target.draw(canvas, clear = Colour.rgb(0x000000)) { canvas.scene() }
 
-            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, target.framebufferName)
+            Gl.gl.bindFramebuffer(GL30.GL_FRAMEBUFFER, target.framebufferName)
             val inTheWorld = readPixels(size, size)
-            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, 0)
+            Gl.gl.bindFramebuffer(GL30.GL_FRAMEBUFFER, 0)
 
             assertArrayEquals(onScreen, inTheWorld, "a panel in the world has to be the same panel")
         } finally {
@@ -153,9 +151,9 @@ class GlRenderTargetTest {
                 canvas.rect(Rect.of(0f, 0f, 32f, 32f), Colour.White.scaleAlpha(0.5f), corner = 0f)
             }
 
-            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, target.framebufferName)
+            Gl.gl.bindFramebuffer(GL30.GL_FRAMEBUFFER, target.framebufferName)
             val pixel = readPixels(32, 32)[16 * 32 + 16]
-            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, 0)
+            Gl.gl.bindFramebuffer(GL30.GL_FRAMEBUFFER, 0)
 
             val red = pixel ushr 24 and 0xFF
             val alpha = pixel and 0xFF
@@ -191,7 +189,7 @@ class GlRenderTargetTest {
                 target.textureName <= firstTexture + 1,
                 "fifty resizes left textures behind: ${target.textureName} against $firstTexture",
             )
-            assertTrue(GL30.glIsFramebuffer(target.framebufferName), "and the one it has now is real")
+            assertTrue(Gl.isFramebuffer(target.framebufferName), "and the one it has now is real")
             assertEquals(113, target.width)
             assertEquals(97, target.height)
             assertEquals(113, target.texture.width, "the handle the game holds follows the resize")
@@ -208,7 +206,7 @@ class GlRenderTargetTest {
         target.close()
         target.close()
 
-        assertFalse(GL30.glIsFramebuffer(framebuffer), "the framebuffer outlived the target")
+        assertFalse(Gl.isFramebuffer(framebuffer), "the framebuffer outlived the target")
         assertEquals(0, target.framebufferName, "and the target knows it has nothing")
     }
 
@@ -217,12 +215,12 @@ class GlRenderTargetTest {
         val canvas = GlCanvas()
         val target = GlRenderTarget(32, 32)
         try {
-            GL11.glViewport(0, 0, Gl.size, Gl.size)
+            Gl.gl.viewport(0, 0, Gl.size, Gl.size)
             target.draw(canvas) { canvas.rect(Rect.of(0f, 0f, 8f, 8f), Colour.White, corner = 0f) }
 
-            assertEquals(0, GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING), "the window was left unbound")
+            assertEquals(0, Gl.gl.getInteger(GL30.GL_FRAMEBUFFER_BINDING), "the window was left unbound")
             val viewport = IntArray(4)
-            GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport)
+            Gl.gl.getIntegers(GL11.GL_VIEWPORT, viewport)
             assertArrayEquals(intArrayOf(0, 0, Gl.size, Gl.size), viewport, "the viewport was left moved")
         } finally {
             target.close()

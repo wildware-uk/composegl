@@ -126,14 +126,14 @@ object LwjglGl : Gl {
         GL11.glReadPixels(x, y, width, height, format, type, (into as Bytes).buffer.clear())
 
     /** Direct memory, written by absolute index: nothing is copied on its way to the driver. */
-    private class Floats(val buffer: FloatBuffer) : GlFloats {
+    internal class Floats(val buffer: FloatBuffer) : GlFloats {
         override val capacity: Int get() = buffer.capacity()
         override fun set(index: Int, value: Float) {
             buffer.put(index, value)
         }
     }
 
-    private class Shorts(val buffer: ShortBuffer) : GlShorts {
+    internal class Shorts(val buffer: ShortBuffer) : GlShorts {
         override val capacity: Int get() = buffer.capacity()
         override fun set(index: Int, value: Short) {
             buffer.put(index, value)

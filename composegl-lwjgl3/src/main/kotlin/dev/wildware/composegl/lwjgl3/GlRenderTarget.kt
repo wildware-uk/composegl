@@ -1,6 +1,7 @@
 package dev.wildware.composegl.lwjgl3
 
 import dev.wildware.composegl.render.RenderTarget
+import dev.wildware.composegl.render.gl.Gl
 import dev.wildware.composegl.render.gl.GlDevice
 import dev.wildware.composegl.render.gl.GlDeviceTarget
 import dev.wildware.composegl.ui.graphics.Colour
@@ -18,10 +19,12 @@ import dev.wildware.composegl.ui.graphics.Colour
  * if (panel.needsRedraw(now)) target.draw(canvas) { panel.draw(canvas) }
  * scene.drawQuad(target.texture)
  * ```
+ *
+ * @param gl the binding for the context it draws on, the same one as the canvas's.
  */
-class GlRenderTarget(width: Int, height: Int) : AutoCloseable {
+class GlRenderTarget(width: Int, height: Int, gl: Gl = GlfwContext.Default.binding) : AutoCloseable {
 
-    private val shared = RenderTarget(GlDevice(LwjglGl), width, height)
+    private val shared = RenderTarget(GlDevice(gl), width, height)
 
     val width: Int get() = shared.width
 
