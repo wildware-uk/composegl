@@ -25,8 +25,18 @@ class InputSourceTracker(initial: InputSource = InputSource.Mouse) {
     var current: InputSource by mutableStateOf(initial)
         private set
 
+    /**
+     * Whether the pad is driving a cursor rather than focus: a `VirtualCursor` is on the screen.
+     *
+     * Kept apart from [current] because the player is still on a pad — prompts still say **A** —
+     * but the answer to "is there a ring or a cursor?" has changed.
+     */
+    var padPoints: Boolean by mutableStateOf(false)
+
     /** The player is driving something with a cursor, so there is a cursor to draw. */
-    val isPointing: Boolean get() = current == InputSource.Mouse || current == InputSource.Touch
+    val isPointing: Boolean
+        get() = current == InputSource.Mouse || current == InputSource.Touch ||
+            (current == InputSource.Gamepad && padPoints)
 
     /**
      * Whether a focus ring belongs on screen.

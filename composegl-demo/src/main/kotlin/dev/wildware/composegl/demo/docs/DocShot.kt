@@ -20,6 +20,8 @@ import dev.wildware.composegl.ui.geometry.Offset
  * @param click whether that pointer clicks once, pressed and let go on the first frame, and then stays
  *   where it is. For a picture of what a click opens — a dropdown's list — which a held press never
  *   shows, because a click happens on the release.
+ * @param padCursor where to put a pad's cursor, for a picture of a `VirtualCursor`. The player is
+ *   on a pad in that picture, so the arrow is drawn. Null leaves the pad out of it.
  * @param seconds how long to let the interface run before the shutter. Anything animated — a bar
  *   draining, a cooldown sweeping, a caret blinking — is a different picture at a different moment.
  * @param stock whether to take it through `Skin.Default` rather than the example's skin. For the
@@ -33,6 +35,7 @@ internal class DocShot(
     val press: Boolean = false,
     val dragTo: Offset? = null,
     val click: Boolean = false,
+    val padCursor: Offset? = null,
     val seconds: Float = 0f,
     val stock: Boolean = false,
     val content: @Composable () -> Unit,

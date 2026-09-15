@@ -15,6 +15,7 @@ import dev.wildware.composegl.ui.host.settle
 import dev.wildware.composegl.ui.input.BackStack
 import dev.wildware.composegl.ui.input.GamepadAxis
 import dev.wildware.composegl.ui.input.GamepadButton
+import dev.wildware.composegl.ui.input.GamepadCursor
 import dev.wildware.composegl.ui.input.GamepadEvent
 import dev.wildware.composegl.ui.input.GamepadId
 import dev.wildware.composegl.ui.input.GamepadNavigator
@@ -40,6 +41,7 @@ import dev.wildware.composegl.ui.text.graphemeAfter
 import dev.wildware.composegl.ui.widget.ProvideBackStack
 import dev.wildware.composegl.ui.widget.ProvideClipboard
 import dev.wildware.composegl.ui.widget.ProvideFonts
+import dev.wildware.composegl.ui.widget.ProvideGamepadCursor
 import dev.wildware.composegl.ui.widget.ProvideHaptics
 import dev.wildware.composegl.ui.widget.ProvideInputSource
 import dev.wildware.composegl.ui.widget.ProvideSoftKeyboard
@@ -140,6 +142,12 @@ class UiTest(
     private val padNavigator = GamepadNavigator(focus, onBack = back)
     private val renderer by lazy { UiRenderer(host, backend.canvas).also { it.focus = focus } }
 
+    /**
+     * The pad's cursor, for a `VirtualCursor` in the content to switch on. Straight into the pointer
+     * router, as a game wires it, so the tracker still hears a pad.
+     */
+    val cursor = GamepadCursor(host.root, pointerRouter)
+
     /** The same shape as a game's sink: the router first, the navigator for what nobody took. */
     private val input: InputSink = wrapInput(SourceAware(
         source,
@@ -147,7 +155,7 @@ class UiTest(
             override fun onPointer(event: PointerEvent) = pointerRouter.onPointer(event)
             override fun onKey(event: KeyEvent) = keyRouter.onKey(event) || keyNavigator.onKey(event)
             override fun onText(event: TextEvent) = keyRouter.onText(event)
-            override fun onGamepad(event: GamepadEvent) = padNavigator.onGamepad(event)
+            override fun onGamepad(event: GamepadEvent) = cursor.onGamepad(event) || padNavigator.onGamepad(event)
         },
     ))
 
@@ -158,7 +166,9 @@ class UiTest(
                     ProvideSoftKeyboard(backend.softKeyboard) {
                         ProvideHaptics(backend.haptics) {
                             ProvideInputSource(source) {
-                                ProvideBackStack(backs, content)
+                                ProvideGamepadCursor(cursor) {
+                                    ProvideBackStack(backs, content)
+                                }
                             }
                         }
                     }
@@ -214,18 +224,21 @@ class UiTest(
     }
 
     /**
-     * One frame: the pad's held-direction repeat, then the host, on the same clock.
+     * One frame: the pad's cursor and held-direction repeat, then the host, on the same clock.
      *
      * The pad first, as a game polls input before it draws, so a step the stick takes is on the
      * screen by the end of the frame it happened in. A focus move counts as a change by itself: a
      * repeat on the last quiet frame would otherwise end the settle with the screen a step behind.
+     * So does the cursor moving, for the same reason.
      */
     private fun step(): Boolean {
         nanos += FrameNanos
         val before = focus.focused
+        val cursorWas = cursor.position
+        cursor.frame(nanos / 1_000_000L)
         padNavigator.frame(nanos / 1_000_000L)
         val changed = host.settle(viewport, focus, nanos = nanos)
-        return changed || focus.focused !== before
+        return changed || focus.focused !== before || cursor.position != cursorWas
     }
 
     // --- the pointer -----------------------------------------------------------------------------
@@ -354,6 +367,24 @@ class UiTest(
         val sideways = send(GamepadEvent.Axis(gamepad, horizontal, x))
         val upDown = send(GamepadEvent.Axis(gamepad, vertical, y))
         return sideways || upDown
+    }
+
+    /**
+     * Holds the left stick at [x], [y] for [millis] of game time, then lets it go and settles.
+     *
+     * What a `VirtualCursor` test wants: [stick] settles with the stick still pushed, which carries
+     * a cursor all the way to the edge of the screen. This pushes, lets frames pass while the stick
+     * is held, and only then lets go — so the cursor travels as far as that long a push takes it,
+     * and a snap after the let-go has played out by the time the test looks.
+     */
+    fun holdStick(x: Float, y: Float, millis: Long, gamepad: GamepadId = GamepadId.First) {
+        input.onGamepad(GamepadEvent.Axis(gamepad, GamepadAxis.LeftX, x))
+        input.onGamepad(GamepadEvent.Axis(gamepad, GamepadAxis.LeftY, y))
+        val until = nanos + millis * 1_000_000L
+        while (nanos + FrameNanos <= until) step()
+        input.onGamepad(GamepadEvent.Axis(gamepad, GamepadAxis.LeftX, 0f))
+        input.onGamepad(GamepadEvent.Axis(gamepad, GamepadAxis.LeftY, 0f))
+        settle()
     }
 
     // --- reading the screen ----------------------------------------------------------------------

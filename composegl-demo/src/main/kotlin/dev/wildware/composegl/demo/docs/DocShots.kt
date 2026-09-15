@@ -65,6 +65,7 @@ import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.modifier.aspectRatio
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.border
+import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.clipShape
 import dev.wildware.composegl.ui.modifier.draggable
 import dev.wildware.composegl.ui.modifier.clip
@@ -122,6 +123,7 @@ import dev.wildware.composegl.ui.widget.TextField
 import dev.wildware.composegl.ui.widget.Toggle
 import dev.wildware.composegl.ui.widget.Tooltip
 import dev.wildware.composegl.ui.widget.TooltipHost
+import dev.wildware.composegl.ui.widget.VirtualCursor
 import dev.wildware.composegl.ui.layout.Baseline
 import dev.wildware.composegl.ui.modifier.paddingFrom
 import dev.wildware.composegl.ui.text.TextStyle
@@ -875,6 +877,28 @@ private fun MutableList<DocShot>.game() {
                     Modifier.size(56f, 48f).background(Accent, corner = 6f).repeatingClickable { count++ },
                     contentAlignment = Alignment.Centre,
                 ) { Text("+", style = "label") }
+            }
+        }
+    })
+
+    // A map with nowhere to hop: the pad drives a cursor, which has settled on the harbour and
+    // turned gold because there is something there to click.
+    add(DocShot("input-virtual-cursor", 340, 200, padCursor = Offset(236f, 118f)) {
+        Frame {
+            VirtualCursor(enabled = true) {
+                Box(Modifier.fillMaxSize().background(Ink, corner = 6f)) {
+                    listOf(
+                        Triple("Keep", 40f, 40f),
+                        Triple("Mill", 90f, 130f),
+                        Triple("Harbour", 180f, 90f),
+                        Triple("Pass", 250f, 30f),
+                    ).forEach { (name, x, y) ->
+                        Box(
+                            Modifier.offset(x, y).size(84f, 28f).background(Steel, corner = 14f).clickable { },
+                            contentAlignment = Alignment.Centre,
+                        ) { Text(name, style = "label") }
+                    }
+                }
             }
         }
     })
