@@ -2,6 +2,8 @@ package dev.wildware.composegl.lwjgl3
 
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.lwjgl.BufferUtils
+import org.lwjgl.glfw.GLFW
+import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11
 
 /**
@@ -23,14 +25,20 @@ object Gl {
 
     const val size = 400
 
-    private var window: GlfwWindow? = null
+    private var shared: GlfwWindow? = null
+
+    /** The shared window, for a test that needs one to hand a backend. Only inside [render]. */
+    val window: GlfwWindow get() = checkNotNull(shared) { "the GL window only exists inside Gl.render" }
 
     /** Runs [block] with a current GL context. Skips the test when there is no display. */
     fun <T> render(block: () -> T): T {
         assumeTrue(available, "no display; this test needs a real GL context")
-        if (window == null) {
-            window = GlfwWindow("composegl tests", size, size, visible = false, vsync = false)
-        }
+        val window = shared ?: GlfwWindow("composegl tests", size, size, visible = false, vsync = false)
+            .also { shared = it }
+        // Taken back every time: a test that opened and closed a window of its own — the preview
+        // renderer does — left no context current on this thread.
+        GLFW.glfwMakeContextCurrent(window.handle)
+        GL.createCapabilities()
         return block()
     }
 

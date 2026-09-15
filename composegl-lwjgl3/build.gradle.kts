@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    // For `@Preview` functions: the preview renderer calls them, and its tests write some.
+    alias(libs.plugins.kotlin.compose)
 }
 
 description = "The raw OpenGL backend: a GLFW window, one shader and stb_truetype. No engine."

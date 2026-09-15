@@ -429,6 +429,74 @@ the first time it runs can never fail.
 
 ---
 
+## Previews: a composable to a PNG
+
+Mark a composable with `@Preview` and a Gradle task draws it to a picture. No demo
+to launch, nothing to click to get there.
+
+```kotlin
+@Preview(width = 320, height = 200, background = 0xFF08090C)
+@Composable
+fun PauseMenuPreview() {
+    Panel { Button("RESUME", onClick = {}) }
+}
+```
+
+```bash
+xvfb-run -a ./gradlew :composegl-demo:renderPreviews   # one PNG per preview, in build/previews
+```
+
+![A preview drawn by renderPreviews](images/preview-pause-menu.png)
+
+It is drawn by the real renderer (the raw OpenGL backend), through the real skin
+and fonts. Each preview is drawn off the window into a texture exactly its size, so
+a 1920 by 1080 screen previews fine. Animations it starts have finished before the
+picture is taken.
+
+| `@Preview(…)` | |
+|---|---|
+| `width`, `height` | the picture, and the screen the content is laid out in. 400 by 200 if left out |
+| `name` | the file, `<name>.png`. The function's name if left out |
+| `background` | `0xAARRGGBB` behind the content. Opaque black if left out; zero alpha keeps the PNG transparent |
+
+A preview takes no arguments. It can be a top-level function or sit in an `object`,
+and it can be private. Anything else — parameters, not `@Composable`, inside a
+class, two previews with the same name — fails the task with the function named,
+rather than quietly leaving a picture out. One preview that throws — a `TODO()`, or
+a screen that never stops animating — is reported and the rest are still drawn,
+then the task fails.
+
+**In your own module**, register the task the way `composegl-demo/build.gradle.kts`
+does. It needs `composegl-lwjgl3` on the classpath and at least one font, because
+that backend cannot draw anything without its glyph atlas:
+
+```kotlin
+tasks.register<JavaExec>("renderPreviews") {
+    mainClass.set("dev.wildware.composegl.lwjgl3.preview.RenderPreviewsKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    args("--classes", sourceSets["main"].output.classesDirs.asPath,
+         "--out", layout.buildDirectory.dir("previews").get().asFile.path,
+         "--font", "default=src/main/resources/fonts/MyFont.ttf")
+}
+```
+
+`--font family=file.ttf@12,16` bakes only those sizes; the default skin's text is
+the family `default`. `--package com.game.menus` only looks there.
+
+**The same function is a test.** `uiTest(preview)` composes it at its size, on its
+background, so the screen in the picture is the screen a test clicks through — and a
+golden can start from it:
+
+```kotlin
+val preview = Previews.of(Class.forName("com.game.MenusKt")).single { it.name == "PauseMenuPreview" }
+uiTest(preview).use { ui -> ui.click("resume") }
+```
+
+`PreviewsTest` in `composegl-ui`, `PreviewRendererTest` in `composegl-lwjgl3` and
+`PreviewGlTest` in `composegl-gdx` are the worked examples.
+
+---
+
 ## Seeded randomness
 
 Anything random takes a seed, so it can be a golden:

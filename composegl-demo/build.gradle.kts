@@ -49,6 +49,38 @@ tasks.register<JavaExec>("docShots") {
 }
 
 /**
+ * Every `@Preview` in the example, as a PNG in `build/previews`.
+ *
+ * No demo launched, nothing clicked: the functions are found in the compiled classes and drawn on
+ * the raw OpenGL backend, off the window, each at its own size. Needs a display for the GL context,
+ * so on a headless machine it is `xvfb-run -a ./gradlew :composegl-demo:renderPreviews`.
+ *
+ * The folder is emptied first, so a preview that was renamed or deleted does not leave its old
+ * picture behind looking current.
+ */
+tasks.register<JavaExec>("renderPreviews") {
+    group = "documentation"
+    description = "Draws every @Preview function to a PNG."
+    mainClass.set("dev.wildware.composegl.lwjgl3.preview.RenderPreviewsKt")
+    classpath = sourceSets["main"].runtimeClasspath
+
+    val classes = sourceSets["main"].output.classesDirs
+    val out = layout.buildDirectory.dir("previews")
+    val font = layout.projectDirectory.file("src/main/resources/fonts/DejaVuSans.ttf")
+    outputs.dir(out)
+    // Pictures depend on the GPU's driver as much as on the code, so they are always redrawn.
+    outputs.upToDateWhen { false }
+
+    argumentProviders.add(
+        CommandLineArgumentProvider {
+            listOf("--classes", classes.asPath, "--out", out.get().asFile.path) +
+                listOf("default", "body").flatMap { listOf("--font", "$it=${font.asFile.path}") }
+        },
+    )
+    doFirst { out.get().asFile.deleteRecursively() }
+}
+
+/**
  * No tarball. The example is run with `./gradlew :composegl-demo:run`, never shipped.
  *
  * The application plugin's distribution copies every dependency into one directory by file name,

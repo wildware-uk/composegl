@@ -87,6 +87,7 @@ You need `composegl-ui` and exactly one backend.
 ./gradlew :composegl-demo:run                # the picture above
 ./gradlew :composegl-demo-snake:run          # Snake: menu, HUD, pause, game over
 ./gradlew :composegl-demo-showcase:run       # a HUD over a 3D scene, and a panel standing in it
+./gradlew :composegl-demo:renderPreviews     # every @Preview in the example, as PNGs in build/previews
 ```
 
 ## Read more
@@ -98,7 +99,7 @@ You need `composegl-ui` and exactly one backend.
 | [Skins](docs/wiki/Skins.md) | every colour, gradient and corner — one radius, or one per corner — comes out of a JSON file |
 | [Input](docs/wiki/Input.md) · [Backends](docs/wiki/Backends.md) · [Shaders](docs/wiki/Shaders.md) | mouse, keyboard, gamepad, the cursor's shape, UI sounds; long press, double click, hold to repeat; and writing your own |
 | [Saving state](docs/wiki/Saving-state.md) | `rememberSaveable`: the tab, the scroll and the half-typed name survive leaving a screen |
-| [Testing](docs/wiki/Testing.md) | screens tested with no window: tag a widget, then click, type and press pad buttons on it with `uiTest` |
+| [Testing](docs/wiki/Testing.md) | screens tested with no window: tag a widget, then click, type and press pad buttons on it with `uiTest`; and `@Preview` composables drawn to PNGs with `renderPreviews` |
 | [How it works](docs/how-it-works.md) | the long version: what is built, and why |
 | [Releasing](docs/releasing.md) | how a version gets to Maven Central |
 
