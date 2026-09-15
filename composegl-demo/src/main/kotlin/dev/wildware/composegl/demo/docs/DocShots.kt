@@ -51,9 +51,10 @@ import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.BorderSide
 import dev.wildware.composegl.ui.graphics.BorderStyle
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.input.GamepadButton
+import dev.wildware.composegl.ui.input.GamepadId
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerId
-import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.InputBinding
 import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.widget.KeyBindButton
@@ -182,6 +183,29 @@ internal fun docShots(): List<DocShot> = buildList {
 // ---------------------------------------------------------------- whole screens
 
 private fun MutableList<DocShot>.scenes() {
+    // Two players, one window: the same menu twice, a UiHost each. Pad 1 stepped down twice
+    // through an InputRouter, so the right-hand focus is somewhere the left-hand one is not.
+    add(
+        DocShot(
+            "split-screen", 620, 260,
+            players = 2,
+            pads = listOf(GamepadId(1) to GamepadButton.DpadDown, GamepadId(1) to GamepadButton.DpadDown),
+        ) {
+            val player = LocalDocPlayer.current
+            Box(Modifier.fillMaxSize().background(Colour.rgb(0x0A0D12)).padding(12f), contentAlignment = Alignment.Centre) {
+                Panel(Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                        Text("PLAYER ${player + 1}", style = "label.dim")
+                        Bar(if (player == 0) 0.8f else 0.35f, Modifier.fillMaxWidth())
+                        Button("RESUME", onClick = {}, initialFocus = true, modifier = Modifier.fillMaxWidth())
+                        Button("LOADOUT", onClick = {}, modifier = Modifier.fillMaxWidth())
+                        Button("LEAVE", onClick = {}, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            }
+        },
+    )
+
     // Through Skin.Default rather than the example's skin, because the point of the picture is
     // what you get before you have written a skin at all.
     add(DocShot("first-screen", 440, 260, stock = true) {

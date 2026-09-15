@@ -57,6 +57,15 @@ class InputSourceTrackerTest {
     }
 
     @Test
+    fun `a pad being plugged in or pulled out is not somebody picking it up`() {
+        tracker.saw(KeyEvent(Key.A, KeyEventType.Down))
+        tracker.saw(GamepadEvent.Connected(GamepadId.First))
+        tracker.saw(GamepadEvent.Disconnected(GamepadId.First))
+
+        assertEquals(InputSource.Keyboard, tracker.current)
+    }
+
+    @Test
     fun `a console can start on a pad`() {
         val console = InputSourceTracker(InputSource.Gamepad)
         assertTrue(console.showsFocusRing, "the menu has a cursor before anybody touches anything")

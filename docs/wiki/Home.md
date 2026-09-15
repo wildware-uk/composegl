@@ -45,6 +45,7 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
 | **[[Skins]]** | one JSON file holds every colour in your game, and hot reloads |
 | **[[Input]]** | mouse, keyboard, pad, focus, and giving the world what the interface did not want |
 | **[[Saving state]]** | the tab, the scroll position and the half-typed name, still there when a screen comes back |
+| **[[Split-screen]]** | local co-op: a HUD per player, and each pad routed to its own player |
 | **[[Shaders]]** | blur, outline, dissolve — and your own GLSL bound to any widget |
 | **[[Backends]]** | LibGDX, raw OpenGL, a browser tab, Android, and writing your own |
 | **[[Testing]]** | a whole interface tested with no window and no GPU, and `@Preview` composables drawn to PNGs |

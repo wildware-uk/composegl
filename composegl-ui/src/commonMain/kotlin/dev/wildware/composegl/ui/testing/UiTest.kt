@@ -19,6 +19,7 @@ import dev.wildware.composegl.ui.input.GamepadCursor
 import dev.wildware.composegl.ui.input.GamepadEvent
 import dev.wildware.composegl.ui.input.GamepadId
 import dev.wildware.composegl.ui.input.GamepadNavigator
+import dev.wildware.composegl.ui.input.InputRouter
 import dev.wildware.composegl.ui.input.InputSink
 import dev.wildware.composegl.ui.input.InputSourceTracker
 import dev.wildware.composegl.ui.input.Key
@@ -79,6 +80,9 @@ import dev.wildware.composegl.ui.widget.ProvideSoftKeyboard
  * @param onBack what Escape, East and the pad's Back do once nothing on the [BackStack] took it.
  * @param input wraps the sink every event goes into, the way a game wraps its own — a
  *   `ParallaxAware`, say — so what sits in front of the toolkit in a game sits in front of it here.
+ * @param viewport where on the window the screen is laid out and drawn. One to one over [size] by
+ *   default. A split-screen test hands each player one of `Viewport.splitScreen`, so [render] draws
+ *   into that player's part of the window and an [InputRouter] routes by the same areas.
  * @param content the screen.
  */
 fun uiTest(
@@ -86,9 +90,10 @@ fun uiTest(
     backend: UiBackend = HeadlessBackend(),
     onBack: () -> Unit = {},
     input: (InputSink) -> InputSink = { it },
+    viewport: Viewport = Viewport.oneToOne(size),
     content: @Composable () -> Unit,
 ): UiTest {
-    val test = UiTest(size, backend, onBack, input)
+    val test = UiTest(size, backend, onBack, input, viewport)
     try {
         test.setContent(content)
     } catch (failure: Throwable) {
@@ -106,6 +111,7 @@ class UiTest(
     val backend: UiBackend,
     private val onBack: () -> Unit,
     wrapInput: (InputSink) -> InputSink = { it },
+    val viewport: Viewport = Viewport.oneToOne(size),
 ) : AutoCloseable {
 
     val host = UiHost()
@@ -117,8 +123,6 @@ class UiTest(
 
     /** Where `OnBack` handlers in the content put themselves. */
     val backs = BackStack()
-
-    val viewport: Viewport = Viewport.oneToOne(size)
 
     /** The frame time handed to the host, in nanoseconds. Moves one frame per settling turn. */
     var nanos = 0L
@@ -148,8 +152,14 @@ class UiTest(
      */
     val cursor = GamepadCursor(host.root, pointerRouter)
 
-    /** The same shape as a game's sink: the router first, the navigator for what nobody took. */
-    private val input: InputSink = wrapInput(SourceAware(
+    /**
+     * The same shape as a game's sink: the router first, the navigator for what nobody took.
+     *
+     * Public for a test that delivers events itself — several players' screens behind one
+     * [InputRouter], say. Events sent here do not settle the screen; call [settle] afterwards.
+     * Pointer positions are in the screen's own coordinates, the ones [node] bounds are in.
+     */
+    val input: InputSink = wrapInput(SourceAware(
         source,
         object : InputSink {
             override fun onPointer(event: PointerEvent) = pointerRouter.onPointer(event)

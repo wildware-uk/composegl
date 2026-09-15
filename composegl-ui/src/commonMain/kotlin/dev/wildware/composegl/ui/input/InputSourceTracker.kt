@@ -67,7 +67,17 @@ class InputSourceTracker(initial: InputSource = InputSource.Mouse) {
 
     fun saw(event: TextEvent) = saw(InputSource.Keyboard)
 
-    fun saw(event: GamepadEvent) = saw(InputSource.Gamepad)
+    /**
+     * A pad did something.
+     *
+     * A pad being plugged in or pulled out is not a signal either: nobody is holding it. That
+     * matters in split-screen, where handing a pad to another player tells its old owner it was
+     * unplugged, and the keyboard player who gave it up must keep their keyboard prompts.
+     */
+    fun saw(event: GamepadEvent) {
+        if (event is GamepadEvent.Connected || event is GamepadEvent.Disconnected) return
+        saw(InputSource.Gamepad)
+    }
 
     override fun toString(): String = "InputSourceTracker($current)"
 }

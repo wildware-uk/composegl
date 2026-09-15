@@ -1,6 +1,7 @@
 package dev.wildware.composegl.ui.layout
 
 import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.node.UiNode
 import kotlin.math.floor
@@ -38,16 +39,23 @@ enum class ScalePolicy {
  * @param physical the framebuffer, in real pixels.
  * @param safeArea room to keep clear at the edges of the *physical* screen: a phone's notch, a
  *   television's overscan. Subtracted before anything is laid out, so nothing lands under it.
+ * @param area the part of the screen this interface gets, in real pixels. All of it by default.
+ *   Split-screen gives each player one: the design is fitted into the area rather than the whole
+ *   window, and [origin] is still measured from the window's corner, so a canvas draws into the
+ *   right place and a mouse position turns into the right player's coordinates with nothing else
+ *   told about the split. [safeArea] stays measured from the window's edges, so only the players
+ *   whose area actually reaches a notch are pushed in by it. [splitScreen] makes these.
  */
 data class Viewport(
     val design: Size,
     val physical: Size,
     val policy: ScalePolicy = ScalePolicy.Fit,
     val safeArea: Padding = Padding.None,
+    val area: Rect = Rect.of(0f, 0f, physical.width, physical.height),
 ) {
 
-    private val rawX = if (design.width > 0f) physical.width / design.width else 1f
-    private val rawY = if (design.height > 0f) physical.height / design.height else 1f
+    private val rawX = if (design.width > 0f) area.width / design.width else 1f
+    private val rawY = if (design.height > 0f) area.height / design.height else 1f
 
     val scaleX: Float
     val scaleY: Float
@@ -67,10 +75,13 @@ data class Viewport(
         }
     }
 
-    /** Where the interface's origin sits on the screen. Half the leftover, so it is centred. */
+    /**
+     * Where the interface's origin sits on the screen. Half the [area]'s leftover, so it is centred
+     * in its area, and measured from the window's corner.
+     */
     val origin = Offset(
-        (physical.width - design.width * scaleX) / 2f,
-        (physical.height - design.height * scaleY) / 2f,
+        area.left + (area.width - design.width * scaleX) / 2f,
+        area.top + (area.height - design.height * scaleY) / 2f,
     )
 
     /**
@@ -78,13 +89,15 @@ data class Viewport(
      *
      * A letterbox bar is already keeping the interface clear of that edge, so an inset smaller
      * than the bar costs nothing. This is what stops a design being pushed in twice on a wide
-     * screen with a notch.
+     * screen with a notch. The gap on each side is measured to the window's own edge, so the
+     * player on the right of a split is not pushed in by a notch on the left: the whole of the
+     * other player's half is between them and it.
      */
     val safeInsets = Padding(
         left = ((safeArea.left - origin.x).coerceAtLeast(0f)) / scaleX,
         top = ((safeArea.top - origin.y).coerceAtLeast(0f)) / scaleY,
-        right = ((safeArea.right - origin.x).coerceAtLeast(0f)) / scaleX,
-        bottom = ((safeArea.bottom - origin.y).coerceAtLeast(0f)) / scaleY,
+        right = ((safeArea.right - (physical.width - origin.x - design.width * scaleX)).coerceAtLeast(0f)) / scaleX,
+        bottom = ((safeArea.bottom - (physical.height - origin.y - design.height * scaleY)).coerceAtLeast(0f)) / scaleY,
     )
 
     /** Where the root of the tree goes, in the interface's units. */
@@ -115,6 +128,53 @@ data class Viewport(
 
         /** A viewport that does nothing at all: one virtual pixel per real one. */
         fun oneToOne(size: Size) = Viewport(size, size, ScalePolicy.Stretch)
+
+        /**
+         * One viewport per player, sharing one window: local co-op.
+         *
+         * One player gets the whole window. Two sit side by side, or one above the other with
+         * [stacked]. Three and four get a quarter each, reading left to right and then down, and a
+         * third player leaves the bottom-right quarter to the game — a map, a scoreboard.
+         *
+         * Every player is laid out at the same [design] resolution, fitted into their own area by
+         * [policy], so one HUD written once is right in every quarter. Pair each with its own
+         * `UiHost`, and give an [dev.wildware.composegl.ui.input.InputRouter] the same viewports so
+         * a click lands in the half it was made in.
+         *
+         * @param physical the whole window, in real pixels.
+         * @param safeArea the window's own safe area, measured from its edges; each player only
+         *   gives up the part of it their area reaches.
+         */
+        fun splitScreen(
+            design: Size,
+            physical: Size,
+            players: Int,
+            policy: ScalePolicy = ScalePolicy.Fit,
+            safeArea: Padding = Padding.None,
+            stacked: Boolean = false,
+        ): List<Viewport> {
+            require(players in 1..4) { "split-screen is for one to four players, not $players" }
+            val halfWidth = physical.width / 2f
+            val halfHeight = physical.height / 2f
+            val areas = when {
+                players == 1 -> listOf(Rect.of(0f, 0f, physical.width, physical.height))
+                players == 2 && stacked -> listOf(
+                    Rect.of(0f, 0f, physical.width, halfHeight),
+                    Rect.of(0f, halfHeight, physical.width, physical.height - halfHeight),
+                )
+                players == 2 -> listOf(
+                    Rect.of(0f, 0f, halfWidth, physical.height),
+                    Rect.of(halfWidth, 0f, physical.width - halfWidth, physical.height),
+                )
+                else -> listOf(
+                    Rect.of(0f, 0f, halfWidth, halfHeight),
+                    Rect.of(halfWidth, 0f, physical.width - halfWidth, halfHeight),
+                    Rect.of(0f, halfHeight, halfWidth, physical.height - halfHeight),
+                    Rect.of(halfWidth, halfHeight, physical.width - halfWidth, physical.height - halfHeight),
+                ).take(players)
+            }
+            return areas.map { Viewport(design, physical, policy, safeArea, it) }
+        }
     }
 }
 

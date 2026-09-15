@@ -185,6 +185,9 @@ ui.render()          // then read the framebuffer
 `UiTestTest` in `composegl-ui` and `UiTestGlTest` in `composegl-gdx` are the worked
 examples.
 
+For local co-op, pass each player's screen a `viewport` from `Viewport.splitScreen` and
+put their `input` sinks behind one `InputRouter`. [[Split-screen]] shows how.
+
 ---
 
 ## The tree as text

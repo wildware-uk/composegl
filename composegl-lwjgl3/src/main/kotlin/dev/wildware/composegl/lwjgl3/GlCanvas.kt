@@ -103,16 +103,14 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     private class LayerFrame(val bounds: Rect, val pixelWidth: Int, val pixelHeight: Int)
 
     /**
-     * Which framebuffer the canvas believes is bound, where the GL viewport is, and whether the
-     * scissor is on.
+     * Which framebuffer the canvas believes is bound, and where the GL viewport is.
      *
      * Remembered rather than asked for. Asking costs a pipeline stall — the driver has to catch up
-     * with itself before it can answer — and a layer would ask three times, twice a layer, every
+     * with itself before it can answer — and a layer would ask twice, twice a layer, every
      * frame.
      */
     private var framebuffer = 0
     private val viewportBox = IntArray(4)
-    private var scissorOn = false
 
     /** How many times the frame so far has talked to the driver. Nothing drawn yet is none. */
     override val drawCalls: Int get() = batch?.renderCalls ?: 0
@@ -170,6 +168,9 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         )
         orthographic(projection, viewport.design.width, viewport.design.height)
         batch().begin(projection)
+        // A picture bigger than its area — a filled design in one player's half — is cut off at
+        // the area's edge rather than drawn over the next player's.
+        applyScissor()
     }
 
     /** Ends the frame and puts the GL state back the way a game expects to find it. */
@@ -561,21 +562,30 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             scissorLayer(into, clip)
             return
         }
+        // Never outside the viewport's area: in split-screen that is the edge of this player's part
+        // of the window, and a filled design can reach past it.
+        val area = viewport.area
+        val topLeft = viewport.toScreen(Offset(clip.left, clip.top))
+        val bottomRight = viewport.toScreen(Offset(clip.right, clip.bottom))
+        val left = maxOf(topLeft.x, area.left)
+        val top = maxOf(topLeft.y, area.top)
+        val right = minOf(bottomRight.x, area.right)
+        val bottom = minOf(bottomRight.y, area.bottom)
         if (clip.left <= 0f && clip.top <= 0f &&
-            clip.right >= viewport.design.width && clip.bottom >= viewport.design.height
+            clip.right >= viewport.design.width && clip.bottom >= viewport.design.height &&
+            left - topLeft.x < 0.5f && top - topLeft.y < 0.5f &&
+            bottomRight.x - right < 0.5f && bottomRight.y - bottom < 0.5f
         ) {
             scissor(false)
             return
         }
 
-        val topLeft = viewport.toScreen(Offset(clip.left, clip.top))
-        val bottomRight = viewport.toScreen(Offset(clip.right, clip.bottom))
         scissor(true)
         GL11.glScissor(
-            topLeft.x.roundToInt(),
-            (viewport.physical.height - bottomRight.y).roundToInt(),
-            (bottomRight.x - topLeft.x).roundToInt().coerceAtLeast(0),
-            (bottomRight.y - topLeft.y).roundToInt().coerceAtLeast(0),
+            left.roundToInt(),
+            (viewport.physical.height - bottom).roundToInt(),
+            (right - left).roundToInt().coerceAtLeast(0),
+            (bottom - top).roundToInt().coerceAtLeast(0),
         )
     }
 
@@ -625,7 +635,6 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
 
         val previousFramebuffer = framebuffer
         val previousViewport = viewportBox.copyOf()
-        val previousScissor = scissorOn
         val previousState = state
         val previousLayer = layer
         val previousProjection = projection.copyOf()
@@ -661,7 +670,8 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             applyBlend()
             bindFramebuffer(previousFramebuffer)
             setViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3])
-            scissor(previousScissor)
+            // Worked out again rather than switched back on: the layer set a scissor box of its own.
+            applyScissor()
             layers.release(target)
         }
 
@@ -891,7 +901,6 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     }
 
     private fun scissor(on: Boolean) {
-        scissorOn = on
         if (on) GL11.glEnable(GL11.GL_SCISSOR_TEST) else GL11.glDisable(GL11.GL_SCISSOR_TEST)
     }
 
