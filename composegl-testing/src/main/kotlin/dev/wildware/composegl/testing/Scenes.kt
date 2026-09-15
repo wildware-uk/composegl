@@ -294,6 +294,29 @@ fun scenes(): List<Scene> = listOf(
         image(art.panel.texture, Rect.of(128f, 192f, 32f, 32f), degrees = 90f)
     },
 
+    Scene("skew") { art ->
+        rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
+
+        // What `Modifier.skew` is, with the tree taken away: the same tile captured upright and
+        // put down on four corners that are not a rectangle. Upright, leaning forward like a title
+        // card, and slid down to the right.
+        //
+        // A backend that ignores the corners draws three identical upright tiles; one that pairs
+        // them with the wrong texture coordinates draws the label backwards or upside down.
+        val upright = Rect.of(16f, 16f, 96f, 60f)
+        tile(art, upright, "Flat")
+
+        val forward = Rect.of(128f, 16f, 96f, 60f)
+        layer(forward) { tile(art, forward, "Lean") }
+            ?.let { drawLayerOnto(it, forward, slanted(forward, slopeX = -0.36f, slopeY = 0f)) }
+            ?: tile(art, forward, "Lean")
+
+        val down = Rect.of(40f, 120f, 160f, 60f)
+        layer(down) { tile(art, down, "Slide") }
+            ?.let { drawLayerOnto(it, down, slanted(down, slopeX = 0f, slopeY = 0.27f)) }
+            ?: tile(art, down, "Slide")
+    },
+
     Scene("clip") { art ->
         rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
         rect(Rect.of(30f, 30f, 180f, 180f), Panel, corner = 8f)
@@ -411,7 +434,19 @@ private fun UiCanvas.through(effects: List<ShaderEffect>, bounds: Rect, body: ()
     drawLayer(picture, area, effect)
 }
 
-/** One of the four boxes in the effects scene: something with an edge, a fill and some text on it. */
+/** The four corners of [box] sheared about its middle, in the order `drawLayerOnto` takes them. */
+private fun slanted(box: Rect, slopeX: Float, slopeY: Float): FloatArray {
+    val middleX = box.left + box.width / 2f
+    val middleY = box.top + box.height / 2f
+    val xs = floatArrayOf(box.left, box.right, box.right, box.left)
+    val ys = floatArrayOf(box.top, box.top, box.bottom, box.bottom)
+    return FloatArray(8) { index ->
+        val corner = index / 2
+        if (index % 2 == 0) xs[corner] + slopeX * (ys[corner] - middleY)
+        else ys[corner] + slopeY * (xs[corner] - middleX)
+    }
+}
+
 private fun UiCanvas.tile(art: SceneArt, at: Rect, label: String) {
     rect(at, Panel, corner = 12f)
     border(at, Accent, width = 2f, corner = 12f)

@@ -241,6 +241,21 @@ data class RotateElement(
     }
 }
 
+/** @see dev.wildware.composegl.ui.modifier.skew */
+data class SkewElement(
+    val x: Float = 0f,
+    val y: Float = 0f,
+    val origin: Alignment = Alignment.Centre,
+) : Modifier.Element {
+    init {
+        // Unlike a turn, a slant has an end: at 90 degrees every point of the node is flung
+        // infinitely far along the axis, so the answer is not a picture of anything.
+        require(!x.isNaN() && !y.isNaN()) { "a skew cannot be NaN" }
+        require(x > -90f && x < 90f) { "a horizontal skew must be between -90 and 90 degrees, was $x" }
+        require(y > -90f && y < 90f) { "a vertical skew must be between -90 and 90 degrees, was $y" }
+    }
+}
+
 /** @see dev.wildware.composegl.ui.modifier.effect */
 data class EffectElement(val effect: ShaderEffect) : Modifier.Element
 
@@ -901,6 +916,54 @@ fun Modifier.mirror(horizontal: Boolean = true, vertical: Boolean = false) =
  */
 fun Modifier.rotate(degrees: Float, origin: Alignment = Alignment.Centre) =
     then(RotateElement(degrees, origin))
+
+/**
+ * Slants this node and everything under it, by [x] degrees across and [y] degrees down.
+ *
+ * A parallelogram rather than a rectangle: with [x] the top and bottom edges stay level and slide
+ * past each other, with [y] the left and right edges stay upright and slide instead. The sign is
+ * the one CSS uses in y-down coordinates, so a negative [x] leans the top forward, to the right,
+ * the way italic type does:
+ *
+ * ```kotlin
+ * Banner(Modifier.skew(x = -12f))                            // a title card leaning into speed
+ * HealthBar(Modifier.skew(x = -20f, origin = Alignment.BottomStart))  // a fighting-game HUD
+ * ```
+ *
+ * Built exactly as [rotate] is, and on the same picture: the subtree is drawn upright into an
+ * offscreen picture at the size it was laid out, and that picture is put down on four corners that
+ * are not a rectangle. So nothing inside knows — text is not asked for an oblique font, and a
+ * leaning panel costs what an upright one does plus one composite.
+ *
+ * A node that is skewed *and* turned still costs one picture, not two: the slant is applied first,
+ * about its own [origin], then the turn about the one [rotate] names, and both land on the same
+ * four corners.
+ *
+ * Everything [rotate] says about its bargain holds here too:
+ *
+ * - **Clicks do not follow it.** A slanted node is hit inside its upright box, for the same reason
+ *   a turned one is: hit testing, focus and `boundsInRoot` work in rectangles. A banner leaning
+ *   a few degrees overlaps its box at two corners and falls short at the other two, which is
+ *   rarely a place a player aims.
+ * - **A capture is a clip**, the node's own rectangle.
+ * - **It degrades honestly.** A canvas with no offscreen drawing draws the subtree plainly; one that
+ *   can make pictures but not put one on four corners
+ *   ([dev.wildware.composegl.ui.graphics.UiCanvas.drawsLayersOnto] is false) draws it without the
+ *   slant, still turned if there is a [rotate].
+ * - **Slants add along each axis.** `skew(x = -8f).skew(x = -4f)` is the slant whose slope is the
+ *   two slopes added — what drawing one shear after the other does — which is almost exactly -12
+ *   for angles this size. The two axes are folded into one shear, and the last origin wins.
+ *
+ * A skew of zero on both axes costs two comparisons and takes no picture.
+ *
+ * @param origin the point that stays where it is, as a place inside this node: [Alignment.Centre]
+ *   slants it about its middle, [Alignment.BottomStart] keeps its bottom edge where it was laid out.
+ * @throws IllegalArgumentException if either angle is not a number, or is not strictly between
+ *   -90 and 90. At 90 a slant is infinitely long, so the bad value is refused here rather than
+ *   turning four corners to infinity.
+ */
+fun Modifier.skew(x: Float = 0f, y: Float = 0f, origin: Alignment = Alignment.Centre) =
+    then(SkewElement(x, y, origin))
 
 fun Modifier.drawBehind(draw: UiCanvas.(Rect) -> Unit) = then(DrawBehindElement(draw))
 

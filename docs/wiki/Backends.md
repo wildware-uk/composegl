@@ -195,6 +195,11 @@ The optional extras, each of which degrades rather than fails:
 - `drawLayer(layer, destination, mirrorX, mirrorY)` — a flipped picture, for
   `Modifier.mirror`. Leave it and the default draws it the right way round; say so
   in `mirrorsLayers`, and the toolkit skips the picture and keeps clicks unflipped.
+- `drawLayer(layer, destination, degrees, …)` and `drawLayerOnto(layer, destination,
+  corners)` — a layer turned, or put down on four corners, which is what
+  `Modifier.rotate` and `Modifier.skew` are composited with. Leave them and the
+  default puts the picture down upright in `destination`; say so in `turnsLayers`
+  and `drawsLayersOnto`.
 - `pushBlend(mode)` / `popBlend()` — additive blending, for light. Leave them and
   everything paints the ordinary way; say so in `supports(mode)`.
 - Everything in `raw { }` — your business entirely.

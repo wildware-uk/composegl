@@ -178,6 +178,23 @@ sealed interface DrawCall {
         val mirrorY: Boolean = false,
     ) : DrawCall
 
+    /**
+     * A subtree drawn into an offscreen picture and put down on four corners — a slant, or a slant
+     * and a turn together.
+     *
+     * Its own kind rather than more fields on [Layer], for the reason [RotatedImage] gives. The
+     * calls the subtree made are recorded before this, as they are for a [Layer].
+     *
+     * [bounds] is the box before anything was done to it, and [corners] are where its top-left,
+     * top-right, bottom-right and bottom-left ended up, in that order.
+     */
+    data class LayerOnto(
+        val bounds: Rect,
+        val corners: List<Offset>,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : DrawCall
+
     /** Recorded but not run: a recording canvas has no backend object to hand the block. */
     data class Raw(
         override val clip: Rect,
@@ -473,6 +490,21 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     /** It records which way round, so it really mirrors one. */
     override val mirrorsLayers: Boolean get() = true
+
+    override fun drawLayerOnto(layer: TextureHandle, destination: Rect, corners: FloatArray) {
+        require(corners.size == 8) { "four corners are eight numbers, not ${corners.size}" }
+        record(
+            DrawCall.LayerOnto(
+                destination,
+                List(4) { Offset(corners[it * 2], corners[it * 2 + 1]) },
+                state.clip,
+                state.alpha,
+            ),
+        )
+    }
+
+    /** It records the corners, so it really puts one on them. */
+    override val drawsLayersOnto: Boolean get() = true
 
     /** A picture with nothing in it: there are no pixels here to be a handle to. */
     private class LayerHandle(bounds: Rect) : TextureHandle {

@@ -72,6 +72,7 @@ import dev.wildware.composegl.ui.modifier.parallax
 import dev.wildware.composegl.ui.modifier.shadow
 import dev.wildware.composegl.ui.modifier.shake
 import dev.wildware.composegl.ui.modifier.size
+import dev.wildware.composegl.ui.modifier.skew
 import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.modifier.widthIn
@@ -703,6 +704,17 @@ private fun MutableList<DocShot>.modifiers() {
         }
     })
 
+    // The same tile three ways, so the picture is of the slant and nothing else.
+    add(DocShot("modifier-skew", 520, 150) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(36f)) {
+                Labelled("no skew") { SkewTile("RANK 1") { Modifier } }
+                Labelled("skew(x = -12f)") { SkewTile("RANK 2") { Modifier.skew(x = -12f) } }
+                Labelled("skew(y = 8f)") { SkewTile("RANK 3") { Modifier.skew(y = 8f) } }
+            }
+        }
+    })
+
     add(DocShot("modifier-padding", 340, 150) {
         Frame {
             Row(horizontalArrangement = Arrangement.spacedBy(20f)) {
@@ -964,6 +976,17 @@ private fun Knocked(name: String, intensity: Float) {
     Labelled(name) {
         Box(Modifier.border(Accent, width = 1f, corner = 6f).size(80f, 44f)) {
             Box(Modifier.shake(shake).background(Accent.scaleAlpha(0.6f), corner = 6f).size(80f, 44f)) {}
+        }
+    }
+}
+
+/** A banner with a word and a bar in it, so a slant shows on the text as well as the edges. */
+@Composable
+private fun SkewTile(label: String, modifier: @Composable () -> Modifier) {
+    Box(modifier().size(130f, 56f).background(Deep, corner = 4f).padding(10f)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+            Text(label)
+            Box(Modifier.size(90f, 8f).background(Accent, corner = 3f)) {}
         }
     }
 }

@@ -344,6 +344,93 @@ class GlCanvasTest {
     }
 
     @Test
+    fun `a layer put on four corners slants what was drawn into it`() {
+        // A red square captured upright, put down with its top slid forty to the right. The two
+        // probes that matter are the ones an upright composite would get backwards.
+        val bounds = Rect.of(40f, 40f, 120f, 120f)
+        val frame = draw {
+            val picture = layer(bounds) { rect(bounds, red) }
+            drawLayerOnto(
+                checkNotNull(picture) { "this driver gave us no layer" },
+                bounds,
+                floatArrayOf(80f, 40f, 200f, 40f, 160f, 160f, 40f, 160f),
+            )
+        }
+
+        assertColour(red, frame.at(100, 100), "the middle is still covered")
+        assertColour(red, frame.at(190, 50), "the top leans out past the upright box")
+        assertColour(Colour.Black, frame.at(45, 50), "and leaves the box's top-left corner bare")
+        assertColour(red, frame.at(50, 150), "the bottom still reaches its left edge")
+        assertColour(Colour.Black, frame.at(45, 120), "the left edge leans in halfway down too")
+    }
+
+    @Test
+    fun `the top of a layer on four corners is still the top`() {
+        val bounds = Rect.of(40f, 40f, 120f, 120f)
+        val frame = draw {
+            val picture = layer(bounds) {
+                rect(Rect.of(40f, 40f, 120f, 60f), red)
+                rect(Rect.of(40f, 100f, 120f, 60f), blue)
+            }
+            drawLayerOnto(
+                checkNotNull(picture) { "this driver gave us no layer" },
+                bounds,
+                floatArrayOf(80f, 40f, 200f, 40f, 160f, 160f, 40f, 160f),
+            )
+        }
+
+        assertColour(red, frame.at(150, 50), "the red half is on top")
+        assertColour(blue, frame.at(80, 150), "and the blue half underneath")
+    }
+
+    @Test
+    fun `a layer on four corners fades with the opacity in force`() {
+        val bounds = Rect.of(40f, 40f, 120f, 120f)
+        val frame = draw {
+            val picture = layer(bounds) { rect(bounds, red) }
+            pushAlpha(0.5f)
+            drawLayerOnto(
+                checkNotNull(picture) { "this driver gave us no layer" },
+                bounds,
+                floatArrayOf(80f, 40f, 200f, 40f, 160f, 160f, 40f, 160f),
+            )
+            popAlpha()
+        }
+
+        assertColour(Colour.rgb(0x800000), frame.at(100, 100), "half red over black")
+        assertColour(Colour.Black, frame.at(45, 50), "and nothing where the slant left the box")
+    }
+
+    @Test
+    fun `a layer on four corners inside another layer keeps what the outer one drew first`() {
+        // Blue drawn into the outer picture and still waiting in the batch when the inner picture
+        // is made. A canvas that let making the inner picture change the framebuffer would put the
+        // blue on the screen instead, upright and in the wrong place.
+        val outer = Rect.of(40f, 40f, 160f, 160f)
+        val inner = Rect.of(80f, 80f, 80f, 80f)
+        val frame = draw {
+            val picture = layer(outer) {
+                rect(outer, blue)
+                val nested = layer(inner) { rect(inner, red) }
+                drawLayerOnto(
+                    checkNotNull(nested) { "this driver gave us no layer" },
+                    inner,
+                    floatArrayOf(100f, 80f, 180f, 80f, 160f, 160f, 80f, 160f),
+                )
+            }
+            drawLayerOnto(
+                checkNotNull(picture) { "this driver gave us no layer" },
+                outer,
+                floatArrayOf(40f, 40f, 200f, 40f, 200f, 200f, 40f, 200f),
+            )
+        }
+
+        assertColour(red, frame.at(120, 120), "the inner picture is inside the outer one")
+        assertColour(blue, frame.at(50, 50), "and the outer one's own drawing is still in it")
+        assertColour(blue, frame.at(85, 85), "including where the inner one leant away")
+    }
+
+    @Test
     fun `a layer lands exactly where drawing straight onto the screen would have`() {
         val bounds = Rect.of(40f, 40f, 120f, 120f)
         val frame = draw {

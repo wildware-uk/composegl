@@ -21,6 +21,16 @@ import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.layout.ScalePolicy
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextStyle
+import dev.wildware.composegl.ui.draw.DrawPass
+import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.MeasurePass
+import dev.wildware.composegl.ui.host.UiHost
+import dev.wildware.composegl.ui.layout.Box
+import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.background
+import dev.wildware.composegl.ui.modifier.padding
+import dev.wildware.composegl.ui.modifier.size
+import dev.wildware.composegl.ui.modifier.skew
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -846,6 +856,122 @@ class GdxCanvasTest {
                 batch.dispose()
             }
         }
+    }
+
+    // --- slanting a layer ---
+
+    @Test
+    fun `a layer put on four corners slants what was drawn into it`() {
+        // A red square captured upright, put down with its top slid forty to the right. The two
+        // probes that matter are the ones an upright composite would get backwards.
+        val bounds = Rect.of(40f, 40f, 120f, 120f)
+        val frame = draw {
+            val picture = layer(bounds) { rect(bounds, red) }
+            drawLayerOnto(
+                checkNotNull(picture) { "this driver gave us no layer" },
+                bounds,
+                floatArrayOf(80f, 40f, 200f, 40f, 160f, 160f, 40f, 160f),
+            )
+        }
+
+        assertColour(Color.RED, frame.pixels.at(100, 100), "the middle is still covered")
+        assertColour(Color.RED, frame.pixels.at(190, 50), "the top leans out past the upright box")
+        assertColour(Color.BLACK, frame.pixels.at(45, 50), "and leaves the box's top-left corner bare")
+        assertColour(Color.RED, frame.pixels.at(50, 150), "the bottom still reaches its left edge")
+        assertColour(Color.BLACK, frame.pixels.at(45, 120), "the left edge leans in halfway down too")
+    }
+
+    @Test
+    fun `the top of a layer on four corners is still the top`() {
+        // Red over blue, captured and slanted. A backend that paired the corners with the wrong
+        // texture coordinates would draw it upside down or mirrored.
+        val bounds = Rect.of(40f, 40f, 120f, 120f)
+        val frame = draw {
+            val picture = layer(bounds) {
+                rect(Rect.of(40f, 40f, 120f, 60f), red)
+                rect(Rect.of(40f, 100f, 120f, 60f), blue)
+            }
+            drawLayerOnto(
+                checkNotNull(picture) { "this driver gave us no layer" },
+                bounds,
+                floatArrayOf(80f, 40f, 200f, 40f, 160f, 160f, 40f, 160f),
+            )
+        }
+
+        assertColour(Color.RED, frame.pixels.at(150, 50), "the red half is on top")
+        assertColour(Color.BLUE, frame.pixels.at(80, 150), "and the blue half underneath")
+    }
+
+    @Test
+    fun `a layer on four corners fades with the opacity in force`() {
+        val bounds = Rect.of(40f, 40f, 120f, 120f)
+        val frame = draw {
+            val picture = layer(bounds) { rect(bounds, red) }
+            pushAlpha(0.5f)
+            drawLayerOnto(
+                checkNotNull(picture) { "this driver gave us no layer" },
+                bounds,
+                floatArrayOf(80f, 40f, 200f, 40f, 160f, 160f, 40f, 160f),
+            )
+            popAlpha()
+        }
+
+        assertColour(Color(0.5f, 0f, 0f, 1f), frame.pixels.at(100, 100), "half red over black")
+    }
+
+    @Test
+    fun `a layer on four corners inside another layer keeps what the outer one drew first`() {
+        // Blue drawn into the outer picture and still waiting in the batch when the inner picture
+        // is made. Making a new FrameBuffer binds the screen, so a canvas that did not flush first
+        // would put the blue on the screen instead, upright, with the outer picture missing it.
+        val outer = Rect.of(40f, 40f, 160f, 160f)
+        val inner = Rect.of(80f, 80f, 80f, 80f)
+        val frame = draw {
+            val picture = layer(outer) {
+                rect(outer, blue)
+                val nested = layer(inner) { rect(inner, red) }
+                drawLayerOnto(
+                    checkNotNull(nested) { "this driver gave us no layer" },
+                    inner,
+                    floatArrayOf(100f, 80f, 180f, 80f, 160f, 160f, 80f, 160f),
+                )
+            }
+            drawLayerOnto(
+                checkNotNull(picture) { "this driver gave us no layer" },
+                outer,
+                // The outer picture slanted too, so blue left upright on the screen shows.
+                floatArrayOf(80f, 40f, 240f, 40f, 200f, 200f, 40f, 200f),
+            )
+        }
+
+        assertColour(Color.BLUE, frame.pixels.at(200, 50), "the outer picture has its blue in it")
+        assertColour(Color.BLACK, frame.pixels.at(45, 45), "and none was left upright on the screen")
+    }
+
+    @Test
+    fun `a slanted node in a laid out tree is drawn slanted on the screen`() {
+        // The whole path: a composed screen, a measure, a draw pass, this canvas and the pixels.
+        // A 120 square inset 60 from the corner, slanted forty-five degrees top forward about its
+        // middle, so its top edge runs from 120 to 240 and its bottom edge from 0 to 120.
+        val host = UiHost()
+        val drawn = try {
+            host.setContent {
+                Box(Modifier.padding(60f)) {
+                    Box(Modifier.size(120f).skew(x = -45f).background(red))
+                }
+            }
+            host.frame(0L)
+            MeasurePass().run(host.root, Constraints.atMost(Gl.size.toFloat(), Gl.size.toFloat()))
+            draw { DrawPass(this).draw(host.root) }
+        } finally {
+            host.dispose()
+        }
+
+        assertColour(Color.RED, drawn.pixels.at(120, 120), "the middle does not move")
+        assertColour(Color.RED, drawn.pixels.at(225, 65), "the top leans out past the laid-out box")
+        assertColour(Color.BLACK, drawn.pixels.at(65, 65), "leaving its top-left corner bare")
+        assertColour(Color.RED, drawn.pixels.at(15, 175), "the bottom leans out the other way")
+        assertColour(Color.BLACK, drawn.pixels.at(170, 175), "leaving its bottom-right corner bare")
     }
 
     // --- turning a picture, and blending it ---

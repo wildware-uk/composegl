@@ -123,6 +123,8 @@ Modifier.clipShape(Shapes.Circle)  // …or any convex shape: a round portrait
 Modifier.alpha(0.4f)               // the subtree fades as one thing
 Modifier.scale(1.2f)               // …drawn bigger, without re-laying it out
 Modifier.mirror()                  // …flipped to face the other way
+Modifier.rotate(8f)                // …turned clockwise
+Modifier.skew(x = -12f)            // …slanted, top leaning forward
 Modifier.effect(blur(radius = 8f)) // …through a shader
 ```
 
@@ -162,6 +164,26 @@ A shaped clip draws the widget into an offscreen picture and puts it back throug
 shape, with an edge softened over one screen pixel. That is one picture per clipped
 widget per frame: fine for portraits and a row of tiles, not for a thousand. A canvas
 that cannot make or cut pictures clips to the rectangle instead.
+
+**Skew is for leaning.** A banner with speed in it, an italic-style title card, the
+slanted bars of a fighting-game HUD:
+
+```kotlin
+Banner(Modifier.skew(x = -12f))                                   // top leans forward
+HealthBar(Modifier.skew(x = -20f, origin = Alignment.BottomStart)) // bottom edge stays put
+Ribbon(Modifier.skew(y = 8f))                                     // sides upright, sliding down
+```
+
+![A tile upright, leaning forward, and slid down](images/modifier-skew.png)
+
+The angles are degrees, with the sign CSS uses: negative `x` puts the top to the
+right. It is built like `scale` and `rotate` — the widget is drawn upright into a
+picture and the picture is put down on four corners — so text inside is not asked
+for an oblique font and layout does not move. A skew and a rotate on the same widget
+share one picture. Clicks do not follow it: a slanted widget is hit inside its
+upright box, exactly as a turned one is. Two skews on one axis add their slopes, and
+an angle of ±90 or beyond throws. On a canvas that cannot put a picture on four
+corners (`canvas.drawsLayersOnto`) the widget is drawn without the slant.
 
 **Scale is for arriving and for fitting.** The widget and everything under it are
 drawn into an offscreen picture at the size layout gave them, and that picture is
