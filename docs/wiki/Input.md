@@ -207,6 +207,52 @@ and wrong nowhere.
 
 ---
 
+## Haptics
+
+A small bump back from a control makes it feel physical. Ask for one by what
+happened, not by how a motor should move:
+
+```kotlin
+LocalHaptics.current.perform(Haptic.Failure)   // not enough gold
+```
+
+`LightTap`, `MediumTap`, `HeavyTap`, `Tick`, `Success`, `Warning`, `Failure`.
+Buttons, tick boxes, switches and radio buttons already give a `LightTap` when
+clicked, and a slider gives a `Tick` for each notch it moves. Anything else is
+yours to ask for.
+
+Provide the platform's, the same way as the clipboard:
+
+| where | what | plays |
+|---|---|---|
+| Android | `AndroidHaptics(view)` | the phone's own tap, confirm and reject effects. No permission needed |
+| iPhone | `UiKitHaptics()` | UIKit's impact, selection and notification generators |
+| LibGDX, anywhere | `GdxHaptics(source = source)` | a touch buzzes the phone; a pad rumbles the pad; a mouse or keyboard moves nothing |
+| LWJGL3, headless | nothing | `Haptics.None`. GLFW has no rumble |
+
+```kotlin
+val haptics = GdxHaptics(source = source)     // the same tracker the input goes through
+ProvideHaptics(haptics) { Hud() }
+```
+
+Pass the tracker. Without it `GdxHaptics` cannot tell what is in the player's
+hand, so it asks both motors, and a mouse click hums the pad lying on the desk.
+
+Nothing reports whether anything moved. A phone with vibration switched off
+answers the same as one that buzzed, and that is the player's choice.
+
+In a test, `HeadlessBackend` records every request:
+
+```kotlin
+val felt = RecordingHaptics()
+uiTest(backend = HeadlessBackend(haptics = felt)) { Shop() }.use { ui ->
+    ui.click("buy")
+    assertEquals(listOf(Haptic.LightTap, Haptic.Failure), felt.performed)
+}
+```
+
+---
+
 ## Back
 
 Escape, the pad's B button and Android's back gesture are the same question: *what

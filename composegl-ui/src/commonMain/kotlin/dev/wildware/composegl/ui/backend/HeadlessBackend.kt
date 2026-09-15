@@ -120,6 +120,7 @@ class HeadlessBackend(
     override val softKeyboard: SoftKeyboard = RecordingSoftKeyboard(),
     override val textures: TextureSource = MapTextureSource(),
     override val cursor: SystemCursor = RecordingSystemCursor(),
+    override val haptics: Haptics = RecordingHaptics(),
 ) : UiBackend {
 
     override val canvas: RecordingCanvas = RecordingCanvas(bounds)

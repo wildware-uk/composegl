@@ -3,6 +3,7 @@ package dev.wildware.composegl.gdx
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.utils.Disposable
 import dev.wildware.composegl.ui.backend.Clipboard
+import dev.wildware.composegl.ui.backend.Haptics
 import dev.wildware.composegl.ui.backend.MapTextureSource
 import dev.wildware.composegl.ui.backend.SoftKeyboard
 import dev.wildware.composegl.ui.backend.SystemCursor
@@ -29,11 +30,14 @@ import dev.wildware.composegl.ui.backend.UiBackend
  *   game. Optional, and not disposed here: it is the game's.
  * @param textures where pictures come from by name. LibGDX has an asset manager and this toolkit
  *   does not, so a game hands over the map it already has.
+ * @param haptics the phone's vibration and the pads' rumble. Set its `source` to the tracker the
+ *   game's input goes through, so a mouse click does not rumble a pad lying on the desk.
  */
 class GdxBackend(
     override val fonts: GdxFonts,
     spriteBatch: Batch? = null,
     override val textures: TextureSource = MapTextureSource(),
+    override val haptics: Haptics = GdxHaptics(),
 ) : UiBackend, Disposable {
 
     override val canvas: GdxCanvas = GdxCanvas(spriteBatch, fonts.atlas)

@@ -177,13 +177,16 @@ private fun Control(
     // A click on one of these is a change of value, and says so. Not for a radio button that is
     // already chosen: clicking it again changes nothing, and a sound would say it had.
     val sounds = LocalUiSounds.current
-    val touchable = modifier
-        .interaction(interaction)
-        .focusable(interaction, enabled = enabled, initial = initialFocus)
-        .clickable(enabled = enabled) {
+    val clicked = remember(sounds, changes, onClick) {
+        {
             if (changes) sounds.change()
             onClick()
         }
+    }
+    val touchable = modifier
+        .interaction(interaction)
+        .focusable(interaction, enabled = enabled, initial = initialFocus)
+        .clickable(enabled = enabled, onClick = rememberTapped(clicked))
 
     if (label == null) {
         Box(touchable) { control(states) }
