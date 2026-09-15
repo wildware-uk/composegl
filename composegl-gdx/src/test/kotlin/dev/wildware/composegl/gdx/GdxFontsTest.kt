@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import kotlin.math.roundToInt
 
 class GdxFontsTest {
 
@@ -88,7 +89,7 @@ class GdxFontsTest {
         val layout = fonts.measure(text, style.copy(maxLines = 2), maxWidth = 100f)
 
         assertEquals(2, layout.lineCount)
-        assertTrue((layout as GdxTextLayout).glyphs.toString().isNotEmpty())
+        assertTrue((layout as GdxTextLayout).placed.isNotEmpty())
         assertEquals(text, layout.text, "the layout still reports what it was asked to measure")
     }
 
@@ -104,7 +105,7 @@ class GdxFontsTest {
         val text = "the quick brown fox jumps over the lazy dog and keeps going for a while yet"
         val layout = fonts.measure(text, style.copy(maxLines = 3), maxWidth = 100f) as GdxTextLayout
 
-        assertTrue(layout.glyphs.runs.map { it.y }.distinct().size <= 3)
+        assertTrue(layout.placed.map { (it.top - it.glyph.yOffset).roundToInt() }.distinct().size <= 3)
     }
 
     // --- metrics ---

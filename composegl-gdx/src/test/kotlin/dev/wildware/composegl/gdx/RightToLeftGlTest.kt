@@ -46,7 +46,7 @@ class RightToLeftGlTest {
     private val face = TextStyle(family = "test", size = 32f)
 
     /** DejaVu Sans, which has the Hebrew alphabet, with the Hebrew letters baked alongside Latin. */
-    private fun fonts(): GdxFonts = GdxFonts(GdxAtlas()).also {
+    private fun fonts(): GdxFonts = GdxFonts().also {
         it.registerTrueType("test", Gdx.files.internal("fonts/DejaVuSans.ttf"), listOf(32)) { characters += Hebrew }
     }
 

@@ -40,7 +40,7 @@ class GdxBackend(
     override val haptics: Haptics = GdxHaptics(),
 ) : UiBackend, Disposable {
 
-    override val canvas: GdxCanvas = GdxCanvas(spriteBatch, fonts.atlas)
+    override val canvas: GdxCanvas = GdxCanvas(spriteBatch, fonts)
 
     /** Both take `Gdx.app` and `Gdx.input` when they are asked, so this can be built before either. */
     override val clipboard: Clipboard = GdxClipboard()

@@ -296,6 +296,41 @@ class RenderCanvasTest {
         assertTrue(lent is RenderFrame)
     }
 
+    /** A backend whose drawing object is opened round a block, the way a sprite batch is. */
+    private class Lending(device: GpuDevice, val log: MutableList<String>) : RenderCanvas(device) {
+        override fun handOver(projection: FloatArray, viewport: Viewport): Any = "batch"
+
+        override fun lend(lent: Any, projection: FloatArray, block: (Any) -> Unit) {
+            log += "open"
+            block(lent)
+            log += "close"
+        }
+    }
+
+    @Test
+    fun `a backend opens its drawing object inside the lent state and closes it before taking it back`() {
+        val log = device.calls
+        val canvas = Lending(device, log)
+        canvas.begin(design)
+        canvas.raw { log += "block with $it" }
+        canvas.end()
+
+        val suspended = log.indexOf("suspend")
+        assertEquals(listOf("open", "block with batch", "close", "resume"), log.subList(suspended + 1, suspended + 5))
+    }
+
+    @Test
+    fun `all of a rotated picture draws and part of one is refused`() {
+        val turned = Sprite(64, 128)
+        val canvas = RenderCanvas(device, textures = TextureResolver { if (it === turned) BoundPicture(sheet, rotated = true) else null })
+        canvas.begin(design)
+        canvas.image(turned, Rect.of(0f, 0f, 10f, 10f))
+        val thrown = assertFailsWith<IllegalStateException> {
+            canvas.image(turned, Rect.of(0f, 0f, 10f, 10f), source = Rect.of(0f, 0f, 8f, 8f))
+        }
+        assertTrue("rotated" in thrown.message.orEmpty(), thrown.message)
+    }
+
     @Test
     fun `a picture the resolver does not know is refused by name`() {
         val canvas = canvas()

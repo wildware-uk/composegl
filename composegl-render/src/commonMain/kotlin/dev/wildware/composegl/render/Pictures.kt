@@ -13,7 +13,8 @@ fun interface TextureResolver {
 
 /**
  * A picture as the device binds it: the texture, where in it the picture is (texture coordinates,
- * `v` the top edge), and whether its colours are already multiplied by their opacity.
+ * `v` the top edge), whether its colours are already multiplied by their opacity, and whether it
+ * lies on its side.
  *
  * A backend keeps one per handle rather than making one per draw.
  */
@@ -24,6 +25,11 @@ class BoundPicture(
     val u2: Float = 1f,
     val v2: Float = 1f,
     val premultiplied: Boolean = false,
+    /**
+     * True when a packer laid the picture down a quarter turn. Drawing all of it is fine, since the
+     * texture coordinates already say so; drawing part of it is refused.
+     */
+    val rotated: Boolean = false,
 )
 
 /**

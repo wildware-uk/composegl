@@ -98,7 +98,7 @@ open class AtlasFonts(
         require(sizes.isNotEmpty()) { "registering $family with no sizes would register nothing" }
         require(sizes.all { it > 0 }) { "a font size must be positive, got $sizes" }
         fontSizes.getOrPut(family) { LinkedHashSet() }.addAll(sizes)
-        forgetFaces()
+        forgetFaces(family)
     }
 
     /**
@@ -132,7 +132,7 @@ open class AtlasFonts(
                     RgbaImage(scaledWidth, size, shrink(image.pixels, image.width, image.height, scaledWidth, size))
             }
         }
-        forgetFaces()
+        forgetFaces(family)
     }
 
     /**
@@ -341,8 +341,13 @@ open class AtlasFonts(
         return face
     }
 
-    private fun forgetFaces() {
-        faces.clear()
+    /**
+     * Forgets [family]'s faces, so the next measurement asks the rasteriser again. Every other
+     * family keeps its glyphs: registering a font late must not place the ones already made a
+     * second time.
+     */
+    private fun forgetFaces(family: String) {
+        faces.keys.removeAll { it.family == family }
         chains.clear()
     }
 
@@ -433,8 +438,17 @@ open class AtlasFonts(
         }
     }
 
-    /** Gives the atlas's textures back to the devices they were uploaded to. */
-    override fun close() = atlas.close()
+    /**
+     * Gives the atlas's textures back to the devices they were uploaded to, and forgets every
+     * registration: measuring with fonts that were closed is refused, naming no families.
+     */
+    override fun close() {
+        atlas.close()
+        fontSizes.clear()
+        pictureSets.clear()
+        faces.clear()
+        chains.clear()
+    }
 
     companion object {
 

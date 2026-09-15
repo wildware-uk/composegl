@@ -57,7 +57,7 @@ class FontFallbackGlTest {
      * DejaVu Sans as the display font, which has no Chinese, Japanese or Korean, with small cuts of
      * Noto Sans CJK and a Noto emoji behind it.
      */
-    private fun fonts(atlas: GdxAtlas = GdxAtlas(), cjkOnDemand: Boolean = false): GdxFonts = GdxFonts(atlas).also {
+    private fun fonts(pageSize: Int = 1024, cjkOnDemand: Boolean = false): GdxFonts = GdxFonts(pageSize).also {
         it.registerTrueType("test", Gdx.files.internal("fonts/DejaVuSans.ttf"), Sizes)
         it.registerTrueType("cjk", Gdx.files.internal("fonts/NotoSansSC-Subset.ttf"), Sizes, onDemand = cjkOnDemand) {
             if (!cjkOnDemand) characters += Chinese + Japanese
@@ -313,7 +313,7 @@ class FontFallbackGlTest {
             open(backend) { Text(text, Modifier.offset(4f, 10f), textStyle = style(), colour = white) }.using { frame(it, 380, 60) }
         }
         var pages = 0
-        val cramped = withBackend({ fonts(GdxAtlas(pageSize = 256), cjkOnDemand = true) }) { backend, fonts ->
+        val cramped = withBackend({ fonts(pageSize = 256, cjkOnDemand = true) }) { backend, fonts ->
             open(backend) { Text(text, Modifier.offset(4f, 10f), textStyle = style(), colour = white) }.using { frame(it, 380, 60) }
                 .also { pages = fonts.atlas.pageCount }
         }

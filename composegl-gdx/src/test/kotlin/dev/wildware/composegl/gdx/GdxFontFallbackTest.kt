@@ -36,8 +36,9 @@ class GdxFontFallbackTest {
     private fun width(text: String, family: String = "test", size: Float = 16f) =
         fonts.measure(text, style.copy(family = family, size = size)).size.width
 
-    private fun drawn(text: String, textStyle: TextStyle = style) =
-        (fonts.measure(text, textStyle) as GdxTextLayout).glyphs.runs.flatMap { run -> (0 until run.glyphs.size).map { run.glyphs[it] } }
+    private fun placed(text: String, textStyle: TextStyle = style) = (fonts.measure(text, textStyle) as GdxTextLayout).placed
+
+    private fun drawn(text: String, textStyle: TextStyle = style) = placed(text, textStyle).map { it.glyph }
 
     @Test
     fun `a character the main font lacks is measured from the fallback`() {
@@ -82,8 +83,8 @@ class GdxFontFallbackTest {
         fonts.fallBackTo(listOf("cjk", "pictures"))
         val fontFirst = drawn("玩").single()
 
-        assertTrue(pictureFirst is PictureGlyph)
-        assertFalse(fontFirst is PictureGlyph)
+        assertTrue(pictureFirst.colour)
+        assertFalse(fontFirst.colour)
     }
 
     @Test
@@ -120,16 +121,16 @@ class GdxFontFallbackTest {
     @Test
     fun `a fallback glyph sits on the main font's baseline`() {
         fonts.fallBackTo(listOf("cjk"))
-        val borrowed = drawn("玩").single()
-        val own = drawn("玩", style.copy(family = "cjk")).single()
+        val borrowed = placed("玩").single()
+        val own = placed("玩", style.copy(family = "cjk")).single()
 
         val mainBaseline = fonts.metrics(style).ascent
         val cjkBaseline = fonts.metrics(style.copy(family = "cjk")).ascent
         // The bottom of the glyph is the same distance below its baseline in both, so the whole
         // difference in where it is drawn is the difference between the two baselines.
-        assertEquals(own.yoffset + (cjkBaseline - mainBaseline), borrowed.yoffset.toFloat(), 1f)
+        assertEquals(own.top + (mainBaseline - cjkBaseline), borrowed.top, 1f)
         assertEquals(own.width, borrowed.width)
-        assertEquals(own.xadvance, borrowed.xadvance)
+        assertEquals(own.glyph.advance, borrowed.glyph.advance)
     }
 
     @Test
@@ -141,11 +142,10 @@ class GdxFontFallbackTest {
 
         assertEquals(1, glyphs.size, "two halves of one character, one glyph")
         val picture = glyphs.single()
-        assertTrue(picture is PictureGlyph)
-        assertEquals(16, picture.height, "as tall as the text size")
-        assertEquals(16, picture.width, "a square picture stays square")
-        // LibGDX counts the last glyph by its picture rather than its advance, so the advance is
-        // what a second one adds.
+        assertTrue(picture.colour)
+        assertEquals(16f, picture.height, "as tall as the text size")
+        assertEquals(16f, picture.width, "a square picture stays square")
+        // The advance is what a second one adds.
         assertEquals(18f, width("😀😀") - width("😀"), 0.01f)
     }
 
@@ -154,7 +154,7 @@ class GdxFontFallbackTest {
         fonts.registerPictures("emoji", mapOf("😀" to smiley), listOf(16, 20))
         fonts.fallBackTo(listOf("emoji"))
 
-        assertEquals(20, drawn("😀", style.copy(size = 20f)).single().height)
+        assertEquals(20f, drawn("😀", style.copy(size = 20f)).single().height)
     }
 
     @Test
@@ -171,7 +171,7 @@ class GdxFontFallbackTest {
         fonts.registerPictures("emoji", mapOf("❤️" to smiley), listOf(16))
         fonts.fallBackTo(listOf("emoji"))
 
-        assertTrue(drawn("❤").single() is PictureGlyph)
+        assertTrue(drawn("❤").single().colour)
     }
 
     @Test
@@ -203,15 +203,14 @@ class GdxFontFallbackTest {
         val text = "😀".repeat(12)
 
         val glyphs = drawn(text)
-        val cut = (fonts.measure(text, style.copy(maxLines = 1), maxWidth = 60f) as GdxTextLayout).glyphs
-        val cutGlyphs = cut.runs.flatMap { run -> (0 until run.glyphs.size).map { run.glyphs[it] } }
+        val cutGlyphs = (fonts.measure(text, style.copy(maxLines = 1), maxWidth = 60f) as GdxTextLayout).placed.map { it.glyph }
 
         assertEquals(12, glyphs.size)
         assertTrue(cutGlyphs.size in 2..11, "cut to ${cutGlyphs.size} glyphs")
-        assertTrue(cutGlyphs.dropLast(1).all { it is PictureGlyph }, "every glyph before the ellipsis is a whole emoji")
+        assertTrue(cutGlyphs.dropLast(1).all { it.colour }, "every glyph before the ellipsis is a whole emoji")
         // The test font has no ellipsis, so it is the missing glyph — but one glyph, not half an
         // emoji's worth of boxes.
-        assertFalse(cutGlyphs.last() is PictureGlyph)
+        assertFalse(cutGlyphs.last().colour)
     }
 
     @Test
@@ -239,11 +238,15 @@ class GdxFontFallbackTest {
 
     @Test
     fun `registering pictures marks the atlas for upload`() {
-        assertFalse(fonts.atlas.stale)
+        val pages = fonts.atlas.pageCount
 
         fonts.registerPictures("emoji", mapOf("😀" to smiley), listOf(16))
+        fonts.fallBackTo(listOf("emoji"))
 
-        assertTrue(fonts.atlas.stale)
+        // Placed on a page in memory with no GPU anywhere; a page uploads what changed on it when
+        // it is next drawn.
+        val picture = drawn("😀").single()
+        assertTrue(picture.page != null && fonts.atlas.pageCount >= pages)
     }
 
     private companion object {
