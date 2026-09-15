@@ -1,10 +1,13 @@
-package dev.wildware.composegl.ui.debug
+package dev.wildware.composegl.debug
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.backend.FakeTexture
+import dev.wildware.composegl.ui.debug.BatchBreak
+import dev.wildware.composegl.ui.debug.DrawCallTrace
+import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.backend.HeadlessBackend
 import dev.wildware.composegl.ui.backend.UiBackend
 import dev.wildware.composegl.ui.geometry.Rect

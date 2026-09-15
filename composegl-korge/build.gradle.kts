@@ -31,6 +31,8 @@ kotlin {
             implementation(project(":composegl-testing"))
             // The shipped effects, drawn through this backend's shaders.
             implementation(project(":composegl-effects"))
+            // The debug overlays, drawn through this backend too.
+            implementation(project(":composegl-debug"))
             implementation(libs.junit.jupiter)
             runtimeOnly(libs.junit.platform.launcher)
         }

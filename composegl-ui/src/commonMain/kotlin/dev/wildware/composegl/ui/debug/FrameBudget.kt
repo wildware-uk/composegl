@@ -298,6 +298,15 @@ class FrameBudget(
         reading = FrameReading.Nothing
         watching?.resetChangeCounts()
     }
+
+    companion object {
+        /**
+         * What the frame budget overlay in `composegl-debug` calls the box it puts the numbers in. A
+         * node of this name, and everything under it, is left out of [FrameReading.busiest]: the
+         * numbers change four times a second by design and would otherwise top every list.
+         */
+        const val OverlayName = "frame budget"
+    }
 }
 
 /**

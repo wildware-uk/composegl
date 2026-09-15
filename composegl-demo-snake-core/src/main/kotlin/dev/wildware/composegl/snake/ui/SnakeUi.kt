@@ -13,7 +13,7 @@ import dev.wildware.composegl.ui.backend.Clipboard
 import dev.wildware.composegl.ui.backend.SoftKeyboard
 import dev.wildware.composegl.ui.backend.TextInput
 import dev.wildware.composegl.ui.debug.FrameBudget
-import dev.wildware.composegl.ui.debug.FrameBudgetOverlay
+import dev.wildware.composegl.debug.FrameBudgetOverlay
 import dev.wildware.composegl.ui.input.InputSource
 import dev.wildware.composegl.ui.input.InputSourceTracker
 import dev.wildware.composegl.ui.layout.Alignment

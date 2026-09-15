@@ -1,4 +1,4 @@
-package dev.wildware.composegl.ui.debug
+package dev.wildware.composegl.debug
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import dev.wildware.composegl.ui.debug.DebugOverlay
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
@@ -24,17 +25,13 @@ import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
-import dev.wildware.composegl.ui.layout.BoxPolicy
 import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.layout.Constraints
-import dev.wildware.composegl.ui.layout.FlowPolicy
-import dev.wildware.composegl.ui.layout.GridPolicy
 import dev.wildware.composegl.ui.layout.Layout
-import dev.wildware.composegl.ui.layout.LinearPolicy
+import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
-import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.layout.VerticalAlignment
@@ -57,8 +54,9 @@ import dev.wildware.composegl.ui.node.UiApplier
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.node.describe
 import dev.wildware.composegl.ui.node.describeConstraints
+import dev.wildware.composegl.ui.node.describeNumber
 import dev.wildware.composegl.ui.node.describePadding
-import dev.wildware.composegl.ui.node.number
+import dev.wildware.composegl.ui.node.describePolicy
 import dev.wildware.composegl.ui.widget.ScrollArea
 import dev.wildware.composegl.ui.widget.Text
 import kotlin.math.max
@@ -182,10 +180,10 @@ internal data class NodeReport(
             val drawn = node.boundsInRoot
             val padding = node.resolved.padding
             val facts = buildList {
-                add("at ${number(box.left)},${number(box.top)}")
-                add("size ${number(node.width)}x${number(node.height)}")
+                add("at ${describeNumber(box.left)},${describeNumber(box.top)}")
+                add("size ${describeNumber(node.width)}x${describeNumber(node.height)}")
                 if (drawn != box) {
-                    add("drawn ${number(drawn.left)},${number(drawn.top)} ${number(drawn.width)}x${number(drawn.height)}")
+                    add("drawn ${describeNumber(drawn.left)},${describeNumber(drawn.top)} ${describeNumber(drawn.width)}x${describeNumber(drawn.height)}")
                 }
                 add("given " + (node.givenConstraints?.let(::describeConstraints) ?: "nothing yet"))
                 add("padding " + if (padding == Padding.None) "none" else describePadding(padding))
@@ -207,21 +205,6 @@ internal data class TreeRow(
 )
 
 private fun titleOf(node: UiNode) = node.name + (node.testTag?.let { " #$it" } ?: "")
-
-/**
- * What arranges a node's children, as somebody would have written it: `Row`, `Column spaced 8`.
- * A policy a game wrote itself is called by its class name, or `custom` when it has none.
- */
-internal fun describePolicy(policy: MeasurePolicy): String = when {
-    policy === MeasurePolicy.Stack -> "Stack"
-    policy === MeasurePolicy.Empty -> "Empty"
-    policy is LinearPolicy -> (if (policy.horizontal) "Row" else "Column") +
-        (policy.arrangement.spacing.takeIf { it > 0f }?.let { " spaced ${number(it)}" } ?: "")
-    policy is BoxPolicy -> "Box"
-    policy is FlowPolicy -> if (policy.horizontal) "FlowRow" else "FlowColumn"
-    policy is GridPolicy -> "Grid"
-    else -> policy::class.simpleName?.takeIf { it.isNotEmpty() && '$' !in it } ?: "custom"
-}
 
 /**
  * The inspector's whole state: what is hovered and pinned, and what the panel shows of it.
@@ -309,7 +292,7 @@ internal class InspectorState {
             rows += TreeRow(
                 node,
                 depth,
-                "${titleOf(node)}  ${number(node.width)}x${number(node.height)}",
+                "${titleOf(node)}  ${describeNumber(node.width)}x${describeNumber(node.height)}",
                 node.children.isNotEmpty(),
                 isFolded,
             )
@@ -405,7 +388,7 @@ internal class InspectorState {
         val screen = screen ?: return null
         fun visit(node: UiNode): UiNode? {
             val resolved = node.resolved
-            if (resolved.alpha <= 0f || resolved.scale <= 0f || node.content is DebugOverlayPainter) return null
+            if (resolved.alpha <= 0f || resolved.scale <= 0f || node.content is DebugOverlay) return null
             val inside = node.everMeasured && point in node.boundsInRoot
             if (!inside && (resolved.clip != null || resolved.scale != 1f)) return null
             val children = node.drawOrder
@@ -506,13 +489,11 @@ private fun InspectorLayer(state: InspectorState) {
 internal class InspectorHighlight(
     private val hovered: UiNode?,
     private val pinned: UiNode?,
-) : DebugOverlayPainter {
+) : DebugOverlay {
 
     var node: UiNode? = null
 
     override fun invoke(canvas: UiCanvas, content: Rect) {
-        // Drawn into OverdrawOverlay's count: its outlines are not what the screen paints.
-        if (canvas is OverdrawCanvas) return
         val self = node ?: return
         // As the layout overlay does: the canvas is in the root's coordinates unless a caller drew
         // this into a picture somewhere else, and where the layer's own box landed says which.

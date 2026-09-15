@@ -1,4 +1,4 @@
-package dev.wildware.composegl.ui.debug
+package dev.wildware.composegl.debug
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -474,7 +474,7 @@ class FocusOverlayTest {
         assertTrue(compositions > before, "the screen really recomposed")
         assertSame(drawing, overlay.content, "the same drawing, so the tree was not told it changed")
         assertFalse(ui.render(), "a new set with the same things in it is not a change")
-        assertEquals(1, ui.focus.movedListeners.size, "and it still listens once, not twice")
+        assertEquals(1, ui.focus.movedListenerCount, "and it still listens once, not twice")
     }
 
     @Test
@@ -495,14 +495,14 @@ class FocusOverlayTest {
         val calls = drawn(ui)
         assertTrue(calls.arrowTips(FocusOverlayColours.Geometry).isEmpty(), "the arrows went with the old set")
         assertEquals(listOf(ui.node("b").boundsInRoot), calls.fills(FocusOverlayColours.HitArea))
-        assertEquals(1, ui.focus.movedListeners.size, "the old drawing stopped listening")
+        assertEquals(1, ui.focus.movedListenerCount, "the old drawing stopped listening")
         ui.focus.moveFocus(FocusDirection.Right)
         assertTrue(ui.render(), "the new one listens")
 
         debug = false
         ui.settle()
         ui.render()
-        assertTrue(ui.focus.movedListeners.isEmpty(), "off, nothing is left listening")
+        assertTrue(ui.focus.movedListenerCount == 0, "off, nothing is left listening")
         ui.focus.moveFocus(FocusDirection.Left)
         assertFalse(ui.render())
     }

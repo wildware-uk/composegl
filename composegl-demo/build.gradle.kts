@@ -8,6 +8,8 @@ description = "The example: a game interface built with the toolkit, run on the 
 
 dependencies {
     implementation(project(":composegl-gdx"))
+    // The frame budget and redraw overlays the example turns on with a key.
+    implementation(project(":composegl-debug"))
 
     // The same interface, drawn twice. The example carries both backends because that is the
     // proof: `Screen` and the widgets are shared between the two mains without a line changing.

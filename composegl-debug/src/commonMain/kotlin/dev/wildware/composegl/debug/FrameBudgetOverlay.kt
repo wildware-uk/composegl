@@ -1,13 +1,14 @@
-package dev.wildware.composegl.ui.debug
+package dev.wildware.composegl.debug
 
 import androidx.compose.runtime.Composable
+import dev.wildware.composegl.ui.debug.FrameBudget
+import dev.wildware.composegl.ui.debug.FrameReading
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.layout.Layout
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.Row
-import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.border
@@ -56,7 +57,7 @@ fun FrameBudgetOverlay(
 
     // Its own named node round the numbers, so the busiest list and a redraw overlay can leave out a
     // box that changes four times a second by design and would otherwise top every list.
-    Layout(modifier, name = FrameBudgetName, measurePolicy = MeasurePolicy.Stack, content = { Numbers(reading, overMillis, culprits) })
+    Layout(modifier, name = FrameBudget.OverlayName, measurePolicy = MeasurePolicy.Stack, content = { Numbers(reading, overMillis, culprits) })
 }
 
 @Composable
@@ -98,13 +99,6 @@ private const val NameRoom = 18
 
 /** What fits beside the count in the overlay's width. */
 private const val LabelLength = 20
-
-/** What the overlay's outer node is called, and how the change counting knows to leave it out. */
-internal const val FrameBudgetName = "frame budget"
-
-/** Whether [node] is a debug overlay of this package, whose own changes are not the screen's. */
-internal fun isDebugOverlay(node: UiNode): Boolean =
-    node.name == FrameBudgetName || node.content is DebugOverlayPainter
 
 @Composable
 private fun Line(name: String, value: String, ink: Colour) {

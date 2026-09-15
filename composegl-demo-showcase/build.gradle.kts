@@ -13,6 +13,8 @@ dependencies {
     implementation(project(":composegl-effects"))
     // The game-widget tier the showcase is named for.
     implementation(project(":composegl-game"))
+    // The frame budget overlay.
+    implementation(project(":composegl-debug"))
     implementation(libs.gdx.backend.lwjgl3)
     runtimeOnly(variantOf(libs.gdx.platform) { classifier("natives-desktop") })
     runtimeOnly(variantOf(libs.gdx.freetype.platform) { classifier("natives-desktop") })

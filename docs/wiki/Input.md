@@ -124,7 +124,7 @@ focus.focusSearch = object : BeamFocusSearch() {
 When focus goes somewhere you did not expect, turn on `FocusOverlay(enabled = debug)`:
 it draws an arrow from the focused widget to wherever each direction goes, outlines what
 can be focused, shades traps and tints where clicks land, `hitShape` holes included. See
-[Testing](Testing.md#focus-and-clicks-on-the-screen).
+[Debugging](Debugging.md#focus-and-clicks-on-the-screen).
 
 ---
 

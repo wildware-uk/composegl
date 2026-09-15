@@ -1,9 +1,12 @@
-package dev.wildware.composegl.ui.debug
+package dev.wildware.composegl.debug
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import dev.wildware.composegl.ui.debug.DebugOverlay
+import dev.wildware.composegl.ui.debug.FrameBudget
+import dev.wildware.composegl.ui.debug.isDebugOverlay
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
@@ -37,7 +40,7 @@ import kotlin.math.max
  *
  * The same kind of node a [LayoutOverlay] is: no size, no input, lifted over its siblings, walking
  * its tree while that tree is drawn. It turns change counting on for as long as it is composed and
- * reads [UiNode.changes] and when each last went up, and never marks anything changed itself — the
+ * reads [UiNode.changes] and [UiNode.changedAtNanos], and never marks anything changed itself — the
  * overlay must not be the reason the screen redraws. So a fade carries on only while the game keeps
  * drawing; a game that skips drawing an unchanged frame holds the last flash until something changes.
  *
@@ -92,7 +95,7 @@ internal val RedrawColour = Colour.rgb(0xFF2050)
 internal const val RedrawWidth = 2f
 
 /** The drawing, handed to the overlay node as its content. */
-internal class RedrawOverlayPainter(private val holdMillis: Int) : DebugOverlayPainter {
+internal class RedrawOverlayPainter(private val holdMillis: Int) : DebugOverlay {
 
     /** The node this draws for. Set when it is handed over, and how it finds the tree. */
     var node: UiNode? = null
@@ -105,9 +108,9 @@ internal class RedrawOverlayPainter(private val holdMillis: Int) : DebugOverlayP
         if (hold <= 0L) return
 
         // The same correction the layout overlay makes, for a picture drawn at some other origin.
-        val box = self.layoutBoundsInRoot
-        val dx = content.left - box.left - self.resolved.padding.left
-        val dy = content.top - box.top - self.resolved.padding.top - self.baselineTop
+        val inner = self.contentBoundsInRoot
+        val dx = content.left - inner.left
+        val dy = content.top - inner.top
 
         walk(tree.root, self) { node ->
             val at = node.changedAtNanos

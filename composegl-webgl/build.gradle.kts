@@ -44,6 +44,7 @@ kotlin {
         wasmJsTest.dependencies {
             implementation(kotlin("test"))
             implementation(project(":composegl-testing"))
+            implementation(project(":composegl-debug"))
             implementation(libs.coroutines.test)
         }
     }

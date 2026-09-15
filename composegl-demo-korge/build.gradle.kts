@@ -12,6 +12,8 @@ dependencies {
     implementation(project(":composegl-effects"))
     // The HUD: bars, hotbar, cooldowns and damage numbers.
     implementation(project(":composegl-game"))
+    // The frame budget overlay.
+    implementation(project(":composegl-debug"))
 
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

@@ -15,7 +15,7 @@ import dev.wildware.composegl.ui.animation.Easings
 import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.animateFloatAsState
 import dev.wildware.composegl.ui.debug.FrameBudget
-import dev.wildware.composegl.ui.debug.FrameBudgetOverlay
+import dev.wildware.composegl.debug.FrameBudgetOverlay
 import dev.wildware.composegl.game.Bar
 import dev.wildware.composegl.game.BarThreshold
 import dev.wildware.composegl.game.Cooldown

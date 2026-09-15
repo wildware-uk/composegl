@@ -11,7 +11,7 @@ import dev.wildware.composegl.ui.geometry.Rect
  * @param bottom the bottom of that box: one line height further down.
  * @param baseline where the glyphs stand.
  */
-internal data class GuideLine(
+data class GuideLine(
     val left: Float,
     val right: Float,
     val top: Float,
@@ -20,15 +20,16 @@ internal data class GuideLine(
 )
 
 /** Where a text node put its lines, and the face they were set in: what a text overlay draws. */
-internal class TextGuides(val metrics: FontMetrics, val lines: List<GuideLine>)
+class TextGuides(val metrics: FontMetrics, val lines: List<GuideLine>)
 
 /**
  * A text node's measure policy, able to say where the lines it measured went.
  *
  * On the policy rather than the node because the policy is what kept the measured text. Asked only
- * by a debug overlay, while it is on.
+ * by a debug overlay, while it is on — `TextMetricsOverlay` in `composegl-debug` — and a text
+ * widget a game writes itself can implement it to be drawn through the same way.
  */
-internal interface TextGuideSource {
+interface TextGuideSource {
 
     /** The lines inside [box], the content box the node is drawn into, or null before anything measured. */
     fun textGuides(box: Rect): TextGuides?

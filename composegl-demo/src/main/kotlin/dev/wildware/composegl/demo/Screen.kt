@@ -8,8 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.debug.FrameBudget
-import dev.wildware.composegl.ui.debug.FrameBudgetOverlay
-import dev.wildware.composegl.ui.debug.RedrawOverlay
+import dev.wildware.composegl.debug.FrameBudgetOverlay
+import dev.wildware.composegl.debug.RedrawOverlay
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas

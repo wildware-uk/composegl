@@ -29,6 +29,8 @@ dependencies {
     testRuntimeOnly(variantOf(libs.gdx.freetype.platform) { classifier("natives-desktop") })
 
     testImplementation(project(":composegl-testing"))
+    // The debug overlays, drawn through this backend with a real GL context.
+    testImplementation(project(":composegl-debug"))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

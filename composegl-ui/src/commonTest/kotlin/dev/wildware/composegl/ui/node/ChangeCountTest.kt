@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 /**
  * [UiNode.changes], on a tree built by hand: what counts, what does not, and that a frame is the unit.
  *
- * The composed half — a click changing a label, a lambda written inline — is in `RedrawOverlayTest`
+ * The composed half — a click changing a label, a lambda written inline — is in `RedrawOverlayTest`, in `composegl-debug`
  * and `BusiestNodesTest`. This is the bookkeeping underneath, with no runtime in the way.
  */
 class ChangeCountTest {

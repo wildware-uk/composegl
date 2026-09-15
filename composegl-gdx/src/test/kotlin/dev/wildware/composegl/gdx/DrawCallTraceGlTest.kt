@@ -12,7 +12,7 @@ import com.badlogic.gdx.graphics.Texture
 import dev.wildware.composegl.ui.debug.BatchBreak
 import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.debug.FrameBudget
-import dev.wildware.composegl.ui.debug.FrameBudgetOverlay
+import dev.wildware.composegl.debug.FrameBudgetOverlay
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.geometry.Rect
