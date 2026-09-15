@@ -3,8 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-description = "Debug tooling for development builds: the inspector and the layout, focus, redraw, " +
-    "overdraw, text and frame budget overlays. Public API only."
+description = "Debug tooling for development builds: the inspector, the developer console, and the " +
+    "layout, focus, redraw, overdraw, text and frame budget overlays. Public API only."
 
 /**
  * The same targets as `composegl-ui`, so a debug build of a game on any of them can take it.

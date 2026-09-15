@@ -1,9 +1,9 @@
 # Debugging
 
 The tools for finding out why a screen looks or costs what it does: an overlay for the layout,
-an inspector to point at one widget, and overlays for overdraw, draw calls, focus, redraws and
-the lines inside text. Each one is drawn by the toolkit itself, so it looks the same on every
-backend.
+an inspector to point at one widget, a console for typing commands at a running game, and
+overlays for overdraw, draw calls, focus, redraws and the lines inside text. Each one is drawn
+by the toolkit itself, so it looks the same on every backend.
 
 For one widget, `Modifier.debugBounds()` stays in `composegl-ui`; see
 [Modifiers](Modifiers.md). For the tree as text, `dump`, see
@@ -31,10 +31,13 @@ wants the overlays in every build, behind a key, uses `implementation`.
 It is the same targets as `composegl-ui`: the JVM, Linux, iOS and the browser.
 
 ```kotlin
+import dev.wildware.composegl.debug.DevConsole
 import dev.wildware.composegl.debug.FocusOverlay
 import dev.wildware.composegl.debug.FrameBudgetOverlay
 import dev.wildware.composegl.debug.Inspector
 import dev.wildware.composegl.debug.LayoutOverlay
+import dev.wildware.composegl.debug.arg
+import dev.wildware.composegl.debug.rememberDevConsole
 ```
 
 In 0.5.0 these were in `composegl-ui`, in `dev.wildware.composegl.ui.debug`. Moving to
@@ -104,6 +107,129 @@ grows shows its new size. It only redraws when something it shows changed, and t
 off rebuilds nothing: the screen keeps its state and focus.
 
 ![a settings panel with its APPLY button pinned, and the inspector's panel listing the button's size, padding and modifiers above a tree of the screen](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/inspector.png)
+
+---
+
+## A console for typing commands
+
+`give sword 10`, `noclip`, `timescale 0.2`. A drop-down console is the fastest way to poke a
+running game, and `DevConsole` is one: a panel that slides down from the top with a log in it
+and a prompt along the bottom.
+
+```kotlin
+val console = rememberDevConsole {
+    command("noclip", help = "Walk through walls") { player.collides = !player.collides }
+    command("timescale", arg<Float>("scale")) { clocks.world.scale = it }
+    command("give", arg<String>("item", suggest = { items.ids }), arg<Int>("count", default = 1)) { id, n ->
+        give(id, n)
+    }
+}
+
+Box(Modifier.fillMaxSize()) {
+    Game()
+    DevConsole(console, toggleKey = Key.Grave)          // ` brings it down
+}
+
+console.log("Loaded level 3")
+```
+
+Put it last on the screen, like the overlays. It fills whatever it is given and draws over
+everything composed before it.
+
+### Writing commands
+
+`command` takes the name, up to three `arg`s and what to do, and the lambda is handed the types
+it asked for — a `Float`, an `Int`, a `String` — rather than a list of words to pick apart.
+
+| Written as | Means |
+|---|---|
+| `arg<Float>("scale")` | required, read as a number; `timescale fast` says so and does not run |
+| `arg<Int>("count", default = 1)` | may be left out. A required argument after one of these is refused where it is written |
+| `arg<String>("item", suggest = { items.ids })` | Tab offers whatever the lambda returns *now*, so a list that changes while the game runs suggests what is there |
+| `arg<Boolean>("on")` | `true`, `on`, `yes` or `1`, and their opposites. Tab offers `true` and `false` |
+
+The types are text, whole numbers, numbers and true-or-false. Anything else is a game's own
+object and the console cannot turn a word into one: take a `String` and look it up in the
+command, which is what `item` above does.
+
+`help` and `clear` are already there, written the same way. `help` lists every command with its
+arguments; `help give` explains one. A command that throws says so in the log and the game
+carries on — a console that closes the game when a command is wrong is a console nobody dares
+use.
+
+Commands are built once. A screen that brings its own adds them later with
+`console.define { … }`, and naming one twice replaces the first.
+
+### At the prompt
+
+| Press | And |
+|---|---|
+| `` ` `` (or whatever `toggleKey` is) | it comes down, or goes away, from wherever focus is |
+| Back + right bumper | the same, from a pad. A chord, because a pad has no spare button |
+| Enter | runs the line |
+| Up and Down | back and forward through what was typed before |
+| Tab | fills the word in as far as every choice agrees, then walks the choices; Shift+Tab walks back |
+| Escape | puts the suggestion list away, and closes the console once it is away |
+| PageUp and PageDown | scroll the log |
+| Ctrl+C | copies whatever was selected in the log with the mouse |
+
+While it is down it eats every key, so typing `noclip` does not also make the player walk. The
+pad is left alone apart from the chord, so a game driven by one carries on behind it. A pad
+player types with the button keyboard from `ProvideGamepadKeyboard`, if the game provides one.
+
+Selecting a line with the mouse takes the caret out of the prompt, the way selecting text
+anywhere in the toolkit does; clicking the prompt puts it back.
+
+The log holds `maxLines` lines (500 by default) and follows the newest, unless you have scrolled
+back to read something — then it holds still. The box at the top right filters it: only lines
+with that word in them are shown, which is the fastest way to read one system's chatter out of a
+busy log. `console.filter` is the same thing from code.
+
+### Printing into it
+
+```kotlin
+console.log("Loaded level 3")                       // Info
+console.warn("no spawn point; using the origin")
+console.error("shader failed to compile")
+console.log("fps: $fps", ConsoleLevel.Debug)
+console.run("give sword 10")                        // as though it had been typed
+```
+
+Each level is its own skin style — `console.line.warn`, `console.line.error` — so a warning is
+seen before it is read. A line with newlines in it becomes one line of the log each, so the
+filter and the levels work on every one of them.
+
+### Keeping the history
+
+Up walks back through what was typed. To keep that between runs of the game, hand in a
+`ConsoleHistoryStore`: the toolkit has no files of its own — it runs in a browser, where there
+are none — so where the lines go is the game's to say.
+
+```kotlin
+class FileHistory(private val path: Path) : ConsoleHistoryStore {
+    override fun load(): List<String> = if (path.exists()) path.readLines() else emptyList()
+    override fun save(lines: List<String>) = path.writeText(lines.joinToString("\n"))
+}
+
+val console = rememberDevConsole(history = FileHistory(Path.of("build/console-history.txt"))) { … }
+```
+
+`load` is called once, when the console is built, and `save` every time a command is run, with
+the whole list newest last and capped at a hundred lines. The default keeps them in memory for
+as long as the game is running.
+
+### How it looks
+
+Every colour comes from the skin, under `console`: the panel itself, `console.title`,
+`console.prompt`, `console.line` with one per level under it, `console.suggestion` and
+`console.suggestion.selected`, and `console.field` for the two boxes typed into. The shipped
+skins name all of them, so a game that has written no skin still gets a console it can read.
+
+```kotlin
+DevConsole(console, style = "console", heightFraction = 0.4f)   // how much of the screen it covers
+```
+
+The showcase has one: press `` ` `` and type `help`.
 
 ---
 

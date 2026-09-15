@@ -583,6 +583,45 @@
 
     "focusRing": {
       "background": { "fill": "#00000000", "corner": 6, "border": "#5B8DEF", "borderWidth": 2 }
-    }
+    },
+
+    // --- the developer console ---
+    //
+    // The drop-down console in composegl-debug: a panel over the top of the game with a log in it,
+    // one colour a level so a warning is seen before it is read. Its prompt has a field style of
+    // its own rather than the plain one, because a console's prompt is a line with a caret on it
+    // rather than a box on a form.
+
+    "console": {
+      "background": { "fill": "#0E1117", "border": "#2C3545", "padding": 10 },
+      "textColour": "#C9D3E0"
+    },
+
+    "console.title": { "textColour": "#7C8798", "text": { "size": 13 } },
+    "console.prompt": { "textColour": "#5B8DEF" },
+
+    "console.line": { "textColour": "#C9D3E0", "text": { "size": 14 } },
+    "console.line.debug": { "textColour": "#8A93A3", "text": { "size": 14 } },
+    "console.line.info": { "textColour": "#C9D3E0", "text": { "size": 14 } },
+    "console.line.warn": { "textColour": "#E8A33D", "text": { "size": 14 } },
+    "console.line.error": { "textColour": "#FF7B7E", "text": { "size": 14 } },
+    "console.line.echo": { "textColour": "#7FB0FF", "text": { "size": 14 } },
+
+    "console.suggestion": { "textColour": "#9BA6B6", "padding": [6, 2], "text": { "size": 14 } },
+    "console.suggestion.selected": {
+      "background": { "fill": "#233047", "corner": 3 },
+      "textColour": "#E8ECF2",
+      "padding": [6, 2],
+      "text": { "size": 14 }
+    },
+
+    "console.field": {
+      "background": { "fill": "#00000000", "padding": [2, 3] },
+      "textColour": "#E8ECF2"
+    },
+    "console.field.placeholder": { "textColour": "#5E6B7E" },
+    "console.field.caret": { "background": { "fill": "#E8ECF2" } },
+    "console.field.selection": { "background": { "fill": "#3F6BD6" } },
+    "console.field.composition": { "background": { "fill": "#9BA6B6" } }
   }
 }

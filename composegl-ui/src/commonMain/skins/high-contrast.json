@@ -572,6 +572,44 @@
 
     "focusRing": {
       "background": { "fill": "#00000000", "corner": 6, "border": "#FFD600", "borderWidth": 3 }
-    }
+    },
+
+    // --- the developer console ---
+    //
+    // The same panel in black and white: white for an ordinary line, yellow for a warning, red for
+    // a failure, cyan for the line that was typed. Every one of them is above the 4.5:1 the
+    // accessibility guidelines ask for, measured in the skin's own test.
+
+    "console": {
+      "background": { "fill": "#000000", "border": "#FFFFFF", "padding": 10, "borderWidth": 2 },
+      "textColour": "#FFFFFF"
+    },
+
+    "console.title": { "textColour": "#B0B0B0", "text": { "size": 13 } },
+    "console.prompt": { "textColour": "#FFD600" },
+
+    "console.line": { "textColour": "#FFFFFF", "text": { "size": 14 } },
+    "console.line.debug": { "textColour": "#B0B0B0", "text": { "size": 14 } },
+    "console.line.info": { "textColour": "#FFFFFF", "text": { "size": 14 } },
+    "console.line.warn": { "textColour": "#FFD600", "text": { "size": 14 } },
+    "console.line.error": { "textColour": "#FF5050", "text": { "size": 14 } },
+    "console.line.echo": { "textColour": "#00E5FF", "text": { "size": 14 } },
+
+    "console.suggestion": { "textColour": "#B0B0B0", "padding": [6, 2], "text": { "size": 14 } },
+    "console.suggestion.selected": {
+      "background": { "fill": "#0033AA", "corner": 3 },
+      "textColour": "#FFFFFF",
+      "padding": [6, 2],
+      "text": { "size": 14 }
+    },
+
+    "console.field": {
+      "background": { "fill": "#00000000", "padding": [2, 3] },
+      "textColour": "#FFFFFF"
+    },
+    "console.field.placeholder": { "textColour": "#B0B0B0" },
+    "console.field.caret": { "background": { "fill": "#FFFFFF" } },
+    "console.field.selection": { "background": { "fill": "#0033AA" } },
+    "console.field.composition": { "background": { "fill": "#FFFFFF" } }
   }
 }
