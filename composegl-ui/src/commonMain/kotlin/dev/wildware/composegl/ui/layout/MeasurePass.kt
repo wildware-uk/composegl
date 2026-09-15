@@ -19,13 +19,59 @@ import dev.wildware.composegl.ui.node.UiNode
  */
 class MeasurePass {
 
+    /**
+     * The nodes this pass reached that have an `onSizeChanged` or `onPlaced` on them, parents before
+     * children. The list belongs to the root and is emptied and refilled each pass rather than made
+     * again, for the same reason as everything else a pass touches: a screen standing still with
+     * forty watchers on it would otherwise grow a fresh list to forty every frame.
+     */
+    private var watching: MutableList<UiNode>? = null
+
     /** Measures and places [node] and everything under it. The root ends up at the origin. */
     fun run(node: UiNode, constraints: Constraints) {
+        beginAt(node)
         measure(node, constraints).placeAt(0f, 0f)
+        reportLayout()
+    }
+
+    /** Points this pass at [root]'s watcher list, emptied. Called before the root is measured. */
+    internal fun beginAt(root: UiNode) {
+        root.layoutWatchers?.clear()
+        watching = null
+        this.root = root
+    }
+
+    private var root: UiNode? = null
+
+    /**
+     * Tells every watching node what changed, now the whole tree has its rectangles.
+     *
+     * After placement rather than during it, for two reasons. A node's place on screen is its
+     * parent's decision, and its parent's parent's, so nothing is final until the root is down. And
+     * a handler that writes state or asks a neighbour where it is must not see half a frame.
+     */
+    internal fun reportLayout() {
+        val watching = watching ?: return
+        for (index in watching.indices) watching[index].reportLayout()
+    }
+
+    /** The root's list, made the first time any pass over that tree meets a watcher. */
+    private fun watchers(): MutableList<UiNode> {
+        watching?.let { return it }
+        val root = checkNotNull(root) { "a pass was measured without being begun" }
+        val list = root.layoutWatchers ?: mutableListOf<UiNode>().also { root.layoutWatchers = it }
+        watching = list
+        return list
     }
 
     internal fun measure(node: UiNode, incoming: Constraints): Placeable {
         val resolved = node.resolved
+        if (resolved.watchesLayout) {
+            watchers().add(node)
+        } else {
+            // It may have had handlers last frame; if they come back they hear about it afresh.
+            node.forgetReportedLayout()
+        }
         val outer = resolved.applyTo(incoming, node.outerConstraints)
         val padding = resolved.padding
         // Not loosened. A policy has to see the minimum it was given, or a row told to be 200

@@ -14,6 +14,7 @@ import dev.wildware.composegl.ui.input.KeyNavigator
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerId
 import dev.wildware.composegl.ui.input.PointerRouter
+import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.MeasurePass
@@ -21,6 +22,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.focusable
 import dev.wildware.composegl.ui.modifier.offset
+import dev.wildware.composegl.ui.modifier.scale
 import dev.wildware.composegl.ui.modifier.size
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -199,6 +201,25 @@ class TooltipTest {
         frames(2, 16)
 
         assertTrue(checkNotNull(box()).rect.left < first, "it should have moved with the pointer")
+    }
+
+    @Test
+    fun `a tooltip inside a scaled panel hangs under where the thing is drawn`() {
+        show {
+            // Doubled from the corner: the 30-pixel box laid out at (40, 20) is drawn at (80, 40)
+            // to (140, 100). The tooltip used to point at the laid-out one, half the size and up
+            // and to the left, because drawing was the only place it could learn where it was.
+            Box(Modifier.size(200f, 150f).scale(2f, Alignment.TopStart)) {
+                Tooltip("tip scaled", Modifier.offset(40f, 20f)) { Box(Modifier.size(30f)) }
+            }
+        }
+
+        move(110f, 70f)
+        frames(40, 20)
+
+        val box = checkNotNull(box()) { "hovering the drawn box should have shown its tooltip" }
+        assertTrue(box.rect.top >= 100f, "it hangs from the laid-out box rather than the drawn one: ${box.rect}")
+        assertEquals(110f, (box.rect.left + box.rect.right) / 2f, 0.5f, "it is not centred under the drawn box: ${box.rect}")
     }
 
     private fun RecordingCanvas.alphaOfTip(): Float? {

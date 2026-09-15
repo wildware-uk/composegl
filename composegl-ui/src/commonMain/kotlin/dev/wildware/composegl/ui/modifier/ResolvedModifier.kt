@@ -13,6 +13,8 @@ import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Padding
+import dev.wildware.composegl.ui.layout.PlacedHandler
+import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.graphics.BlendMode
 
 /**
@@ -129,9 +131,16 @@ class ResolvedModifier private constructor(
      * [dev.wildware.composegl.ui.modifier.testTag].
      */
     val testTag: String?,
+    /** Told after layout when the node's size changes, in chain order. */
+    val sizeChanged: List<SizeChangedHandler>,
+    /** Told after layout when where the node is drawn changes, in chain order. */
+    val placed: List<PlacedHandler>,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
+
+    /** Whether layout has anything to tell this node once it is finished. False for nearly all. */
+    val watchesLayout: Boolean get() = sizeChanged.isNotEmpty() || placed.isNotEmpty()
 
     /**
      * Whether a pointer can find this node at all.
@@ -184,6 +193,8 @@ class ResolvedModifier private constructor(
             val focusWithin = mutableListOf<FocusWithinHandler>()
             var focusTrap = false
             var testTag: String? = null
+            val sizeChanged = mutableListOf<SizeChangedHandler>()
+            val placed = mutableListOf<PlacedHandler>()
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -254,6 +265,8 @@ class ResolvedModifier private constructor(
                     is FocusWithinElement -> focusWithin += element.handler
                     is FocusTrapElement -> focusTrap = element.enabled
                     is TestTagElement -> testTag = element.tag
+                    is OnSizeChangedElement -> sizeChanged += element.handler
+                    is OnPlacedElement -> placed += element.handler
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
             }
@@ -268,6 +281,7 @@ class ResolvedModifier private constructor(
                 keyHandlers.toList(), textHandlers.toList(), click,
                 focusable, focusRequester, focusOrder, focusDirections.toList(),
                 reveals.toList(), focusWithin.toList(), focusTrap, testTag,
+                sizeChanged.toList(), placed.toList(),
             )
         }
     }
