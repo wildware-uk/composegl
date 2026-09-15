@@ -40,12 +40,33 @@ abstract class BytecodeReferenceCheck : DefaultTask() {
     @get:Input
     abstract val reason: Property<String>
 
+    /**
+     * Only classes whose path, relative to a class directory, starts with one of these are scanned.
+     * Empty scans everything. For a rule about one package inside a module rather than the module.
+     */
+    @get:Input
+    abstract val includeClasses: ListProperty<String>
+
+    /** Classes whose relative path starts with one of these are left out, even when included. */
+    @get:Input
+    abstract val excludeClasses: ListProperty<String>
+
+    init {
+        includeClasses.convention(emptyList())
+        excludeClasses.convention(emptyList())
+    }
+
     @TaskAction
     fun check() {
         val forbidden = forbiddenPackages.get()
+        val included = includeClasses.get()
+        val excluded = excludeClasses.get()
         val offences = mutableListOf<String>()
 
         classDirectories.asFileTree.matching { include("**/*.class") }.forEach { file ->
+            val path = file.relativeTo(classDirectories.first { file.startsWith(it) }).invariantSeparatorsPath
+            if (included.isNotEmpty() && included.none { path.startsWith(it) }) return@forEach
+            if (excluded.any { path.startsWith(it) }) return@forEach
             val referenced = referencedTypes(file)
             forbidden.forEach { prefix ->
                 referenced.filter { it.startsWith(prefix) }.distinct().sorted().forEach { type ->

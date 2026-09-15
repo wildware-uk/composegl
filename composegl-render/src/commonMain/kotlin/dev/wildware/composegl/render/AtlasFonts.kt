@@ -1,0 +1,553 @@
+package dev.wildware.composegl.render
+
+import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.text.FontMetrics
+import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.text.TextLayout
+import dev.wildware.composegl.ui.text.TextStyle
+import kotlin.math.floor
+import kotlin.math.roundToInt
+
+/**
+ * One glyph, as it sits in the atlas and as it sits beside the one before it.
+ *
+ * [page] is null for a glyph with no ink, a space: it moves the pen and draws nothing.
+ */
+class Glyph internal constructor(
+    val page: AtlasPage?,
+    val x: Int,
+    val y: Int,
+    val width: Float,
+    val height: Float,
+    /** From the pen position to the left edge of the picture. */
+    val xOffset: Float,
+    /** From the baseline down to the top edge of the picture. Usually negative. */
+    val yOffset: Float,
+    /** How far the pen moves afterwards. */
+    val advance: Float,
+    /** True for a picture with colours of its own — an emoji — rather than a letter. */
+    val colour: Boolean = false,
+)
+
+/** A glyph placed by measuring, in the layout's own coordinates with y downwards from its top. */
+class PlacedGlyph(
+    val left: Float,
+    val top: Float,
+    val width: Float,
+    val height: Float,
+    val glyph: Glyph,
+)
+
+/** Text measured by [AtlasFonts]. The toolkit sees the four properties; the canvas sees the rest. */
+class AtlasTextLayout(
+    override val text: String,
+    override val size: Size,
+    override val lineCount: Int,
+    override val firstBaseline: Float,
+    val placed: List<PlacedGlyph>,
+) : TextLayout
+
+/**
+ * Text for every backend: registration by family and size, fallback fonts tried one character at a
+ * time, colour pictures standing in for emoji, wrapping, ellipsis and metrics, all on one shared
+ * [GlyphAtlas]. The only part a backend brings is its [rasteriser].
+ *
+ * **Characters a font does not have** come from the families named by [fallBackTo], tried in order.
+ * A character none of them has comes out as the main font's `?`. The variation selectors are
+ * invisible. **No kerning**: a width is the sum of the advances, which carets, bidi and typewriter
+ * text rely on.
+ *
+ * Glyphs are made the first time they are asked for. A backend that wants every glyph made up front
+ * — so that nothing is rasterised mid-frame — overrides [prepare].
+ *
+ * @param decoder turns the encoded pictures [registerPictures] takes into pixels.
+ */
+open class AtlasFonts(
+    private val rasteriser: GlyphRasteriser,
+    private val decoder: ImageDecoder? = null,
+    pageSize: Int = 512,
+    maxPageSize: Int = 4096,
+    maxPages: Int = 8,
+    atlasOwner: String = "AtlasFonts",
+) : FontProvider, AutoCloseable {
+
+    /** Every glyph and picture drawn with these fonts, and the white block solid colour comes from. */
+    val atlas = GlyphAtlas(pageSize, maxPageSize, maxPages, atlasOwner)
+
+    private data class Key(val family: String, val size: Int)
+
+    /** Font families by name, with the sizes each was registered at, in registration order. */
+    private val fontSizes = LinkedHashMap<String, MutableSet<Int>>()
+
+    /** Picture families by name: size, then codepoint, then the picture scaled to that size. */
+    private val pictureSets = LinkedHashMap<String, LinkedHashMap<Int, LinkedHashMap<Int, RgbaImage>>>()
+
+    private val faces = HashMap<Key, Face>()
+    private val chains = HashMap<Key, Chain>()
+
+    private var everyFamilyFallsBackTo: List<String> = emptyList()
+    private val fallbacksByFamily = HashMap<String, List<String>>()
+
+    private val bitmap = GlyphBitmap()
+
+    /**
+     * Records that [rasteriser] serves [family] at [sizes]. A backend's own `register` calls this
+     * once it has handed the font to its rasteriser.
+     */
+    protected fun registerFont(family: String, sizes: List<Int>) {
+        require(sizes.isNotEmpty()) { "registering $family with no sizes would register nothing" }
+        require(sizes.all { it > 0 }) { "a font size must be positive, got $sizes" }
+        fontSizes.getOrPut(family) { LinkedHashSet() }.addAll(sizes)
+        forgetFaces()
+    }
+
+    /**
+     * Registers pictures that stand in for characters under [family], at each of [sizes].
+     *
+     * Each picture is scaled to the size tall, keeping its shape, sits a little below the baseline
+     * the way an emoji font's glyphs do, and is drawn in its own colours whatever colour the text
+     * is. A family of pictures can only be a fallback: name it in [fallBackTo].
+     *
+     * @param pictures encoded pictures by the one character each draws: `"😀"`, `"❤️"`, with or
+     *   without the emoji variation selector. A sequence joined into one emoji is refused.
+     */
+    open fun registerPictures(family: String, pictures: Map<String, ByteArray>, sizes: List<Int>) {
+        val decode = checkNotNull(decoder) { "these fonts were made without an image decoder, so they cannot read pictures" }
+        registerDecodedPictures(family, pictures.mapValues { (_, encoded) -> decode.decode(encoded) }, sizes)
+    }
+
+    /** The same, for pictures already decoded. */
+    fun registerDecodedPictures(family: String, pictures: Map<String, RgbaImage>, sizes: List<Int>) {
+        require(sizes.isNotEmpty()) { "registering $family with no sizes would register nothing" }
+        require(sizes.all { it > 0 }) { "a size must be positive, got $sizes" }
+        require(pictures.isNotEmpty()) { "registering $family with no pictures would register nothing" }
+        require(family !in fontSizes) { "$family is already a font; pictures need a name of their own" }
+
+        val bySize = pictureSets.getOrPut(family) { LinkedHashMap() }
+        pictures.forEach { (text, image) ->
+            val codepoint = codepointOf(text)
+            sizes.distinct().forEach { size ->
+                val scaledWidth = (image.width * size / image.height.toFloat()).roundToInt().coerceAtLeast(1)
+                bySize.getOrPut(size) { LinkedHashMap() }[codepoint] =
+                    RgbaImage(scaledWidth, size, shrink(image.pixels, image.width, image.height, scaledWidth, size))
+            }
+        }
+        forgetFaces()
+    }
+
+    /**
+     * Where every family looks for a character its own font does not have: each of [families], in
+     * order. A fallback must be registered at every size it is asked for. Not followed any further.
+     */
+    fun fallBackTo(families: List<String>) {
+        everyFamilyFallsBackTo = families.toList()
+        chains.clear()
+    }
+
+    /** Where [family] alone looks for a character it does not have, instead of the list for everyone. */
+    fun fallBackTo(family: String, families: List<String>) {
+        fallbacksByFamily[family] = families.toList()
+        chains.clear()
+    }
+
+    /** The families [family] falls back to, in the order they are tried. */
+    fun fallbacksOf(family: String): List<String> =
+        (fallbacksByFamily[family] ?: everyFamilyFallsBackTo).filter { it != family }
+
+    /** The families that were registered, fonts and pictures both. */
+    fun families(): List<String> = (fontSizes.keys + pictureSets.keys).distinct()
+
+    /** The sizes [family] was registered at. */
+    fun sizesOf(family: String): List<Int> =
+        ((fontSizes[family] ?: emptySet()) + (pictureSets[family]?.keys ?: emptySet())).distinct().sorted()
+
+    /**
+     * Makes whatever this provider makes up front. Nothing by default: glyphs are made when first
+     * measured. Called before anything is drawn with these fonts.
+     */
+    open fun prepare() = Unit
+
+    override fun metrics(style: TextStyle): FontMetrics {
+        val face = chainFor(style).primary
+        return FontMetrics(
+            size = style.size,
+            ascent = face.ascent,
+            descent = face.descent,
+            capHeight = face.capHeight,
+            lineHeight = style.lineHeight,
+            spaceAdvance = face.spaceAdvance,
+        )
+    }
+
+    override fun measure(text: String, style: TextStyle, maxWidth: Float): TextLayout {
+        val chain = chainFor(style)
+        val face = chain.primary
+        val wrapped = wrap(chain, text, maxWidth)
+        val lines = if (style.maxLines in 1 until wrapped.size) {
+            wrapped.take(style.maxLines).toMutableList().also { kept ->
+                kept[kept.lastIndex] = withEllipsis(chain, kept.last(), style.ellipsis, maxWidth)
+            }
+        } else {
+            wrapped
+        }
+
+        val placed = mutableListOf<PlacedGlyph>()
+        var widest = 0f
+        lines.forEachIndexed { index, line ->
+            val baseline = face.ascent + index * style.lineHeight
+            widest = maxOf(widest, place(chain, line, baseline, placed))
+        }
+
+        return AtlasTextLayout(
+            text = text,
+            // The style's line spacing rather than the font's own, so two labels in one style line up.
+            size = Size(widest, lines.size * style.lineHeight),
+            lineCount = lines.size,
+            firstBaseline = face.ascent,
+            placed = placed,
+        )
+    }
+
+    /**
+     * Every glyph [family] at [size] has among [codepoints], made now. For a backend that makes its
+     * glyphs up front; characters the font lacks are skipped.
+     */
+    protected fun makeGlyphs(family: String, size: Int, codepoints: Iterable<Int>) {
+        val face = faceFor(Key(family, size)) ?: return
+        codepoints.forEach { face.glyph(it) }
+    }
+
+    /** Every picture registered, at every size, placed now. */
+    protected fun makePictures() {
+        pictureSets.forEach { (family, bySize) ->
+            bySize.forEach { (size, pictures) ->
+                val face = faceFor(Key(family, size)) ?: return@forEach
+                pictures.keys.forEach { face.glyph(it) }
+            }
+        }
+    }
+
+    /** Lays one line out along [baseline], adding to [into], and answers how wide it came out. */
+    private fun place(chain: Chain, line: String, baseline: Float, into: MutableList<PlacedGlyph>): Float {
+        var pen = 0f
+        line.forEachCodepoint { codepoint ->
+            val glyph = chain.glyph(codepoint) ?: return@forEachCodepoint
+            if (glyph.width > 0f && glyph.height > 0f) {
+                // Snapped to whole pixels: a glyph drawn half a pixel off has soft edges.
+                into += PlacedGlyph(
+                    left = floor(pen + glyph.xOffset + 0.5f),
+                    top = floor(baseline + glyph.yOffset + 0.5f),
+                    width = glyph.width,
+                    height = glyph.height,
+                    glyph = glyph,
+                )
+            }
+            pen += glyph.advance
+        }
+        return pen
+    }
+
+    private fun widthOf(chain: Chain, text: String): Float {
+        var pen = 0f
+        text.forEachCodepoint { pen += chain.glyph(it)?.advance ?: 0f }
+        return pen
+    }
+
+    /**
+     * Greedy wrapping by whole words, breaking a word only when it cannot fit a line by itself.
+     * Chinese and Japanese have no spaces to break at, so a line of it is one long word broken
+     * where it has to be.
+     */
+    private fun wrap(chain: Chain, text: String, maxWidth: Float): List<String> {
+        if (!maxWidth.isFinite() || maxWidth <= 0f) return text.split('\n')
+
+        return text.split('\n').flatMap { paragraph ->
+            if (widthOf(chain, paragraph) <= maxWidth) return@flatMap listOf(paragraph)
+
+            val lines = mutableListOf<String>()
+            var current = StringBuilder()
+
+            paragraph.split(' ').forEach { word ->
+                var remaining = word
+                while (widthOf(chain, remaining) > maxWidth) {
+                    val fits = longestPrefix(chain, remaining, maxWidth)
+                    if (fits.isEmpty()) break
+                    if (current.isNotEmpty()) {
+                        lines += current.toString()
+                        current = StringBuilder()
+                    }
+                    lines += fits
+                    remaining = remaining.substring(fits.length)
+                }
+                val separator = if (current.isEmpty()) "" else " "
+                if (current.isNotEmpty() && widthOf(chain, "$current$separator$remaining") > maxWidth) {
+                    lines += current.toString()
+                    current = StringBuilder(remaining)
+                } else {
+                    current.append(separator).append(remaining)
+                }
+            }
+            if (current.isNotEmpty() || lines.isEmpty()) lines += current.toString()
+            lines
+        }
+    }
+
+    /** The most of [text] that fits in [maxWidth], a whole character at a time. */
+    private fun longestPrefix(chain: Chain, text: String, maxWidth: Float): String {
+        var pen = 0f
+        var at = 0
+        while (at < text.length) {
+            val codepoint = text.codepointAt(at)
+            pen += chain.glyph(codepoint)?.advance ?: 0f
+            if (pen > maxWidth) return text.take(at)
+            at += charCount(codepoint)
+        }
+        return text
+    }
+
+    /** [line] with [ellipsis] on the end, shortened a character at a time until the pair of them fit. */
+    private fun withEllipsis(chain: Chain, line: String, ellipsis: String, maxWidth: Float): String {
+        if (ellipsis.isEmpty()) return line
+        var kept = line.trimEnd()
+        while (kept.isNotEmpty() && widthOf(chain, kept + ellipsis) > maxWidth) {
+            kept = kept.substring(0, lastCodepointStart(kept)).trimEnd()
+        }
+        return kept + ellipsis
+    }
+
+    private fun chainFor(style: TextStyle): Chain {
+        prepare()
+        val key = Key(style.family, style.size.roundToInt())
+        chains[key]?.let { return it }
+
+        val primary = fontFace(key) ?: missing(key, "")
+        val fallbacks = fallbacksOf(key.family).map { family ->
+            val fallback = Key(family, key.size)
+            faceFor(fallback) ?: missing(fallback, ", which ${key.family} falls back to")
+        }
+        return Chain(primary, fallbacks).also { chains[key] = it }
+    }
+
+    private fun fontFace(key: Key): Face? = if (fontSizes[key.family]?.contains(key.size) == true) faceFor(key) else null
+
+    private fun faceFor(key: Key): Face? {
+        faces[key]?.let { return it }
+        val face = if (fontSizes[key.family]?.contains(key.size) == true) {
+            rasteriser.face(key.family, key.size)?.let { Face(it, null, key.size) }
+        } else {
+            pictureSets[key.family]?.get(key.size)?.let { Face(null, it, key.size) }
+        }
+        if (face != null) faces[key] = face
+        return face
+    }
+
+    private fun forgetFaces() {
+        faces.clear()
+        chains.clear()
+    }
+
+    private fun missing(key: Key, context: String): Nothing {
+        val sizes = sizesOf(key.family)
+        if (context.isEmpty() && sizes.isNotEmpty() && key.family !in fontSizes) {
+            error("no font for ${key.family} at ${key.size}: that name is pictures, which can only be a fallback")
+        }
+        val detail = if (sizes.isEmpty()) {
+            "no font is registered under that name. Registered names: ${families().ifEmpty { "none" }}"
+        } else {
+            "that name is registered at $sizes"
+        }
+        error("no font for ${key.family} at ${key.size}$context: $detail")
+    }
+
+    /**
+     * One family at one size: a font through the rasteriser, or a set of pictures. Glyphs are made
+     * the first time they are asked for and kept.
+     */
+    private inner class Face(private val raster: RasterFace?, private val pictures: Map<Int, RgbaImage>?, private val size: Int) {
+
+        private val glyphs = HashMap<Int, Glyph>()
+
+        val ascent: Float get() = raster?.ascent ?: 0f
+        val descent: Float get() = raster?.descent ?: 0f
+        val capHeight: Float get() = raster?.capHeight ?: 0f
+        val spaceAdvance: Float by lazy { glyph(' '.code)?.advance ?: (size * 0.3f) }
+
+        fun glyph(codepoint: Int): Glyph? {
+            glyphs[codepoint]?.let { return if (it === Missing) null else it }
+            val made = make(codepoint)
+            glyphs[codepoint] = made ?: Missing
+            return made
+        }
+
+        private fun make(codepoint: Int): Glyph? {
+            if (pictures != null) return pictures[codepoint]?.let { picture(it) }
+            val raster = raster ?: return null
+            if (!raster.has(codepoint)) return null
+            if (!raster.draw(codepoint, bitmap)) return null
+            val advance = raster.advance(codepoint)
+            if (bitmap.width <= 0 || bitmap.height <= 0) {
+                if (advance <= 0f) return null
+                return Glyph(null, 0, 0, 0f, 0f, bitmap.xOffset, bitmap.yOffset, advance)
+            }
+            val spot = atlas.place(bitmap.width, bitmap.height)
+            val colour = bitmap.kind == GlyphKind.Colour
+            if (colour) {
+                spot.page.writeRgba(spot.x, spot.y, bitmap.width, bitmap.height, bitmap.pixels)
+            } else {
+                spot.page.writeCoverage(spot.x, spot.y, bitmap.width, bitmap.height, bitmap.pixels)
+            }
+            return Glyph(
+                spot.page, spot.x, spot.y,
+                bitmap.width.toFloat(), bitmap.height.toFloat(),
+                bitmap.xOffset, bitmap.yOffset, advance, colour,
+            )
+        }
+
+        private fun picture(picture: RgbaImage): Glyph {
+            val spot = atlas.place(picture.width, picture.height)
+            spot.page.writeRgba(spot.x, spot.y, picture.width, picture.height, picture.pixels)
+            val gap = (size / 16f).roundToInt().coerceAtLeast(1)
+            return Glyph(
+                page = spot.page,
+                x = spot.x,
+                y = spot.y,
+                width = picture.width.toFloat(),
+                height = picture.height.toFloat(),
+                xOffset = gap.toFloat(),
+                // Its bottom a little below the baseline, where an emoji font puts it.
+                yOffset = -(picture.height - (size * PictureDrop).roundToInt()).toFloat(),
+                advance = (picture.width + gap * 2).toFloat(),
+                colour = true,
+            )
+        }
+    }
+
+    /** A face with its fallbacks behind it. Every metric is the primary's. */
+    private class Chain(val primary: AtlasFonts.Face, private val fallbacks: List<AtlasFonts.Face>) {
+
+        fun glyph(codepoint: Int): Glyph? {
+            if (codepoint == 0xFE0E || codepoint == 0xFE0F) return null
+            primary.glyph(codepoint)?.let { return it }
+            for (face in fallbacks) face.glyph(codepoint)?.let { return it }
+            return primary.glyph('?'.code)
+        }
+    }
+
+    /** Gives the atlas's textures back to the devices they were uploaded to. */
+    override fun close() = atlas.close()
+
+    companion object {
+
+        /** How far below the baseline a picture's bottom edge sits, as a share of the text size. */
+        const val PictureDrop = 0.12f
+
+        private val Missing = Glyph(null, 0, 0, 0f, 0f, 0f, 0f, 0f)
+
+        private const val VariationSelector = 0xFE0F
+
+        /**
+         * Every character in [text], as sorted ranges with each run of neighbours joined: what a
+         * backend that makes glyphs up front is told to make for a fallback font.
+         */
+        fun codepointsOf(text: String): List<IntRange> {
+            val sorted = ArrayList<Int>()
+            text.forEachCodepoint { sorted += it }
+            val distinct = sorted.distinct().sorted()
+            val ranges = mutableListOf<IntRange>()
+            var start = -1
+            var end = -1
+            for (codepoint in distinct) {
+                if (start >= 0 && codepoint == end + 1) {
+                    end = codepoint
+                } else {
+                    if (start >= 0) ranges += start..end
+                    start = codepoint
+                    end = codepoint
+                }
+            }
+            if (start >= 0) ranges += start..end
+            return ranges
+        }
+
+        /** The one character a picture key stands for. */
+        fun codepointOf(text: String): Int {
+            val codepoints = ArrayList<Int>()
+            text.forEachCodepoint { codepoints += it }
+            if (codepoints.size == 2 && codepoints[1] == VariationSelector) codepoints.removeAt(1)
+            require(codepoints.size == 1) {
+                "a picture stands for one character, and \"$text\" is ${codepoints.size}; " +
+                    "sequences joined into one emoji are not supported"
+            }
+            return codepoints[0]
+        }
+
+        /**
+         * [rgba] shrunk to [toWidth] by [toHeight], each new pixel the average of the ones it covers,
+         * weighted by alpha so the invisible pixels round an emoji do not darken its edge.
+         */
+        fun shrink(rgba: ByteArray, width: Int, height: Int, toWidth: Int, toHeight: Int): ByteArray {
+            val out = ByteArray(toWidth * toHeight * 4)
+            for (y in 0 until toHeight) {
+                val top = y * height / toHeight
+                val bottom = maxOf(top + 1, (y + 1) * height / toHeight)
+                for (x in 0 until toWidth) {
+                    val left = x * width / toWidth
+                    val right = maxOf(left + 1, (x + 1) * width / toWidth)
+                    var red = 0L
+                    var green = 0L
+                    var blue = 0L
+                    var alpha = 0L
+                    var count = 0
+                    for (sy in top until bottom) {
+                        for (sx in left until right) {
+                            val at = (sy * width + sx) * 4
+                            val a = rgba[at + 3].toInt() and 0xFF
+                            red += (rgba[at].toInt() and 0xFF) * a
+                            green += (rgba[at + 1].toInt() and 0xFF) * a
+                            blue += (rgba[at + 2].toInt() and 0xFF) * a
+                            alpha += a
+                            count++
+                        }
+                    }
+                    val to = (y * toWidth + x) * 4
+                    if (alpha > 0) {
+                        out[to] = (red / alpha).toInt().toByte()
+                        out[to + 1] = (green / alpha).toInt().toByte()
+                        out[to + 2] = (blue / alpha).toInt().toByte()
+                    }
+                    out[to + 3] = (alpha / count).toInt().toByte()
+                }
+            }
+            return out
+        }
+    }
+}
+
+/** The codepoint starting at [index]: a surrogate pair joined, a lone surrogate as itself. */
+internal fun String.codepointAt(index: Int): Int {
+    val high = this[index]
+    if (high.isHighSurrogate() && index + 1 < length) {
+        val low = this[index + 1]
+        if (low.isLowSurrogate()) return ((high.code - 0xD800) shl 10) + (low.code - 0xDC00) + 0x10000
+    }
+    return high.code
+}
+
+/** How many chars [codepoint] takes. */
+internal fun charCount(codepoint: Int): Int = if (codepoint >= 0x10000) 2 else 1
+
+internal inline fun String.forEachCodepoint(action: (Int) -> Unit) {
+    var at = 0
+    while (at < length) {
+        val codepoint = codepointAt(at)
+        action(codepoint)
+        at += charCount(codepoint)
+    }
+}
+
+/** Where the last codepoint of [text] starts. */
+internal fun lastCodepointStart(text: String): Int {
+    val last = text.length - 1
+    if (last >= 1 && text[last].isLowSurrogate() && text[last - 1].isHighSurrogate()) return last - 1
+    return last
+}

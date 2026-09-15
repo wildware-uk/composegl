@@ -117,6 +117,7 @@ allprojects {
  */
 val published = setOf(
     "composegl-ui",
+    "composegl-render",
     "composegl-effects",
     "composegl-gdx",
     "composegl-korge",
