@@ -51,8 +51,9 @@ fun main() {
     fonts.register("default", typeface, listOf(12, 13, 14, 16, 18, 22, 26))
 
     val art = GlTexture.decode(resource("ui/ui.png"))
+    val coins = coinSheet()
     val canvas = GlCanvas(fonts)
-    val skin = demoSkin(atlas(art), fonts)
+    val skin = demoSkin(atlas(art, coins), fonts)
 
     try {
         docShots().forEach { shot ->
@@ -62,6 +63,7 @@ fun main() {
         }
     } finally {
         canvas.close()
+        coins.close()
         art.close()
         fonts.close()
         window.close()
@@ -74,13 +76,56 @@ fun main() {
  * The same three regions the example uses, because the pictures are taken through the example's
  * skin: what the wiki shows is what somebody running `:composegl-demo:runGl` sees.
  */
-private fun atlas(art: GlTexture) = ArtAtlas.of(
+private fun atlas(art: GlTexture, coins: GlTexture) = ArtAtlas.of(
     mapOf(
         "panel" to art.region(0, 0, 48, 48),
         "ribbon" to art.region(52, 0, 24, 24),
         "icon/crest" to art.region(80, 0, 24, 24),
-    ),
+    ) + (0 until CoinFrames).associate { "coin_$it" to coins.region(it * CoinSize, 0, CoinSize, CoinSize) },
 )
+
+private const val CoinFrames = 8
+private const val CoinSize = 32
+
+/**
+ * A coin turning on its edge, as one sheet of [CoinFrames] frames side by side.
+ *
+ * Drawn here rather than shipped as a picture so the sprite-animation shot has a real sheet to cut
+ * up without adding art to the example: each frame is the coin squashed by how far it has turned,
+ * with a darker back face and a rim.
+ */
+private fun coinSheet(): GlTexture {
+    val width = CoinFrames * CoinSize
+    val pixels = ByteArray(width * CoinSize * 4)
+    val radius = 13f
+    val centre = (CoinSize - 1) / 2f
+    for (frame in 0 until CoinFrames) {
+        val turn = kotlin.math.cos(frame * Math.PI / CoinFrames * 2).toFloat()
+        val across = (radius * kotlin.math.abs(turn)).coerceAtLeast(2f)
+        val face = if (turn >= 0f) 0xF2C14E else 0xC9952E
+        for (y in 0 until CoinSize) {
+            for (x in 0 until CoinSize) {
+                val dx = x - centre
+                val dy = y - centre
+                if ((dx / across) * (dx / across) + (dy / radius) * (dy / radius) > 1f) continue
+                val innerAcross = (across - 2f).coerceAtLeast(0.5f)
+                val rim = (dx / innerAcross) * (dx / innerAcross) + (dy / (radius - 2f)) * (dy / (radius - 2f)) > 1f
+                val shine = turn >= 0f && !rim && dx < -across * 0.2f && dx > -across * 0.5f
+                val colour = when {
+                    rim -> 0x8A5A12
+                    shine -> 0xFFE9A8
+                    else -> face
+                }
+                val at = (y * width + frame * CoinSize + x) * 4
+                pixels[at] = (colour shr 16).toByte()
+                pixels[at + 1] = (colour shr 8).toByte()
+                pixels[at + 2] = colour.toByte()
+                pixels[at + 3] = 0xFF.toByte()
+            }
+        }
+    }
+    return GlTexture.rgba(width, CoinSize, pixels, smooth = false)
+}
 
 private fun resource(path: String): ByteArray =
     checkNotNull(object {}.javaClass.classLoader.getResourceAsStream(path)) { "no $path on the classpath" }
