@@ -3,12 +3,13 @@
 A backend is the bit that turns "draw a rounded box here" into actual OpenGL, and
 "how wide is this word?" into a number.
 
-Two ship. Neither is required: the toolkit names no engine anywhere.
+Three ship. None is required: the toolkit names no engine anywhere.
 
 | module | what it is |
 |---|---|
 | `composegl-gdx` | LibGDX. Desktop, Android, iOS. The one to ship a game on. |
 | `composegl-lwjgl3` | Raw OpenGL and stb_truetype. Desktop only. |
+| `composegl-webgl` | WebGL in a browser tab, from WebAssembly. The page's own fonts and input. |
 | `composegl-android` | Not a backend — the things about an Android phone LibGDX cannot answer. |
 | `composegl-robovm` | The same, for an iPhone, through UIKit. |
 
@@ -73,6 +74,65 @@ when you would write them out instead.
 
 ---
 
+## In a browser
+
+`composegl-webgl` runs the toolkit in a web page: Kotlin compiled to WebAssembly,
+drawn with WebGL (version 2 where the browser has it, 1 where it does not). Every
+widget and every screen you already wrote runs unchanged — `composegl-ui` and
+`composegl-effects` build for `wasmJs` alongside the JVM, Linux and iOS.
+
+```kotlin
+fun main() {
+    MainScope().launch {
+        val fonts = WebFonts()
+        fonts.load("default", "fonts/DejaVuSans.ttf", listOf(13, 16, 20, 28))
+
+        val canvas = document.getElementById("game") as HTMLCanvasElement
+        val backend = WebGlBackend(canvas, fonts)
+        BrowserUi(backend, Size(960f, 600f)) { MainMenu() }.start()
+    }
+}
+```
+
+`BrowserUi` is the one thing a web game needs beyond its screens. It is the loop
+(`requestAnimationFrame`) and the wiring every desktop launcher writes by hand: the
+pointer, key and pad routers, focus, the back stack, and the backend's fonts,
+clipboard, keyboard and input method provided to the content. `frame(nanos)` is one
+turn of it, for a page with its own loop.
+
+What the page gives you, translated:
+
+| | |
+|---|---|
+| **pointer** | mouse, touch and pen, each finger its own pointer; captured on a press, so a drag that leaves the canvas still ends |
+| **keys** | named by where the key is (`code`), so WASD is WASD on any layout; text comes from what the key typed |
+| **text** | an invisible text box takes focus with a field, so Japanese, Chinese and Korean input methods compose into it, and a phone raises its keyboard |
+| **clipboard** | Ctrl+V waits for the browser's `paste` event, so a field pastes what was really copied; copies go to the system clipboard |
+| **pads** | the Gamepad API's standard layout, polled once a frame; a browser only shows a page a pad after a button is pressed |
+| **cursor** | the canvas's CSS `cursor` |
+| **haptics** | `navigator.vibrate` on a phone, the pad's rumble where it has one |
+| **size** | the canvas follows its size on the page times the device pixel ratio, and the viewport letterboxes the design into it |
+
+**Fonts** are drawn by the browser. Each glyph is drawn once with the 2D canvas onto
+an atlas page and is a quad from then on, so a screen of panels and labels is still
+one draw call. A character outside ASCII and Latin-1 is drawn on demand the first
+time a label needs it — including from the system's fallback fonts — rather than
+coming out as `?`.
+
+Try it: `./gradlew :composegl-demo-web:wasmJsBrowserDevelopmentRun`. The same demo
+is what the Pages workflow publishes.
+
+![the web demo in Chromium: a card with a callsign field, a volume slider and bar, a toggle, a checkbox and two buttons](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/web-demo.png)
+
+The backend is held to the same scenes as the other two. Its own goldens are drawn
+in headless Chromium with WebGL in software, and the scenes with no text in them are
+also compared with the raw OpenGL backend's goldens by the same rule — shapes, clips,
+layers and effects have no reason to differ between OpenGL and WebGL. The tests are
+`./gradlew :composegl-webgl:wasmJsBrowserTest`; set `CHROME_BIN`, or have Playwright's
+Chromium installed.
+
+---
+
 ## Hold the interface, not the backend
 
 Whatever class of yours owns the interface — the one with the host, the renderer, the
@@ -91,12 +151,13 @@ Name the interface and the same class takes `HeadlessBackend` in a test: a recor
 canvas, a monospace font, an in-memory clipboard, no machine. See [[Testing]] for the
 worked example.
 
-Three backends implement it, so the swap is real:
+Four backends implement it, so the swap is real:
 
 | | |
 |---|---|
 | `GdxBackend(fonts, spriteBatch)` | LibGDX |
 | `Lwjgl3Backend(window, fonts)` | raw OpenGL |
+| `WebGlBackend(canvas, fonts)` | a browser tab |
 | `HeadlessBackend()` | no window at all, in `composegl-ui` |
 
 `SnakeApp` in `composegl-demo-snake-core` is the shape to copy: it takes fonts and a

@@ -1,0 +1,59 @@
+name: Web demo
+
+# The example, built for the browser and published to GitHub Pages, so anyone can try the toolkit
+# without installing anything. Rebuilt on every push to master; nothing here releases or tags.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build the web demo
+    runs-on: ubuntu-latest
+    outputs:
+      pages: ${{ steps.pages.outputs.on }}
+    steps:
+      # Pages has to be switched on in the repository's settings once. Until it is, the demo is still
+      # built — so a change that breaks it shows — but not deployed, rather than failing every push.
+      - id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" > /dev/null 2>&1; then
+            echo "on=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "on=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub Pages is not switched on for this repository, so the demo is built but not published."
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew :composegl-demo-web:wasmJsBrowserDistribution --stacktrace
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: composegl-demo-web/build/dist/wasmJs/productionExecutable
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: build
+    if: needs.build.outputs.pages == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

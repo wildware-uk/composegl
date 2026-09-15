@@ -73,13 +73,14 @@ You need `composegl-ui` and exactly one backend.
 
 | | |
 |---|---|
-| `composegl-ui` | the toolkit. Multiplatform: JVM, Linux native, iOS |
+| `composegl-ui` | the toolkit. Multiplatform: JVM, Linux native, iOS, and the browser as WebAssembly |
 | `composegl-gdx` | the LibGDX backend. The one to use |
 | `composegl-lwjgl3` | a second backend, raw OpenGL. Exists to disagree with the first |
+| `composegl-webgl` | the browser: WebGL, the page's fonts, mouse, touch, keys, pads and input methods |
 | `composegl-android` | on a phone: what the keyboard covers, the platform's own typing, and haptics |
 | `composegl-robovm` | the same, on an iPhone, through UIKit |
 | `composegl-effects` | blur, outline, colour grade, dissolve. Optional |
-| `composegl-testing` | the scenes both backends draw, for testing your own widgets |
+| `composegl-testing` | the scenes every backend draws, for testing your own widgets |
 
 ## Try it
 
@@ -88,6 +89,7 @@ You need `composegl-ui` and exactly one backend.
 ./gradlew :composegl-demo-snake:run          # Snake: menu, HUD, pause, game over
 ./gradlew :composegl-demo-showcase:run       # a HUD over a 3D scene, and a panel standing in it
 ./gradlew :composegl-demo:renderPreviews     # every @Preview in the example, as PNGs in build/previews
+./gradlew :composegl-demo-web:wasmJsBrowserDevelopmentRun   # the toolkit in a browser tab
 ```
 
 ## Read more

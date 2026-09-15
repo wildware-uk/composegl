@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>ComposeGL in a browser</title>
+    <style>
+        html, body { margin: 0; height: 100%; background: #0b0e13; overflow: hidden; }
+        #game { display: block; width: 100vw; height: 100vh; }
+        #loading { position: absolute; inset: 0; display: grid; place-items: center; color: #8a98a8;
+                   font: 15px system-ui, sans-serif; pointer-events: none; }
+        body[data-ready] #loading { display: none; }
+    </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="loading">Loading ComposeGL…</div>
+<script src="composegl-demo-web.js"></script>
+</body>
+</html>

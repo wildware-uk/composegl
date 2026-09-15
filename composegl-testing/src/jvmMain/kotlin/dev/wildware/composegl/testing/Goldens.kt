@@ -3,7 +3,6 @@ package dev.wildware.composegl.testing
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
-import kotlin.math.abs
 
 /**
  * Golden images: what the renderer drew last time somebody looked at it and agreed.
@@ -30,13 +29,13 @@ import kotlin.math.abs
 object Goldens {
 
     /** A channel off by this much or less is the two rasterisers disagreeing, not a change. */
-    const val ChannelTolerance = 20
+    const val ChannelTolerance = GoldenRule.ChannelTolerance
 
     /** How much of a picture may differ before it counts as a different picture. */
-    const val MaxDifferingFraction = 0.01
+    const val MaxDifferingFraction = GoldenRule.MaxDifferingFraction
 
     /** Catches a change that moved everything a little rather than something a lot. */
-    const val MaxMeanDifference = 2.0
+    const val MaxMeanDifference = GoldenRule.MaxMeanDifference
 
     private val updating: Boolean = System.getenv("COMPOSEGL_UPDATE_GOLDENS") == "1"
 
@@ -84,48 +83,21 @@ object Goldens {
         throw AssertionError("\"$name\" does not match its golden: ${comparison.summary}. See $written")
     }
 
-    private class Comparison(
-        val differingFraction: Double,
-        val meanDifference: Double,
-        val difference: BufferedImage,
-    ) {
-        val passes: Boolean
-            get() = differingFraction <= MaxDifferingFraction && meanDifference <= MaxMeanDifference
-
-        val summary: String
-            get() = "%.3f%% of pixels differ by more than $ChannelTolerance, mean difference %.2f"
-                .format(differingFraction * 100, meanDifference)
+    private class Comparison(val result: PictureComparison, val difference: BufferedImage) {
+        val passes: Boolean get() = result.passes
+        val summary: String get() = result.summary
     }
 
+    /** The common rule, [comparePictures], with the pictures read out of and back into images. */
     private fun compare(expected: BufferedImage, actual: BufferedImage): Comparison {
-        val difference = BufferedImage(expected.width, expected.height, BufferedImage.TYPE_INT_RGB)
-        var differing = 0L
-        var total = 0L
-
-        for (y in 0 until expected.height) {
-            for (x in 0 until expected.width) {
-                val a = expected.getRGB(x, y)
-                val b = actual.getRGB(x, y)
-                val worst = maxOf(
-                    abs((a shr 16 and 0xFF) - (b shr 16 and 0xFF)),
-                    abs((a shr 8 and 0xFF) - (b shr 8 and 0xFF)),
-                    abs((a and 0xFF) - (b and 0xFF)),
-                )
-                total += worst.toLong()
-                if (worst > ChannelTolerance) {
-                    differing++
-                    // Magenta, because nothing these scenes draw is magenta.
-                    difference.setRGB(x, y, 0xFF00FF)
-                } else {
-                    // What was expected, dimmed, so the highlights have somewhere to sit.
-                    difference.setRGB(x, y, (a shr 2) and 0x3F3F3F)
-                }
-            }
-        }
-
-        val pixels = (expected.width * expected.height).toDouble()
-        return Comparison(differing / pixels, total / pixels, difference)
+        val width = expected.width
+        val height = expected.height
+        val result = comparePictures(width, height, pixelsOf(expected), pixelsOf(actual))
+        return Comparison(result, imageOf(width, height) { x, y -> result.difference[y * width + x] })
     }
+
+    private fun pixelsOf(image: BufferedImage): IntArray =
+        IntArray(image.width * image.height) { at -> image.getRGB(at % image.width, at / image.width) and 0xFFFFFF }
 
     /** Writes what there is to look at, and says where it went. */
     private fun report(

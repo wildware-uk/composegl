@@ -26,6 +26,33 @@ jobs:
       # for a JVM API fails here rather than on somebody's phone.
       - run: ./gradlew build --stacktrace
 
+  browser:
+    name: Browser (WebAssembly + WebGL in headless Chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The runner's Chrome, headless, with WebGL drawn by SwiftShader: no GPU needed. The toolkit's
+      # common tests run in it too, which is what keeps "it compiles for the browser" honest.
+      - name: The toolkit and the WebGL backend, in a real browser
+        run: |
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium)"
+          ./gradlew :composegl-ui:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserTest :composegl-demo-web:wasmJsBrowserDistribution --stacktrace
+
+      - name: Keep what went wrong
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-output
+          path: |
+            **/build/reports/tests/**
+            **/build/screenshots/**
+
   gl:
     name: OpenGL (Xvfb + llvmpipe)
     runs-on: ubuntu-latest

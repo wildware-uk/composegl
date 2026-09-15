@@ -79,6 +79,36 @@ subprojects {
 }
 
 /**
+ * The browser build's tools come from the repositories `settings.gradle.kts` declares.
+ *
+ * Left alone, the Kotlin plugin adds a repository of its own for each of them, and this build
+ * refuses repositories added by a project — so the first wasm task fails before it starts. A null
+ * base URL tells the plugin the repository is already there.
+ */
+allprojects {
+    plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin> {
+        the<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec>().downloadBaseUrl.set(null as String?)
+    }
+    plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootPlugin> {
+        the<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec>().downloadBaseUrl.set(null as String?)
+    }
+    plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnPlugin> {
+        the<org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootEnvSpec>().downloadBaseUrl.set(null as String?)
+    }
+    plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin> {
+        the<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec>().downloadBaseUrl.set(null as String?)
+    }
+
+    // Every browser test runs in Chromium. CI has Chrome installed and says where; a machine with
+    // Playwright has a Chromium of its own, and naming it here saves everybody an environment variable.
+    tasks.withType<org.jetbrains.kotlin.gradle.targets.js.testing.KotlinJsTest>().configureEach {
+        if (System.getenv("CHROME_BIN") == null) {
+            playwrightChromium()?.let { environment("CHROME_BIN", it) }
+        }
+    }
+}
+
+/**
  * The modules that go to Maven Central, and nothing else.
  *
  * A list rather than "everything that is not a demo", because the cost of getting this wrong is
@@ -90,6 +120,7 @@ val published = setOf(
     "composegl-effects",
     "composegl-gdx",
     "composegl-lwjgl3",
+    "composegl-webgl",
     "composegl-android",
     "composegl-robovm",
     "composegl-testing",
@@ -147,6 +178,17 @@ configure(subprojects.filter { it.name in published }) {
             }
         }
     }
+}
+
+/** The newest Chromium Playwright has downloaded, if it has. */
+fun playwrightChromium(): String? {
+    val cache = File(System.getProperty("user.home"), ".cache/ms-playwright")
+    return cache.listFiles { file -> file.name.startsWith("chromium-") }
+        ?.sortedByDescending { it.name.removePrefix("chromium-").toIntOrNull() ?: 0 }
+        ?.firstNotNullOfOrNull { dir ->
+            listOf("chrome-linux64/chrome", "chrome-linux/chrome").map { File(dir, it) }.firstOrNull { it.canExecute() }
+        }
+        ?.absolutePath
 }
 
 /** Every module's tests are JUnit 5, and a test that prints says why it printed. */
