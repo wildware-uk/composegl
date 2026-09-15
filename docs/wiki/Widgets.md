@@ -381,6 +381,55 @@ the divider a height there. The pad and the mouse pass straight over a divider.
 
 ---
 
+## Collapsing headers
+
+A title bar that folds away the section under it — a long settings page, a debug
+window full of tweakables, a codex chapter. imgui calls it `CollapsingHeader` too:
+
+```kotlin
+Column(Modifier.width(320f)) {
+    CollapsingHeader("Physics", initiallyExpanded = true) {
+        Column {
+            Slider(gravity, onValueChange = { gravity = it }, range = 0f..20f)
+            Toggle(ragdolls, onCheckedChange = { ragdolls = it }, label = "Ragdolls")
+        }
+    }
+    CollapsingHeader("Audio") {
+        Slider(volume, onValueChange = { volume = it })
+    }
+}
+```
+
+A click, Enter, Space or the pad's South opens or closes it. The contents grow in
+and shrink away with `animateContentSize`, so the sections under it slide instead of
+jumping. Closed, the contents are not composed at all: the pad, Tab and the mouse
+go straight past them to the next header.
+
+Whether a section is open is kept with `rememberSaveable`, so it is still open when
+the player comes back to the screen (see [[Saving state]]). When the game wants to
+hold the answer — an "expand all" button, or a choice kept in a save file — pass it
+in:
+
+```kotlin
+CollapsingHeader("Graphics", expanded = graphicsOpen, onExpandedChange = { graphicsOpen = it }) {
+    GraphicsSettings()
+}
+```
+
+Closed like that while focus is inside, focus goes back to the header rather than
+being lost. `spec` and `clock` pick how it moves, as for `animateContentSize`.
+
+On a right-to-left screen the triangle is at the right, and a closed one points
+left.
+
+The look is the skin's: `"collapsingheader"` for the bar and
+`"collapsingheader.open"` while it is open; `"collapsingheader.glyph"`, whose text
+colour is the triangle's; and `"collapsingheader.body"`, whose padding is how far the
+contents are indented. Pass `style = "debugheader"` and the same four names hang off
+that instead.
+
+---
+
 ## Fields and settings
 
 ```kotlin

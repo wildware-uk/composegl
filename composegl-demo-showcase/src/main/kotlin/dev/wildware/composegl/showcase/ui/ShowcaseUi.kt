@@ -57,6 +57,7 @@ import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.input.KeyShortcut
 import dev.wildware.composegl.ui.input.Modifiers
 import dev.wildware.composegl.ui.input.plus
+import dev.wildware.composegl.ui.widget.CollapsingHeader
 import dev.wildware.composegl.ui.widget.LocalFonts
 import dev.wildware.composegl.ui.widget.MenuBar
 import dev.wildware.composegl.ui.widget.PopupHost
@@ -348,7 +349,10 @@ private fun TargetTags(state: ShowcaseState) {
     }
 }
 
-/** The switches: every exhibit can be turned off, which is how you see what each one costs. */
+/**
+ * The switches: every exhibit can be turned off, which is how you see what each one costs. They sit
+ * under a collapsing header, so the panel folds down to one line once the player has chosen.
+ */
 @Composable
 private fun ExhibitPanel(state: ShowcaseState) {
     val shown by animateFloatAsState(1f, Tween(240, easing = Easings.EaseOut))
@@ -358,18 +362,22 @@ private fun ExhibitPanel(state: ShowcaseState) {
         style = "panel.quiet",
     ) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
-            Text("ON SHOW", style = "label.title")
-            Exhibit.entries.forEach { exhibit ->
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = VerticalAlignment.Centre,
-                ) {
-                    Column(Modifier.width(230f), verticalArrangement = Arrangement.spacedBy(2f)) {
-                        Text(exhibit.title, style = "label")
-                        Text(exhibit.blurb, style = "label.dim")
+            // Folds away, so the switches can get out of the way of the scene once they are set.
+            CollapsingHeader("ON SHOW", Modifier.fillMaxWidth(), initiallyExpanded = true) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
+                    Exhibit.entries.forEach { exhibit ->
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = VerticalAlignment.Centre,
+                        ) {
+                            Column(Modifier.width(210f), verticalArrangement = Arrangement.spacedBy(2f)) {
+                                Text(exhibit.title, style = "label")
+                                Text(exhibit.blurb, style = "label.dim")
+                            }
+                            Toggle(state.isOn(exhibit), { state.toggle(exhibit) })
+                        }
                     }
-                    Toggle(state.isOn(exhibit), { state.toggle(exhibit) })
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

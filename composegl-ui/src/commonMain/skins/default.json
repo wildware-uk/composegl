@@ -345,6 +345,35 @@
       "background": { "fill": "#232A35", "corner": 4, "border": "#39445A", "padding": 4 }
     },
 
+    // A collapsing header is a section's title bar that folds the section away. Lit a step while
+    // open, so a column of them says which are open before anybody reads the triangles; the body's
+    // padding is how far the contents sit in under it.
+
+    "collapsingheader": {
+      "background": { "fill": "#1A1F28", "corner": 4, "padding": [8, 6] },
+      "hovered": { "background": { "fill": "#232A35", "corner": 4 } },
+      "focused": { "background": { "fill": "#1A1F28", "corner": 4, "border": "#5B8DEF" } },
+      "pressed": { "background": { "fill": "#2C3545", "corner": 4 } },
+      "disabled": { "textColour": "#5E6B7E" }
+    },
+
+    "collapsingheader.open": {
+      "background": { "fill": "#232A35", "corner": 4, "padding": [8, 6] },
+      "hovered": { "background": { "fill": "#2C3545", "corner": 4 } },
+      "focused": { "background": { "fill": "#232A35", "corner": 4, "border": "#5B8DEF" } },
+      "pressed": { "background": { "fill": "#39445A", "corner": 4 } },
+      "disabled": { "textColour": "#5E6B7E" }
+    },
+
+    "collapsingheader.glyph": {
+      "textColour": "#9BA6B6",
+      "hovered": { "textColour": "#E8ECF2" },
+      "focused": { "textColour": "#5B8DEF" },
+      "disabled": { "textColour": "#39445A" }
+    },
+
+    "collapsingheader.body": { "padding": [12, 6] },
+
     // --- menus ---
     //
     // A menu bar is a strip of quiet titles, and the one whose menu is open is lit so the menu hanging
