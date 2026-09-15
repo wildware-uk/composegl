@@ -66,6 +66,9 @@ class ShowcaseState {
     var heat by mutableFloatStateOf(0.24f)
     var ammo by mutableIntStateOf(148)
 
+    /** The colour the reticle is tinted, chosen with the colour picker in the hull panel. */
+    var reticleTint by mutableStateOf(Colour.White)
+
     /** How far the camera has turned, for the radar's compass. */
     var heading by mutableFloatStateOf(0f)
 

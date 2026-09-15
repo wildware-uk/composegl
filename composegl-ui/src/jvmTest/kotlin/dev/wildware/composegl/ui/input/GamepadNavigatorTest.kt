@@ -237,15 +237,22 @@ class GamepadNavigatorTest {
     }
 
     @Test
-    fun `plugging and unplugging is never offered to the screen`() {
-        var offered = 0
+    fun `plugging in is never offered to the screen and unplugging is told but cannot be taken`() {
+        val heard = mutableListOf<GamepadEvent>()
         val state = InteractionState().also { states += it }
-        screen.box("0", modifier = Modifier.interaction(state).focusable(state).onGamepadEvent { offered += 1; true })
+        screen.box("0", modifier = Modifier.interaction(state).focusable(state).onGamepadEvent { heard += it; it is GamepadEvent.Disconnected })
         focus.refresh()
+        pad.frame(0L)
+        stick(x = 1f)
+        assertEquals(FocusDirection.Right, pad.direction)
+        heard.clear()
 
         assertFalse(pad.onGamepad(GamepadEvent.Connected(GamepadId.First)))
+        assertEquals(emptyList<GamepadEvent>(), heard, "a pad arriving is nothing to the screen")
+
         pad.onGamepad(GamepadEvent.Disconnected(GamepadId.First))
 
-        assertEquals(0, offered)
+        assertEquals(listOf<GamepadEvent>(GamepadEvent.Disconnected(GamepadId.First)), heard, "told, so a held button can be let go of")
+        assertNull(pad.direction, "and taking it did not stop the navigator letting go")
     }
 }

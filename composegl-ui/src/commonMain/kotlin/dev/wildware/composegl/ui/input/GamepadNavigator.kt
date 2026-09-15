@@ -56,6 +56,7 @@ class GamepadNavigator(
         is GamepadEvent.Disconnected -> {
             // Somebody pulled the cable mid-press. Let go of everything rather than leaving a
             // button stuck down and a direction repeating forever.
+            toldUnplugged(event)
             stickX = 0f
             stickY = 0f
             dpad.clear()
@@ -81,6 +82,21 @@ class GamepadNavigator(
     }
 
     // --- what the pad said ---------------------------------------------------------------------
+
+    /**
+     * Every handler from the focused node outwards hears that a pad went, whatever it answers.
+     *
+     * Not offered, because nothing may take it: the navigator clears up either way. But a widget
+     * holding on to a button or a push of its own — a hue turning while a shoulder is held — will
+     * never hear that button come up, and this is its only way to know.
+     */
+    private fun toldUnplugged(event: GamepadEvent.Disconnected) {
+        var node = focus.focused
+        while (node != null) {
+            node.resolved.gamepadHandlers.forEach { it.onGamepad(event) }
+            node = node.parent
+        }
+    }
 
     /**
      * The focused node, and each node outside it, gets first refusal — the same walk a key takes.

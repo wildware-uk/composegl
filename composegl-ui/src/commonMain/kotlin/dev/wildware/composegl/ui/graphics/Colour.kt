@@ -62,8 +62,20 @@ value class Colour(val argb: Int) {
         return Colour(mix(alpha, other.alpha), mix(red, other.red), mix(green, other.green), mix(blue, other.blue))
     }
 
+    /**
+     * Written the way a skin file writes it: `"#RRGGBB"`, or `"#AARRGGBB"` when [alpha] is true.
+     *
+     * Leaving the alpha out leaves it out of the text, not out of the colour: `#80FF0000` written
+     * without it is `#FF0000`.
+     */
+    fun toHex(alpha: Boolean = this.alpha != 0xFF): String =
+        if (alpha) "#" + hex(argb, 8) else "#" + hex(argb and 0xFFFFFF, 6)
+
     override fun toString(): String =
         "Colour(#${argb.toUInt().toString(16).uppercase().padStart(8, '0')})"
+
+    private fun hex(value: Int, digits: Int) =
+        value.toUInt().toString(16).uppercase().padStart(digits, '0').takeLast(digits)
 
     companion object {
         val Transparent = Colour(0x00000000)
@@ -101,5 +113,22 @@ value class Colour(val argb: Int) {
 
         /** From `0xRRGGBB`, fully opaque. */
         fun rgb(value: Long) = Colour(0xFF000000.toInt() or value.toInt())
+
+        /**
+         * Reads what a player typed into a hex field, or null when it is not a colour.
+         *
+         * `#RRGGBB` and `#AARRGGBB`, the way a skin file writes them, and the three-digit `#RGB`
+         * short form. The `#` is optional, either case works, and spaces round it are ignored.
+         */
+        fun fromHex(text: String): Colour? {
+            val digits = text.trim().removePrefix("#")
+            if (digits.isEmpty() || digits.any { it.digitToIntOrNull(16) == null }) return null
+            return when (digits.length) {
+                3 -> rgb(digits.map { "$it$it" }.joinToString("").toLong(16))
+                6 -> rgb(digits.toLong(16))
+                8 -> argb(digits.toLong(16))
+                else -> null
+            }
+        }
     }
 }

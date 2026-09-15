@@ -104,6 +104,10 @@ fun interface KeyHandler {
  * Like a key it starts at the focused node and walks outwards. Return true for an up only when the
  * down was yours too, or the navigator is left holding a button that never comes up.
  *
+ * A pad being unplugged is told to every handler on the same walk as a [GamepadEvent.Disconnected],
+ * and what they answer is ignored: it is the moment to let go of a button or a stick still held,
+ * whose release will never come. A pad being plugged in is never passed on.
+ *
  * A handler written inline is a new object every recomposition and so never compares equal —
  * `remember` it, exactly as with [KeyHandler].
  */
