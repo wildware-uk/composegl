@@ -209,6 +209,10 @@ A skin with a button atlas names its regions after those keys and gets real
 buttons; a skin with none gets the label in a box, which is readable everywhere
 and wrong nowhere.
 
+`ProvideGamepadKeyboard` reads it too: a `TextField` focused from a pad opens an
+on-screen keyboard, and one focused by a mouse or Tab does not. See
+[[Widgets]] for the keyboard itself.
+
 ---
 
 ## Haptics

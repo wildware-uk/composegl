@@ -282,6 +282,29 @@
     // Selected text in a label, inside a SelectionContainer. The same blue as a field's.
     "selection": { "background": { "fill": "#3F6BD6" } },
 
+    // The keyboard a pad player types with. A panel of buttons, tighter than a menu's, with Shift
+    // lit in the accent while the next letter is a capital.
+
+    "panel.keyboard": {
+      "background": { "fill": "#1A1F28", "corner": 8, "border": "#39445A", "padding": 10 }
+    },
+
+    "button.key": {
+      "background": { "fill": "#232A35", "corner": 4, "border": "#2C3545", "padding": [4, 7] },
+      "hovered": { "background": { "fill": "#39445A", "corner": 4, "border": "#4A5670" } },
+      "focused": { "background": { "fill": "#2F53A8", "corner": 4, "border": "#7BA5F5", "borderWidth": 2 } },
+      "pressed": {
+        "background": { "fill": "#1A1F28", "corner": 4, "border": "#2C3545" },
+        "contentOffset": [0, 1]
+      },
+      "disabled": { "textColour": "#5E6B7E", "tint": "#A0FFFFFF" }
+    },
+
+    "button.key.on": {
+      "background": { "fill": "#3F6BD6", "corner": 4, "border": "#5B8DEF", "padding": [4, 7] },
+      "focused": { "background": { "fill": "#5B8DEF", "corner": 4, "border": "#E8ECF2", "borderWidth": 2 } }
+    },
+
     // --- lists and menus ---
 
     "item": {

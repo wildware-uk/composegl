@@ -95,6 +95,13 @@ import dev.wildware.composegl.ui.saveable.rememberSaveable
 import dev.wildware.composegl.ui.widget.AnimatedImage
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.rememberSpriteAnimation
+import dev.wildware.composegl.ui.input.KeyEvent
+import dev.wildware.composegl.ui.input.TextEvent
+import dev.wildware.composegl.ui.text.TextFieldValue
+import dev.wildware.composegl.ui.text.TextRange
+import dev.wildware.composegl.ui.widget.GamepadKeyboard
+import dev.wildware.composegl.ui.widget.KeyboardTarget
+import dev.wildware.composegl.ui.widget.ProvideGamepadKeyboard
 import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.Divider
 import dev.wildware.composegl.ui.widget.Dropdown
@@ -524,6 +531,34 @@ private fun MutableList<DocShot>.widgets() {
                 Column(verticalArrangement = Arrangement.spacedBy(8f)) {
                     Text("Seed: 8F3A-22C1")
                     Text("Drag to select, Ctrl+C to copy.", style = "label.dim")
+                }
+            }
+        }
+    })
+
+    // Through the stock skin, which is where the keyboard's own styles are. Opened by hand with the
+    // shift lit, because a picture has no pad to open it with.
+    add(DocShot("widget-gamepad-keyboard", 640, 330, stock = true, seconds = 0.2f) {
+        val keyboard = remember {
+            GamepadKeyboard().apply {
+                open(
+                    object : KeyboardTarget {
+                        override val value = TextFieldValue("Nova", TextRange(4))
+                        override val multiline = false
+                        override fun onText(event: TextEvent) = false
+                        override fun onKey(event: KeyEvent) = false
+                    },
+                    // No device: the shot has no pad, and one opened "from a pad" would close itself.
+                    from = null,
+                )
+                toggleShift()
+            }
+        }
+        Frame {
+            ProvideGamepadKeyboard(keyboard, modifier = Modifier.width(600f)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                    Text("NAME YOUR SQUAD")
+                    TextField("Nova", onValueChange = {}, modifier = Modifier.width(260f))
                 }
             }
         }

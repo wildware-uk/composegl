@@ -350,8 +350,44 @@ Slider(volume, onValueChange = { volume = it }, range = 0f..1f, step = 0.05f)
 ![two sliders at different values, the second focused](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-slider.png)
 
 `TextField` handles selection, the clipboard, and the phone's keyboard, and
-`onSubmit` fires on Enter. It works with a pad too: focus it and the on-screen
-keyboard comes up on platforms that have one.
+`onSubmit` fires on Enter.
+
+### Typing with only a pad
+
+A console or a Steam Deck has no keyboard at all. Wrap the screen and every field
+in it gets one made of buttons:
+
+```kotlin
+ProvideGamepadKeyboard {
+    NameYourSave()
+}
+```
+
+![a keyboard of buttons along the bottom of the screen, under a name field](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-gamepad-keyboard.png)
+
+- It opens when a **pad** moves focus onto a field. A mouse click or Tab never
+  opens it, so desktop players never see it.
+- The d-pad walks the keys, South presses one. The keys type through the field's
+  own editor, so `maxLength` and the caret work the same as with a real keyboard.
+- Three pages — letters, symbols, a number pad — and the page key cycles them.
+  Shift gives one capital, then lets go.
+- Done, B or Escape close it, and focus goes back to the field. South on the
+  field opens it again.
+- Picking up the mouse, or typing on a real keyboard, closes it. The typed
+  letters still reach the field.
+
+`GamepadKeyboard(openOnFocus = false)` waits for South instead, for a long form a
+player walks down. The pad's shortcut buttons — X deletes, Y is a space, the
+bumpers move the caret, the left stick is Shift, Start is done — need one line in
+your input sink, because the pad navigator does not use those buttons:
+
+```kotlin
+override fun onGamepad(event: GamepadEvent) = keyboard.onGamepad(event) || pad.onGamepad(event)
+```
+
+The keys draw from `"button.key"` (a lit Shift is `"button.key.on"`), Done from
+`"button.primary"` and the panel from `"panel.keyboard"`. A skin without them
+falls back to plain buttons and a panel.
 
 ### Steppers: `< Medium >`
 
