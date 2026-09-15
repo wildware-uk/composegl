@@ -3,7 +3,8 @@
 Status: **step 1 built** — `composegl-render` exists and `composegl-lwjgl3` draws with it (steps 1, 2a
 and 2b of §8 landed together). **gdx built** (step 3): `composegl-gdx` draws with it too.
 **korge built** (step 5): `composegl-korge` draws with it through `KorgeKmlGl` and `HostState.Restore`,
-3,934 lines down to 1,966. webgl still carries its own renderer. Supersedes the "engine-agnostic toolkit, engine-specific renderer" row of
+3,934 lines down to 1,966. **webgl built** (step 4): `composegl-webgl` draws with it through `WebGl`,
+3,525 lines down to 2,009. Every backend is now a thin wrapper. Supersedes the "engine-agnostic toolkit, engine-specific renderer" row of
 `2026-09-09-runtime-ui-design.md` §4, and the "shares no code with the LibGDX backend" promise in
 `docs/wiki/Backends.md` and `GlShapeBatch`.
 
@@ -54,6 +55,26 @@ What the code does where this design said otherwise. The code is the reference.
   pages it was not given, and gives its device's atlas textures back on `close()`. KorGE's game
   textures are adopted by the GL name KorGE binds, with a bind hook that binds through
   `AGOpengl.textureBind`. A KorGE atlas is 1,024-pixel pages that do not grow, up to 16.
+- **webgl (step 4).** `src/wasmJsMain` went from 3,525 lines to 2,009 (the estimate was 1,820);
+  `WebGl.kt` is 267 lines. What building it changed:
+  - The index buffer is uploaded through `ELEMENT_ARRAY_BUFFER`, with the device's own vertex array
+    bound first where there are any: WebGL refuses a buffer that was ever bound to `ARRAY_BUFFER`
+    as an index buffer.
+  - The shape shader's fragment header asks for `highp` where `GL_FRAGMENT_PRECISION_HIGH` exists
+    (`GlslDialect.fragment(source, highPrecision = true)`), as the old WebGL batch did. Effects stay
+    `mediump`. So §10's `highp` follow-up is done for the shape shader, with no golden changed.
+  - The binding does not write a float at a time into a `Float32Array`. `GlFloats`, `GlShorts` and
+    `GlBytes` are Kotlin arrays, and an upload copies them into Wasm memory once and hands WebGL a
+    view of it: no JS call per number. A showcase frame is no slower than before (see the commit).
+  - WebGL objects live in one page-wide table; each object carries its own handle, which is how
+    `getParameter(FRAMEBUFFER_BINDING)` comes back as a number.
+  - `AtlasFonts.fallBackTo` is open: `WebFonts` hands its fallbacks to the browser as a CSS font list
+    rather than to the shared chain, so a fallback need not be registered at every size.
+  - Text edges are slightly fuller than the old backend's, whose atlas darkened partly covered
+    pixels; the shared atlas is straight white with coverage in alpha, like stb's. Every golden
+    still passes unchanged.
+  - The forced WebGL 1 run is `wasmJsBrowserWebGl1Test` (Chrome's `--disable-webgl2`), not
+    `wasmJsBrowserTestWebGl1`.
 - lwjgl3 `src/main` went from 4,574 lines to 1,782 (the estimate was 1,680). `composegl-render` is
   3,949 lines, plus 1,706 of common tests (93 tests on jvm, linuxX64 and wasmJs) using a recording
   `GpuDevice` and a recording `Gl`.

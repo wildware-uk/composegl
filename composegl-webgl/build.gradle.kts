@@ -6,20 +6,28 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-description = "The browser backend: WebGL, the page's own fonts, and the DOM's input. WebAssembly."
+description = "The browser backend: a WebGL binding for the shared renderer, the page's own fonts, and the DOM's input. WebAssembly."
 
 /**
  * WebAssembly only, and in a browser only.
  *
  * Everything the toolkit needs from a platform — a canvas, fonts, a clipboard, a keyboard, a
  * pointer, a pad — the page already has, so this module is a translation layer and nothing else.
- * It shares no code with either desktop backend, for the reason those two share none with each
- * other: it has to reach the same pictures by its own route, or the goldens prove nothing.
+ * The drawing is composegl-render's; this is its WebGL binding, a 2D-canvas glyph rasteriser and the
+ * DOM's input.
  */
 kotlin {
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
-        browser()
+        browser {
+            // The same tests again with WebGL 2 switched off in the browser, so the context is WebGL 1:
+            // version 100 shaders, vertex arrays from an extension, plain RGBA offscreen pictures.
+            testRuns.create("webGl1") {
+                executionTask.configure {
+                    environment("COMPOSEGL_WEBGL", "1")
+                }
+            }
+        }
     }
 
     sourceSets {
@@ -28,6 +36,8 @@ kotlin {
 
         wasmJsMain.dependencies {
             api(project(":composegl-ui"))
+            // The renderer. This module is its binding: WebGL, the page's fonts, and the DOM.
+            api(project(":composegl-render"))
             api(libs.kotlinx.browser)
         }
 
@@ -57,3 +67,6 @@ tasks.withType<KotlinJsTest>().configureEach {
     inputs.dir(testResources)
     // Which Chromium runs them is decided once, for every browser test, in the root build file.
 }
+
+// The renderer lives in composegl-render. Shaders and draw calls here would be a second one.
+confineRenderer("WebGl.kt")

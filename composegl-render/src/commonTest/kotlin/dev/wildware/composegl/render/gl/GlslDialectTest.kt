@@ -75,6 +75,15 @@ class GlslDialectTest {
     }
 
     @Test
+    fun `the shape shader asks for high precision where an ES device has it and nowhere else`() {
+        val high = "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n"
+        assertEquals("#version 100\n$high$fragment", GlslDialect.Es100.fragment(fragment, highPrecision = true))
+        assertEquals(true, GlslDialect.Es300.fragment(fragment, highPrecision = true).startsWith("#version 300 es\n$high"))
+        assertEquals(fragment, GlslDialect.Legacy.fragment(fragment, highPrecision = true))
+        assertEquals(false, GlslDialect.Core150.fragment(fragment, highPrecision = true).contains("precision"))
+    }
+
+    @Test
     fun `only whole words are rewritten`() {
         val source = "uniform float my_varying_amount;\nvoid main() { gl_FragColor = texture2DLod(u_texture, v_texCoord, 0.0) * my_varying_amount; }"
         assertEquals(

@@ -42,12 +42,17 @@ enum class GlslDialect(
     /**
      * [source], a fragment shader, as this dialect compiles it. The ES family gets a default float
      * precision, which a fragment shader there cannot compile without.
+     *
+     * @param highPrecision ask for `highp` where the device has it, and `mediump` where it does not.
+     *   The shape shader does: a phone's medium precision runs out long before a wide panel does,
+     *   and the rounded-box distance turns to visible steps. Effects keep `mediump`.
      */
-    fun fragment(source: String): String {
+    fun fragment(source: String, highPrecision: Boolean = false): String {
         if (version.isEmpty()) return source
         val header = buildString {
             append(version).append('\n')
-            if (precision) append("precision mediump float;\n")
+            if (precision && highPrecision) append(HighPrecision)
+            if (precision && !highPrecision) append("precision mediump float;\n")
             if (modern) append("out vec4 ").append(FragColour).append(";\n")
         }
         val body = if (modern) {
@@ -62,6 +67,10 @@ enum class GlslDialect(
 
         /** What `gl_FragColor` becomes where it no longer exists. Not `gl_`: that prefix is reserved. */
         const val FragColour = "cg_FragColor"
+
+        /** `highp` where a fragment shader can have it, `mediump` where it cannot. */
+        const val HighPrecision =
+            "#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n"
 
         /** The dialect a context with [profile] compiles. */
         fun of(profile: GlProfile): GlslDialect = when (profile.api) {

@@ -158,14 +158,17 @@ open class AtlasFonts(
     /**
      * Where every family looks for a character its own font does not have: each of [families], in
      * order. A fallback must be registered at every size it is asked for. Not followed any further.
+     *
+     * Open for a backend whose rasteriser falls back by itself — a browser picks a font per glyph
+     * from a CSS font list — and so hands the list to the rasteriser instead.
      */
-    fun fallBackTo(families: List<String>) {
+    open fun fallBackTo(families: List<String>) {
         everyFamilyFallsBackTo = families.toList()
         chains.clear()
     }
 
     /** Where [family] alone looks for a character it does not have, instead of the list for everyone. */
-    fun fallBackTo(family: String, families: List<String>) {
+    open fun fallBackTo(family: String, families: List<String>) {
         fallbacksByFamily[family] = families.toList()
         chains.clear()
     }

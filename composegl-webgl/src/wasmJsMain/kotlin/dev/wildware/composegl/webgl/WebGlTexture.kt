@@ -1,5 +1,8 @@
 package dev.wildware.composegl.webgl
 
+import dev.wildware.composegl.render.BoundPicture
+import dev.wildware.composegl.render.TextureResolver
+import dev.wildware.composegl.render.gl.GlDeviceTexture
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import kotlinx.browser.window
 import kotlinx.coroutines.await
@@ -17,7 +20,8 @@ import kotlin.js.Promise
  * A WebGL texture, or a part of one, wearing the toolkit's opaque handle.
  *
  * The toolkit sees a width and a height. This side knows the texture object and where in it the
- * picture lives, which is what lets an atlas hand out many pictures that all cost one texture.
+ * picture lives, which is what lets an atlas hand out many pictures that all cost one texture — and
+ * batch as one, since the renderer compares textures by the object underneath.
  *
  * Texture coordinates count y downwards, like everything else in the toolkit: [v] is the top edge
  * and [v2] the bottom. Rows are uploaded top first, so that matches what is in the texture.
@@ -36,6 +40,8 @@ class WebGlTexture(
     val v2: Float = 1f,
     private val owned: Boolean = false,
 ) : TextureHandle, AutoCloseable {
+
+    private var bound: BoundPicture? = null
 
     /** A part of this picture, in pixels from its top-left. Owns nothing. */
     fun region(left: Int, top: Int, width: Int, height: Int): WebGlTexture {
@@ -59,6 +65,16 @@ class WebGlTexture(
     }
 
     companion object {
+
+        /** How the shared renderer binds one of these: the texture object, adopted, and never deleted by it. */
+        internal val Resolver = TextureResolver { handle ->
+            (handle as? WebGlTexture)?.let { texture ->
+                texture.bound ?: BoundPicture(
+                    GlDeviceTexture.adopt(WebGl.handleOf(texture.name), texture.width, texture.height),
+                    texture.u, texture.v, texture.u2, texture.v2,
+                ).also { texture.bound = it }
+            }
+        }
 
         /**
          * Uploads [pixels] — four bytes each, red first, the top row first — as a new texture.
