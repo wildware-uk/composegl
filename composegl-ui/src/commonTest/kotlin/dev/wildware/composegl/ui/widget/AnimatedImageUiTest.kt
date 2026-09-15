@@ -418,6 +418,67 @@ class AnimatedImageUiTest {
     }
 
     @Test
+    fun `recomposing around a finished one-shot does not redraw it`() {
+        // Written from outside, read inside: every write recomposes the screen, and each time the
+        // strip is a new list and onFinished a new lambda. Neither is a new picture.
+        var count by mutableStateOf(0)
+        val ui = open {
+            val seen = count
+            AnimatedImage(
+                rememberSpriteAnimation(listOf(red, green, blue), fps = 10f, loop = false),
+                Modifier.testTag("boom"),
+                onFinished = { println(seen) },
+            )
+        }
+        val before = ui.host.changedFrames
+
+        repeat(3) {
+            count++
+            ui.advanceBy(100)
+        }
+
+        assertEquals(before, ui.host.changedFrames)
+        assertSame(blue, ui.drawn("boom"))
+    }
+
+    @Test
+    fun `a finished one-shot turned back into a loop plays again`() {
+        val ui = open {
+            var loop by remember { mutableStateOf(false) }
+            Column {
+                Button("LOOP", onClick = { loop = true }, modifier = Modifier.testTag("loop"))
+                AnimatedImage(rememberSpriteAnimation(strip, fps = 2f, loop = loop), Modifier.testTag("coin"))
+            }
+        }
+        ui.advanceBy(2_000)
+        assertSame(blue, ui.drawn("coin"))
+
+        ui.click("loop")
+        val seen = (0 until 3).map {
+            ui.advanceBy(500)
+            ui.drawn("coin")
+        }
+
+        assertEquals(3, seen.toSet().size, "every picture came round again, saw $seen")
+    }
+
+    @Test
+    fun `frames of no size take no room and draw nothing`() {
+        val empty = listOf(Frame("a", 0, 0), Frame("b", 0, 0))
+        val ui = open {
+            AnimatedImage(rememberSpriteAnimation(empty, fps = 2f), Modifier.testTag("nothing"))
+        }
+        ui.advanceBy(1_000)
+
+        val node = ui.node("nothing")
+        assertEquals(0f, node.boundsInRoot.width)
+        assertEquals(0f, node.boundsInRoot.height)
+        val canvas = RecordingCanvas(Rect.of(0f, 0f, ui.size.width, ui.size.height))
+        DrawPass(canvas).draw(node, 0f, 0f)
+        assertTrue(canvas.calls.none { it is DrawCall.Image })
+    }
+
+    @Test
     fun `an empty strip or a rate of nothing is refused`() {
         assertFailsWith<IllegalArgumentException> { open { rememberSpriteAnimation(emptyList(), fps = 2f) } }
         assertFailsWith<IllegalArgumentException> { open { rememberSpriteAnimation(strip, fps = 0f) } }
