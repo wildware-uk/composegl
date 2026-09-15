@@ -151,6 +151,32 @@ class Clocks {
         if (left > 0) playing[clock] = left else playing.remove(clock)
     }
 
+    /** How many `animateContentSize` resizes are under way on each clock. Also counted in [playing]. */
+    private val resizes = HashMap<Clock, Int>()
+
+    /**
+     * Whether a resize that layout steps is under way on a clock that is moving.
+     *
+     * A coroutine animation writes state when it moves, and that is how a frame hears about it. A
+     * resize moves only when layout runs, and a game lays out only when a frame changed — so the
+     * host asks this and calls such a frame changed, or the resize would wait for a layout that never
+     * comes. The first frame after the contents change moves nothing, and nor does the frame a
+     * paused clock starts again on.
+     */
+    internal val isResizing: Boolean
+        get() = resizes.isNotEmpty() && resizes.any { (clock, count) -> count > 0 && clock !in stopped }
+
+    internal fun beganResizing(clock: Clock) {
+        resizes[clock] = (resizes[clock] ?: 0) + 1
+        began(clock)
+    }
+
+    internal fun endedResizing(clock: Clock) {
+        val left = (resizes[clock] ?: 0) - 1
+        if (left > 0) resizes[clock] = left else resizes.remove(clock)
+        ended(clock)
+    }
+
     private companion object {
         /** Not zero: a game may well hand us zero as its first frame time. */
         const val NoFrameYet = Long.MIN_VALUE

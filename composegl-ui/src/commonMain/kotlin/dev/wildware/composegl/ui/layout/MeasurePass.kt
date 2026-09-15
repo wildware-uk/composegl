@@ -107,6 +107,29 @@ class MeasurePass {
         node.height = outer.constrainHeight(natural + node.baselineTop + node.baselineBottom)
         node.everMeasured = true
 
+        // What the contents want is now known, and an animated node is laid out at where it has got
+        // to on the way there instead. The contents keep the size they measured at and are placed
+        // by the alignment inside the smaller or bigger box; the draw pass clips them meanwhile.
+        val resize = resolved.contentSize
+        if (resize != null) {
+            val animation = node.sizeAnimation ?: SizeAnimation().also { node.sizeAnimation = it }
+            val wantWidth = node.width
+            val wantHeight = node.height
+            // A frame whose size moved is a frame that changed, even though nothing recomposed.
+            if (animation.follow(wantWidth, wantHeight, resize.spec, resize.clock, node.tree?.clocks)) {
+                node.invalidate()
+            }
+            node.width = outer.constrainWidth(animation.width)
+            node.height = outer.constrainHeight(animation.height)
+            shiftContents(
+                node,
+                resize.alignment.xIn(node.width, wantWidth),
+                resize.alignment.yIn(node.height, wantHeight),
+            )
+        } else {
+            node.sizeAnimation?.forget()
+        }
+
         // The parent is told about the slot it insisted on, so its own arithmetic is unchanged,
         // and the node sits inside that slot where it asked to. With no wrap the two are the same.
         val placeable = node.placeable.on(resolved)
@@ -175,6 +198,23 @@ class MeasurePass {
 
         node.firstBaseline = first
         node.lastBaseline = last
+    }
+
+    /**
+     * Moves the children this pass placed, and the lines of text they carry, by [dx] and [dy]: a
+     * resize part-way lines its full-size contents up inside the box it has reached.
+     */
+    private fun shiftContents(node: UiNode, dx: Float, dy: Float) {
+        if (dx == 0f && dy == 0f) return
+        node.firstBaseline += dy
+        node.lastBaseline += dy
+        val children = node.children
+        for (index in children.indices) {
+            val child = children[index]
+            if (!child.measurable.measuredIn(this)) continue
+            child.x += dx
+            child.y += dy
+        }
     }
 
     /**

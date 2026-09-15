@@ -16,7 +16,10 @@ import dev.wildware.composegl.ui.animation.fadeOut
 import dev.wildware.composegl.ui.animation.animateFloatAsState
 import dev.wildware.composegl.ui.animation.scaleOut
 import androidx.compose.runtime.withFrameNanos
+import dev.wildware.composegl.ui.animation.Clock
+import dev.wildware.composegl.ui.animation.wait
 import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.modifier.animateContentSize
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
@@ -1080,6 +1083,30 @@ private fun MutableList<DocShot>.modifiers() {
         }
     })
 
+    // The same quest entry three times, opened at the same moment. The middle one's resize runs on
+    // a clock that is stopped half-way, so the picture holds the moment the other two pass through:
+    // the entry part-way down, and the line that does not fit yet cut off at its edge.
+    add(DocShot("modifier-animate-content-size", 460, 170, seconds = 1f) {
+        val clocks = LocalClocks.current
+        val halfway = remember { Clock("halfway") }
+        var open by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            // After the first layout rather than before it: an entry that is open the first time
+            // it is laid out appears open, because appearing is not resizing.
+            clocks.wait(Clock.Ui, 100)
+            open = true
+            clocks.wait(Clock.Ui, QuestOpenMillis / 2)
+            clocks.stop(halfway)
+        }
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(16f)) {
+                Labelled("closed") { QuestEntry(open = false, clock = Clock.Ui) }
+                Labelled("on the way") { QuestEntry(open, halfway) }
+                Labelled("open") { QuestEntry(open, Clock.Ui) }
+            }
+        }
+    })
+
     // A popup hung under a button by the button's own onPlaced, and a panel reading out the size
     // its onSizeChanged was last handed. Nothing in it polls.
     add(DocShot("modifier-on-placed", 420, 200, seconds = 0.2f) {
@@ -1375,6 +1402,27 @@ private fun ArrangementRow(name: String, arrangement: Arrangement) {
         Text(name, style = "label.dim")
         Row(Modifier.fillMaxWidth().background(Ink, corner = 4f), horizontalArrangement = arrangement) {
             repeat(3) { Box(Modifier.size(48f, 16f).background(Accent, corner = 3f)) {} }
+        }
+    }
+}
+
+/** How long a quest entry takes to open, in the picture of `animateContentSize`. */
+private const val QuestOpenMillis = 600
+
+@Composable
+private fun QuestEntry(open: Boolean, clock: Clock) {
+    Column(
+        Modifier.width(130f)
+            .animateContentSize(Tween(QuestOpenMillis, easing = Easings.Linear), clock = clock)
+            .background(Steel, corner = 6f)
+            .padding(10f),
+        verticalArrangement = Arrangement.spacedBy(6f),
+    ) {
+        Text("The lost ring")
+        if (open) {
+            Text("Search the well", style = "label.dim")
+            Text("at Oakmere, then", style = "label.dim")
+            Text("return to Edda.", style = "label.dim")
         }
     }
 }

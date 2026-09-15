@@ -336,8 +336,9 @@ class DrawPass(val canvas: UiCanvas) {
         for (index in behind.indices) paint(behind[index], bounds)
 
         // The clip covers this node's content and its children, not its own background — which is
-        // the node's own bounds anyway, so clipping it would change nothing.
-        val clipped = resolved.clip != null
+        // the node's own bounds anyway, so clipping it would change nothing. A node part-way through
+        // an `animateContentSize` clips too, for as long as its contents are a different size from it.
+        val clipped = resolved.clip != null || node.isResizing
         if (clipped) canvas.pushClip(bounds)
 
         // Only when something is actually drawn into it. Most nodes are a box round other boxes

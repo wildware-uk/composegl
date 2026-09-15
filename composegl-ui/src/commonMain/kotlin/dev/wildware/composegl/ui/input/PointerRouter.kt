@@ -368,8 +368,8 @@ class PointerRouter(
         // a mirror says so too, because the subtree is captured at exactly this node's own
         // rectangle and a child that overflows it is cut off on screen — so without this line a
         // child hanging out of a shrunk panel keeps taking clicks in the empty space where it used
-        // to be.
-        if ((resolved.clip != null || own != 1f || mirrorX || mirrorY) && !inside) return
+        // to be. A resize still under way clips as it draws, so it stops the search the same way.
+        if ((resolved.clip != null || own != 1f || mirrorX || mirrorY || node.isResizing) && !inside) return
         // And a clip that is a shape says so for the corners it cut away, in the node's own units
         // for the same reason a hit shape is asked in them.
         if (inside && !insideClipShape(node, innerX, innerY, innerScaleX, innerScaleY, pointX, pointY)) return

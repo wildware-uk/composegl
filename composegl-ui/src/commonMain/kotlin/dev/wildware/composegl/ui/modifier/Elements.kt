@@ -1,6 +1,8 @@
 package dev.wildware.composegl.ui.modifier
 
+import dev.wildware.composegl.ui.animation.AnimationSpec
 import dev.wildware.composegl.ui.animation.Clock
+import dev.wildware.composegl.ui.animation.Spring
 import dev.wildware.composegl.ui.focus.FocusRequester
 import dev.wildware.composegl.ui.focus.FocusWithinHandler
 import dev.wildware.composegl.ui.focus.RevealHandler
@@ -1507,6 +1509,51 @@ fun Modifier.onSizeChanged(handler: SizeChangedHandler) = then(OnSizeChangedElem
  * [PlacedHandler].
  */
 fun Modifier.onPlaced(handler: PlacedHandler) = then(OnPlacedElement(handler))
+
+/** @see dev.wildware.composegl.ui.modifier.animateContentSize */
+data class AnimateContentSizeElement(
+    val spec: AnimationSpec,
+    val alignment: Alignment,
+    val clock: Clock,
+) : Modifier.Element
+
+/**
+ * Grows and shrinks towards the size this node's contents want, rather than jumping there.
+ *
+ * ```kotlin
+ * Panel(Modifier.animateContentSize()) {
+ *     Text(quest.title)
+ *     if (expanded) Text(quest.description)
+ * }
+ * ```
+ *
+ * An expanding quest entry, a chat bubble growing as its text types in, a tooltip whose text
+ * changes: the contents are measured at their new size at once, and the node is laid out at a size
+ * that travels from the old one to the new one. What does not fit yet is cut off at the node's edge,
+ * and cannot be clicked there either, until it arrives. Once it has, nothing is cut, so a glow
+ * hanging over the edge of a settled panel is left alone.
+ *
+ * The node's whole size is animated — padding, background and border included — wherever this sits
+ * in the chain. Its parent sees the moving size too, so the rows under an expanding entry slide down
+ * with it rather than being overlapped. A size the chain or the parent fixes has nothing to follow,
+ * and a node's first layout takes its size straight away: appearing is not resizing.
+ *
+ * It runs on the host's clocks and is stepped by layout, so it costs nothing once it has arrived,
+ * a test's `settle` waits for it, and one on [Clock.World] stops with the game. A spec written
+ * inline is fine: specs compare by what they say, so recomposing does not start it again.
+ *
+ * @param spec how it travels. A spring by default, which turns round smoothly when the contents
+ *   change again part-way — a bubble that is still growing when the next word arrives.
+ * @param alignment where the contents sit inside the node while it is the wrong size.
+ *   [Alignment.TopStart] reveals them downwards and rightwards; [Alignment.BottomStart] grows a chat
+ *   log upwards from its newest line.
+ * @param clock which clock it runs on.
+ */
+fun Modifier.animateContentSize(
+    spec: AnimationSpec = Spring(threshold = 0.5f),
+    alignment: Alignment = Alignment.TopStart,
+    clock: Clock = Clock.Ui,
+) = then(AnimateContentSizeElement(spec, alignment, clock))
 
 fun Modifier.focusRequester(requester: FocusRequester) = then(FocusRequesterElement(requester))
 

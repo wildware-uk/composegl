@@ -19,6 +19,7 @@ import dev.wildware.composegl.ui.layout.NodePlaceable
 import dev.wildware.composegl.ui.layout.OnceMeasurable
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.layout.PlacedHandler
+import dev.wildware.composegl.ui.layout.SizeAnimation
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
@@ -279,6 +280,19 @@ class UiNode(var name: String = "node") {
 
     /** This node's children, wrapped, refilled by each pass rather than rebuilt. */
     internal val measurables: MutableList<Measurable> = mutableListOf()
+
+    /**
+     * The size an `animateContentSize` on this node is on its way through. Null on every node that
+     * has never had one, which is nearly all of them.
+     */
+    internal var sizeAnimation: SizeAnimation? = null
+
+    /**
+     * Whether this node is part-way between two sizes, and so cuts off what it draws at its edge.
+     *
+     * The draw pass and the pointer both ask, so what is cut off on screen is not clickable either.
+     */
+    internal val isResizing: Boolean get() = sizeAnimation?.isRunning == true
 
     /** The room this node was offered, and the room left inside its padding. */
     internal val outerConstraints = ConstraintsCache()
@@ -675,7 +689,12 @@ class UiNode(var name: String = "node") {
     private fun attachTo(tree: UiTree?) {
         if (this.tree === tree) return
         this.tree = tree
-        if (tree == null) forgetReportedLayout()
+        if (tree == null) {
+            forgetReportedLayout()
+            // Otherwise a node removed mid-resize counts as playing for ever, and anything waiting
+            // for the clocks to go quiet waits for ever with it.
+            sizeAnimation?.forget()
+        }
         mutableChildren.forEach { it.attachTo(tree) }
     }
 

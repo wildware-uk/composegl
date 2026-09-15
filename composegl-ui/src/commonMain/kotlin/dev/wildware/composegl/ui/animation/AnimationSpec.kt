@@ -89,6 +89,16 @@ class Tween(
 
     private val totalNanos: Long get() = (durationMillis + delayMillis) * 1_000_000L
 
+    // Equal by what it says, so a spec written inline — a new object every recomposition — does
+    // not make a modifier holding it look changed every time. See [Modifier]'s rule on equality.
+    override fun equals(other: Any?): Boolean =
+        other is Tween && durationMillis == other.durationMillis && delayMillis == other.delayMillis &&
+            easing == other.easing
+
+    override fun hashCode(): Int = (durationMillis * 31 + delayMillis) * 31 + easing.hashCode()
+
+    override fun toString(): String = "Tween(durationMillis=$durationMillis, delayMillis=$delayMillis)"
+
     companion object {
         /** Long enough to be seen, short enough not to be waited for. */
         const val DefaultDurationMillis = 200
@@ -108,6 +118,12 @@ class Snap(val delayMillis: Int = 0) : AnimationSpec {
 
     override fun isFinished(from: Float, to: Float, initialVelocity: Float, playTimeNanos: Long): Boolean =
         playTimeNanos >= delayMillis * 1_000_000L
+
+    override fun equals(other: Any?): Boolean = other is Snap && delayMillis == other.delayMillis
+
+    override fun hashCode(): Int = delayMillis
+
+    override fun toString(): String = "Snap(delayMillis=$delayMillis)"
 }
 
 /**
@@ -189,6 +205,13 @@ class Spring(
         // that has stopped short of it at the top of a wobble has not either.
         return abs(value - to) < threshold && abs(velocity) < threshold * VelocityAllowance
     }
+
+    override fun equals(other: Any?): Boolean =
+        other is Spring && damping == other.damping && stiffness == other.stiffness && threshold == other.threshold
+
+    override fun hashCode(): Int = (damping.hashCode() * 31 + stiffness.hashCode()) * 31 + threshold.hashCode()
+
+    override fun toString(): String = "Spring(damping=$damping, stiffness=$stiffness, threshold=$threshold)"
 
     companion object {
 
