@@ -569,7 +569,13 @@ class GdxCanvas(
         if (pixelWidth <= 0 || pixelHeight <= 0) return null
         if (pixelWidth > MaxLayerPixels || pixelHeight > MaxLayerPixels) return null
 
+        // Flushed before a picture is taken from the pool, not after. Making a new FrameBuffer binds
+        // the screen when it is done, so whatever an enclosing layer had batched but not yet drawn
+        // would otherwise land on the screen instead of in that layer's picture.
+        batch().flush()
         val target = layers.acquire(pixelWidth, pixelHeight)
+        // And put back what was bound, since the pool may just have moved it.
+        bindFramebuffer(framebuffer)
 
         // Bound by hand rather than with FrameBuffer.begin(), which unbinds to the screen rather
         // than to whatever was bound before it — so layers inside layers would come apart, and the
@@ -581,7 +587,6 @@ class GdxCanvas(
         val previousLayer = layer
         val previousProjection = Matrix4(projection)
 
-        batch().flush()
         layer = LayerFrame(bounds, pixelWidth, pixelHeight)
         // Full opacity and a clip of exactly the layer. The opacity out here is applied when the
         // picture is drawn back, which is what makes a group fade as one object.
@@ -708,6 +713,35 @@ class GdxCanvas(
 
     /** It really turns one, on the same quad the upright composite uses. */
     override val turnsLayers: Boolean get() = true
+
+    override fun drawLayerOnto(layer: TextureHandle, destination: Rect, corners: FloatArray) {
+        require(corners.size == 8) { "four corners are eight numbers, not ${corners.size}" }
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layer as? GdxTexture
+            ?: error("this canvas can only draw layers it made, not ${layer::class}")
+        val region = picture.region
+
+        // The corners arrive counting y down and the batch counts it up; x is left alone.
+        val flipped = FloatArray(8) { if (it % 2 == 0) corners[it] else flip(corners[it]) }
+
+        // Premultiplied and faded in all four channels for the same reasons the upright composite
+        // is; four corners change where the quad goes and nothing else.
+        batch().blend(state.blend, premultiplied = true)
+        val fade = state.alpha.coerceIn(0f, 1f)
+        batch().textured(
+            texture = region.texture,
+            corners = flipped,
+            u = region.u,
+            v = region.v,
+            u2 = region.u2,
+            v2 = region.v2,
+            colour = Color.toFloatBits(fade, fade, fade, fade),
+        )
+        batch().blend(state.blend, premultiplied = false)
+    }
+
+    /** It really does, on the same quad the upright composite uses. */
+    override val drawsLayersOnto: Boolean get() = true
 
     /**
      * The picture as a fan through [outline], with a ring one screen pixel wide round it that

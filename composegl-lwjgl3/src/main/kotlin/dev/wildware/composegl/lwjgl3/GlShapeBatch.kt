@@ -417,6 +417,32 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
     }
 
     /**
+     * The same picture, on four corners somebody else worked out.
+     *
+     * What a slanted layer is written as. [corners] is top-left, top-right, bottom-right,
+     * bottom-left of the picture, each an x then a y in this batch's own y-up coordinates — the
+     * caller has done the flip. Written as an ordinary quad for the reasons the turned one is, so
+     * it batches with everything else from the same texture.
+     */
+    @Suppress("LongParameterList")
+    fun textured(
+        name: Int,
+        corners: FloatArray,
+        u: Float,
+        v: Float,
+        u2: Float,
+        v2: Float,
+        tint: Colour,
+    ) {
+        use(name)
+        // Anticlockwise from the bottom-left, exactly as `quad` winds it, so the indices fit.
+        flat(corners[6], corners[7], u, v2, tint)
+        flat(corners[0], corners[1], u, v, tint)
+        flat(corners[2], corners[3], u2, v, tint)
+        flat(corners[4], corners[5], u2, v2, tint)
+    }
+
+    /**
      * One corner of a turned picture.
      *
      * The minus on the sine is the y flip: this batch counts y upwards and the toolkit counts it

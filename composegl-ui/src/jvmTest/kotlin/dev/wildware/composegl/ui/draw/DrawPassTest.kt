@@ -25,6 +25,8 @@ import dev.wildware.composegl.ui.modifier.rotate
 import dev.wildware.composegl.ui.modifier.scale
 import dev.wildware.composegl.ui.modifier.shadow
 import dev.wildware.composegl.ui.modifier.size
+import dev.wildware.composegl.ui.modifier.skew
+import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.node.UiTree
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -659,6 +661,208 @@ class DrawPassTest {
         assertRect(
             Rect(0f, 0f, 40f, 40f),
             tree.root.firstOrNull { it.name == "card" }!!.boundsInRoot,
+            "the box it was laid out in",
+        )
+    }
+
+    // --- skew ----------------------------------------------------------------------------------
+
+    /** A backend that makes and turns pictures but has never been taught to put one on corners. */
+    private class Unslanting(canvas: RecordingCanvas) : UiCanvas by canvas {
+        override val drawsLayersOnto: Boolean get() = false
+    }
+
+    private fun assertCorners(expected: List<Offset>, actual: List<Offset>, message: String) {
+        assertEquals(4, actual.size, "$message: four corners")
+        val names = listOf("top-left", "top-right", "bottom-right", "bottom-left")
+        for (index in 0 until 4) {
+            assertEquals(expected[index].x, actual[index].x, 0.01f, "$message: ${names[index]} x")
+            assertEquals(expected[index].y, actual[index].y, 0.01f, "$message: ${names[index]} y")
+        }
+    }
+
+    @Test
+    fun `a slanted node is captured upright and put down on a parallelogram`() {
+        // Forty square with a slope of one about its middle: the top slides twenty left, the
+        // bottom twenty right, and the middle row stays exactly where it was.
+        val node = node("banner", Modifier.size(40f).skew(x = 45f).background(red))
+
+        draw(node)
+
+        assertEquals(listOf("Rectangle", "LayerOnto"), kinds(), "one picture, no upright composite")
+        val onto = canvas.only<DrawCall.LayerOnto>().single()
+        assertEquals(Rect(0f, 0f, 40f, 40f), onto.bounds, "captured at the size it was laid out")
+        assertCorners(
+            listOf(Offset(-20f, 0f), Offset(20f, 0f), Offset(60f, 40f), Offset(20f, 40f)),
+            onto.corners,
+            "top and bottom stay level and slide past each other",
+        )
+    }
+
+    @Test
+    fun `a negative horizontal skew leans the top forward like italic type`() {
+        val node = node("banner", Modifier.size(40f).skew(x = -45f).background(red))
+
+        draw(node)
+
+        assertCorners(
+            listOf(Offset(20f, 0f), Offset(60f, 0f), Offset(20f, 40f), Offset(-20f, 40f)),
+            canvas.only<DrawCall.LayerOnto>().single().corners,
+            "the sign CSS uses: negative puts the top to the right",
+        )
+    }
+
+    @Test
+    fun `a vertical skew keeps the sides upright and slides them instead`() {
+        val node = node("banner", Modifier.size(40f).skew(y = 45f).background(red))
+
+        draw(node)
+
+        assertCorners(
+            listOf(Offset(0f, -20f), Offset(40f, 20f), Offset(40f, 60f), Offset(0f, 20f)),
+            canvas.only<DrawCall.LayerOnto>().single().corners,
+            "the right side is lower than the left",
+        )
+    }
+
+    @Test
+    fun `the skew origin is the point that stays where it was laid out`() {
+        val node = node(
+            "bar",
+            Modifier.size(40f).skew(x = 45f, origin = Alignment.BottomStart).background(red),
+        )
+
+        draw(node)
+
+        assertCorners(
+            listOf(Offset(-40f, 0f), Offset(0f, 0f), Offset(40f, 40f), Offset(0f, 40f)),
+            canvas.only<DrawCall.LayerOnto>().single().corners,
+            "the bottom edge does not move",
+        )
+    }
+
+    @Test
+    fun `a skew of zero takes no picture at all`() {
+        val node = node("banner", Modifier.size(40f).skew(x = 0f, y = 0f).background(red))
+
+        draw(node)
+
+        assertEquals(listOf("Rectangle"), kinds(), "drawn exactly as if the modifier were not there")
+    }
+
+    @Test
+    fun `a slant and a turn on one node are one picture`() {
+        // Slanted first, about the middle, then a quarter turn clockwise about the same middle.
+        val node = node("banner", Modifier.size(40f).skew(x = 45f).rotate(90f).background(red))
+
+        draw(node)
+
+        assertEquals(emptyList<String>(), canvas.only<DrawCall.Layer>().map { "layer" },
+            "no second picture for the turn")
+        assertCorners(
+            listOf(Offset(40f, -20f), Offset(40f, 20f), Offset(0f, 60f), Offset(0f, 20f)),
+            canvas.only<DrawCall.LayerOnto>().single().corners,
+            "the slanted shape, turned",
+        )
+    }
+
+    @Test
+    fun `slopes add along an axis and the last origin wins`() {
+        val node = node(
+            "banner",
+            Modifier.size(40f).skew(x = 10f).skew(x = 5f, origin = Alignment.TopStart).background(red),
+        )
+
+        draw(node)
+
+        val slope = kotlin.math.tan(Math.toRadians(10.0)) + kotlin.math.tan(Math.toRadians(5.0))
+        assertEquals(Math.toDegrees(kotlin.math.atan(slope)).toFloat(), node.resolved.skewX, 0.001f,
+            "one shear whose slope is both slopes")
+        assertEquals(Alignment.TopStart, node.resolved.skewOrigin)
+        val corners = canvas.only<DrawCall.LayerOnto>().single().corners
+        assertEquals(0f, corners[0].x, 0.01f, "the top-left is the origin, so it stays put")
+        assertEquals((40.0 * slope).toFloat(), corners[3].x, 0.01f, "and the bottom slides by both")
+    }
+
+    @Test
+    fun `a bleed widens the capture but not the point the slant is about`() {
+        val node = node("banner", Modifier.size(40f).effect(glow).skew(x = 45f).background(red))
+
+        draw(node)
+
+        val onto = canvas.only<DrawCall.LayerOnto>().single()
+        assertEquals(Rect(-6f, -6f, 46f, 46f), onto.bounds, "the glow slants with the node")
+        assertCorners(
+            listOf(Offset(-32f, -6f), Offset(20f, -6f), Offset(72f, 46f), Offset(20f, 46f)),
+            onto.corners,
+            "still about the node's own middle",
+        )
+    }
+
+    @Test
+    fun `a scale under a slant is the picture that gets slanted`() {
+        val node = node("banner", Modifier.size(40f).scale(2f).skew(x = 45f).background(red))
+
+        draw(node)
+
+        assertEquals(Rect(-20f, -20f, 60f, 60f), canvas.only<DrawCall.Layer>().single().bounds,
+            "the scale's upright composite")
+        val onto = canvas.only<DrawCall.LayerOnto>().single()
+        assertEquals(Rect(-20f, -20f, 60f, 60f), onto.bounds)
+        assertCorners(
+            listOf(Offset(-60f, -20f), Offset(20f, -20f), Offset(100f, 60f), Offset(20f, 60f)),
+            onto.corners,
+            "slanted about the middle of the scaled rectangle",
+        )
+    }
+
+    @Test
+    fun `a canvas that cannot use four corners keeps the turn and drops the slant`() {
+        val node = node("banner", Modifier.size(40f).skew(x = 30f).rotate(15f).background(red))
+        tree.root.insertAt(0, node)
+        MeasurePass().run(tree.root, Constraints.atMost(500f, 500f))
+
+        DrawPass(Unslanting(canvas)).draw(tree.root)
+
+        assertEquals(emptyList<String>(), canvas.only<DrawCall.LayerOnto>().map { "onto" })
+        assertEquals(15f, canvas.only<DrawCall.Layer>().single().degrees, 0.001f, "still turned")
+    }
+
+    @Test
+    fun `a canvas that cannot use four corners draws a slant alone with no picture`() {
+        val node = node("banner", Modifier.size(40f).skew(x = 30f).background(red))
+        tree.root.insertAt(0, node)
+        MeasurePass().run(tree.root, Constraints.atMost(500f, 500f))
+
+        DrawPass(Unslanting(canvas)).draw(tree.root)
+
+        assertEquals(listOf("Rectangle"), kinds(), "a picture put down upright would be a waste of one")
+    }
+
+    @Test
+    fun `a canvas that cannot make pictures draws a slanted node plainly rather than not at all`() {
+        val node = node("banner", Modifier.size(40f).skew(x = -12f).background(red))
+        tree.root.insertAt(0, node)
+        MeasurePass().run(tree.root, Constraints.atMost(500f, 500f))
+
+        DrawPass(Plain(canvas)).draw(tree.root)
+
+        assertEquals(
+            Rect(0f, 0f, 40f, 40f),
+            canvas.only<DrawCall.Rectangle>().single { it.colour == red }.rect,
+            "present, the right size and upright",
+        )
+    }
+
+    @Test
+    fun `a slanted node is still hit where its upright box is`() {
+        val node = node("banner", Modifier.size(40f).skew(x = -30f).background(red))
+
+        draw(node)
+
+        assertRect(
+            Rect(0f, 0f, 40f, 40f),
+            tree.root.firstOrNull { it.name == "banner" }!!.boundsInRoot,
             "the box it was laid out in",
         )
     }

@@ -18,6 +18,12 @@ import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.graphics.BlendMode
+import kotlin.math.PI
+import kotlin.math.atan
+import kotlin.math.tan
+
+/** Degrees in, radians out: what a skew angle becomes before it becomes a slope. */
+private const val DegreesToRadians = (PI / 180.0).toFloat()
 
 /**
  * One thing to paint, and how far in from the node's edge it is painted.
@@ -89,6 +95,14 @@ class ResolvedModifier private constructor(
     val mirrorX: Boolean,
     /** Whether this node is drawn with its top and bottom swapped. */
     val mirrorY: Boolean,
+    /**
+     * How far this node is slanted across and down as it is drawn, in degrees. Zero for almost
+     * every node there has ever been; see [dev.wildware.composegl.ui.modifier.skew].
+     */
+    val skewX: Float,
+    val skewY: Float,
+    /** The point a skew leaves where it is, as a place inside the node. */
+    val skewOrigin: Alignment,
     /**
      * The blend function this node and its subtree are drawn with. [BlendMode.SourceOver] for
      * almost every node there has ever been; see [dev.wildware.composegl.ui.modifier.blend].
@@ -201,6 +215,9 @@ class ResolvedModifier private constructor(
             var rotationOrigin = Alignment.Centre
             var mirrorX = false
             var mirrorY = false
+            var skewSlopeX = 0f
+            var skewSlopeY = 0f
+            var skewOrigin = Alignment.Centre
             var clip: ClipElement? = null
             var clipBehind = 0
             var clipInFront = 0
@@ -286,6 +303,14 @@ class ResolvedModifier private constructor(
                         clipBehind = behind.size
                         clipInFront = inFront.size
                     }
+                    // A shear after a shear along the same axis is one shear whose slope is the
+                    // two slopes added, so it is the slopes that accumulate rather than the
+                    // angles. Where it slants about is a choice, so later wins.
+                    is SkewElement -> {
+                        if (element.x != 0f) skewSlopeX += tan(element.x * DegreesToRadians)
+                        if (element.y != 0f) skewSlopeY += tan(element.y * DegreesToRadians)
+                        skewOrigin = element.origin
+                    }
                     // A choice rather than a quantity, like an alignment: two shapes on one node
                     // are two answers to the same question, so the later one is the answer.
                     is HitShapeElement -> {
@@ -326,6 +351,9 @@ class ResolvedModifier private constructor(
                 size, fill, aspectRatio, sizeIn, defaultMinSize, padding, offset, weight, alignment, layoutId, alpha,
                 scale, scaleOrigin,
                 rotation, rotationOrigin, mirrorX, mirrorY,
+                if (skewSlopeX == 0f) 0f else atan(skewSlopeX) / DegreesToRadians,
+                if (skewSlopeY == 0f) 0f else atan(skewSlopeY) / DegreesToRadians,
+                skewOrigin,
                 blend, zIndex, clip, clipBehind, clipInFront, hitShape, hoverIcon, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),

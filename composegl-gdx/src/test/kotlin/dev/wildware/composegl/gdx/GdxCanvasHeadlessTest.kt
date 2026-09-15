@@ -46,6 +46,8 @@ class GdxCanvasHeadlessTest {
         val touched = NoGl.refusingGl {
             val canvas = GdxCanvas()
             assertTrue(canvas.rotatesImages, "it turns a picture on the quad, and the pixel tests agree")
+            assertTrue(canvas.turnsLayers, "and a layer, on the same quad")
+            assertTrue(canvas.drawsLayersOnto, "and puts a layer on four corners, which a skew needs")
             assertTrue(canvas.supports(BlendMode.Additive), "and it really adds light")
             assertTrue(canvas.supports(BlendMode.SourceOver), "everything can do the ordinary one")
             canvas.dispose()

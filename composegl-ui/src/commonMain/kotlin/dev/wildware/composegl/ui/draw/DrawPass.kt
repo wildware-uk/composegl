@@ -21,6 +21,12 @@ import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.modifier.ShadowElement
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.graphics.BlendMode
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.tan
+
+private const val DegreesToRadians = (PI / 180.0).toFloat()
 
 /**
  * The other half of a frame: a laid-out tree turned into drawing.
@@ -85,9 +91,10 @@ class DrawPass(val canvas: UiCanvas) {
         val anchorX = if (scale == 1f) 0f else bounds.left + resolved.scaleOrigin.xIn(node.width, 0f)
         val anchorY = if (scale == 1f) 0f else bounds.top + resolved.scaleOrigin.yIn(node.height, 0f)
 
-        // A turn is the outermost thing a node does, and the only one that is not a rectangle, so
-        // it is the one operation that takes a picture of its own rather than sharing one.
-        if (resolved.rotation == 0f) {
+        // A turn and a slant are the outermost things a node does, and the only ones that are not
+        // a rectangle, so they take a picture of their own rather than sharing one. A slant on a
+        // canvas that cannot put a picture on four corners is not worth a picture at all.
+        if (resolved.rotation == 0f && !slanted(resolved)) {
             upright(node, resolved, bounds, scale, anchorX, anchorY)
         } else {
             turned(node, resolved, bounds, scale, anchorX, anchorY)
@@ -150,11 +157,13 @@ class DrawPass(val canvas: UiCanvas) {
     }
 
     /**
-     * The same, put down turned.
+     * The same, put down turned, slanted, or both.
      *
      * Whatever the node would have drawn the right way up is drawn into one picture and that
      * picture is composited at an angle, which is why a rotation composes with a scale and with a
-     * chain of effects without knowing anything about either: it turns their answer.
+     * chain of effects without knowing anything about either: it turns their answer. A slant is
+     * the same picture put down on four corners instead, and a slant with a turn is still one
+     * picture — see [corners].
      *
      * It is the one operation here that does not share a picture. A scale is a different
      * destination rectangle for a composite that was happening anyway; a turn is not a rectangle at
@@ -191,6 +200,11 @@ class DrawPass(val canvas: UiCanvas) {
             return
         }
 
+        if (slanted(resolved)) {
+            canvas.drawLayerOnto(picture, area, corners(resolved, area, drawn))
+            return
+        }
+
         // The pivot is where the node says it turns, expressed against the captured area - which is
         // a different rectangle whenever the chain has a bleed in it, so the fraction cannot simply
         // be the alignment's own.
@@ -202,6 +216,49 @@ class DrawPass(val canvas: UiCanvas) {
             pivotIn(area.left, area.width, drawn.left + drawn.width * origin.xIn(1f, 0f)),
             pivotIn(area.top, area.height, drawn.top + drawn.height * origin.yIn(1f, 0f)),
         )
+    }
+
+    /** Whether this node slants, on a canvas that can actually draw a slant. */
+    private fun slanted(resolved: ResolvedModifier): Boolean =
+        (resolved.skewX != 0f || resolved.skewY != 0f) && canvas.drawsLayersOnto
+
+    /**
+     * Where the corners of [area] land once the node is slanted and then turned.
+     *
+     * Both pivots are points of [drawn], the node's own rectangle after any scale, so a bleed
+     * widening the capture moves neither. The slant goes first, about its origin, and the turn is
+     * applied to the slanted shape about the point its own origin names — one affine map, which
+     * is why the answer is still a parallelogram and still one quad.
+     *
+     * An eight-float array a frame while the node leans, the same order of cost as the rectangle a
+     * scale makes; a node that leans is a node somebody chose to draw differently.
+     */
+    private fun corners(resolved: ResolvedModifier, area: Rect, drawn: Rect): FloatArray {
+        val slopeX = tan(resolved.skewX * DegreesToRadians)
+        val slopeY = tan(resolved.skewY * DegreesToRadians)
+        val skewPivotX = drawn.left + drawn.width * resolved.skewOrigin.xIn(1f, 0f)
+        val skewPivotY = drawn.top + drawn.height * resolved.skewOrigin.yIn(1f, 0f)
+
+        val radians = resolved.rotation * DegreesToRadians
+        val turnCos = if (resolved.rotation == 0f) 1f else cos(radians)
+        val turnSin = if (resolved.rotation == 0f) 0f else sin(radians)
+        val turnPivotX = drawn.left + drawn.width * resolved.rotationOrigin.xIn(1f, 0f)
+        val turnPivotY = drawn.top + drawn.height * resolved.rotationOrigin.yIn(1f, 0f)
+
+        val corners = FloatArray(8)
+        for (corner in 0 until 4) {
+            // Top-left, top-right, bottom-right, bottom-left: clockwise from the picture's origin.
+            val x = if (corner == 1 || corner == 2) area.right else area.left
+            val y = if (corner >= 2) area.bottom else area.top
+            val slantX = x + slopeX * (y - skewPivotY)
+            val slantY = y + slopeY * (x - skewPivotX)
+            val acrossX = slantX - turnPivotX
+            val acrossY = slantY - turnPivotY
+            // Clockwise as a y-down screen sees it, the convention every angle here has.
+            corners[corner * 2] = turnPivotX + acrossX * turnCos - acrossY * turnSin
+            corners[corner * 2 + 1] = turnPivotY + acrossX * turnSin + acrossY * turnCos
+        }
+        return corners
     }
 
     /** Where [point] falls across a span, as the fraction a canvas takes a pivot as. */

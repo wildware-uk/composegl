@@ -58,6 +58,19 @@ class UiCanvasDefaultsTest {
     }
 
     @Test
+    fun `a layer put on four corners is composited upright in the right place`() {
+        val canvas = OldBackend()
+        val picture = Pretend()
+        val box = Rect.of(10f, 20f, 40f, 8f)
+
+        canvas.drawLayerOnto(picture, box, floatArrayOf(6f, 20f, 46f, 20f, 54f, 28f, 14f, 28f))
+
+        assertFalse(canvas.drawsLayersOnto, "it says it cannot slant one")
+        val drawn = canvas.images.single()
+        assertEquals(box, drawn.first, "the box before the slant and drawn rather than skipped")
+    }
+
+    @Test
     fun `a backend that never heard of the raw questions answers no to all of them`() {
         val canvas = OldBackend()
 

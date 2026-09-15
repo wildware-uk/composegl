@@ -747,6 +747,35 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
     /** It really cuts one, with a soft edge, in the same batch as everything else. */
     override val cutsLayers: Boolean get() = true
 
+    override fun drawLayerOnto(layer: TextureHandle, destination: Rect, corners: FloatArray) {
+        require(corners.size == 8) { "four corners are eight numbers, not ${corners.size}" }
+        if (state.isHidden || destination.isEmpty) return
+        val picture = layer as? GlTexture
+            ?: error("this canvas can only draw layers it made, not ${layer::class}")
+
+        // The corners arrive counting y down and the batch counts it up; x is left alone.
+        val flipped = FloatArray(8) { if (it % 2 == 0) corners[it] else flip(corners[it]) }
+
+        // Premultiplied and faded in all four channels for the same reasons the upright composite
+        // is; four corners change where the quad goes and nothing else.
+        batch().blend(state.blend, premultiplied = true)
+        val fade = state.alpha.coerceIn(0f, 1f)
+        val grey = (fade * 255f).roundToInt().coerceIn(0, 255)
+        batch().textured(
+            name = picture.name,
+            corners = flipped,
+            u = picture.u,
+            v = picture.v,
+            u2 = picture.u2,
+            v2 = picture.v2,
+            tint = Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey),
+        )
+        batch().blend(state.blend, premultiplied = false)
+    }
+
+    /** It really does, on the same quad the upright composite uses. */
+    override val drawsLayersOnto: Boolean get() = true
+
     private fun bindFramebuffer(name: Int) {
         framebuffer = name
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, name)

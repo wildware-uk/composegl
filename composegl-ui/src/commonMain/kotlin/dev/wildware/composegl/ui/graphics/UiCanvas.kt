@@ -531,6 +531,38 @@ interface UiCanvas {
     val mirrorsLayers: Boolean get() = false
 
     /**
+     * The same picture, put down on four corners that need not be a rectangle.
+     *
+     * [corners] is eight numbers, in the toolkit's y-down coordinates: where the picture's top-left
+     * lands, then its top-right, its bottom-right and its bottom-left, each as an x then a y. What
+     * `Modifier.skew` is composited with, and a slant and a turn together ride the same call, so
+     * any transform that keeps straight lines straight and parallel ones parallel is one quad.
+     *
+     * The picture is stretched affinely across the quad. For a parallelogram — which every slant,
+     * turn and scale makes — that is exact. Four corners that are not a parallelogram are drawn as
+     * two triangles, each exact on its own, with a visible crease along the diagonal between
+     * them; a perspective tilt wants a backend that can divide by depth, and this is not that.
+     *
+     * [destination] is the box before any of it: the rectangle a canvas that cannot do this
+     * draws the picture into instead, upright and the right size, which is what the default body
+     * does. Ask [drawsLayersOnto] first if that would be worse than not drawing it.
+     *
+     * Blending and opacity are [drawLayer]'s, for the reason given there. No shader, for the
+     * reason the turned overload gives.
+     */
+    fun drawLayerOnto(layer: TextureHandle, destination: Rect, corners: FloatArray) =
+        drawLayer(layer, destination)
+
+    /**
+     * Whether [drawLayerOnto] really puts the picture on its four corners.
+     *
+     * False means it composites it upright into the destination instead. Same shape as
+     * [turnsLayers], and separate from it because a backend that can turn a quad about a pivot has
+     * not necessarily been taught to take four corners from somebody else.
+     */
+    val drawsLayersOnto: Boolean get() = false
+
+    /**
      * The backend's own drawing object, for whatever this interface does not cover — a shader, a
      * particle system, a mesh, a game's existing render code.
      *
