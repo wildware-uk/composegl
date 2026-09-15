@@ -23,8 +23,9 @@ typealias StbTextLayout = AtlasTextLayout
  *
  * Registered by name and by size. Everything registered is made the first time anything is measured
  * — every glyph, every picture, the white block the renderer draws solid colour from — and lands on
- * one page, so a screen of panels and labels is one texture and one draw call and nothing is ever
- * rasterised mid-frame. The page starts at [pageSize] and doubles until everything fits, up to
+ * one page, so a screen of panels and labels is one texture and one draw call and nothing is
+ * rasterised mid-frame — except on a screen scaled up past the design size, where a glyph is made
+ * again at the screen's size the first time it is drawn there, so it stays sharp. The page starts at [pageSize] and doubles until everything fits, up to
  * [maxPageSize].
  *
  * Measuring needs no OpenGL: the page is made in memory and uploaded when something is first drawn.
@@ -166,8 +167,10 @@ internal class StbRasteriser : GlyphRasteriser {
         registrations += Registration(family, bytes, info, sizes, codepoints)
     }
 
-    override fun face(family: String, size: Int): RasterFace? =
-        registrations.lastOrNull { it.family == family && size in it.sizes }?.let { Face(it, size) }
+    override fun face(family: String, size: Int): RasterFace? = face(family, size, size)
+
+    override fun face(family: String, size: Int, pixels: Int): RasterFace? =
+        registrations.lastOrNull { it.family == family && size in it.sizes }?.let { Face(it, pixels) }
 
     private class Face(private val font: Registration, size: Int) : RasterFace {
 

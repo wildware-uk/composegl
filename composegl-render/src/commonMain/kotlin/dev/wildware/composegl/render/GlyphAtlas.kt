@@ -36,9 +36,21 @@ class GlyphAtlas(
 
     init {
         pages += AtlasPage(pageSize, smooth)
-        white = checkNotNull(pages[0].place(WhiteBlock, WhiteBlock, maxPageSize = 0)) { "no room for the white block" }
-        val pixels = pages[0].pixels
-        for (y in 0 until WhiteBlock) for (x in 0 until WhiteBlock) pixels[(y * pageSize + x) * 4 + 3] = -1
+        white = placeWhite()
+    }
+
+    /**
+     * Glyphs drawn again at the screen's own pixel size, for a frame scaled up; see [SharpGlyphs].
+     * Null for an atlas no fonts made, which draws its glyphs as they are.
+     */
+    internal var sharp: SharpGlyphs? = null
+
+    private fun placeWhite(): AtlasSpot {
+        val page = pages[0]
+        val spot = checkNotNull(page.place(WhiteBlock, WhiteBlock, maxPageSize = 0)) { "no room for the white block" }
+        val pixels = page.pixels
+        for (y in 0 until WhiteBlock) for (x in 0 until WhiteBlock) pixels[((spot.y + y) * page.size + spot.x + x) * 4 + 3] = -1
+        return spot
     }
 
     val pageCount: Int get() = pages.size
@@ -50,20 +62,35 @@ class GlyphAtlas(
      * smoothly sampled edge does not pick up its neighbour. Throws when no page can hold it.
      */
     fun place(width: Int, height: Int): AtlasSpot {
-        require(width > 0 && height > 0) { "nothing to place: ${width}x$height" }
-        for (page in pages) page.place(width, height, maxPageSize)?.let { return it }
-        if (pages.size < maxPages && width + Gap <= maxPageSize && height + Gap <= maxPageSize) {
-            val size = pages.last().size
-            val page = AtlasPage(size, smooth)
-            pages += page
-            page.place(width, height, maxPageSize)?.let { return it }
-        }
+        placeOrNull(width, height)?.let { return it }
         val size = pages.last().size
         error(
             "a ${size}x$size page is not big enough for every registered size, and it may not grow past " +
                 "$maxPageSize${if (maxPages > 1) " or past $maxPages pages" else ""}; give $owner a bigger " +
                 "maxPageSize or register fewer sizes",
         )
+    }
+
+    /** The same, answering null rather than throwing when no page can hold it. */
+    fun placeOrNull(width: Int, height: Int): AtlasSpot? {
+        require(width > 0 && height > 0) { "nothing to place: ${width}x$height" }
+        for (page in pages) page.place(width, height, maxPageSize)?.let { return it }
+        if (pages.size < maxPages && width + Gap <= maxPageSize && height + Gap <= maxPageSize) {
+            val page = AtlasPage(pages.last().size, smooth)
+            pages += page
+            page.place(width, height, maxPageSize)?.let { return it }
+        }
+        return null
+    }
+
+    /**
+     * Empties every page but the white block, keeping the pages and their textures: the next upload
+     * sends each page whole. Everything placed before is gone, so nothing drawn from it may be left
+     * waiting to be drawn.
+     */
+    internal fun clear() {
+        pages.forEach { it.clear() }
+        check(placeWhite().let { it.x == white.x && it.y == white.y }) { "the white block moved" }
     }
 
     /** The context of [device] went away with its textures: forget them. */
@@ -155,6 +182,13 @@ class AtlasPage internal constructor(size: Int, private val smooth: Boolean = tr
             if (maxPageSize <= 0 || !canGrow(maxPageSize)) return null
             growTo(size * 2)
         }
+    }
+
+    internal fun clear() {
+        pixels = blank(size)
+        shelves.clear()
+        nextShelf = 0
+        changed(0, 0, size, size)
     }
 
     private fun growTo(bigger: Int) {

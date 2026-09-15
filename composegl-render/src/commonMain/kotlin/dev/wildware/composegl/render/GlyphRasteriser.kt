@@ -11,6 +11,17 @@ fun interface GlyphRasteriser {
 
     /** [family] at [size], or null when this rasteriser has no such font. */
     fun face(family: String, size: Int): RasterFace?
+
+    /**
+     * [family], as it was registered at [size], drawn [pixels] tall: what a glyph is made from when
+     * the screen is scaled up, so it gets a pixel of its own for every pixel it covers. Every
+     * measurement comes out at [pixels]; only the pictures are used, since text is still laid out
+     * at [size].
+     *
+     * The default asks [face] for [pixels], which suits a rasteriser that draws any size asked for.
+     * One that only answers for the sizes it was registered at overrides this.
+     */
+    fun face(family: String, size: Int, pixels: Int): RasterFace? = face(family, pixels)
 }
 
 /** One font at one size. Every measurement is in pixels, from the baseline, down positive. */

@@ -203,9 +203,12 @@ class BrowserUi(
      */
     private fun fitToPage() {
         val element = backend.element
-        val cssWidth = element.clientWidth
-        val cssHeight = element.clientHeight
-        if (cssWidth <= 0 || cssHeight <= 0) return
+        // The box as laid out, fractions and all: the whole-pixel clientWidth can be a CSS pixel short,
+        // and a backing store a device pixel off its box is resampled, softening everything drawn.
+        val box = element.getBoundingClientRect()
+        val cssWidth = box.width
+        val cssHeight = box.height
+        if (cssWidth <= 0.0 || cssHeight <= 0.0) return
         val ratio = window.devicePixelRatio
         val width = (cssWidth * ratio).roundToInt()
         val height = (cssHeight * ratio).roundToInt()
