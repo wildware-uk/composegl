@@ -145,6 +145,8 @@ import dev.wildware.composegl.ui.widget.KeyboardTarget
 import dev.wildware.composegl.ui.widget.ProvideGamepadKeyboard
 import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.CollapsingHeader
+import dev.wildware.composegl.ui.widget.Orientation
+import dev.wildware.composegl.ui.widget.Splitter
 import dev.wildware.composegl.ui.widget.Divider
 import dev.wildware.composegl.ui.widget.Dropdown
 import dev.wildware.composegl.ui.widget.PopupHost
@@ -936,6 +938,23 @@ private fun MutableList<DocShot>.widgets() {
         ProvideSkin(Skin.HighContrast) {
             ProvideLayoutDirection(LayoutDirection.Rtl) {
                 Frame { SettingsSections(focusAudio = true) }
+            }
+        }
+    })
+
+    // A level editor in nested splitters: the hierarchy beside a map stacked over a log. The divider
+    // beside the hierarchy is really pressed and dragged right, and still held, so it is the pressed
+    // colour and the hierarchy has grown to where the pointer is.
+    add(DocShot("widget-splitter", 460, 280, pointer = Offset(143f, 140f), dragTo = Offset(200f, 140f), hold = true, stock = true) {
+        EditorSplit()
+    })
+
+    // Right to left in the high-contrast skin, with focus on the divider as Tab or a pad leaves it:
+    // the hierarchy has moved to the right, and the arrows would move the ringed divider.
+    add(DocShot("widget-splitter-rtl", 460, 280, focus = true) {
+        ProvideSkin(Skin.HighContrast) {
+            ProvideLayoutDirection(LayoutDirection.Rtl) {
+                EditorSplit(focusDivider = true)
             }
         }
     })
@@ -2236,5 +2255,59 @@ private fun SettingsSections(focusAudio: Boolean = false) {
         CollapsingHeader("Graphics") {
             Toggle(false, onCheckedChange = {}, label = "V-Sync")
         }
+    }
+}
+
+/** A level editor split three ways, the hierarchy beside a map over a log, for the splitter pictures. */
+@Composable
+private fun EditorSplit(focusDivider: Boolean = false) {
+    var side by remember { mutableStateOf(0.3f) }
+    var stack by remember { mutableStateOf(0.65f) }
+    Box(Modifier.fillMaxSize().background(Colour.rgb(0x0B0E13)).padding(10f)) {
+        Splitter(
+            fraction = side,
+            onFractionChange = { side = it },
+            modifier = Modifier.fillMaxSize(),
+            minFirst = 100f,
+            minSecond = 180f,
+            initialFocus = focusDivider,
+            first = {
+                SplitPane("Hierarchy") {
+                    listOf("Level 1", "  Player", "  Camera", "  Enemies", "  Pickups", "  Lights").forEach {
+                        Text(it, style = if (it == "  Player") "label" else "label.dim")
+                    }
+                }
+            },
+            second = {
+                Splitter(
+                    fraction = stack,
+                    onFractionChange = { stack = it },
+                    modifier = Modifier.fillMaxSize(),
+                    orientation = Orientation.Vertical,
+                    minFirst = 60f,
+                    minSecond = 50f,
+                    first = {
+                        SplitPane("Map") {
+                            Box(Modifier.fillMaxSize().background(Colour.rgb(0x1E3A2B)))
+                        }
+                    },
+                    second = {
+                        SplitPane("Log") {
+                            Text("Loaded level 1 in 0.4s", style = "label.dim")
+                            Text("3 enemies spawned", style = "label.dim")
+                        }
+                    },
+                )
+            },
+        )
+    }
+}
+
+/** One titled pane of [EditorSplit]. */
+@Composable
+private fun SplitPane(title: String, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxSize().styled("panel").padding(8f), verticalArrangement = Arrangement.spacedBy(4f)) {
+        Text(title)
+        content()
     }
 }
