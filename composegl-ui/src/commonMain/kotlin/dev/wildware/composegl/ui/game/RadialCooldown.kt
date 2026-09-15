@@ -23,7 +23,7 @@ import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.drawInFront
 import dev.wildware.composegl.ui.skin.ResolvedStyle
-import dev.wildware.composegl.ui.skin.SkinDrawable
+import dev.wildware.composegl.ui.skin.flatColour
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.widget.Text
 import kotlin.math.ceil
@@ -209,7 +209,7 @@ private fun countdown(remainingMillis: Int): String {
  * that puts art here gets nothing drawn, which is visible, rather than a stretched picture in the
  * shape of a wedge, which is not what anybody meant.
  */
-private fun ResolvedStyle.fill(): Colour = (background as? SkinDrawable.Fill)?.colour ?: Colour.Transparent
+private fun ResolvedStyle.fill(): Colour = background.flatColour ?: Colour.Transparent
 
 /** The wedge, and the flash over it. Held apart from the composable so it is a value that compares. */
 private class CooldownPainter(

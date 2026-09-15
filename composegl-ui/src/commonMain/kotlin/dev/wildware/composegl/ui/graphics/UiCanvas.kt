@@ -64,6 +64,27 @@ interface UiCanvas {
     /** A filled rectangle. [corner] is the corner radius; zero is a plain rectangle. */
     fun rect(rect: Rect, colour: Colour, corner: Float = 0f)
 
+    /**
+     * A filled rectangle whose colour changes across it — see [Brush].
+     *
+     * The gradient is measured against [rect] itself, so it runs edge to edge whatever size the box
+     * is, and [corner] cuts it exactly as it cuts a flat fill.
+     *
+     * The default body draws [Brush.first] flat. That is the nearest honest thing a canvas with no
+     * gradients can do — the right box in the colour it starts from — and it means a backend
+     * compiled before this existed keeps drawing every panel rather than dropping the ones a skin
+     * has since given a gradient. Ask [drawsGradients] first if a flat fill would be worse.
+     */
+    fun rect(rect: Rect, brush: Brush, corner: Float = 0f) = rect(rect, brush.first, corner)
+
+    /**
+     * Whether the [rect] that takes a [Brush] really draws a gradient.
+     *
+     * False means it draws the brush's first colour flat instead. The same bargain as
+     * [drawsLayers] and [supports]: a question with an honest default.
+     */
+    val drawsGradients: Boolean get() = false
+
     /** An outline drawn inside [rect], [width] thick. */
     fun border(rect: Rect, colour: Colour, width: Float, corner: Float = 0f)
 

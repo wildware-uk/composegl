@@ -30,6 +30,21 @@ sealed interface DrawCall {
         override val alpha: Float,
     ) : DrawCall
 
+    /**
+     * A rectangle filled with a [Brush].
+     *
+     * Its own kind rather than a brush on [Rectangle], for the reason [RotatedImage] gives: a new
+     * constructor parameter on a published data class is a binary break. A test that only asks for
+     * flat rectangles keeps seeing exactly the ones it always saw.
+     */
+    data class GradientRectangle(
+        val rect: Rect,
+        val brush: Brush,
+        val corner: Float,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : DrawCall
+
     data class Border(
         val rect: Rect,
         val colour: Colour,
@@ -367,6 +382,13 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     override fun rect(rect: Rect, colour: Colour, corner: Float) {
         record(DrawCall.Rectangle(rect, colour, corner, state.clip, state.alpha))
     }
+
+    override fun rect(rect: Rect, brush: Brush, corner: Float) {
+        record(DrawCall.GradientRectangle(rect, brush, corner, state.clip, state.alpha))
+    }
+
+    /** It writes the brush down, which is the whole of what this canvas can do about anything. */
+    override val drawsGradients: Boolean get() = true
 
     override fun border(rect: Rect, colour: Colour, width: Float, corner: Float) {
         record(DrawCall.Border(rect, colour, width, corner, state.clip, state.alpha))

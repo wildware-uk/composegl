@@ -3,6 +3,7 @@ package dev.wildware.composegl.ui.skin
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NinePatch
 import dev.wildware.composegl.ui.graphics.TextureHandle
@@ -15,9 +16,9 @@ import dev.wildware.composegl.ui.layout.Padding
 /**
  * Something a skin can put behind a widget.
  *
- * Four kinds, because a real skin is made of all four: most of a game's interface is art cut into
- * nine, a few things are a flat rounded box the shader draws, some are a picture at its own size,
- * and plenty of states are simply nothing at all.
+ * Five kinds, because a real skin is made of all five: most of a game's interface is art cut into
+ * nine, a few things are a rounded box the shader draws — flat, or shaded with a gradient — some
+ * are a picture at its own size, and plenty of states are simply nothing at all.
  *
  * Every kind answers the same three questions — how small can you be, how far in do the contents
  * sit, and draw yourself here — so a widget never asks which kind it has.
@@ -80,6 +81,30 @@ sealed interface SkinDrawable {
     }
 
     /**
+     * A [Fill] whose colour changes across it: a rounded box painted with a [Brush].
+     *
+     * Its own kind rather than a brush on [Fill], because [Fill] is a published data class and a
+     * widget that reads a fill's colour — a reticle, a minimap marker — should not suddenly be
+     * handed something that is not one colour. The outline is still one flat colour: a gradient
+     * ring is a picture, and a picture is what [Patch] is for.
+     */
+    data class Gradient(
+        val brush: Brush,
+        val corner: Float = 0f,
+        val border: Colour? = null,
+        val borderWidth: Float = 0f,
+        override val padding: Padding = Padding.None,
+    ) : SkinDrawable {
+        override val minimumSize: Size get() = Size(corner * 2f, corner * 2f)
+        override fun drawInto(canvas: UiCanvas, destination: Rect, tint: Colour) {
+            canvas.rect(destination, if (tint == Colour.White) brush else brush.modulate(tint), corner)
+            if (border != null && borderWidth > 0f) {
+                canvas.border(destination, border.modulate(tint), borderWidth, corner)
+            }
+        }
+    }
+
+    /**
      * One picture, stretched across the widget.
      *
      * For the things that are a picture rather than a frame: an icon, a portrait, a logo.
@@ -110,3 +135,18 @@ sealed interface SkinDrawable {
         override fun drawInto(canvas: UiCanvas, destination: Rect, tint: Colour) = Unit
     }
 }
+
+/**
+ * The one colour a widget that draws shapes rather than boxes takes from this: a crosshair's arms,
+ * a cooldown's wedge, a minimap's marker.
+ *
+ * A [SkinDrawable.Fill]'s colour, or a [SkinDrawable.Gradient]'s first — the same colour a canvas
+ * with no gradients would paint, so a skin that gives one of those widgets a gradient gets what
+ * it starts from rather than nothing at all. Null for art and for nothing.
+ */
+internal val SkinDrawable.flatColour: Colour?
+    get() = when (this) {
+        is SkinDrawable.Fill -> colour
+        is SkinDrawable.Gradient -> brush.first
+        else -> null
+    }

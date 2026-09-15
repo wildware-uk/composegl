@@ -90,6 +90,24 @@ so the reader stops and says so rather than guessing.
 
 ---
 
+## Gradients
+
+Say `gradient` where you would say `fill`. The key is which way it runs, and the
+value is its two colours:
+
+```jsonc
+"sky":      { "background": { "gradient": { "vertical": ["#3A6EA5", "#1B2A41"] }, "corner": 6 } },
+"health":   { "background": { "gradient": { "horizontal": ["#4CD964", "#FF3B30"] } } },
+"sheen":    { "background": { "gradient": { "linear": ["#FFFFFF", "#00FFFFFF"], "angle": 45 } } },
+"vignette": { "background": { "gradient": { "radial": ["#00000000", "#C0000000"] } } }
+```
+
+`angle` is degrees clockwise from pointing right, and only `linear` takes one.
+`corner`, `border`, `borderWidth` and `padding` work as they do on a fill. A state's
+`tint` reaches both colours, so a disabled button fades its whole gradient.
+
+---
+
 ## Art
 
 A style can name a region of your atlas instead of a fill, and cut it into a

@@ -3,6 +3,7 @@ package dev.wildware.composegl.ui.skin
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.ArtAtlas
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.EdgeMode
 import dev.wildware.composegl.ui.graphics.NinePatch
@@ -82,11 +83,42 @@ internal class SkinWrite(private val art: ArtAtlas?) {
             }
             if (drawable.padding != Padding.None) key("padding") { padding(drawable.padding) }
         }
+        is SkinDrawable.Gradient -> obj {
+            key("gradient") { brush(drawable.brush) }
+            if (drawable.corner != 0f) key("corner") { number(drawable.corner) }
+            drawable.border?.let { key("border") { colour(it) } }
+            if (drawable.border != null && drawable.borderWidth != 1f) {
+                key("borderWidth") { number(drawable.borderWidth) }
+            }
+            if (drawable.padding != Padding.None) key("padding") { padding(drawable.padding) }
+        }
         is SkinDrawable.Image -> obj {
             key("image") { string(nameOf(drawable.texture)) }
             if (drawable.padding != Padding.None) key("padding") { padding(drawable.padding) }
         }
         is SkinDrawable.Patch -> patch(drawable.patch)
+    }
+
+    /** The two directions everybody means as words, and any other angle as a number. */
+    private fun brush(brush: Brush) = obj {
+        fun stops(from: Colour, to: Colour) {
+            text.append("[")
+            colour(from)
+            text.append(", ")
+            colour(to)
+            text.append("]")
+        }
+        when (brush) {
+            is Brush.Radial -> key("radial") { stops(brush.centre, brush.edge) }
+            is Brush.Linear -> when (brush.degrees) {
+                90f -> key("vertical") { stops(brush.start, brush.end) }
+                0f -> key("horizontal") { stops(brush.start, brush.end) }
+                else -> {
+                    key("linear") { stops(brush.start, brush.end) }
+                    key("angle") { number(brush.degrees) }
+                }
+            }
+        }
     }
 
     private fun patch(patch: NinePatch) = obj {

@@ -3,6 +3,7 @@ package dev.wildware.composegl.ui.skin
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.ArtAtlas
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.EdgeMode
 import dev.wildware.composegl.ui.graphics.NinePatch
@@ -95,11 +96,13 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
             fail("a background is \"none\" or an object, not \"${value.value}\"", value)
         }
         val json = value.obj("a background")
-        json.allow(setOf("patch", "fill", "image", "slice", "padding", "corner", "border", "borderWidth", "edges"))
-        val kinds = listOf("patch", "fill", "image").filter { it in json.keys }
+        json.allow(
+            setOf("patch", "fill", "gradient", "image", "slice", "padding", "corner", "border", "borderWidth", "edges"),
+        )
+        val kinds = listOf("patch", "fill", "gradient", "image").filter { it in json.keys }
         if (kinds.size != 1) {
             fail(
-                if (kinds.isEmpty()) "a background has to say \"patch\", \"fill\" or \"image\""
+                if (kinds.isEmpty()) "a background has to say \"patch\", \"fill\", \"gradient\" or \"image\""
                 else "a background says ${kinds.joinToString(" and ") { "\"$it\"" }}, and can only be one",
                 json,
             )
@@ -113,9 +116,67 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
                 borderWidth = json["borderWidth"]?.number("\"borderWidth\"") ?: json["border"]?.let { 1f } ?: 0f,
                 padding = json["padding"]?.padding() ?: Padding.None,
             )
+            "gradient" -> SkinDrawable.Gradient(
+                brush = brush(json.getValue("gradient")),
+                corner = json["corner"]?.number("\"corner\"") ?: 0f,
+                border = json["border"]?.colour(),
+                borderWidth = json["borderWidth"]?.number("\"borderWidth\"") ?: json["border"]?.let { 1f } ?: 0f,
+                padding = json["padding"]?.padding() ?: Padding.None,
+            )
             else -> SkinDrawable.Image(
                 texture = region(json.getValue("image")),
                 padding = json["padding"]?.padding() ?: Padding.None,
+            )
+        }
+    }
+
+    /**
+     * A gradient: which way it runs, as the key, and its two colours, as a list.
+     *
+     * ```jsonc
+     * { "vertical": ["#3A6EA5", "#1B2A41"] }
+     * { "horizontal": ["#4CD964", "#FF3B30"] }
+     * { "linear": ["#FFFFFF", "#00FFFFFF"], "angle": 45 }
+     * { "radial": ["#00000000", "#C0000000"] }
+     * ```
+     *
+     * The direction is a word rather than an angle for the two everybody means, so a file reads as
+     * what it draws. `angle` only belongs with `linear`, and saying it anywhere else is refused
+     * rather than ignored — a vertical gradient that quietly ignores its angle is the `textColor`
+     * mistake again.
+     */
+    private fun brush(value: Json): Brush {
+        val json = value.obj("a \"gradient\"")
+        json.allow((GradientKinds + "angle").toSet())
+        val kinds = GradientKinds.filter { it in json.keys }
+        if (kinds.size != 1) {
+            fail(
+                if (kinds.isEmpty()) "a gradient has to say ${GradientKinds.joinToString(", ") { "\"$it\"" }}"
+                else "a gradient says ${kinds.joinToString(" and ") { "\"$it\"" }}, and can only run one way",
+                json,
+            )
+        }
+        val kind = kinds.single()
+        val stops = json.getValue(kind)
+        val colours = (stops as? JsonArray)?.items
+            ?: fail("\"$kind\" is its two colours, written \"[\"#RRGGBB\", \"#RRGGBB\"]\"", stops)
+        if (colours.size != 2) {
+            fail("a gradient runs between two colours, and this has ${colours.size}", stops)
+        }
+        val from = colours[0].colour()
+        val to = colours[1].colour()
+        val angle = json["angle"]
+        if (angle != null && kind != "linear") {
+            fail("only a \"linear\" gradient has an \"angle\"; a \"$kind\" one already says which way it runs", angle)
+        }
+        return when (kind) {
+            "vertical" -> Brush.vertical(from, to)
+            "horizontal" -> Brush.horizontal(from, to)
+            "radial" -> Brush.radial(from, to)
+            else -> Brush.linear(
+                from,
+                to,
+                angle?.number("\"angle\"") ?: fail("a \"linear\" gradient needs an \"angle\", in degrees clockwise from right", json),
             )
         }
     }
@@ -358,6 +419,9 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
 
         /** The corners a `"corner"` object can name. Any it leaves out are square. */
         val CornerKeys = setOf("topLeft", "topRight", "bottomRight", "bottomLeft")
+
+        /** The ways a gradient can run, in the order a mistake lists them. */
+        val GradientKinds = listOf("vertical", "horizontal", "linear", "radial")
 
         /** The nine pieces a patch can be cut from, when the host cut them itself. */
         val RegionKeys = setOf(

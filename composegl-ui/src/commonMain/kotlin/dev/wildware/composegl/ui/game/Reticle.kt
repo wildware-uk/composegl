@@ -20,7 +20,7 @@ import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.skin.ResolvedStyle
-import dev.wildware.composegl.ui.skin.SkinDrawable
+import dev.wildware.composegl.ui.skin.flatColour
 import dev.wildware.composegl.ui.skin.rememberStyle
 import kotlin.math.sqrt
 
@@ -175,7 +175,7 @@ private const val MarkerTravel = 5f
  * A crosshair is lines rather than boxes, so a skin that puts a nine-patch here gets nothing —
  * which is visible, and better than a picture stretched into the shape of a crosshair.
  */
-private fun ResolvedStyle.fill(): Colour = (background as? SkinDrawable.Fill)?.colour ?: Colour.Transparent
+private fun ResolvedStyle.fill(): Colour = background.flatColour ?: Colour.Transparent
 
 /**
  * The crosshair, drawn round the middle of the box it is given.

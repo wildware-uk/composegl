@@ -16,6 +16,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.BlendMode
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.layout.ScalePolicy
@@ -689,6 +690,116 @@ class GdxCanvasTest {
         }
 
         assertEquals(1, frame.drawCalls)
+    }
+
+    // --- gradients ---
+
+    private val box = Rect.of(100f, 100f, 200f, 160f)
+
+    /** The toolkit's colour as a LibGDX one, for [assertColour]. */
+    private fun Colour.gdx() = Color((argb shl 8) or alpha)
+
+    /** What [brush] should paint at the middle of the pixel at [x], [y]. */
+    private fun expected(brush: Brush, x: Int, y: Int, over: Colour = Colour.Black): Color {
+        val painted = brush.colourAt(x + 0.5f, y + 0.5f, box)
+        return over.gdx().lerp(painted.withAlpha(255).gdx(), painted.alphaFraction)
+    }
+
+    @Test
+    fun `this canvas says it draws gradients`() {
+        assertTrue(GdxCanvas().drawsGradients)
+    }
+
+    @Test
+    fun `a vertical gradient runs from its first colour at the top to its last at the bottom`() {
+        val brush = Brush.vertical(red, blue)
+        val frame = draw { rect(box, brush) }
+
+        assertColour(Color.RED, frame.pixels.at(200, 101), "the top edge")
+        assertColour(Color.BLUE, frame.pixels.at(200, 258), "the bottom edge")
+        assertColour(expected(brush, 200, 180), frame.pixels.at(200, 180), "halfway down")
+        assertColour(frame.pixels.at(110, 150), frame.pixels.at(290, 150), "nothing changes across")
+        assertColour(Color.BLACK, frame.pixels.at(200, 96), "nothing above the box")
+    }
+
+    @Test
+    fun `a horizontal gradient runs left to right`() {
+        val brush = Brush.horizontal(red, blue)
+        val frame = draw { rect(box, brush) }
+
+        assertColour(Color.RED, frame.pixels.at(101, 180), "the left edge")
+        assertColour(Color.BLUE, frame.pixels.at(298, 180), "the right edge")
+        assertColour(expected(brush, 150, 180), frame.pixels.at(150, 180), "a quarter across")
+    }
+
+    @Test
+    fun `an angled gradient turns clockwise and meets the corners`() {
+        val brush = Brush.linear(red, blue, degrees = 45f)
+        val frame = draw { rect(box, brush) }
+
+        assertColour(Color.RED, frame.pixels.at(101, 101), "top-left is the start")
+        assertColour(Color.BLUE, frame.pixels.at(298, 258), "bottom-right is the end")
+        assertColour(expected(brush, 298, 101), frame.pixels.at(298, 101), "top-right is halfway")
+    }
+
+    @Test
+    fun `a radial gradient is its centre colour in the middle and its edge colour at the sides`() {
+        val brush = Brush.radial(red, blue)
+        val frame = draw { rect(box, brush) }
+
+        assertColour(Color.RED, frame.pixels.at(200, 180), "the middle")
+        assertColour(Color.BLUE, frame.pixels.at(101, 180), "the left side")
+        assertColour(Color.BLUE, frame.pixels.at(102, 102), "a corner stays at the edge colour")
+        assertColour(expected(brush, 250, 180), frame.pixels.at(250, 180), "halfway out")
+    }
+
+    @Test
+    fun `a gradient to transparent fades without going dark`() {
+        val brush = Brush.vertical(red, Colour.Transparent)
+        val frame = draw {
+            rect(Rect.of(0f, 0f, 400f, 400f), Colour.White)
+            rect(box, brush)
+        }
+
+        // Halfway down it is red at half strength over white: pink. Mixing the channels one at a
+        // time would have made it a half-strength dark red, which over white is a dull rose.
+        val pixel = frame.pixels.at(200, 180)
+        assertColour(expected(brush, 200, 180, over = Colour.White), pixel, "halfway down")
+        assertTrue(pixel.r > 0.95f, "red stays full over white while it fades, got $pixel")
+    }
+
+    @Test
+    fun `a gradient is cut by its corner like any other box`() {
+        val frame = draw { rect(box, Brush.vertical(red, blue), corner = 40f) }
+
+        assertColour(Color.BLACK, frame.pixels.at(102, 102), "the corner is cut away")
+        assertColour(Color.RED, frame.pixels.at(200, 101), "the flat top is filled")
+    }
+
+    @Test
+    fun `a gradient fades with the opacity in force`() {
+        val frame = draw {
+            pushAlpha(0.5f)
+            rect(box, Brush.vertical(red, red))
+            popAlpha()
+        }
+
+        assertColour(Color(0.5f, 0f, 0f, 1f), frame.pixels.at(200, 180), "half of red over black")
+    }
+
+    @Test
+    fun `a gradient panel batches with the flat boxes round it`() {
+        val frame = draw {
+            rect(Rect.of(0f, 0f, 400f, 400f), Colour.White)
+            rect(box, Brush.radial(red, blue), corner = 10f)
+            border(box, Colour.Black, width = 6f, corner = 10f)
+            rect(Rect.of(10f, 10f, 20f, 20f), red)
+        }
+
+        assertEquals(1, frame.drawCalls)
+        // Inside the band rather than on either softened edge of it.
+        assertColour(Color.BLACK, frame.pixels.at(200, 102), "the border after it still draws as a border")
+        assertColour(Color.RED, frame.pixels.at(20, 20), "and a flat box after that is still flat")
     }
 
     @Test

@@ -55,6 +55,7 @@ class UiShapeBatch(
         VertexAttribute(VertexAttributes.Usage.Generic, 2, "a_halfSize"),
         VertexAttribute(VertexAttributes.Usage.Generic, 3, "a_shape"),
         VertexAttribute(VertexAttributes.Usage.Generic, 4, "a_radii"),
+        VertexAttribute(VertexAttributes.Usage.Generic, 3, "a_gradient"),
     ).also { it.setIndices(quadIndices(maxQuads)) }
 
     private val shader = compile()
@@ -238,6 +239,65 @@ class UiShapeBatch(
             borderWidth = borderWidth,
             shadowSpread = shadowSpread,
             aa = aa,
+        )
+    }
+
+    /**
+     * One rounded box, filled with a gradient between [start] and [end].
+     *
+     * The same quad and the same distance field as [shape], so it batches with every flat panel on
+     * screen: the gradient is described per vertex, never as a uniform. The end colour rides in the
+     * border colour's slot, which a filled box has no other use for.
+     *
+     * @param radial true for a gradient outwards from the middle; false for a straight one.
+     * @param axisX how far along a straight gradient one unit across moves it, already divided by
+     *   its length. Ignored when [radial].
+     * @param axisY the same, downwards — in *this* batch's coordinates, so already flipped.
+     */
+    @Suppress("LongParameterList")
+    fun gradient(
+        left: Float,
+        bottom: Float,
+        width: Float,
+        height: Float,
+        start: Float,
+        end: Float,
+        radial: Boolean,
+        axisX: Float,
+        axisY: Float,
+        corner: Float,
+        aa: Float,
+    ) {
+        val halfWidth = width / 2f
+        val halfHeight = height / 2f
+        val radius = corner.coerceIn(0f, minOf(halfWidth, halfHeight).coerceAtLeast(0f))
+        radii.fill(radius)
+
+        val source = white?.takeIf { it.texture != null }
+        val u = source?.let { (it.u + it.u2) / 2f } ?: 0.5f
+        val v = source?.let { (it.v + it.v2) / 2f } ?: 0.5f
+
+        use(source?.texture ?: fallbackWhite())
+        quad(
+            left = left - aa,
+            bottom = bottom - aa,
+            right = left + width + aa,
+            top = bottom + height + aa,
+            centreX = left + halfWidth,
+            centreY = bottom + halfHeight,
+            u = u, v = v, u2 = u, v2 = v,
+            colour = start,
+            border = end,
+            shadow = 0f,
+            halfWidth = halfWidth,
+            halfHeight = halfHeight,
+            radii = radii,
+            borderWidth = 0f,
+            shadowSpread = 0f,
+            aa = aa,
+            gradient = if (radial) RADIAL else LINEAR,
+            gradientX = axisX,
+            gradientY = axisY,
         )
     }
 
@@ -486,11 +546,12 @@ class UiShapeBatch(
         colour: Float, border: Float, shadow: Float,
         halfWidth: Float, halfHeight: Float,
         radii: FloatArray, borderWidth: Float, shadowSpread: Float, aa: Float,
+        gradient: Float = 0f, gradientX: Float = 0f, gradientY: Float = 0f,
     ) {
-        vertex(left, bottom, u, v2, colour, border, shadow, left - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa)
-        vertex(left, top, u, v, colour, border, shadow, left - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa)
-        vertex(right, top, u2, v, colour, border, shadow, right - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa)
-        vertex(right, bottom, u2, v2, colour, border, shadow, right - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa)
+        vertex(left, bottom, u, v2, colour, border, shadow, left - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
+        vertex(left, top, u, v, colour, border, shadow, left - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
+        vertex(right, top, u2, v, colour, border, shadow, right - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
+        vertex(right, bottom, u2, v2, colour, border, shadow, right - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
     }
 
     @Suppress("LongParameterList")
@@ -499,6 +560,7 @@ class UiShapeBatch(
         colour: Float, border: Float, shadow: Float,
         localX: Float, localY: Float, halfWidth: Float, halfHeight: Float,
         radii: FloatArray, borderWidth: Float, shadowSpread: Float, aa: Float,
+        gradient: Float = 0f, gradientX: Float = 0f, gradientY: Float = 0f,
     ) {
         var at = used
         vertices[at++] = x
@@ -519,6 +581,9 @@ class UiShapeBatch(
         vertices[at++] = radii[1]
         vertices[at++] = radii[2]
         vertices[at++] = radii[3]
+        vertices[at++] = gradient
+        vertices[at++] = gradientX
+        vertices[at++] = gradientY
         used = at
     }
 
@@ -536,7 +601,11 @@ class UiShapeBatch(
 
     private companion object {
 
-        const val FLOATS_PER_VERTEX = 18
+        const val FLOATS_PER_VERTEX = 21
+
+        /** What the first gradient float says: a straight gradient, or one outwards from the middle. */
+        const val LINEAR = 1f
+        const val RADIAL = 2f
 
         fun quadIndices(quads: Int) = ShortArray(quads * 6).also { indices ->
             for (quad in 0 until quads) {
@@ -561,6 +630,7 @@ class UiShapeBatch(
             attribute vec2 a_halfSize;
             attribute vec3 a_shape;
             attribute vec4 a_radii;
+            attribute vec3 a_gradient;
 
             uniform mat4 u_projTrans;
 
@@ -572,6 +642,7 @@ class UiShapeBatch(
             varying vec2 v_halfSize;
             varying vec3 v_shape;
             varying vec4 v_radii;
+            varying vec3 v_gradient;
 
             void main() {
                 v_color = a_color;
@@ -582,6 +653,7 @@ class UiShapeBatch(
                 v_halfSize = a_halfSize;
                 v_shape = a_shape;
                 v_radii = a_radii;
+                v_gradient = a_gradient;
                 gl_Position = u_projTrans * vec4(a_position, 0.0, 1.0);
             }
         """.trimIndent()
@@ -601,6 +673,7 @@ class UiShapeBatch(
             varying vec2 v_halfSize;
             varying vec3 v_shape;
             varying vec4 v_radii;
+            varying vec3 v_gradient;
 
             // Distance from a point to the edge of a rounded box: negative inside, positive out.
             // One function answers all three questions this shader exists to answer.
@@ -624,6 +697,14 @@ class UiShapeBatch(
                 return vec4((top.rgb * top.a + bottom.rgb * bottom.a * (1.0 - top.a)) / a, a);
             }
 
+            // Two colours mixed weighted by their own opacity, so fading to transparent keeps the
+            // hue rather than darkening towards black. Brush.between is the same sum on the CPU.
+            vec4 between(vec4 from, vec4 to, float t) {
+                float a = mix(from.a, to.a, t);
+                if (a <= 0.0) return vec4(0.0);
+                return vec4(mix(from.rgb * from.a, to.rgb * to.a, t) / a, a);
+            }
+
             void main() {
                 vec4 sampled = texture2D(u_texture, v_texCoord);
                 float aa = v_shape.z;
@@ -641,7 +722,18 @@ class UiShapeBatch(
                 float distance = roundedBox(v_local, v_halfSize, radius);
                 float coverage = 1.0 - smoothstep(-aa, aa, distance);
 
-                vec4 result = vec4(v_color.rgb, v_color.a * coverage) * vec4(sampled.rgb, sampled.a);
+                // A gradient: the end colour is in the border's slot, and how far along this pixel
+                // is comes from its offset from the middle of the box. A box with a gradient has
+                // no border, so the slot is free.
+                vec4 fill = v_color;
+                if (v_gradient.x > 0.5) {
+                    float along = v_gradient.x < 1.5
+                        ? dot(v_local, v_gradient.yz) + 0.5
+                        : length(v_local / max(v_halfSize, vec2(0.0001)));
+                    fill = between(v_color, v_borderColor, clamp(along, 0.0, 1.0));
+                }
+
+                vec4 result = vec4(fill.rgb, fill.a * coverage) * vec4(sampled.rgb, sampled.a);
 
                 if (borderWidth > 0.0) {
                     float inside = 1.0 - smoothstep(-aa, aa, distance + borderWidth);
