@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.input.BackStack
 import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.input.KeyEventType
 import dev.wildware.composegl.ui.input.KeyHandler
+import dev.wildware.composegl.ui.input.LocalUiSounds
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Alignment
@@ -196,13 +197,19 @@ fun Tabs(
     page: @Composable (Int) -> Unit,
 ) {
     val chosen = selected.coerceIn(0, (titles.size - 1).coerceAtLeast(0))
+    // Choosing another tab is a change, the way choosing a radio button is. The heading already
+    // pressed; the tab that is showing changes nothing when chosen again, and says nothing.
+    val sounds = LocalUiSounds.current
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(spacing)) {
         Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
             titles.forEachIndexed { index, title ->
                 Button(
                     text = title,
-                    onClick = { onSelect(index) },
+                    onClick = {
+                        if (index != chosen) sounds.change()
+                        onSelect(index)
+                    },
                     style = if (index == chosen) "$style.selected" else style,
                 )
             }

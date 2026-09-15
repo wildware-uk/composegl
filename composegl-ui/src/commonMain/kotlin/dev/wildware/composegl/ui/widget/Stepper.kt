@@ -10,8 +10,10 @@ import androidx.compose.runtime.withFrameNanos
 import dev.wildware.composegl.ui.focus.FocusDirection
 import dev.wildware.composegl.ui.input.DirectionHandler
 import dev.wildware.composegl.ui.input.InteractionState
+import dev.wildware.composegl.ui.input.LocalUiSounds
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
+import dev.wildware.composegl.ui.input.UiSounds
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
@@ -173,6 +175,7 @@ private fun StepperControl(
     stepper.wrap = wrap
     stepper.enabled = enabled
     stepper.report = onIndex
+    stepper.sounds = LocalUiSounds.current
     // Disabled while an arrow was held: the hold is over, or its repeat would outlive the control.
     if (!enabled) stepper.held = 0
 
@@ -308,6 +311,7 @@ private class StepperLogic {
     /** A number showing between two of its steps, so left goes to [index] itself rather than past it. */
     var between = false
     var report: (Int) -> Unit = {}
+    var sounds: UiSounds = UiSounds.None
 
     /** Where the left arrow ends and the right one starts, in the control's own units. From layout. */
     var leftEnd = 0f
@@ -340,6 +344,10 @@ private class StepperLogic {
         // repeat — count as two rather than as the same one twice.
         index = wanted
         between = false
+        // Every way a step happens comes through here — an arrow key, the pad, an arrow held down
+        // and repeating, a click on the value — so each one is heard once. An end with nowhere to
+        // go returned above, and stays quiet: nothing changed.
+        sounds.change()
         report(wanted)
         return true
     }

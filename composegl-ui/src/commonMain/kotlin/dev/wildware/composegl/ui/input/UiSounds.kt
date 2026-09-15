@@ -58,7 +58,7 @@ interface UiSounds {
 
     /**
      * A control's value changed because of the player: a checkbox ticked, a switch flipped, a radio
-     * button chosen, a slider stepped.
+     * button chosen, a slider or a stepper stepped, another tab picked.
      *
      * A game's own control reports here too, through [LocalUiSounds]:
      * `val sounds = LocalUiSounds.current` while composing, then `sounds.change()` when it changes.
