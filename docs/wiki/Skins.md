@@ -77,6 +77,17 @@ Four of them, and a style names the ones it cares about:
 label drops a pixel while its border stays put. It is the cheapest convincing thing
 in a game interface, and it belongs in the file rather than in a widget.
 
+`corner` is one radius for all four corners, or a radius per corner — four numbers
+clockwise from the top-left, or an object naming only the rounded ones:
+
+```jsonc
+"tab":         { "background": { "fill": "#232A35", "corner": { "topLeft": 8, "topRight": 8 } } },
+"tab.docked":  { "background": { "fill": "#232A35", "corner": [12, 0, 0, 12] } }
+```
+
+There is no two-number form: two radii could mean top and bottom or left and right,
+so the reader stops and says so rather than guessing.
+
 ---
 
 ## Art

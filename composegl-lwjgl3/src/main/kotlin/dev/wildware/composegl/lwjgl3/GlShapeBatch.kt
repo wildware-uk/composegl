@@ -201,11 +201,45 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         shadow: Colour,
         shadowSpread: Float,
         aa: Float,
+    ) = shape(
+        white, left, bottom, width, height, fill,
+        corner, corner, corner, corner,
+        border, borderWidth, shadow, shadowSpread, aa,
+    )
+
+    /**
+     * The same box with a radius for each corner.
+     *
+     * The corners are named as they look on screen: [topLeft] is the top-left of the box that
+     * appears, whichever way up the coordinates reaching this batch count. Each is held to half the
+     * box's shorter side on its own, the rule a single radius has always had.
+     */
+    @Suppress("LongParameterList")
+    fun shape(
+        white: GlTexture,
+        left: Float,
+        bottom: Float,
+        width: Float,
+        height: Float,
+        fill: Colour,
+        topLeft: Float,
+        topRight: Float,
+        bottomRight: Float,
+        bottomLeft: Float,
+        border: Colour,
+        borderWidth: Float,
+        shadow: Colour,
+        shadowSpread: Float,
+        aa: Float,
     ) {
         val margin = shadowSpread + aa
         val halfWidth = width / 2f
         val halfHeight = height / 2f
-        val radius = corner.coerceIn(0f, minOf(halfWidth, halfHeight))
+        val most = minOf(halfWidth, halfHeight).coerceAtLeast(0f)
+        radii[0] = topLeft.coerceIn(0f, most)
+        radii[1] = topRight.coerceIn(0f, most)
+        radii[2] = bottomRight.coerceIn(0f, most)
+        radii[3] = bottomLeft.coerceIn(0f, most)
         val u = (white.u + white.u2) / 2f
         val v = (white.v + white.v2) / 2f
 
@@ -223,12 +257,23 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
             shadow = shadow,
             halfWidth = halfWidth,
             halfHeight = halfHeight,
-            radius = radius,
+            radii = radii,
             borderWidth = borderWidth,
             shadowSpread = shadowSpread,
             aa = aa,
         )
     }
+
+    /**
+     * The four radii of the box being written, top-left then clockwise.
+     *
+     * One array held for the batch's life rather than four more parameters on every vertex call
+     * below, and rather than an object per box. Read straight after it is filled; nothing keeps it.
+     */
+    private val radii = FloatArray(4)
+
+    /** What a picture, a glyph or a fan vertex carries: no corners, since it has no shape. */
+    private val noRadii = FloatArray(4)
 
     /**
      * A triangle fan, in whatever coordinates the caller has already flipped.
@@ -286,7 +331,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
             shadow = Colour.Transparent,
             localX = 0f, localY = 0f,
             halfWidth = 0f, halfHeight = 0f,
-            radius = 0f, borderWidth = 0f, shadowSpread = 0f,
+            radii = noRadii, borderWidth = 0f, shadowSpread = 0f,
             aa = 0f,
         )
     }
@@ -319,7 +364,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
             shadow = Colour.Transparent,
             halfWidth = 0f,
             halfHeight = 0f,
-            radius = 0f,
+            radii = noRadii,
             borderWidth = 0f,
             shadowSpread = 0f,
             // Zero says "this is a picture": the shader skips the distance field entirely.
@@ -396,7 +441,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
             shadow = Colour.Transparent,
             localX = 0f, localY = 0f,
             halfWidth = 0f, halfHeight = 0f,
-            radius = 0f, borderWidth = 0f, shadowSpread = 0f,
+            radii = noRadii, borderWidth = 0f, shadowSpread = 0f,
             // Zero says "this is a picture": the shader skips the distance field entirely.
             aa = 0f,
         )
@@ -418,14 +463,14 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         u: Float, v: Float, u2: Float, v2: Float,
         fill: Colour, border: Colour, shadow: Colour,
         halfWidth: Float, halfHeight: Float,
-        radius: Float, borderWidth: Float, shadowSpread: Float, aa: Float,
+        radii: FloatArray, borderWidth: Float, shadowSpread: Float, aa: Float,
     ) {
         // The quad is wound anticlockwise from its bottom-left, and `v` is the coordinate at the
         // quad's *top*. Every caller here counts y downwards and flips once on the way in.
-        vertex(left, bottom, u, v2, fill, border, shadow, left - centreX, bottom - centreY, halfWidth, halfHeight, radius, borderWidth, shadowSpread, aa)
-        vertex(left, top, u, v, fill, border, shadow, left - centreX, top - centreY, halfWidth, halfHeight, radius, borderWidth, shadowSpread, aa)
-        vertex(right, top, u2, v, fill, border, shadow, right - centreX, top - centreY, halfWidth, halfHeight, radius, borderWidth, shadowSpread, aa)
-        vertex(right, bottom, u2, v2, fill, border, shadow, right - centreX, bottom - centreY, halfWidth, halfHeight, radius, borderWidth, shadowSpread, aa)
+        vertex(left, bottom, u, v2, fill, border, shadow, left - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa)
+        vertex(left, top, u, v, fill, border, shadow, left - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa)
+        vertex(right, top, u2, v, fill, border, shadow, right - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa)
+        vertex(right, bottom, u2, v2, fill, border, shadow, right - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa)
     }
 
     @Suppress("LongParameterList")
@@ -433,7 +478,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         x: Float, y: Float, u: Float, v: Float,
         fill: Colour, border: Colour, shadow: Colour,
         localX: Float, localY: Float, halfWidth: Float, halfHeight: Float,
-        radius: Float, borderWidth: Float, shadowSpread: Float, aa: Float,
+        radii: FloatArray, borderWidth: Float, shadowSpread: Float, aa: Float,
     ) {
         var at = used
         vertices[at++] = x
@@ -447,10 +492,13 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
         vertices[at++] = localY
         vertices[at++] = halfWidth
         vertices[at++] = halfHeight
-        vertices[at++] = radius
         vertices[at++] = borderWidth
         vertices[at++] = shadowSpread
         vertices[at++] = aa
+        vertices[at++] = radii[0]
+        vertices[at++] = radii[1]
+        vertices[at++] = radii[2]
+        vertices[at++] = radii[3]
         used = at
     }
 
@@ -511,7 +559,8 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
             Attribute("a_texCoord0", 2, 14),
             Attribute("a_local", 2, 16),
             Attribute("a_halfSize", 2, 18),
-            Attribute("a_shape", 4, 20),
+            Attribute("a_shape", 3, 20),
+            Attribute("a_radii", 4, 23),
         )
 
         val FloatsPerVertex = Attributes.sumOf { it.size }
@@ -524,7 +573,8 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
             attribute vec2 a_texCoord0;
             attribute vec2 a_local;
             attribute vec2 a_halfSize;
-            attribute vec4 a_shape;
+            attribute vec3 a_shape;
+            attribute vec4 a_radii;
 
             uniform mat4 u_projTrans;
 
@@ -534,7 +584,8 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
             varying vec2 v_texCoord;
             varying vec2 v_local;
             varying vec2 v_halfSize;
-            varying vec4 v_shape;
+            varying vec3 v_shape;
+            varying vec4 v_radii;
 
             void main() {
                 v_color = a_color;
@@ -544,6 +595,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
                 v_local = a_local;
                 v_halfSize = a_halfSize;
                 v_shape = a_shape;
+                v_radii = a_radii;
                 gl_Position = u_projTrans * vec4(a_position, 0.0, 1.0);
             }
         """.trimIndent()
@@ -561,13 +613,23 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
             varying vec2 v_texCoord;
             varying vec2 v_local;
             varying vec2 v_halfSize;
-            varying vec4 v_shape;
+            varying vec3 v_shape;
+            varying vec4 v_radii;
 
             // Distance from a point to the edge of a rounded box: negative inside, positive out.
             // One function answers all three questions this shader exists to answer.
             float roundedBox(vec2 point, vec2 extent, float radius) {
                 vec2 q = abs(point) - extent + radius;
                 return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
+            }
+
+            // Which corner's radius a point is under: the one in the same quarter of the box. The
+            // radii are top-left, then clockwise, and y counts upwards here, so the top half is
+            // the half with a positive y. A box whose corners agree gets the same answer in all
+            // four quarters, which is exactly the single radius it always had.
+            float cornerRadius(vec2 point, vec4 radii) {
+                if (point.y >= 0.0) return point.x < 0.0 ? radii.x : radii.y;
+                return point.x < 0.0 ? radii.w : radii.z;
             }
 
             vec4 over(vec4 top, vec4 bottom) {
@@ -578,7 +640,7 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
 
             void main() {
                 vec4 sampled = texture2D(u_texture, v_texCoord);
-                float aa = v_shape.w;
+                float aa = v_shape.z;
 
                 // A picture or a glyph: no shape to work out, just the texture.
                 if (aa <= 0.0) {
@@ -586,9 +648,9 @@ class GlShapeBatch(private val maxQuads: Int = 2048) : AutoCloseable {
                     return;
                 }
 
-                float radius = v_shape.x;
-                float borderWidth = v_shape.y;
-                float spread = v_shape.z;
+                float radius = cornerRadius(v_local, v_radii);
+                float borderWidth = v_shape.x;
+                float spread = v_shape.y;
 
                 float distance = roundedBox(v_local, v_halfSize, radius);
                 float coverage = 1.0 - smoothstep(-aa, aa, distance);

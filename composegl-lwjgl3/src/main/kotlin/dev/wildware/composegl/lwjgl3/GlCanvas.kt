@@ -1,5 +1,6 @@
 package dev.wildware.composegl.lwjgl3
 
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
@@ -200,6 +201,27 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         shape(rect, corner = corner, shadow = colour, shadowSpread = spread)
     }
 
+    // Four radii are four more numbers on the same vertex, so a tab and a plain panel beside it
+    // still batch together: the shader picks a corner's radius by which quarter a pixel is in.
+
+    override fun rect(rect: Rect, colour: Colour, corners: Corners) {
+        if (state.isHidden || rect.isEmpty) return
+        shape(rect, fill = colour, corners = corners)
+    }
+
+    override fun border(rect: Rect, colour: Colour, width: Float, corners: Corners) {
+        if (state.isHidden || rect.isEmpty || width <= 0f) return
+        shape(rect, corners = corners, border = colour, borderWidth = width)
+    }
+
+    override fun shadow(rect: Rect, colour: Colour, spread: Float, corners: Corners) {
+        if (state.isHidden || spread <= 0f) return
+        shape(rect, corners = corners, shadow = colour, shadowSpread = spread)
+    }
+
+    /** Each corner by its own radius, in the same shader as everything else. */
+    override val roundsCornersSeparately: Boolean get() = true
+
     override fun fan(points: FloatArray, colour: Colour) {
         if (state.isHidden || points.size < 6) return
         // Flipped here, like every other call: the toolkit counts y downwards and the batch up.
@@ -221,6 +243,38 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
         borderWidth: Float = 0f,
         shadow: Colour = Colour.Transparent,
         shadowSpread: Float = 0f,
+    ) = shape(rect, fill, corner, corner, corner, corner, border, borderWidth, shadow, shadowSpread)
+
+    private fun shape(
+        rect: Rect,
+        fill: Colour = Colour.Transparent,
+        corners: Corners,
+        border: Colour = Colour.Transparent,
+        borderWidth: Float = 0f,
+        shadow: Colour = Colour.Transparent,
+        shadowSpread: Float = 0f,
+    ) = shape(
+        rect, fill,
+        corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft,
+        border, borderWidth, shadow, shadowSpread,
+    )
+
+    /**
+     * The one place a box reaches the batch. Four floats rather than a [Corners], so that the
+     * single-radius calls — which are most of a frame — make no object on their way through.
+     */
+    @Suppress("LongParameterList")
+    private fun shape(
+        rect: Rect,
+        fill: Colour,
+        topLeft: Float,
+        topRight: Float,
+        bottomRight: Float,
+        bottomLeft: Float,
+        border: Colour,
+        borderWidth: Float,
+        shadow: Colour,
+        shadowSpread: Float,
     ) {
         batch().shape(
             white = white(),
@@ -229,7 +283,11 @@ class GlCanvas(private val fonts: StbFonts? = null) : UiCanvas, AutoCloseable {
             width = rect.width,
             height = rect.height,
             fill = fill.scaleAlpha(state.alpha),
-            corner = corner,
+            // Top is still top: the flip moves the box, and the batch's own up is the screen's up.
+            topLeft = topLeft,
+            topRight = topRight,
+            bottomRight = bottomRight,
+            bottomLeft = bottomLeft,
             border = border.scaleAlpha(state.alpha),
             borderWidth = borderWidth,
             shadow = shadow.scaleAlpha(state.alpha),

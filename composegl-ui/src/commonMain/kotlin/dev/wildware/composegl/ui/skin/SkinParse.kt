@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.skin
 
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.ArtAtlas
 import dev.wildware.composegl.ui.graphics.Colour
@@ -107,7 +108,7 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
             "patch" -> patch(json)
             "fill" -> SkinDrawable.Fill(
                 colour = json.getValue("fill").colour(),
-                corner = json["corner"]?.number("\"corner\"") ?: 0f,
+                corners = json["corner"]?.corners() ?: Corners.None,
                 border = json["border"]?.colour(),
                 borderWidth = json["borderWidth"]?.number("\"borderWidth\"") ?: json["border"]?.let { 1f } ?: 0f,
                 padding = json["padding"]?.padding() ?: Padding.None,
@@ -256,6 +257,43 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
         else -> fail("a padding is a number, \"[horizontal, vertical]\" or \"[left, top, right, bottom]\"", this)
     }
 
+    /**
+     * A corner radius: one number for all four, four numbers clockwise from the top-left, or an
+     * object naming only the corners that are rounded.
+     *
+     * No two-number form, unlike padding. Two radii could mean top and bottom, or left and right,
+     * or the two diagonals, and a file that means one of those and is read as another draws a
+     * shape nobody asked for without saying anything.
+     */
+    private fun Json.corners(): Corners = when (this) {
+        // Through [blaming], so that [Corners]' own refusal of a negative radius is said on the
+        // line that wrote one.
+        is JsonNumber -> blaming(this) { Corners.all(value.toFloat()) }
+        is JsonArray -> {
+            if (items.size != 4) {
+                fail(
+                    "a corner is one number, or four written \"[topLeft, topRight, bottomRight, " +
+                        "bottomLeft]\", not ${items.size}",
+                    this,
+                )
+            }
+            val radii = items.map { it.number("a corner") }
+            blaming(this) { Corners(radii[0], radii[1], radii[2], radii[3]) }
+        }
+        is JsonObject -> {
+            allow(CornerKeys)
+            fun named(key: String) = this[key]?.number("\"$key\"") ?: 0f
+            blaming(this) {
+                Corners(named("topLeft"), named("topRight"), named("bottomRight"), named("bottomLeft"))
+            }
+        }
+        else -> fail(
+            "a corner is a number, \"[topLeft, topRight, bottomRight, bottomLeft]\" or an object " +
+                "such as { \"topLeft\": 8, \"topRight\": 8 }",
+            this,
+        )
+    }
+
     private fun Json.offset(): Offset {
         val items = (this as? JsonArray)?.items ?: fail("an offset is written \"[x, y]\"", this)
         if (items.size != 2) fail("an offset is written \"[x, y]\", and this has ${items.size}", this)
@@ -317,6 +355,9 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
         val StateKeys = setOf("background", "textColour", "tint", "padding", "text", "contentOffset")
 
         val StyleStates = setOf("hovered", "focused", "pressed", "disabled")
+
+        /** The corners a `"corner"` object can name. Any it leaves out are square. */
+        val CornerKeys = setOf("topLeft", "topRight", "bottomRight", "bottomLeft")
 
         /** The nine pieces a patch can be cut from, when the host cut them itself. */
         val RegionKeys = setOf(

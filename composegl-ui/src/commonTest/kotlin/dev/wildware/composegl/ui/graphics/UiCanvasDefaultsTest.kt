@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.graphics
 
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.text.TextLayout
 import kotlin.test.Test
@@ -77,6 +78,23 @@ class UiCanvasDefaultsTest {
         assertEquals(1, canvas.raws, "it fell through to the one call it does have")
     }
 
+    @Test
+    fun `a box with four radii on an old backend is drawn at the smallest of them`() {
+        val canvas = OldBackend()
+        val tab = Rect.of(10f, 20f, 60f, 24f)
+
+        canvas.rect(tab, Colour.White, Corners.top(8f))
+        canvas.border(tab, Colour.White, 2f, Corners(12f, 12f, 12f, 3f))
+        canvas.shadow(tab, Colour.White, 6f, Corners.all(5f))
+
+        assertFalse(canvas.roundsCornersSeparately, "it says it cannot round them one by one")
+        assertEquals(listOf(tab), canvas.rects, "right place and right size, and drawn rather than skipped")
+        // Square rather than rounded where nothing asked for it: a tab still meets its panel flat.
+        assertEquals(listOf(0f), canvas.rectCorners)
+        assertEquals(listOf(3f), canvas.borderCorners)
+        assertEquals(listOf(5f), canvas.shadowCorners, "and four that agree are just that radius")
+    }
+
     private class Pretend : TextureHandle {
         override val width = 8
         override val height = 8
@@ -86,19 +104,28 @@ class UiCanvasDefaultsTest {
     private class OldBackend : UiCanvas {
 
         val rects = mutableListOf<Rect>()
+        val rectCorners = mutableListOf<Float>()
+        val borderCorners = mutableListOf<Float>()
+        val shadowCorners = mutableListOf<Float>()
         val images = mutableListOf<Pair<Rect, Colour>>()
         var raws = 0
 
         override fun rect(rect: Rect, colour: Colour, corner: Float) {
             rects += rect
+            rectCorners += corner
         }
 
         override fun image(texture: TextureHandle, destination: Rect, tint: Colour, source: Rect?) {
             images += destination to tint
         }
 
-        override fun border(rect: Rect, colour: Colour, width: Float, corner: Float) = Unit
-        override fun shadow(rect: Rect, colour: Colour, spread: Float, corner: Float) = Unit
+        override fun border(rect: Rect, colour: Colour, width: Float, corner: Float) {
+            borderCorners += corner
+        }
+
+        override fun shadow(rect: Rect, colour: Colour, spread: Float, corner: Float) {
+            shadowCorners += corner
+        }
         override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) = Unit
         override fun fan(points: FloatArray, colour: Colour) = Unit
         override fun pushClip(rect: Rect) = Unit

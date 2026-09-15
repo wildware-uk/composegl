@@ -4,6 +4,7 @@ import dev.wildware.composegl.ui.backend.FakeTexture
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
 import dev.wildware.composegl.ui.effect.Uniform
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
@@ -92,6 +93,48 @@ class GlCanvasTest {
 
         assertColour(red, frame.at(50, 20), "inside the rectangle")
         assertColour(Colour.Black, frame.at(50, 80), "below it, where nothing was drawn")
+    }
+
+    @Test
+    fun `each corner is cut by its own radius`() {
+        // Only the top-left is rounded. Without four radii reaching the shader every corner is
+        // drawn the same, so either all four are cut or none are.
+        val frame = draw { rect(Rect.of(50f, 50f, 100f, 100f), red, Corners(topLeft = 30f)) }
+
+        assertColour(Colour.Black, frame.at(52, 52), "the top-left is cut away")
+        assertColour(red, frame.at(147, 52), "the top-right is square")
+        assertColour(red, frame.at(147, 147), "the bottom-right is square")
+        assertColour(red, frame.at(52, 147), "the bottom-left is square")
+    }
+
+    @Test
+    fun `top and bottom are the screen's even though the batch counts y upwards`() {
+        val frame = draw { rect(Rect.of(50f, 50f, 100f, 100f), red, Corners.top(30f)) }
+
+        assertColour(Colour.Black, frame.at(52, 52), "top-left cut")
+        assertColour(Colour.Black, frame.at(147, 52), "top-right cut")
+        assertColour(red, frame.at(52, 147), "bottom-left square")
+        assertColour(red, frame.at(147, 147), "bottom-right square")
+    }
+
+    @Test
+    fun `a border follows the corners it is given`() {
+        val frame = draw { border(Rect.of(50f, 50f, 100f, 100f), blue, width = 6f, corners = Corners.right(30f)) }
+
+        assertColour(blue, frame.at(52, 52), "the square top-left is part of the ring")
+        assertColour(Colour.Black, frame.at(147, 52), "the rounded top-right is cut away")
+        assertColour(Colour.Black, frame.at(100, 100), "and the middle is still empty")
+    }
+
+    @Test
+    fun `a tab and a plain panel beside it are one draw call`() {
+        val frame = draw {
+            rect(Rect.of(10f, 10f, 60f, 24f), red, Corners.top(8f))
+            rect(Rect.of(10f, 34f, 200f, 80f), blue, corner = 4f)
+            rect(Rect.of(80f, 10f, 60f, 24f), red, Corners(3f, 9f, 0f, 1f))
+        }
+
+        assertEquals(1, frame.drawCalls, "radii are per vertex, so different corners still batch")
     }
 
     /**

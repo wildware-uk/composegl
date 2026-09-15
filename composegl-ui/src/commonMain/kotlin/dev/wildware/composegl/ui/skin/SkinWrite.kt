@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.skin
 
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.ArtAtlas
 import dev.wildware.composegl.ui.graphics.Colour
@@ -74,7 +75,7 @@ internal class SkinWrite(private val art: ArtAtlas?) {
         is SkinDrawable.Blank -> text.append("\"none\"")
         is SkinDrawable.Fill -> obj {
             key("fill") { colour(drawable.colour) }
-            if (drawable.corner != 0f) key("corner") { number(drawable.corner) }
+            if (drawable.corners != Corners.None) key("corner") { corners(drawable.corners) }
             drawable.border?.let { key("border") { colour(it) } }
             if (drawable.border != null && drawable.borderWidth != 1f) {
                 key("borderWidth") { number(drawable.borderWidth) }
@@ -131,6 +132,11 @@ internal class SkinWrite(private val art: ArtAtlas?) {
             list(padding.left, padding.top)
         else -> list(padding.left, padding.top, padding.right, padding.bottom)
     }
+
+    /** One number when the four agree, which is what nearly every file says; four when they do not. */
+    private fun corners(corners: Corners) =
+        if (corners.isUniform) number(corners.topLeft)
+        else list(corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft)
 
     private fun offset(offset: Offset) = list(offset.x, offset.y)
 
