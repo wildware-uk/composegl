@@ -664,6 +664,36 @@ Crossfade(targetState = page) { page ->
 
 ---
 
+## Several values off one state: updateTransition
+
+A pressed button shrinks and darkens at once. Written as two `animate…AsState`
+calls, those are two separate animations. `updateTransition` makes them one
+movement: they set off on the same frame, turn round together, and the transition
+knows when the whole thing is over.
+
+```kotlin
+val pressed = updateTransition(interaction.isPressed)
+val scale by pressed.animateFloat { if (it) 0.95f else 1f }
+val colour by pressed.animateColour { if (it) dark else light }
+```
+
+![three cards, resting, half way through being picked, and picked](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-transition.png)
+
+- **Values:** `animateFloat`, `animateColour`, `animateOffset`, `animateSize`, or
+  `animateValue` with your own `Vectoriser`.
+- **Specs per direction:** the spec block is told the move being made, so a press
+  can be quick and the release slow:
+  `animateFloat({ if (false isTransitioningTo true) Tween(60) else Tween(300) }) { … }`
+- **When it is over:** `currentState` stays the old state until the slowest value
+  arrives. `isRunning` is true for the whole movement.
+- **Late values:** a value composed part way through starts from the old state's
+  value, and the transition waits for it too.
+- **Clocks:** `updateTransition(state, clock = Clock.World)` freezes every value
+  while the game is paused.
+- **Cost:** settled, it asks for no frames.
+
+---
+
 ## Typewriter
 
 ```kotlin
