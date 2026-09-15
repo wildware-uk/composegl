@@ -17,6 +17,8 @@
   //   #39445A  a raised thing, hovered         #E5484D  danger
   //                                            #46A758  good news
 
+  "name": "Standard",
+
   "defaults": {
     "textColour": "#E8ECF2",
     "text": { "font": "default", "size": 16 }

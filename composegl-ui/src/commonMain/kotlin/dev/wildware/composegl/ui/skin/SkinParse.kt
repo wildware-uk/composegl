@@ -30,14 +30,15 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
 
     fun skin(text: String): Skin {
         val root = JsonReader.read(text).obj("the skin file")
-        root.allow(setOf("defaults", "styles"))
+        root.allow(setOf("name", "defaults", "styles"))
 
+        val name = root["name"]?.text("\"name\"").orEmpty()
         val defaults = root["defaults"]?.let { ResolvedStyle.Plain.with(state(it, TextStyle.Default)) }
         val base = defaults?.textStyle ?: TextStyle.Default
         val styles = root["styles"]?.obj("\"styles\"")?.fields.orEmpty()
             .mapValues { (name, value) -> style(value, base, name) }
 
-        return Skin(styles = styles, fonts = fonts, art = art, defaults = defaults)
+        return Skin(styles = styles, fonts = fonts, art = art, defaults = defaults, name = name)
     }
 
     private fun style(value: Json, defaultText: TextStyle, name: String): Style {

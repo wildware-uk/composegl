@@ -144,7 +144,13 @@ fun Screen(
         LocalClipboard provides clipboard,
         LocalSoftKeyboard provides softKeyboard,
     ) {
-        ProvideSkin(skin) {
+        // The player's choice from the stepper below, applied to everything in the same frame. Laid
+        // over the example's own skin rather than swapped for it: the chips, slots and shield bars
+        // are the example's styles, and the toolkit's skin has never heard of them.
+        val chosen = remember(skin, state.highContrast) {
+            if (state.highContrast) skin.overriddenWith(Skin.HighContrast) else skin
+        }
+        ProvideSkin(chosen) {
             ProvideBackStack(state.backs) {
                 // One host for the whole screen: a tooltip has to be drawn over every panel,
                 // including the one next to the panel it belongs to.
@@ -428,6 +434,20 @@ private fun StatusPage(state: DemoState) {
                 options = listOf("Story", "Normal", "Veteran", "Insane"),
                 selected = state.difficulty,
                 onSelect = { state.difficulty = it },
+            )
+        }
+        // The whole look, switched from here while this panel is open. Nothing on it resets.
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = VerticalAlignment.Centre,
+        ) {
+            Text("Skin", style = "label.dim")
+            Stepper(
+                options = listOf(false, true),
+                selected = state.highContrast,
+                onSelect = { state.highContrast = it },
+                label = { if (it) "High contrast" else "Standard" },
             )
         }
         Checkbox(state.invertY, onCheckedChange = { state.invertY = it }, label = "Invert Y")
@@ -753,6 +773,9 @@ private val digits = listOf(
 class DemoState {
 
     val source = InputSourceTracker()
+
+    /** Whether the player chose the toolkit's high-contrast skin over the example's own. */
+    var highContrast by mutableStateOf(false)
 
     /**
      * What the interface costs a frame. Off, because it is a debug tool and the example is a

@@ -43,6 +43,8 @@ fun main() {
     val typeface = resource("fonts/DejaVuSans.ttf")
     fonts.register("body", typeface, listOf(13, 16, 20))
     fonts.register("display", typeface, listOf(34))
+    // What the toolkit's own skins ask for, so the high-contrast choice in the options has text.
+    fonts.register("default", typeface, listOf(12, 13, 14, 16, 18, 22, 26))
 
     val art = GlTexture.decode(resource("ui/ui.png"))
     val canvas = GlCanvas(fonts)
