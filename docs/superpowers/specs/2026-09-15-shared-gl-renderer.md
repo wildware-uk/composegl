@@ -55,6 +55,11 @@ What the code does where this design said otherwise. The code is the reference.
   pages it was not given, and gives its device's atlas textures back on `close()`. KorGE's game
   textures are adopted by the GL name KorGE binds, with a bind hook that binds through
   `AGOpengl.textureBind`. A KorGE atlas is 1,024-pixel pages that do not grow, up to 16.
+  One KorGE test input did move, with its assertion unchanged: the shared atlas packs tighter than
+  `KorgeAtlas` did, so the "small atlas grows onto another page" text fits one 128-pixel page, and
+  that test now uses 96-pixel pages to still need a second. `KorgeLayersTest` became
+  `LayerPoolTest`; `KorgeAtlasTest`'s texture-coordinate and white-block-sampling cases are in
+  `AtlasFontsTest`.
 - **webgl (step 4).** `src/wasmJsMain` went from 3,525 lines to 2,009 (the estimate was 1,820);
   `WebGl.kt` is 267 lines. What building it changed:
   - The index buffer is uploaded through `ELEMENT_ARRAY_BUFFER`, with the device's own vertex array

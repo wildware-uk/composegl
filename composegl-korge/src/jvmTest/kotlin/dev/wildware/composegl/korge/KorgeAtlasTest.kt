@@ -30,7 +30,7 @@ class KorgeAtlasTest {
     }
 
     @Test
-    fun `glyphs do not overlap each other or the white block`() {
+    fun `glyphs and the white block have empty pixels between them`() {
         val fonts = fonts()
         val glyphs = (fonts.measure("abcdefghijklmnopqrstuvwxyz", TextStyle(family = "body", size = 12f)) as KorgeTextLayout).placed.map { it.glyph }
         val boxes = glyphs.map { listOf(it.x, it.y, it.width.toInt(), it.height.toInt()) } +
@@ -39,8 +39,9 @@ class KorgeAtlasTest {
             if (a == b) continue
             val (ax, ay, aw, ah) = boxes[a]
             val (bx, by, bw, bh) = boxes[b]
-            val apart = ax + aw <= bx || bx + bw <= ax || ay + ah <= by || by + bh <= ay
-            assertTrue(apart, "(${ax}, ${ay}) and (${bx}, ${by}) overlap")
+            // Strictly apart: a pixel of nothing between any two, as the KorGE atlas always kept.
+            val apart = ax + aw < bx || bx + bw < ax || ay + ah < by || by + bh < ay
+            assertTrue(apart, "(${ax}, ${ay}) and (${bx}, ${by}) touch")
         }
     }
 
