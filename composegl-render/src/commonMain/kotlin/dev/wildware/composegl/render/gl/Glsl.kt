@@ -44,8 +44,9 @@ enum class GlslDialect(
      * precision, which a fragment shader there cannot compile without.
      *
      * @param highPrecision ask for `highp` where the device has it, and `mediump` where it does not.
-     *   The shape shader does: a phone's medium precision runs out long before a wide panel does,
-     *   and the rounded-box distance turns to visible steps. Effects keep `mediump`.
+     *   The device asks for it for every shader: a phone's medium precision runs out long before a
+     *   wide panel does, the rounded-box distance turns to visible steps, and an effect's noise hash
+     *   comes out as nothing.
      */
     fun fragment(source: String, highPrecision: Boolean = false): String {
         if (version.isEmpty()) return source

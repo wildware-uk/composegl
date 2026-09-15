@@ -45,8 +45,8 @@ class ScreenshotTest {
         val bevel = bevel()
         val art = GlTexture.rgba(bevel.width, bevel.height, bevel.pixels, smooth = false)
         try {
-            GL11.glClearColor(0f, 0f, 0f, 1f)
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+            Gl.gl.clearColor(0f, 0f, 0f, 1f)
+            Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
             canvas.begin(viewport)
             scene.draw(canvas, SceneArt(fonts = fonts, panel = NinePatch(art, slice = Padding.all(8f))))
             canvas.end()

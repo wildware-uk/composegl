@@ -24,8 +24,8 @@ class SharpTextGlTest {
         val canvas = GlCanvas(fonts)
         try {
             val design = Gl.size / scale
-            GL11.glClearColor(0f, 0f, 0f, 1f)
-            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+            Gl.gl.clearColor(0f, 0f, 0f, 1f)
+            Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
             canvas.begin(Viewport(Size(design, design), Size(Gl.size.toFloat(), Gl.size.toFloat()), ScalePolicy.Fit))
             canvas.text(fonts.measure(text, TextStyle(family = "body", size = size.toFloat())), 20f / scale, 20f / scale, Colour.White)
             canvas.end()

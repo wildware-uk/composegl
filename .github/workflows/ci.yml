@@ -76,7 +76,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             xvfb libgl1 libglx-mesa0 libgl1-mesa-dri libglu1-mesa \
-            libegl1 libegl-mesa0 libgbm1 \
+            libegl1 libegl-mesa0 libgbm1 libgles2 \
             libxi6 libxcursor1 libxrandr2 libxinerama1
 
       - name: Renderer tests with a real GL context
@@ -100,6 +100,15 @@ jobs:
           LIBGL_ALWAYS_SOFTWARE: '1'
           GALLIUM_DRIVER: llvmpipe
         run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-lwjgl3:test --rerun-tasks --stacktrace
+
+      # The same suite again on real OpenGL ES 3 and ES 2 contexts, made through EGL: what a phone
+      # gives a game. ES 3 is what broke on an iPhone (#188); until this ran, only fake devices had
+      # ever seen these shaders.
+      - name: The same scenes on OpenGL ES 3 and ES 2
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GALLIUM_DRIVER: llvmpipe
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-lwjgl3:testGles3 :composegl-lwjgl3:testGles2 --rerun-tasks --stacktrace
 
       # The KorGE backend, in KorGE's own AWT window on Xvfb, the way a desktop game opens it.
       - name: The same scenes, drawn inside a KorGE game

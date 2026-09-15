@@ -71,8 +71,8 @@ class StbFontFallbackGlTest {
 
     /** One frame of [ui], the top-left [width] by [height] of it. */
     private fun frame(ui: UiTest, width: Int = 300, height: Int = 120): BufferedImage {
-        GL11.glClearColor(0f, 0f, 0f, 1f)
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
+        Gl.gl.clearColor(0f, 0f, 0f, 1f)
+        Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
         ui.render()
         val pixels = Gl.readPixels(Gl.size, Gl.size)
         return imageOf(width, height) { x, y -> pixels[y * Gl.size + x] }

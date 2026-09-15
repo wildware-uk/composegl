@@ -1,10 +1,13 @@
 package dev.wildware.composegl.lwjgl3
 
+import dev.wildware.composegl.render.gl.GlDevice
 import org.junit.jupiter.api.Assumptions.assumeTrue
-import org.lwjgl.BufferUtils
-import org.lwjgl.glfw.GLFW
-import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11
+import org.lwjgl.opengl.GL20
+import org.lwjgl.opengl.GL30
+import org.lwjgl.opengles.GLES20
+import java.nio.ByteBuffer
+import dev.wildware.composegl.render.gl.Gl as GlBinding
 
 /**
  * One hidden window with a real OpenGL context, shared by every test that needs one.
@@ -25,6 +28,15 @@ object Gl {
 
     const val size = 400
 
+    /**
+     * Which OpenGL the suite runs on: desktop GL for `test` and `testGl30`, OpenGL ES 3 for
+     * `testGles3`, ES 2 for `testGles2` — the `composegl.lwjgl3.context` property those tasks set.
+     */
+    val context: GlfwContext get() = GlfwContext.Default
+
+    /** The binding for [context], for the few calls a test makes itself: a clear, a read-back. */
+    val gl: GlBinding get() = context.binding
+
     private var shared: GlfwWindow? = null
 
     /** The shared window, for a test that needs one to hand a backend. Only inside [render]. */
@@ -34,11 +46,10 @@ object Gl {
     fun <T> render(block: () -> T): T {
         assumeTrue(available, "no display; this test needs a real GL context")
         val window = shared ?: GlfwWindow("composegl tests", size, size, visible = false, vsync = false)
-            .also { shared = it }
+            .also { shared = it; describe() }
         // Taken back every time: a test that opened and closed a window of its own — the preview
         // renderer does — left no context current on this thread.
-        GLFW.glfwMakeContextCurrent(window.handle)
-        GL.createCapabilities()
+        window.makeCurrent()
         return block()
     }
 
@@ -52,8 +63,7 @@ object Gl {
      * the rows are turned over once, here.
      */
     fun readPixels(width: Int, height: Int): IntArray {
-        val bytes = BufferUtils.createByteBuffer(width * height * 4)
-        GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes)
+        val bytes = readBytes(width, height)
 
         val pixels = IntArray(width * height)
         for (y in 0 until height) {
@@ -66,5 +76,33 @@ object Gl {
             }
         }
         return pixels
+    }
+
+    /** The bottom-left [width] by [height] of whatever framebuffer is bound, as RGBA bytes, bottom row first. */
+    fun readBytes(width: Int, height: Int): ByteBuffer {
+        val bytes = gl.bytes(width * height * 4)
+        gl.readPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes)
+        return (bytes as LwjglGl.Bytes).buffer
+    }
+
+    /** Whether [name] is a framebuffer on the current context. */
+    fun isFramebuffer(name: Int): Boolean =
+        if (context == GlfwContext.Desktop) GL30.glIsFramebuffer(name) else GLES20.glIsFramebuffer(name)
+
+    /** The driver's GL_VERSION, as the current context reports it. Only inside [render]. */
+    fun version(): String =
+        (if (context == GlfwContext.Desktop) GL11.glGetString(GL11.GL_VERSION) else GLES20.glGetString(GLES20.GL_VERSION)).orEmpty()
+
+    /** The driver's GL_SHADING_LANGUAGE_VERSION. Only inside [render]. */
+    fun shadingVersion(): String = (
+        if (context == GlfwContext.Desktop) GL11.glGetString(GL20.GL_SHADING_LANGUAGE_VERSION) else GLES20.glGetString(GLES20.GL_SHADING_LANGUAGE_VERSION)
+        ).orEmpty()
+
+    /** Says, once, which context the suite really got: the driver's own words, not what was asked for. */
+    private fun describe() {
+        println(
+            "composegl tests: $context context, GL_VERSION \"${version()}\", " +
+                "GL_SHADING_LANGUAGE_VERSION \"${shadingVersion()}\", dialect ${GlDevice(gl).dialect}",
+        )
     }
 }
