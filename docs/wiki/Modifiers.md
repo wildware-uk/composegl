@@ -179,6 +179,8 @@ belong in its **[[Skins|skin]]**, where one edit changes every panel at once.
 ```kotlin
 Modifier.clickable { fire() }
 Modifier.clickable(enabled = false) { }   // still swallows the click
+Modifier.clickable(onDoubleClick = { equip() }, onLongPress = { actions() }) { select() }
+Modifier.repeatingClickable { count++ }   // the + on a quantity picker
 Modifier.interaction(state)               // hover and press, for drawing
 Modifier.onPointer(handler)               // raw pointer events
 Modifier.onKeyEvent(handler)

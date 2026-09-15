@@ -23,8 +23,8 @@ import dev.wildware.composegl.ui.node.UiNode
  * ancestors included, because a panel that lights up while the pointer is anywhere inside it is a
  * thing people want. Only the node that consumed the press is pressed.
  *
- * The router holds the gesture state and nothing else: no timers, no thread, no allocation per
- * frame. It is created once with the tree's root and lives as long as the interface does.
+ * The router holds the gesture state and nothing else: no timers of its own (a long press or a
+ * repeat waits on the tree's clocks), no thread, no allocation per frame. It is created once with the tree's root and lives as long as the interface does.
  */
 class PointerRouter(
     private val root: UiNode,
@@ -41,9 +41,19 @@ class PointerRouter(
     private class Capture(val node: UiNode, val buttons: MutableSet<PointerButton>) {
         /** True while the pointer is inside the captured node, which is what "pressed" means. */
         var inside = true
+            set(value) {
+                field = value
+                gesture.inside = value
+            }
+
+        /** The long press, the repeat and the start time a double click is measured from. */
+        val gesture = PressGesture(node)
     }
 
     private val captures = mutableMapOf<PointerId, Capture>()
+
+    /** The last click, for telling whether the next one is a double. */
+    private val clicks = ClickMemory()
 
     /** What each pointer is hovering, deepest first. Kept so a change can be a diff. */
     private val hovering = mutableMapOf<PointerId, List<UiNode>>()
@@ -69,6 +79,7 @@ class PointerRouter(
     fun cancelAll() {
         captures.keys.toList().forEach { id ->
             val capture = captures.remove(id) ?: return@forEach
+            capture.gesture.cancel()
             capture.node.resolved.interactions.forEach { it.clear() }
         }
         hovering.keys.toList().forEach { id -> hover(id, emptyList()) }
@@ -132,11 +143,19 @@ class PointerRouter(
 
         deliver(capture.node, event)
         val click = capture.node.resolved.click
+        // Asked first and always, because it is also what stops the gesture waiting on the clock.
+        // False when a long press or a repeat already spent the press.
+        val stillAClick = capture.gesture.finish()
         // A release inside the node that took the press is a click. Anywhere else is a change of
         // mind, which is a thing players do on purpose and must not be a click. "Inside" is the
         // node's own answer, so sliding off a round button onto the corner of its rectangle is a
         // change of mind like any other — the press could not have started there either.
-        if (click != null && click.enabled && capture.node.claims(event.position)) click.onClick()
+        if (click != null && click.enabled && capture.node.claims(event.position)) {
+            if (stillAClick) clicks.click(capture.node, click, capture.gesture) else clicks.forget()
+        } else {
+            // A change of mind in between means the next click is a first one, not a second.
+            clicks.forget()
+        }
 
         // The gesture is over, so whatever the pointer is now over is hovered again.
         hover(event.pointerId, hoverPathFrom(candidatesUnder(event.position).firstOrNull(), event.position))
@@ -148,6 +167,7 @@ class PointerRouter(
         hover(event.pointerId, emptyList())
         if (capture == null) return false
 
+        capture.gesture.cancel()
         if (capture.inside) capture.node.resolved.interactions.forEach { it.release() }
         // Delivered, so a handler mid-drag can put back whatever it was moving. No click: that is
         // the entire difference between a cancel and a release.

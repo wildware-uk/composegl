@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.modifier
 
+import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.focus.FocusRequester
 import dev.wildware.composegl.ui.focus.FocusWithinHandler
 import dev.wildware.composegl.ui.focus.RevealHandler
@@ -256,7 +257,47 @@ data class InteractionElement(val state: InteractionState) : Modifier.Element
  * [onClick] written inline is a new object every recomposition and so never compares equal.
  * `remember` it when a node would otherwise be unchanged.
  */
-data class ClickableElement(val enabled: Boolean, val onClick: () -> Unit) : Modifier.Element
+data class ClickableElement(
+    val enabled: Boolean,
+    val onClick: () -> Unit,
+    /** Called instead of [onClick] for the second of two clicks close together. */
+    val onDoubleClick: (() -> Unit)? = null,
+    /** Called once when a press is held for [longPressMillis]. The release after it is not a click. */
+    val onLongPress: (() -> Unit)? = null,
+    /** How [onClick] repeats while the press is held, or null for a click that happens once. */
+    val repeat: ClickRepeat? = null,
+    /** Whose time every one of these timings is measured in. */
+    val clock: Clock = Clock.Ui,
+    val longPressMillis: Int = DefaultLongPressMillis,
+    val doubleClickMillis: Int = DefaultDoubleClickMillis,
+) : Modifier.Element {
+    init {
+        require(longPressMillis > 0) { "longPressMillis must be positive, was $longPressMillis" }
+        require(doubleClickMillis > 0) { "doubleClickMillis must be positive, was $doubleClickMillis" }
+    }
+
+    /** Whether anything here has to watch a clock while the press is held. */
+    internal val isTimed: Boolean get() = enabled && (onLongPress != null || repeat != null)
+}
+
+/**
+ * How a held press repeats its click: once after [initialDelayMillis], then every [intervalMillis].
+ *
+ * The same shape as a held key, for the same reason — one step, a pause long enough to let go in,
+ * then steps quick enough to cross a range.
+ */
+data class ClickRepeat(val initialDelayMillis: Int, val intervalMillis: Int) {
+    init {
+        require(initialDelayMillis > 0) { "initialDelayMillis must be positive, was $initialDelayMillis" }
+        require(intervalMillis > 0) { "intervalMillis must be positive, was $intervalMillis" }
+    }
+}
+
+/** How long a press has to be held before it is a long press. */
+const val DefaultLongPressMillis = 500
+
+/** How close together, from the first click to the second press, two clicks must be to count as one double. */
+const val DefaultDoubleClickMillis = 300
 
 /** Raw pointer events for this node, in its own coordinates. See [PointerHandler]. */
 data class PointerInputElement(val handler: PointerHandler) : Modifier.Element
@@ -718,9 +759,88 @@ fun Modifier.interaction(state: InteractionState) = then(InteractionElement(stat
  *
  * Disabled is not the same as absent: a disabled node still swallows the press, so a click cannot
  * fall through to whatever is behind a greyed-out button.
+ *
+ * ```kotlin
+ * Modifier.clickable(
+ *     onDoubleClick = { equip(item) },
+ *     onLongPress = { showActions(item) },
+ * ) { select(item) }
+ * ```
+ *
+ * The same gestures come from a mouse, a finger, Enter or the pad's South button, because all of
+ * them are a press and a release on the node:
+ *
+ * - **A double click replaces the second click.** The first click still fires [onClick] at once —
+ *   a game cannot wait a third of a second to find out whether a click was the start of something
+ *   — and a second press within [doubleClickMillis] of it fires [onDoubleClick] instead of a second
+ *   [onClick]. A third is an ordinary click again.
+ * - **A long press is instead of a click.** Held for [longPressMillis] it fires [onLongPress] once,
+ *   while still held, and the release that follows does nothing. Sliding off the node before then
+ *   is a change of mind, and it stays one even if the pointer comes back.
+ *
+ * Every timing is measured on [clock], so a press held on a world panel while the game is paused
+ * waits with it, and a test runs a hold by advancing frames rather than sleeping. The time is the
+ * host's own [dev.wildware.composegl.ui.animation.Clocks], the same ones a
+ * [dev.wildware.composegl.ui.host.UiHost] advances every frame.
+ *
+ * A null [onDoubleClick] and [onLongPress] cost what a plain click always did: nothing is timed.
+ *
+ * @throws IllegalArgumentException if either timing is not positive.
  */
-fun Modifier.clickable(enabled: Boolean = true, onClick: () -> Unit) =
-    then(ClickableElement(enabled, onClick))
+fun Modifier.clickable(
+    enabled: Boolean = true,
+    onDoubleClick: (() -> Unit)? = null,
+    onLongPress: (() -> Unit)? = null,
+    clock: Clock = Clock.Ui,
+    longPressMillis: Int = DefaultLongPressMillis,
+    doubleClickMillis: Int = DefaultDoubleClickMillis,
+    onClick: () -> Unit,
+) = then(
+    ClickableElement(
+        enabled = enabled,
+        onClick = onClick,
+        onDoubleClick = onDoubleClick,
+        onLongPress = onLongPress,
+        clock = clock,
+        longPressMillis = longPressMillis,
+        doubleClickMillis = doubleClickMillis,
+    ),
+)
+
+/**
+ * A click that keeps happening while it is held: the + and − on a quantity picker.
+ *
+ * ```kotlin
+ * Box(Modifier.repeatingClickable { count++ }) { Text("+") }
+ * ```
+ *
+ * A tap is one click, on the release, exactly like [clickable] — so sliding off is still a change of
+ * mind. Held, it clicks after [initialDelayMillis] and every [intervalMillis] from then on, and the
+ * release that ends a hold that has already clicked adds nothing. Sliding off pauses the repeat and
+ * coming back resumes it.
+ *
+ * At most one repeat a frame: a frame that stalls for a second does not fire a burst of sixteen
+ * steps the player never saw happen one at a time.
+ *
+ * The timing is on [clock], like every other timed click. Enter and the pad's South button repeat
+ * it too, and the platform's own key repeat is ignored so the two do not stack.
+ *
+ * @throws IllegalArgumentException if either timing is not positive.
+ */
+fun Modifier.repeatingClickable(
+    enabled: Boolean = true,
+    initialDelayMillis: Int = 400,
+    intervalMillis: Int = 60,
+    clock: Clock = Clock.Ui,
+    onClick: () -> Unit,
+) = then(
+    ClickableElement(
+        enabled = enabled,
+        onClick = onClick,
+        repeat = ClickRepeat(initialDelayMillis, intervalMillis),
+        clock = clock,
+    ),
+)
 
 fun Modifier.onPointer(handler: PointerHandler) = then(PointerInputElement(handler))
 

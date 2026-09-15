@@ -10,6 +10,7 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
+import dev.wildware.composegl.ui.modifier.repeatingClickable
 import dev.wildware.composegl.ui.game.Bar
 import dev.wildware.composegl.ui.game.BarThreshold
 import dev.wildware.composegl.ui.game.Hotbar
@@ -514,6 +515,27 @@ private fun MutableList<DocShot>.game() {
                 ) {
                     Image("icon/crest", Modifier.size(52f))
                 }
+            }
+        }
+    })
+
+    // A real hold: the pointer goes down on + and stays down for the second and a half before the
+    // shutter, so the count is whatever repeatingClickable actually reached on the clock.
+    add(DocShot("input-hold-to-repeat", 300, 110, pointer = Offset(230f, 55f), press = true, seconds = 1.5f) {
+        Frame {
+            var count by remember { mutableStateOf(1) }
+            Row(verticalAlignment = VerticalAlignment.Centre, horizontalArrangement = Arrangement.spacedBy(12f)) {
+                Box(
+                    Modifier.size(56f, 48f).background(Steel, corner = 6f).repeatingClickable { if (count > 1) count-- },
+                    contentAlignment = Alignment.Centre,
+                ) { Text("-", style = "label") }
+                Box(Modifier.size(80f, 48f).background(Ink, corner = 6f), contentAlignment = Alignment.Centre) {
+                    Text("x$count", style = "label")
+                }
+                Box(
+                    Modifier.size(56f, 48f).background(Accent, corner = 6f).repeatingClickable { count++ },
+                    contentAlignment = Alignment.Centre,
+                ) { Text("+", style = "label") }
             }
         }
     })

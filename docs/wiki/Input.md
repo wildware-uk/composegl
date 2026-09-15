@@ -188,6 +188,47 @@ GamepadNavigator(focus, onBack = { if (!backs.back()) state.back() })
 
 ---
 
+## Long press, double click, hold to repeat
+
+```kotlin
+Slot(Modifier.clickable(
+    onDoubleClick = { equip(item) },       // open a save, equip an item
+    onLongPress = { showActions(item) },   // context actions, hold to confirm
+) { select(item) })
+
+Box(Modifier.repeatingClickable(initialDelayMillis = 400, intervalMillis = 60) { count++ }) {
+    Text("+")
+}
+```
+
+Think of a doorbell. A tap rings once. Holding it down is a different message. Two
+quick taps is a third.
+
+- **Double click.** The first click fires `onClick` straight away. A second press
+  within 300ms fires `onDoubleClick` *instead of* a second `onClick`. So "select,
+  then equip" needs no waiting. A third click is a plain click again.
+- **Long press.** Held for 500ms, `onLongPress` fires once, while still held. The
+  release after it is not a click. Sliding off first cancels it, even if you slide
+  back.
+- **Hold to repeat.** A tap is one step, on release. Held, it steps after
+  `initialDelayMillis`, then every `intervalMillis`, until you let go. Sliding off
+  pauses it. A long stall steps once, not in a burst.
+
+All three work the same from a mouse, a finger, Enter, or the pad's South button.
+Enter's own key repeat is ignored, so the two don't add up. Moving focus away while
+holding Enter counts as sliding off.
+
+Timings run on a `Clock` (`Clock.Ui` unless you pass `clock =`), advanced by the
+host each frame. Put a world panel's buttons on `Clock.World` and a hold pauses with
+the game. It also means a test runs a two-second hold by advancing frames.
+
+A `clickable` with no `onDoubleClick` or `onLongPress` is timed by nothing, so a
+held plain button still costs no frames.
+
+![a quantity picker with + held down](images/input-hold-to-repeat.png)
+
+---
+
 ## Raw events
 
 When a widget needs more than a click:
