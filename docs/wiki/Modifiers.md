@@ -31,10 +31,41 @@ Modifier.sizeIn(minWidth = 64f, minHeight = 64f)
 Modifier.defaultMinSize(minWidth = 48f)    // only when nothing else says a width
 Modifier.width(IntrinsicSize.Max)  // as wide as the contents would like, asked first
 Modifier.height(IntrinsicSize.Min) // as short as they can be squeezed to
+Modifier.animateContentSize()      // grows to new contents rather than jumping
 ```
 
 A range is a rule rather than a wish, so it holds wherever it sits in the chain:
 `width` and `fillMaxWidth` are measured inside it. See [[Layout]] for the details.
+
+**Growing with its contents.** When what is inside a panel changes size — a quest
+entry opening, a chat bubble filling up as the text types in, a tooltip whose text
+changes — the panel normally snaps to the new size. `animateContentSize` makes it
+travel there instead:
+
+```kotlin
+Panel(Modifier.animateContentSize()) {
+    Text(quest.title)
+    if (expanded) Text(quest.description)
+}
+
+Modifier.animateContentSize(Tween(250))                        // a fixed time, not a spring
+Modifier.animateContentSize(alignment = Alignment.BottomStart) // a chat log growing upwards
+Modifier.animateContentSize(clock = Clock.World)               // stops when the game pauses
+```
+
+![a quest entry closed, part-way open with its last line cut off, and open](images/modifier-animate-content-size.png)
+
+The contents are measured at their new size straight away; the panel is laid out at
+a size moving from the old one to the new one, and its neighbours move with it.
+Whatever does not fit yet is cut off at the panel's edge, and cannot be clicked
+there, until it arrives. Once it has, nothing is cut.
+
+It animates the widget's whole size — padding, background and border too — wherever
+it sits in the chain. A widget appearing for the first time takes its size at once,
+and a size the chain or the parent fixes has nothing to animate. The default is a
+spring, so contents that change again part-way turn it round smoothly. A spec
+written inline is fine: specs compare by value, so recomposing does not cost a
+redraw. It costs nothing once it has arrived, and a test's `settle` waits for it.
 
 **Space**
 

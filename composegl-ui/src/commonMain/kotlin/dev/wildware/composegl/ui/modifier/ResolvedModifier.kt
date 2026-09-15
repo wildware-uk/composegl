@@ -193,6 +193,11 @@ class ResolvedModifier private constructor(
     val sizeChanged: List<SizeChangedHandler>,
     /** Told after layout when where the node is drawn changes, in chain order. */
     val placed: List<PlacedHandler>,
+    /**
+     * How this node follows its contents' size, or null for jumping to it, which is almost every
+     * node there has ever been. See [dev.wildware.composegl.ui.modifier.animateContentSize].
+     */
+    val contentSize: AnimateContentSizeElement?,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
@@ -267,6 +272,7 @@ class ResolvedModifier private constructor(
             var testTag: String? = null
             val sizeChanged = mutableListOf<SizeChangedHandler>()
             val placed = mutableListOf<PlacedHandler>()
+            var contentSize: AnimateContentSizeElement? = null
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -385,6 +391,8 @@ class ResolvedModifier private constructor(
                     is TestTagElement -> testTag = element.tag
                     is OnSizeChangedElement -> sizeChanged += element.handler
                     is OnPlacedElement -> placed += element.handler
+                    // A choice: one node has one size, so it follows its contents one way.
+                    is AnimateContentSizeElement -> contentSize = element
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
             }
@@ -402,7 +410,7 @@ class ResolvedModifier private constructor(
                 keyHandlers.toList(), textHandlers.toList(), click, drag,
                 focusable, pointerFocus, focusRequester, focusOrder, focusDirections.toList(),
                 reveals.toList(), focusWithin.toList(), focusTrap, testTag,
-                sizeChanged.toList(), placed.toList(),
+                sizeChanged.toList(), placed.toList(), contentSize,
             )
         }
     }

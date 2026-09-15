@@ -136,10 +136,29 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
         clock.sendFrame(nanos)
         dispatcher.drain()
 
+        // A resize stepped by layout moves only if this frame is laid out, so a frame with one under
+        // way on a moving clock is a changed frame — including the first, which has not moved yet.
+        if (clocks.isResizing) tree.invalidate()
+
         val changed = tree.consumeChanges()
         if (changed) changedFrames++
+        lastFrameChanged = changed
         return changed
     }
+
+    /**
+     * Whether the layout that just ran changed anything by itself, counted as a changed frame if
+     * [frame] had not already counted it. Clears the flag, so the next frame starts clean.
+     */
+    internal fun layoutChanged(): Boolean {
+        if (!tree.consumeChanges()) return false
+        if (!lastFrameChanged) changedFrames++
+        lastFrameChanged = true
+        return true
+    }
+
+    /** Whether the last [frame] said it changed, so a layout change in the same frame counts once. */
+    private var lastFrameChanged = false
 
     fun dispose() {
         if (isDisposed) return
@@ -233,5 +252,9 @@ private inline fun UiHost.settleWith(
     val changed = if (budget == null) frame(nanos) else budget.recompose { frame(nanos) }
     if (budget == null) measure(MeasurePass()) else budget.layout { measure(MeasurePass()) }
     focus?.refresh()
-    return changed
+    // Layout can change the picture by itself: a node part-way through `animateContentSize` moves
+    // every frame with nothing recomposed. Reported now, on the frame it was laid out at the new
+    // size, rather than on the next one — a game that skips drawing an unchanged frame would
+    // otherwise show every step of a resize a frame late and miss the last one.
+    return layoutChanged() || changed
 }
