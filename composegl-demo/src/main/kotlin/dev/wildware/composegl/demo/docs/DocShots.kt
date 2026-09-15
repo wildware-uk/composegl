@@ -83,6 +83,7 @@ import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.wrapContentWidth
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Checkbox
+import dev.wildware.composegl.ui.widget.Divider
 import dev.wildware.composegl.ui.widget.Image
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.ScrollArea
@@ -468,6 +469,26 @@ private fun MutableList<DocShot>.widgets() {
                     Column(verticalArrangement = Arrangement.spacedBy(6f)) {
                         Text("panel.flat")
                         Text("a second style, same widget", style = "label.dim")
+                    }
+                }
+            }
+        }
+    })
+
+    add(DocShot("widget-divider", 360, 190) {
+        Frame {
+            Panel(Modifier.width(300f)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+                    Text("AUDIO")
+                    Text("Music 80%   Effects 65%", style = "label.dim")
+                    Divider()
+                    Text("VIDEO")
+                    Row(Modifier.height(22f), horizontalArrangement = Arrangement.spacedBy(10f)) {
+                        Text("1920x1080", style = "label.dim")
+                        Divider(vertical = true)
+                        Text("V-Sync", style = "label.dim")
+                        Divider(vertical = true, thickness = 2f)
+                        Text("144 Hz", style = "label.dim")
                     }
                 }
             }

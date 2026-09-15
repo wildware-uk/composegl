@@ -222,6 +222,36 @@ without you wiring anything up. `OnBack { }` is how anything else joins that sta
 
 ---
 
+## Dividers
+
+```kotlin
+Column {
+    Text("AUDIO")
+    Divider()                                   // across, 1 thick, skin style "divider"
+    Text("VIDEO")
+}
+
+Row(Modifier.height(22f)) {
+    Text("1920x1080")
+    Divider(vertical = true, thickness = 2f)   // down, as tall as the row
+    Text("144 Hz")
+}
+
+Divider(Modifier.width(80f))                    // a short rule instead of a full one
+Divider(style = "divider.strong")               // falls back to "divider"
+```
+
+![a panel split by a horizontal divider, with vertical dividers between settings](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-divider.png)
+
+A divider is as long as the room it is given, and `thickness` across. The colour is
+the skin's `divider` style, so one line in the skin file recolours every divider.
+
+A vertical divider takes all the height its row may have. Give the row a height, or
+it grows to fill whatever holds it. Inside a `ScrollArea` there is no limit, so give
+the divider a height there. The pad and the mouse pass straight over a divider.
+
+---
+
 ## Fields and settings
 
 ```kotlin
