@@ -8,10 +8,14 @@ import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.layoutId
 import dev.wildware.composegl.ui.modifier.offset
+import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
+import dev.wildware.composegl.ui.modifier.wrapContentHeight
+import dev.wildware.composegl.ui.modifier.wrapContentSize
+import dev.wildware.composegl.ui.modifier.wrapContentWidth
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.node.UiTree
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -440,5 +444,153 @@ class MeasurePassTest {
         // The root had to be at least 50 wide; the child did not, so it is as small as it likes.
         assertEquals(0f, leaf.width)
         assertEquals(50f, tree.root.width)
+    }
+
+    // --- wrapContentSize ---
+
+    private fun row(vararg children: UiNode, modifier: Modifier = Modifier) =
+        node("row", modifier, LinearPolicy(true, Arrangement.Start, Alignment.TopStart)) {
+            children.forEach { child(it) }
+        }
+
+    @Test
+    fun `a forced slot stretches a small child without wrapContentSize`() {
+        val icon = node("icon", Modifier.size(20f))
+        MeasurePass().run(icon, Constraints.fixed(100f, 60f))
+
+        assertEquals(100f, icon.width, "the parent's minimum wins over the size, which is the problem")
+        assertEquals(60f, icon.height)
+    }
+
+    @Test
+    fun `wrapContentSize keeps its own size and sits centred in the slot`() {
+        val icon = node("icon", Modifier.wrapContentSize().size(20f))
+        MeasurePass().run(icon, Constraints.fixed(100f, 60f))
+
+        assertEquals(20f, icon.width)
+        assertEquals(20f, icon.height)
+        assertEquals(40f, icon.x)
+        assertEquals(20f, icon.y)
+    }
+
+    @Test
+    fun `wrapContentSize works wherever it is written in the chain`() {
+        val icon = node("icon", Modifier.size(20f).wrapContentSize())
+        MeasurePass().run(icon, Constraints.fixed(100f, 60f))
+
+        assertEquals(20f, icon.width)
+        assertEquals(40f, icon.x)
+    }
+
+    @Test
+    fun `wrapContentSize takes each of the nine alignments`() {
+        val expected = mapOf(
+            Alignment.TopStart to (0f to 0f), Alignment.TopCentre to (40f to 0f), Alignment.TopEnd to (80f to 0f),
+            Alignment.CentreStart to (0f to 20f), Alignment.Centre to (40f to 20f), Alignment.CentreEnd to (80f to 20f),
+            Alignment.BottomStart to (0f to 40f), Alignment.BottomCentre to (40f to 40f), Alignment.BottomEnd to (80f to 40f),
+        )
+        for ((alignment, corner) in expected) {
+            val icon = node("icon", Modifier.wrapContentSize(alignment).size(20f))
+            MeasurePass().run(icon, Constraints.fixed(100f, 60f))
+            assertEquals(corner, icon.x to icon.y, "at $alignment")
+        }
+    }
+
+    @Test
+    fun `a weighted slot keeps the whole share and the icon sits in the middle of it`() {
+        val left = node("left", Modifier.width(40f).height(10f))
+        val icon = node("icon", Modifier.weight(1f).wrapContentSize().size(20f))
+        val right = node("right", Modifier.width(40f).height(10f))
+        run(row(left, icon, right, modifier = Modifier.width(200f).height(50f)))
+
+        assertEquals(20f, icon.width, "the icon is not stretched across its share")
+        assertEquals(40f + (120f - 20f) / 2f, icon.x, "centred across the 120 the weight gave it")
+        assertEquals(160f, right.x, "and the row still reserved the whole 120 for it")
+    }
+
+    @Test
+    fun `wrapContentWidth frees only the width`() {
+        val bar = node("bar", Modifier.wrapContentWidth(HorizontalAlignment.End).size(20f))
+        MeasurePass().run(bar, Constraints.fixed(100f, 60f))
+
+        assertEquals(20f, bar.width)
+        assertEquals(60f, bar.height, "the height is still the one it was made to take")
+        assertEquals(80f, bar.x)
+        assertEquals(0f, bar.y)
+    }
+
+    @Test
+    fun `wrapContentHeight frees only the height`() {
+        val bar = node("bar", Modifier.wrapContentHeight(VerticalAlignment.Bottom).size(20f))
+        MeasurePass().run(bar, Constraints.fixed(100f, 60f))
+
+        assertEquals(100f, bar.width)
+        assertEquals(20f, bar.height)
+        assertEquals(0f, bar.x)
+        assertEquals(40f, bar.y)
+    }
+
+    @Test
+    fun `a wrapped node sized by its children is as big as they are`() {
+        val badge = node("badge", Modifier.wrapContentSize().padding(4f)) {
+            child(node("dot", Modifier.size(8f)))
+        }
+        MeasurePass().run(badge, Constraints.fixed(50f, 50f))
+
+        assertEquals(16f, badge.width)
+        assertEquals(17f, badge.x)
+        assertEquals(4f, badge.children[0].x, "its own children are placed inside it as usual")
+    }
+
+    @Test
+    fun `wrapping cannot escape the slot by asking to be enormous`() {
+        val icon = node("icon", Modifier.wrapContentSize().size(500f))
+        MeasurePass().run(icon, Constraints.fixed(100f, 60f))
+
+        assertEquals(100f, icon.width)
+        assertEquals(60f, icon.height)
+        assertEquals(0f, icon.x)
+    }
+
+    @Test
+    fun `an offset moves a wrapped node from where it was aligned`() {
+        val icon = node("icon", Modifier.wrapContentSize().size(20f).offset(x = 3f, y = -2f))
+        MeasurePass().run(icon, Constraints.fixed(100f, 60f))
+
+        assertEquals(43f, icon.x)
+        assertEquals(18f, icon.y)
+    }
+
+    @Test
+    fun `a wrapped node in a slot of nothing is nothing and sits in the corner`() {
+        val icon = node("icon", Modifier.wrapContentSize().size(20f))
+        MeasurePass().run(icon, Constraints.fixed(0f, 0f))
+
+        assertEquals(0f, icon.width)
+        assertEquals(0f, icon.height)
+        assertEquals(0f to 0f, icon.x to icon.y)
+    }
+
+    @Test
+    fun `a wrapped node inside a wrapped node sits inside where its own parent put it`() {
+        val inner = node("inner", Modifier.fillMaxSize().wrapContentSize(Alignment.BottomEnd).size(10f))
+        val outer = node("outer", Modifier.wrapContentSize().size(40f)) { child(inner) }
+        MeasurePass().run(outer, Constraints.fixed(100f, 100f))
+
+        assertEquals(30f to 30f, outer.x to outer.y)
+        assertEquals(40f, outer.width)
+        // fillMaxSize on the same node wins over the wrap, as the docs say: the chain resolves as a
+        // whole, so the inner node is its parent's full 40 rather than 10 in the corner.
+        assertEquals(40f, inner.width)
+        assertEquals(0f to 0f, inner.x to inner.y)
+    }
+
+    @Test
+    fun `wrapping in a loose offer changes nothing`() {
+        val icon = node("icon", Modifier.wrapContentSize().size(20f))
+        MeasurePass().run(icon, Constraints.atMost(100f, 60f))
+
+        assertEquals(20f, icon.width)
+        assertEquals(0f, icon.x, "no minimum means the slot is the node, so there is nowhere to move")
     }
 }

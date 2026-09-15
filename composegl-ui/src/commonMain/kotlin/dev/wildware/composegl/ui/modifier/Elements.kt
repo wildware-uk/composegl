@@ -21,9 +21,11 @@ import dev.wildware.composegl.ui.input.PointerIcon
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Alignment
+import dev.wildware.composegl.ui.layout.HorizontalAlignment
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
+import dev.wildware.composegl.ui.layout.VerticalAlignment
 import dev.wildware.composegl.ui.skin.ResolvedStyle
 import dev.wildware.composegl.ui.skin.SkinDrawable
 import dev.wildware.composegl.ui.graphics.BlendMode
@@ -119,6 +121,15 @@ data class AlignElement(val alignment: Alignment) : Modifier.Element
 
 /** A name the parent's layout can find this child by, in place of where it comes in the list. */
 data class LayoutIdElement(val layoutId: Any) : Modifier.Element
+
+/**
+ * Its own size, even when the parent insists on more, sitting where these say inside the slot.
+ * Null on an axis means "leave it alone". See [dev.wildware.composegl.ui.modifier.wrapContentSize].
+ */
+data class WrapContentElement(
+    val horizontal: HorizontalAlignment? = null,
+    val vertical: VerticalAlignment? = null,
+) : Modifier.Element
 
 // --- how a node looks ----------------------------------------------------------------------
 
@@ -576,6 +587,47 @@ fun Modifier.align(alignment: Alignment) = then(AlignElement(alignment))
  * [dev.wildware.composegl.ui.layout.layoutId] acts on it.
  */
 fun Modifier.layoutId(layoutId: Any) = then(LayoutIdElement(layoutId))
+
+/**
+ * Stays its own size when the parent hands it a bigger slot, and sits at [alignment] inside it.
+ *
+ * A weighted slot in a row, a fixed cell in a grid, a `fillMaxSize` box: all of them force a
+ * minimum on a child, and a small icon or badge given one is stretched to fit. This takes the
+ * minimum away, so the node measures at the size its content and its own `size` ask for, and then
+ * puts that box inside the slot rather than across it.
+ *
+ * ```kotlin
+ * Row(Modifier.width(300f)) {
+ *     Icon(Modifier.weight(1f).wrapContentSize(Alignment.Centre))   // a third of the row, icon centred
+ * }
+ * ```
+ *
+ * The parent still sees the whole slot, so a row's arithmetic does not change. What moves is the
+ * node: its rectangle, what it paints and where it takes clicks are the small box, and the empty
+ * part of the slot belongs to whatever is underneath. A `background` on the same node therefore
+ * paints the icon, not the cell; to paint the cell, put the background on a parent.
+ *
+ * It acts on what the parent offered, before `size` and `fillMax*` read it — wherever it sits in
+ * the chain — so `weight(1f).wrapContentSize().size(24f)` is a 24-pixel box centred in its share.
+ * A maximum is still a maximum: something too big for the slot is cut down to it, not let out.
+ * An `offset` moves the box from where it was aligned, as it would anywhere else.
+ *
+ * It only moves a node along an axis the parent actually forces. A row forces a weighted child's
+ * width but not its height, so up and down stay the row's `verticalAlignment` to decide; a `Box`
+ * forces neither, and has `align` for that. On an axis nothing forces, this changes nothing.
+ *
+ * Two on one node are two answers to the same question, so the later one wins on each axis it names.
+ */
+fun Modifier.wrapContentSize(alignment: Alignment = Alignment.Centre) =
+    then(WrapContentElement(alignment.horizontal, alignment.vertical))
+
+/** [wrapContentSize] across only: its own width, the height it was given. */
+fun Modifier.wrapContentWidth(alignment: HorizontalAlignment = HorizontalAlignment.Centre) =
+    then(WrapContentElement(horizontal = alignment))
+
+/** [wrapContentSize] down only: its own height, the width it was given. */
+fun Modifier.wrapContentHeight(alignment: VerticalAlignment = VerticalAlignment.Centre) =
+    then(WrapContentElement(vertical = alignment))
 
 fun Modifier.background(colour: Colour, corner: Float = 0f) = then(BackgroundElement(colour, corner))
 

@@ -79,6 +79,8 @@ import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.modifier.widthIn
 import dev.wildware.composegl.ui.modifier.zIndex
+import dev.wildware.composegl.ui.modifier.drawBehind
+import dev.wildware.composegl.ui.modifier.wrapContentWidth
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.Image
@@ -286,6 +288,21 @@ private fun MutableList<DocShot>.layout() {
                     horizontalArrangement = Arrangement.Centre,
                 ) {
                     Buffs.forEach { Buff(it) }
+                }
+            }
+        }
+    })
+
+    add(DocShot("layout-wrap-content", 420, 170) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(6f)) {
+                Text("weight(1f).width(40f): stretched across the share anyway", style = "label.dim")
+                WrapRow { Modifier.weight(1f) }
+                Text("weight(1f).wrapContentWidth(Start / Centre / End).width(40f)", style = "label.dim")
+                WrapRow { index ->
+                    Modifier.weight(1f).wrapContentWidth(
+                        listOf(HorizontalAlignment.Start, HorizontalAlignment.Centre, HorizontalAlignment.End)[index],
+                    )
                 }
             }
         }
@@ -989,6 +1006,27 @@ private val Buffs = listOf("HASTE", "REGEN", "SHIELD", "BURNING", "FOCUS", "POIS
 private fun Buff(name: String) {
     Box(Modifier.height(26f).background(Deep, corner = 4f).padding(horizontal = 8f), contentAlignment = Alignment.Centre) {
         Text(name, style = "label.dim")
+    }
+}
+
+/**
+ * A row cut into three equal shares, each marked out in steel, with a round badge in each whose
+ * modifier [slot] decides. What it shows is the difference between the share and the badge.
+ */
+@Composable
+private fun WrapRow(slot: (Int) -> Modifier) {
+    Row(
+        Modifier.width(380f).height(40f).background(Ink, corner = 6f).drawBehind { bounds ->
+            repeat(3) { index ->
+                val third = bounds.width / 3f
+                border(Rect.of(bounds.left + third * index + 2f, bounds.top + 2f, third - 4f, bounds.height - 4f), Steel, 1f, 6f)
+            }
+        }.padding(8f),
+        verticalAlignment = VerticalAlignment.Centre,
+    ) {
+        repeat(3) { index ->
+            Box(slot(index).width(40f).height(24f).background(Accent, corner = 12f)) {}
+        }
     }
 }
 

@@ -240,6 +240,33 @@ A row lining its children up down the middle, with two of them overruling it:
 
 That last example is a whole HUD's worth of positioning, and it is three lines.
 
+### A small thing in a big slot: `wrapContentSize`
+
+A weighted share, a fixed cell or a `fillMaxSize` parent *forces* its size on a
+child, so a 24-pixel icon put in one is stretched to fill it. `wrapContentSize`
+takes that minimum away: the child keeps its own size and sits inside the slot.
+
+```kotlin
+Row(Modifier.width(300f)) {
+    Icon(Modifier.weight(1f).wrapContentSize(Alignment.Centre))   // a third of the row, icon centred
+}
+```
+
+No extra `Box` round it. `wrapContentWidth` and `wrapContentHeight` do one axis each.
+
+The row still reserves the whole slot, so nothing around it moves. The child's own
+rectangle is the small box: that is what it paints, and where it takes clicks and
+focus. A `background` on the same widget paints the icon, not the cell — put the
+background on a parent to paint the cell. It reads what the parent offered before
+`size` does, wherever it sits in the chain, and something too big for the slot is
+still cut down to it.
+
+It only acts on an axis the parent actually forces. A `Row` forces a weighted
+child's width, not its height, so up and down are still the row's
+`verticalAlignment`. A `Box` forces neither — use `align` there.
+
+![badges in weighted slots: stretched across them, then kept small at the start, centre and end](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-wrap-content.png)
+
 ---
 
 ## When a row has to wrap: `FlowRow`
