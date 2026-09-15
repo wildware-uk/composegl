@@ -142,9 +142,130 @@ class StbFontsTest {
 
     @Test
     fun `a page too small to hold everything says so instead of losing letters`() {
-        val fonts = StbFonts(pageSize = 64).apply { register("body", ttf, listOf(64)) }
+        val fonts = StbFonts(pageSize = 64, maxPageSize = 64).apply { register("body", ttf, listOf(64)) }
         val thrown = assertThrows<IllegalStateException> { fonts.metrics(body.copy(size = 64f)) }
         assertTrue(thrown.message!!.contains("bigger"), "expected advice, got: ${thrown.message}")
+    }
+
+    @Test
+    fun `a page that fills up grows rather than failing`() {
+        val small = StbFonts(pageSize = 64).apply { register("body", ttf, listOf(64)) }
+        val roomy = StbFonts(pageSize = 2048).apply { register("body", ttf, listOf(64)) }
+
+        assertTrue(small.bakedPageSize > 64, "grew to ${small.bakedPageSize}")
+        assertEquals(roomy.measure("Hello", body.copy(size = 64f)).size, small.measure("Hello", body.copy(size = 64f)).size)
+    }
+
+    // --- characters the main font does not have ---
+
+    private val chinese = javaClass.getResourceAsStream("/fonts/NotoSansSC-Subset.ttf")!!.readBytes()
+    private val korean = javaClass.getResourceAsStream("/fonts/NotoSansKR-Subset.ttf")!!.readBytes()
+    private val smiley = javaClass.getResourceAsStream("/emoji/emoji_u1f600.png")!!.readBytes()
+
+    private fun withFallbacks(vararg sizes: Int) = StbFonts().apply {
+        register("body", ttf, sizes.toList())
+        register("cjk", chinese, sizes.toList(), StbFonts.codepointsOf("玩家你好こんにちは"))
+        register("korean", korean, sizes.toList(), StbFonts.codepointsOf("안녕"))
+        registerPictures("emoji", mapOf("😀" to smiley), sizes.toList())
+    }
+
+    private fun StbFonts.width(text: String, family: String = "body") =
+        measure(text, body.copy(family = family)).size.width
+
+    private fun StbFonts.placed(text: String) = (measure(text, body) as StbTextLayout).placed
+
+    @Test
+    fun `a character the main font lacks is measured from the fallback`() {
+        val fonts = withFallbacks(16).apply { fallBackTo(listOf("cjk")) }
+
+        assertEquals(fonts.width("玩家", family = "cjk"), fonts.width("玩家"))
+        assertTrue(fonts.width("玩家") > 20f)
+    }
+
+    @Test
+    fun `without a fallback the character comes out as the main font's question mark`() {
+        val fonts = withFallbacks(16)
+
+        assertEquals(fonts.width("??"), fonts.width("玩家"))
+    }
+
+    @Test
+    fun `mixed text takes each character from the first font that has it`() {
+        val fonts = withFallbacks(16).apply { fallBackTo(listOf("cjk", "korean", "emoji")) }
+
+        val mixed = fonts.width("Ace 玩家 안녕 😀")
+        val parts = fonts.width("Ace ") + fonts.width("玩家", "cjk") + fonts.width(" ") +
+            fonts.width("안녕", "korean") + fonts.width(" ") + fonts.placed("😀").let { 18f }
+
+        assertEquals(parts, mixed, 0.01f)
+        assertEquals(fonts.width("Ace"), withFallbacks(16).width("Ace"), "the main font's letters are untouched")
+    }
+
+    @Test
+    fun `a fallback glyph sits on the same baseline as the main font's`() {
+        val fonts = withFallbacks(16).apply { fallBackTo(listOf("cjk")) }
+        val borrowed = fonts.placed("玩").single()
+        val own = (fonts.measure("玩", body.copy(family = "cjk")) as StbTextLayout).placed.single()
+
+        val shift = fonts.metrics(body).ascent - fonts.metrics(body.copy(family = "cjk")).ascent
+        assertEquals(own.top + shift, borrowed.top, 1f)
+    }
+
+    @Test
+    fun `an emoji is one colour picture as tall as the text`() {
+        val fonts = withFallbacks(16, 20).apply { fallBackTo(listOf("emoji")) }
+
+        val picture = fonts.placed("😀️").single()
+
+        assertTrue(picture.glyph.colour)
+        assertEquals(16f, picture.height)
+        assertEquals(20f, (fonts.measure("😀", body.copy(size = 20f)) as StbTextLayout).placed.single().height)
+        assertTrue(fonts.placed("A").none { it.glyph.colour }, "letters are not pictures")
+    }
+
+    @Test
+    fun `a line limit never cuts an emoji in half`() {
+        val fonts = withFallbacks(16).apply { fallBackTo(listOf("emoji")) }
+
+        val cut = fonts.measure("😀".repeat(10), body.copy(maxLines = 1), maxWidth = 70f) as StbTextLayout
+
+        assertTrue(cut.placed.dropLast(1).all { it.glyph.colour }, "every glyph before the ellipsis is a whole emoji")
+        assertTrue(cut.size.width <= 70f)
+    }
+
+    @Test
+    fun `a fallback missing the size asked for says which family and sizes`() {
+        val fonts = StbFonts().apply {
+            register("body", ttf, listOf(16))
+            register("cjk", chinese, listOf(12), StbFonts.codepointsOf("玩"))
+            fallBackTo(listOf("cjk"))
+        }
+
+        val thrown = assertThrows<IllegalStateException> { fonts.width("玩") }
+
+        assertTrue("cjk at 16, which body falls back to" in thrown.message!!, thrown.message)
+        assertTrue("[12]" in thrown.message!!, thrown.message)
+    }
+
+    @Test
+    fun `pictures cannot be the main font`() {
+        val fonts = withFallbacks(16)
+
+        val thrown = assertThrows<IllegalStateException> { fonts.width("😀", family = "emoji") }
+
+        assertTrue("only be a fallback" in thrown.message!!, thrown.message)
+    }
+
+    @Test
+    fun `a picture for a sequence of characters is refused`() {
+        assertThrows<IllegalArgumentException> {
+            StbFonts().registerPictures("emoji", mapOf("👍🏽" to smiley), listOf(16))
+        }
+    }
+
+    @Test
+    fun `codepoints of some text are sorted and joined into runs`() {
+        assertEquals(listOf(0x61..0x63, 0x7A..0x7A, 0x73A9..0x73A9), StbFonts.codepointsOf("cbaz玩a"))
     }
 
     @Test

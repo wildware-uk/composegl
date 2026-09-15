@@ -177,8 +177,25 @@ class TextOutlineTest {
         assertEquals(8, canvas.runs.count { it.third == ring })
     }
 
+    @Test
+    fun `the default body stamps its ring copies through textRing and only the face through text`() {
+        // What lets a backend that draws emoji in their own colours leave them out of the ring.
+        val canvas = object : FourArgumentCanvas() {
+            val rings = mutableListOf<Colour>()
+            override fun textRing(layout: TextLayout, x: Float, y: Float, colour: Colour) {
+                rings += colour
+            }
+        }
+
+        canvas.text(layout, 0f, 0f, ink, TextOutline(ring, width = 2f))
+
+        assertEquals(8, canvas.rings.size, "every copy is a ring copy")
+        assertTrue(canvas.rings.all { it == ring })
+        assertEquals(listOf(ink), canvas.runs.map { it.third }, "the face alone is plain text")
+    }
+
     /** Only [text] with four arguments. Everything else on [UiCanvas] is beside the point here. */
-    private class FourArgumentCanvas : UiCanvas {
+    private open class FourArgumentCanvas : UiCanvas {
 
         val runs = mutableListOf<Triple<Float, Float, Colour>>()
 

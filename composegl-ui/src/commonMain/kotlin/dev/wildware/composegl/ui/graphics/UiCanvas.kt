@@ -185,10 +185,21 @@ interface UiCanvas {
     fun text(layout: TextLayout, x: Float, y: Float, colour: Colour, outline: TextOutline?) {
         if (outline != null && outline.isVisible) {
             val ring = outline.colour.scaleAlpha(colour.alphaFraction)
-            outline.forEachStamp { dx, dy -> text(layout, x + dx, y + dy, ring) }
+            outline.forEachStamp { dx, dy -> textRing(layout, x + dx, y + dy, ring) }
         }
         text(layout, x, y, colour)
     }
+
+    /**
+     * One copy of [layout] stamped as part of an outline's ring, in [colour].
+     *
+     * The default is the plain [text], which is right for letters: a letter is only coverage, so a
+     * copy in the ring colour is its silhouette. A backend that draws some glyphs as pictures in
+     * their own colours — an emoji — overrides this to leave those out, or the ring would be eight
+     * more emoji smeared round the real one. Anything that stamps a ring itself, a character at a
+     * time, calls this rather than [text] for the copies so that it gets the same treatment.
+     */
+    fun textRing(layout: TextLayout, x: Float, y: Float, colour: Colour) = text(layout, x, y, colour)
 
     /** The same, for the ordinary case where the caller already has the point. */
     fun text(layout: TextLayout, at: Offset, colour: Colour, outline: TextOutline?) =

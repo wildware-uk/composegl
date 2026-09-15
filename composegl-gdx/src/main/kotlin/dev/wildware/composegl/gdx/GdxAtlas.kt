@@ -61,7 +61,11 @@ class GdxAtlas(
      * you pack into [packer] directly.
      */
     fun refresh() {
+        stale = false
         packer.updatePageTextures(filter, filter, false)
+        pageRegions.forEachIndexed { index, region ->
+            packer.pages.get(index).texture?.let { region.setRegion(it) }
+        }
         val rectangle = packer.getRect(WhiteName) ?: return
         val page = packer.pages[packer.getPageIndex(WhiteName)] ?: return
         val texture = page.texture ?: return
@@ -74,6 +78,32 @@ class GdxAtlas(
             WhiteBlock - 2,
             WhiteBlock - 2,
         )
+    }
+
+    /**
+     * True when something has been packed since the last [refresh] that is not on the GPU yet: a
+     * glyph generated the first time text asked for it, or a picture registered to stand in for a
+     * character. [GdxCanvas] refreshes before it draws text when this is set, so neither of those
+     * needs an OpenGL context at the moment it happens.
+     */
+    var stale = false
+        internal set
+
+    private val pageRegions = mutableListOf<TextureRegion>()
+
+    /**
+     * The whole of page [index], as one region that stays the same object for the life of the
+     * atlas. Its texture is filled in by [refresh]; until then it has none, which is fine for
+     * measuring and is why [stale] exists.
+     */
+    internal fun pageRegion(index: Int): TextureRegion {
+        while (pageRegions.size <= index) {
+            val page = pageRegions.size
+            pageRegions += TextureRegion().also { region ->
+                packer.pages.takeIf { page < it.size }?.get(page)?.texture?.let { region.setRegion(it) }
+            }
+        }
+        return pageRegions[index]
     }
 
     /** How many pages the glyphs and the white texel needed. More than one costs a draw call. */

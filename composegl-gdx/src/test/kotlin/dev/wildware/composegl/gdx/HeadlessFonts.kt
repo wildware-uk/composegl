@@ -21,11 +21,9 @@ import java.io.File
  */
 object HeadlessFonts {
 
-    private val fontFile: File by lazy {
-        val resource = requireNotNull(javaClass.getResource("/fonts/DejaVuSans.ttf")) {
-            "the test font is missing"
-        }
-        File(resource.toURI())
+    private fun fontFile(name: String): File {
+        val resource = requireNotNull(javaClass.getResource("/fonts/$name")) { "the test font $name is missing" }
+        return File(resource.toURI())
     }
 
     init {
@@ -34,19 +32,39 @@ object HeadlessFonts {
     }
 
     /** A registry holding [family] at each of [sizes], measurable but not drawable. */
-    fun registry(family: String = "test", sizes: List<Int> = listOf(16)): GdxFonts {
-        val fonts = GdxFonts()
-        FreeTypeFontGenerator(Gdx.files.absolute(fontFile.absolutePath)).use { generator ->
+    fun registry(family: String = "test", sizes: List<Int> = listOf(16)): GdxFonts =
+        GdxFonts().also { add(it, family, sizes) }
+
+    /**
+     * Adds [family] from the test font [file] at each of [sizes] to [fonts], baking [characters] —
+     * FreeType's default set when null, which is ASCII and nothing a fallback is for.
+     */
+    fun add(
+        fonts: GdxFonts,
+        family: String,
+        sizes: List<Int>,
+        file: String = "DejaVuSans.ttf",
+        characters: String? = null,
+    ) {
+        FreeTypeFontGenerator(Gdx.files.absolute(fontFile(file).absolutePath)).use { generator ->
             sizes.forEach { size ->
                 val packer = PixmapPacker(512, 512, Pixmap.Format.RGBA8888, 1, false)
                 val parameter = FreeTypeFontGenerator.FreeTypeFontParameter().also {
                     it.size = size
                     it.packer = packer
+                    if (characters != null) it.characters = FreeTypeFontGenerator.DEFAULT_CHARS + characters
                 }
                 fonts.register(family, size.toFloat(), MeasuringFont(generator.generateData(parameter)))
             }
         }
-        return fonts
+    }
+
+    /** The test emoji, 😀, as a picture: a yellow face, seventy-two pixels square. */
+    fun smiley(): Pixmap {
+        val bytes = requireNotNull(javaClass.getResourceAsStream("/emoji/emoji_u1f600.png")) {
+            "the test emoji is missing"
+        }.readBytes()
+        return Pixmap(bytes, 0, bytes.size)
     }
 
     /**

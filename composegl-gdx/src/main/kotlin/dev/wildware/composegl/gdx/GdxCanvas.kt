@@ -325,12 +325,32 @@ class GdxCanvas(
 
     // --- text and pictures ---
 
-    override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) {
+    override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) =
+        drawText(layout, x, y, colour, ring = false)
+
+    /**
+     * A ring copy leaves picture glyphs out.
+     *
+     * A letter's copies are silhouettes in the ring colour, because a letter is only coverage. An
+     * emoji's copies would be eight more emoji in their own colours, smeared round the real one.
+     * Leaving them out keeps the ring round the words and the picture clean — and a picture has
+     * its own edge already, which is what the ring was for.
+     */
+    override fun textRing(layout: TextLayout, x: Float, y: Float, colour: Colour) =
+        drawText(layout, x, y, colour, ring = true)
+
+    private fun drawText(layout: TextLayout, x: Float, y: Float, colour: Colour, ring: Boolean) {
         if (state.isHidden) return
         val gdx = layout as? GdxTextLayout
             ?: error("this canvas can only draw text measured by GdxFonts, not ${layout::class}")
+        // A glyph generated for the first time, or a picture registered since, is packed but not
+        // uploaded. Once, before the first quad that could sample it.
+        atlas?.let { if (it.stale) it.refresh() }
 
         val packed = colour.packed(state.alpha)
+        // A picture keeps its own colours and takes only the text's fade. Worked out once per run,
+        // and only for a run that has one.
+        var picturePacked = Float.NaN
         val regions = gdx.font.regions
         val data = gdx.font.data
         val top = flip(y)
@@ -346,6 +366,11 @@ class GdxCanvas(
             for (index in 0 until run.glyphs.size) {
                 val glyph = run.glyphs[index]
                 at += run.xAdvances[index]
+                val picture = glyph is PictureGlyph
+                if (picture && ring) continue
+                if (picture && picturePacked.isNaN()) {
+                    picturePacked = Colour.White.scaleAlpha(colour.alphaFraction).packed(state.alpha)
+                }
                 val region = regions[glyph.page]
                 batch().textured(
                     texture = region.texture,
@@ -357,7 +382,7 @@ class GdxCanvas(
                     v = glyph.v2,
                     u2 = glyph.u2,
                     v2 = glyph.v,
-                    colour = packed,
+                    colour = if (picture) picturePacked else packed,
                 )
             }
         }
