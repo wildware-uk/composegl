@@ -56,7 +56,9 @@ import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onPlaced
 import dev.wildware.composegl.ui.modifier.onSizeChanged
 import dev.wildware.composegl.ui.modifier.padding
+import dev.wildware.composegl.ui.modifier.rememberShake
 import dev.wildware.composegl.ui.modifier.shadow
+import dev.wildware.composegl.ui.modifier.shake
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
@@ -650,6 +652,21 @@ private fun MutableList<DocShot>.modifiers() {
         }
     })
 
+    // Five panels knocked at the same moment, as hard as each label says, and photographed a
+    // tenth of a second in. The same seed for all five, so they lean the same way and the only
+    // difference is how far: trauma squared, which is why half a knock barely moves.
+    add(DocShot("modifier-shake", 520, 110, seconds = 0.1f) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(18f)) {
+                Knocked("trigger(1f)", 1f)
+                Knocked("trigger(0.8f)", 0.8f)
+                Knocked("trigger(0.6f)", 0.6f)
+                Knocked("trigger(0.4f)", 0.4f)
+                Knocked("still", 0f)
+            }
+        }
+    })
+
     add(DocShot("modifier-padding", 340, 150) {
         Frame {
             Row(horizontalArrangement = Arrangement.spacedBy(20f)) {
@@ -814,6 +831,19 @@ private fun Labelled(name: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4f)) {
         Text(name, style = "label.dim")
         content()
+    }
+}
+
+/** A panel knocked [intensity] hard the moment it appears, over an outline of the slot it left. */
+@Composable
+private fun Knocked(name: String, intensity: Float) {
+    // Seed 8 leans hard right and up at the moment the shutter goes, so the movement is readable.
+    val shake = rememberShake(maxOffset = 24f, seed = 8)
+    LaunchedEffect(shake) { shake.trigger(intensity) }
+    Labelled(name) {
+        Box(Modifier.border(Accent, width = 1f, corner = 6f).size(80f, 44f)) {
+            Box(Modifier.shake(shake).background(Accent.scaleAlpha(0.6f), corner = 6f).size(80f, 44f)) {}
+        }
     }
 }
 
