@@ -11,6 +11,7 @@ import dev.wildware.composegl.ui.graphics.ArtAtlas
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.host.UiHost
 import dev.wildware.composegl.ui.host.UiRenderer
+import dev.wildware.composegl.ui.input.PointerButton
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerId
 import dev.wildware.composegl.ui.input.PointerRouter
@@ -91,6 +92,9 @@ private const val Window = 640
 /** Frames drawn before the shutter, so that anything with a first-frame animation has settled. */
 private const val Settle = 3
 
+/** How many moves a doc shot's drag is made of. */
+private const val DragSteps = 12
+
 /** Sixty a second, which is the rate every animation in the toolkit is written against. */
 private const val FrameNanos = 16_666_666L
 
@@ -116,10 +120,24 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
     val ui = UiRenderer(host, canvas)
     // After layout, because a pointer lands on whatever is under it and nothing is anywhere until
     // the tree has been measured.
+    var dragged = false
     ui.onLaidOut = {
+        val to = shot.dragTo
         shot.pointer?.let { at ->
-            router.onPointer(PointerEvent.Move(PointerId.Mouse, at))
-            if (shot.press) router.onPointer(PointerEvent.Press(PointerId.Mouse, at))
+            if (to == null) {
+                router.onPointer(PointerEvent.Move(PointerId.Mouse, at))
+                if (shot.press) router.onPointer(PointerEvent.Press(PointerId.Mouse, at))
+            } else if (!dragged) {
+                // Once, in steps, the way a hand does it: a drag is a gesture rather than a state,
+                // and pressing again every frame would be a new one each time.
+                dragged = true
+                router.onPointer(PointerEvent.Press(PointerId.Mouse, at))
+                for (step in 1..DragSteps) {
+                    val along = at + (to - at) * (step / DragSteps.toFloat())
+                    router.onPointer(PointerEvent.Move(PointerId.Mouse, along, setOf(PointerButton.Primary)))
+                }
+                router.onPointer(PointerEvent.Release(PointerId.Mouse, to))
+            }
         }
     }
 

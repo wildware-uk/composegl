@@ -15,6 +15,8 @@ import dev.wildware.composegl.ui.geometry.Offset
  * @param pointer where to put the mouse, for a picture of a hover or a press. Null leaves it off
  *   the screen entirely, which is what an ordinary picture wants.
  * @param press whether that pointer is held down.
+ * @param dragTo where to drag that pointer to, pressed at [pointer] and let go here, once, before
+ *   the settling frames — for a picture of something a drag moved. Null drags nothing.
  * @param seconds how long to let the interface run before the shutter. Anything animated — a bar
  *   draining, a cooldown sweeping, a caret blinking — is a different picture at a different moment.
  * @param stock whether to take it through `Skin.Default` rather than the example's skin. For the
@@ -26,6 +28,7 @@ internal class DocShot(
     val height: Int,
     val pointer: Offset? = null,
     val press: Boolean = false,
+    val dragTo: Offset? = null,
     val seconds: Float = 0f,
     val stock: Boolean = false,
     val content: @Composable () -> Unit,

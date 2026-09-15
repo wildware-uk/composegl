@@ -314,6 +314,27 @@ const val DefaultDoubleClickMillis = 300
 /** Raw pointer events for this node, in its own coordinates. See [PointerHandler]. */
 data class PointerInputElement(val handler: PointerHandler) : Modifier.Element
 
+/**
+ * The node can be dragged. See [draggable].
+ *
+ * The gesture itself — where it started, whether it has passed the slop, where the pointer was
+ * last — lives in the pointer router rather than in here. That is what lets [onDrag] move the very
+ * state this node is composed from: the recomposition that follows builds a new element, and the
+ * drag carries on through it because nothing about the drag was in the old one.
+ */
+data class DraggableElement(
+    val enabled: Boolean,
+    val slop: Float,
+    val onDragStart: (Offset) -> Unit,
+    val onDrag: (Offset) -> Unit,
+    val onDragEnd: () -> Unit,
+    val onDragCancel: () -> Unit,
+) : Modifier.Element {
+    init {
+        require(!slop.isNaN() && slop >= 0f) { "a drag slop cannot be negative, was $slop" }
+    }
+}
+
 /** A skin's background for this node, drawn whatever kind of drawable it turned out to be. */
 data class SkinBackgroundElement(val drawable: SkinDrawable, val tint: Colour) : Modifier.Element
 
@@ -905,6 +926,62 @@ fun Modifier.repeatingClickable(
 )
 
 fun Modifier.onPointer(handler: PointerHandler) = then(PointerInputElement(handler))
+
+/**
+ * How far a pointer may wander, in the node's own units, before a press becomes a drag.
+ *
+ * A hand is not still. A mouse moves a pixel or two under a click and a finger rolls further than
+ * that, so a press on something that is both clickable and draggable needs a margin, or every
+ * slightly sloppy click is a tiny drag instead.
+ */
+const val DefaultDragSlop = 8f
+
+/**
+ * The node can be dragged with the primary button or a finger.
+ *
+ * ```kotlin
+ * var at by remember { mutableStateOf(Offset.Zero) }
+ * Panel(Modifier.offset(at.x, at.y).draggable(onDrag = { at += it })) { … }
+ * ```
+ *
+ * Everything a hand-rolled drag on [onPointer] gets slightly wrong, done once:
+ *
+ * - **Slop.** Nothing happens until the pointer is more than [slop] from where it was pressed.
+ *   Then [onDragStart] is told where the press was, and the first [onDrag] carries the whole way
+ *   from there — so the thing being dragged is never [slop] behind the pointer. A press that never
+ *   goes that far is still a click, if the node is [clickable].
+ * - **Capture.** The press takes the pointer, so the drag carries on outside the node and outside
+ *   the window. A drag that did start is never a click, wherever it is let go.
+ * - **A node that moves.** Deltas are in the node's own units but measured against the screen,
+ *   so a window following the pointer does not cancel out its own movement. A node drawn at half
+ *   [scale] reports a 10 pixel drag as 20, the same way [onPointer] does.
+ * - **Cancel.** A platform taking the gesture away calls [onDragCancel] and never [onDragEnd], so
+ *   a dragged item can go back where it came from. It defaults to [onDragEnd] for the many drags
+ *   where letting go and being interrupted mean the same thing.
+ * - **Things inside it.** A press on a button inside a draggable panel belongs to the button until
+ *   the pointer passes the panel's slop. Then the button lets go — un-pressed, told
+ *   [dev.wildware.composegl.ui.input.PointerEvent.Cancel], no click — and the panel drags. A child
+ *   that is using the moves itself, a [dev.wildware.composegl.ui.widget.Slider] say, keeps them:
+ *   dragging a slider inside a draggable window moves the slider, not the window.
+ *
+ * Disabled is absent: a disabled draggable does not take the press, so it falls through to
+ * whatever is underneath. Turned off in the middle of a drag, the drag is cancelled.
+ *
+ * The callbacks written inline are new objects every recomposition, so the element never compares
+ * equal — `remember` them when a node would otherwise be unchanged. Unlike a hand-rolled handler,
+ * a new one does not lose the drag: the router asks the node's current element each time.
+ *
+ * @param onDragStart where the press was, in the node's own coordinates.
+ * @param onDrag how far the pointer moved since the last call, in the node's own units.
+ */
+fun Modifier.draggable(
+    enabled: Boolean = true,
+    slop: Float = DefaultDragSlop,
+    onDragStart: (Offset) -> Unit = {},
+    onDragEnd: () -> Unit = {},
+    onDragCancel: () -> Unit = onDragEnd,
+    onDrag: (Offset) -> Unit,
+) = then(DraggableElement(enabled, slop, onDragStart, onDrag, onDragEnd, onDragCancel))
 
 /**
  * Keys for this node, while focus is on it or on something inside it.
