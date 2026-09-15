@@ -4,7 +4,24 @@ package dev.wildware.composegl.ui.layout
 enum class HorizontalAlignment { Start, Centre, End }
 
 /** Where something sits down the height it was given. */
-enum class VerticalAlignment { Top, Centre, Bottom }
+enum class VerticalAlignment {
+    Top,
+    Centre,
+    Bottom,
+
+    /**
+     * Stood on the same line as its neighbours' text: a big "120" beside a small "HP", with the
+     * letters of both on one baseline rather than their boxes lined up at the top or the middle.
+     *
+     * Only a [Row] can do this, because only a row has neighbours side by side to line up with.
+     * Each child's first baseline is lined up, the row is as tall as the tallest reach above that
+     * line plus the deepest below it, and a child with no text in it at all goes at the top.
+     *
+     * Anywhere else — a [Box], or [Alignment.yIn] asked directly — there is nothing to line up
+     * against, and it is the same as [Top].
+     */
+    Baseline,
+}
 
 /**
  * Where something sits inside a bigger box.
@@ -25,7 +42,9 @@ data class Alignment(
 
     /** How far down from the top a child of [childHeight] goes, down a space [height] tall. */
     fun yIn(height: Float, childHeight: Float): Float = when (vertical) {
-        VerticalAlignment.Top -> 0f
+        // A baseline is something only a row can line up, and it does so before asking this; see
+        // VerticalAlignment.Baseline. Alone in a box it has nothing to line up with.
+        VerticalAlignment.Top, VerticalAlignment.Baseline -> 0f
         VerticalAlignment.Centre -> (height - childHeight) / 2f
         VerticalAlignment.Bottom -> height - childHeight
     }

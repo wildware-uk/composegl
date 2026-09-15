@@ -240,6 +240,29 @@ A row lining its children up down the middle, with two of them overruling it:
 
 That last example is a whole HUD's worth of positioning, and it is three lines.
 
+### Lining text up by its baseline
+
+A big number next to a small unit looks wrong with its top lined up, and wrong
+centred too. What the eye wants is the letters of both standing on one line:
+
+```kotlin
+Row(verticalAlignment = VerticalAlignment.Baseline) {
+    Text("120", textStyle = display)
+    Text("HP")
+}
+```
+
+![120 HP with the tops lined up on the left, and with the letters on one line on the right](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-baseline.png)
+
+- Each child's **first** line is what lines up. A paragraph stands on its first line.
+- Anything with text inside counts, not just `Text`: a `Button`, a `TextField`, a
+  `Column` of labels. A layout reports the first baseline of the text inside it.
+- A child with no text at all goes at the top.
+- A child's own `Modifier.align(...)` still wins. A single child can ask for the
+  baseline in a row that does not: `Modifier.align(Alignment(vertical = VerticalAlignment.Baseline))`.
+- Only a `Row` does this. In a `Box` there is nothing beside a child to line up
+  with, so `Baseline` is the same as `Top`.
+
 ### A small thing in a big slot: `wrapContentSize`
 
 A weighted share, a fixed cell or a `fillMaxSize` parent *forces* its size on a
@@ -312,6 +335,24 @@ Modifier.padding(left = 28f, bottom = 28f)   // name the ones you want
 
 There is no margin, and no `Spacer` in a typical chain. Space *between* things is
 the parent's job: `Arrangement.spacedBy`.
+
+### Padding from a baseline
+
+A designer says "40 from the top of the panel to the title's baseline". Plain
+padding measures to the top of the line box instead, which is off by the font's
+ascent and so changes with the size. `paddingFrom` measures to the line:
+
+```kotlin
+Text("Title", Modifier.paddingFrom(Baseline.First, before = 40f))  // line 40 down
+Text(body,    Modifier.paddingFrom(Baseline.Last, after = 16f))    // 16 below the last line
+Text(body,    Modifier.paddingFromBaseline(top = 28f, bottom = 12f))  // both
+```
+
+![the same title with plain top padding and with padding from its baseline](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-padding-from-baseline.png)
+
+It only adds room: a line already further down is left alone. The room is part of
+the node, so a background paints across it. Something with no text inside gets no
+room at all.
 
 ---
 

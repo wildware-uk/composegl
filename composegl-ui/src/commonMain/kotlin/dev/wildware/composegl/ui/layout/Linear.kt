@@ -76,11 +76,21 @@ internal data class LinearPolicy(
         }
 
         var cross = 0f
+        // For a row lining children up by their text: the tallest reach above the shared baseline,
+        // and the deepest below it. Together they are how tall the row has to be for the lot.
+        var above = 0f
+        var below = 0f
         for (index in 0 until count) {
             val placeable = checkNotNull(placeables[index]) { "a child of this line was never measured" }
             sizes[index] = placeable.main
             if (placeable.cross > cross) cross = placeable.cross
+            val baseline = baselineOf(measurables[index], placeable)
+            if (!baseline.isNaN()) {
+                if (baseline > above) above = baseline
+                if (placeable.height - baseline > below) below = placeable.height - baseline
+            }
         }
+        if (above + below > cross) cross = above + below
 
         val main = if (horizontal) constraints.constrainWidth(used) else constraints.constrainHeight(used)
         val crossSize =
@@ -97,8 +107,10 @@ internal data class LinearPolicy(
             val placeable = placeables[index] ?: continue
             val alignment = measurables[index].layoutData.alignment ?: crossAlignment
             if (horizontal) {
+                val baseline = baselineOf(measurables[index], placeable)
                 placements[index * 2] = positions[index]
-                placements[index * 2 + 1] = alignment.yIn(height, placeable.height)
+                placements[index * 2 + 1] =
+                    if (baseline.isNaN()) alignment.yIn(height, placeable.height) else above - baseline
             } else {
                 placements[index * 2] = alignment.xIn(width, placeable.width)
                 placements[index * 2 + 1] = positions[index]
@@ -122,6 +134,17 @@ internal data class LinearPolicy(
         offer.of(if (tight) main else 0f, main, 0f, crossMax)
     } else {
         offer.of(0f, crossMax, if (tight) main else 0f, main)
+    }
+
+    /**
+     * Where [placeable]'s first line stands, if it is a child of a row that lines it up by that
+     * line; NaN otherwise. A child asking for a baseline with no text in it is NaN too, and goes
+     * wherever [Alignment.yIn] puts a baseline — the top.
+     */
+    private fun baselineOf(measurable: Measurable, placeable: Placeable): Float {
+        if (!horizontal) return Float.NaN
+        val alignment = measurable.layoutData.alignment ?: crossAlignment
+        return if (alignment.vertical == VerticalAlignment.Baseline) placeable.firstBaseline else Float.NaN
     }
 
     private val Placeable.main get() = if (horizontal) width else height

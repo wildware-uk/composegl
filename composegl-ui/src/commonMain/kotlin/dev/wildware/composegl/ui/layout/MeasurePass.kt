@@ -87,10 +87,20 @@ class MeasurePass {
         val measurables = measurables(node)
         val result = with(node.measurePolicy) { node.scope.measure(measurables, content) }
 
+        // Children are placed now, in this node's coordinates. Where *this* node ends up is its
+        // parent's business and does not change any of them.
+        result.placeChildren(node.inset.at(padding.left, padding.top))
+
+        // Read before the node's size is settled, because `paddingFrom` can only decide how much
+        // room to add once it knows where the words are.
+        baselines(node, result, padding.top)
+        val natural = result.height + padding.vertical
+        roomForBaselines(node, resolved, natural)
+
         // The two axes separately rather than through a Size: the object would be made and read
         // once each, per node, every frame.
         node.width = outer.constrainWidth(result.width + padding.horizontal)
-        node.height = outer.constrainHeight(result.height + padding.vertical)
+        node.height = outer.constrainHeight(natural + node.baselineTop + node.baselineBottom)
         node.everMeasured = true
 
         // The parent is told about the slot it insisted on, so its own arithmetic is unchanged,
@@ -111,16 +121,91 @@ class MeasurePass {
             val dy = when (wrap.vertical) {
                 VerticalAlignment.Centre -> (slotHeight - node.height) / 2f
                 VerticalAlignment.Bottom -> slotHeight - node.height
-                VerticalAlignment.Top, null -> 0f
+                // Nothing beside it in its own slot to share a line with, so the same as a Box: top.
+                VerticalAlignment.Top, VerticalAlignment.Baseline, null -> 0f
             }
             placeable.slot(slotWidth, slotHeight, dx, dy)
         }
 
-        // Children are placed now, in this node's coordinates. Where *this* node ends up is its
-        // parent's business and does not change any of them.
-        result.placeChildren(node.inset.at(padding.left, padding.top))
-
         return placeable
+    }
+
+    /**
+     * Where [node]'s first and last lines of text stand, down from the top of its own box.
+     *
+     * A layout that draws text says so itself. Everything else — a row, a box, a button — takes
+     * them from the children it has just placed: the highest first baseline among them and the
+     * lowest last one, which is where a reader's eye finds the first and last lines of whatever is
+     * inside. That is what lets a button stand on the same line as a label beside it without the
+     * button knowing anything about baselines.
+     *
+     * Each child's own `offset` is taken back off, because an offset moves a node without moving
+     * the space it takes, and a child's baseline is a fact about that space. Only children this
+     * pass measured count: one skipped this frame — an item a lazy list scrolled past — is still
+     * sitting wherever it was last frame.
+     */
+    private fun baselines(node: UiNode, result: MeasureResult, top: Float) {
+        var first = result.firstBaseline
+        var last = result.lastBaseline
+        if (!first.isNaN()) first += top
+        if (!last.isNaN()) last += top
+
+        if (first.isNaN() || last.isNaN()) {
+            val own = !first.isNaN()
+            val ownLast = !last.isNaN()
+            val children = node.children
+            for (index in children.indices) {
+                val child = children[index]
+                if (!child.measurable.measuredIn(this)) continue
+                val y = child.y - child.resolved.offset.y
+                val childFirst = child.firstBaseline
+                if (!own && !childFirst.isNaN() && (first.isNaN() || y + childFirst < first)) {
+                    first = y + childFirst
+                }
+                val childLast = child.lastBaseline
+                if (!ownLast && !childLast.isNaN() && (last.isNaN() || y + childLast > last)) {
+                    last = y + childLast
+                }
+            }
+        }
+
+        node.firstBaseline = first
+        node.lastBaseline = last
+    }
+
+    /**
+     * The room `paddingFrom` asks for, now that the node knows where its words are.
+     *
+     * Before a baseline is the distance from the top of the node down to it, and it only ever adds:
+     * a line already further down than that is left where it is. After is the same from the line to
+     * the bottom. What is added above moves the children and both baselines down with it.
+     *
+     * Nothing at all for a node that asked for none, which is nearly every node.
+     */
+    private fun roomForBaselines(node: UiNode, resolved: ResolvedModifier, natural: Float) {
+        var above = 0f
+        var below = 0f
+        val wanted = resolved.baselinePadding
+        for (index in wanted.indices) {
+            val padding = wanted[index]
+            val line = if (padding.baseline == Baseline.First) node.firstBaseline else node.lastBaseline
+            // No text inside means no line to measure from, and so nothing to add.
+            if (line.isNaN()) continue
+            if (padding.before - line > above) above = padding.before - line
+            if (padding.after - (natural - line) > below) below = padding.after - (natural - line)
+        }
+
+        node.baselineTop = above
+        node.baselineBottom = below
+        if (above == 0f) return
+
+        node.firstBaseline += above
+        node.lastBaseline += above
+        val children = node.children
+        for (index in children.indices) {
+            val child = children[index]
+            if (child.measurable.measuredIn(this)) child.y += above
+        }
     }
 
     /**
@@ -158,6 +243,9 @@ internal class OnceMeasurable(private val node: UiNode) : Measurable {
     private var data = LayoutData.None
 
     override val layoutData: LayoutData get() = data
+
+    /** Whether [pass] has measured this child, which is what makes its rectangle this frame's. */
+    fun measuredIn(pass: MeasurePass): Boolean = measuredBy === pass
 
     fun begin(pass: MeasurePass): OnceMeasurable {
         this.pass = pass
@@ -223,6 +311,11 @@ internal class NodePlaceable(private val node: UiNode) : Placeable() {
 
     override val width get() = slotWidth
     override val height get() = slotHeight
+
+    // Measured from the top of the slot, which is where the parent will stand the node, so the
+    // node's own lines are moved down by however far it sits inside it.
+    override val firstBaseline get() = node.firstBaseline + dy
+    override val lastBaseline get() = node.lastBaseline + dy
 
     override fun placeAt(x: Float, y: Float) {
         node.x = x + dx + resolved.offset.x
@@ -424,9 +517,20 @@ internal class NodeMeasureScope : MeasureScope {
     private var placements = FloatArray(0)
     private var offers = emptyArray<ConstraintsCache>()
 
-    override fun layout(width: Float, height: Float, place: PlacementScope.() -> Unit): MeasureResult {
+    override fun layout(width: Float, height: Float, place: PlacementScope.() -> Unit): MeasureResult =
+        layout(width, height, Float.NaN, Float.NaN, place)
+
+    override fun layout(
+        width: Float,
+        height: Float,
+        firstBaseline: Float,
+        lastBaseline: Float,
+        place: PlacementScope.() -> Unit,
+    ): MeasureResult {
         result.width = width
         result.height = height
+        result.firstBaseline = firstBaseline
+        result.lastBaseline = lastBaseline
         result.place = place
         result.count = -1
         return result
@@ -435,6 +539,8 @@ internal class NodeMeasureScope : MeasureScope {
     override fun layout(width: Float, height: Float, count: Int): MeasureResult {
         result.width = width
         result.height = height
+        result.firstBaseline = Float.NaN
+        result.lastBaseline = Float.NaN
         result.place = null
         result.count = count
         result.placeables = placeables
@@ -476,6 +582,8 @@ internal class NodeMeasureScope : MeasureScope {
     private class ReusableResult : MeasureResult {
         override var width = 0f
         override var height = 0f
+        override var firstBaseline = Float.NaN
+        override var lastBaseline = Float.NaN
         var place: (PlacementScope.() -> Unit)? = null
         var count = -1
         var placeables: Array<Placeable?> = EMPTY_PLACEABLES

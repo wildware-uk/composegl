@@ -21,6 +21,7 @@ import dev.wildware.composegl.ui.input.PointerIcon
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Alignment
+import dev.wildware.composegl.ui.layout.Baseline
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
 import dev.wildware.composegl.ui.layout.Padding
 import dev.wildware.composegl.ui.layout.PlacedHandler
@@ -59,6 +60,18 @@ data class AspectRatioElement(
 }
 
 data class PaddingElement(val padding: Padding) : Modifier.Element
+
+/** Room measured from a line of text; see [paddingFrom]. */
+data class BaselinePaddingElement(
+    val baseline: Baseline,
+    val before: Float = 0f,
+    val after: Float = 0f,
+) : Modifier.Element {
+    init {
+        require(before >= 0f) { "before cannot be negative, was $before" }
+        require(after >= 0f) { "after cannot be negative, was $after" }
+    }
+}
 
 /** Moved from where layout put it, without changing the space it takes up. */
 data class OffsetElement(val x: Float = 0f, val y: Float = 0f) : Modifier.Element
@@ -559,6 +572,39 @@ fun Modifier.padding(left: Float = 0f, top: Float = 0f, right: Float = 0f, botto
     then(PaddingElement(Padding(left, top, right, bottom)))
 
 fun Modifier.offset(x: Float = 0f, y: Float = 0f) = then(OffsetElement(x, y))
+
+/**
+ * Room measured from a line of text rather than from the edge of the box.
+ *
+ * A designer specifies "24 from the top of the panel to the title's baseline", not "24 to the top of
+ * the title's line box", and the two differ by the font's ascent — which changes with the size. This
+ * says the first:
+ *
+ * ```kotlin
+ * Text("Title", Modifier.paddingFrom(Baseline.First, before = 24f))
+ * Text("Body", Modifier.paddingFrom(Baseline.Last, after = 16f))
+ * ```
+ *
+ * @param before how far down from the top of this node the line should stand. Room is added above
+ *   until it does; a line already further down is left alone.
+ * @param after how far up from the bottom of this node the line should stand, the same way.
+ *
+ * The room is part of the node, the way `background(c).padding(8f)` is: a background paints across
+ * it and a click on it lands on the node. A node with no text inside it has no line to measure from,
+ * and gets no room at all. Two of these on one node — one from each line — both apply.
+ */
+fun Modifier.paddingFrom(baseline: Baseline, before: Float = 0f, after: Float = 0f) =
+    then(BaselinePaddingElement(baseline, before, after))
+
+/**
+ * The common case of [paddingFrom]: [top] down to the first line, and [bottom] up to the last.
+ *
+ * ```kotlin
+ * Text(body, Modifier.paddingFromBaseline(top = 28f, bottom = 12f))
+ * ```
+ */
+fun Modifier.paddingFromBaseline(top: Float = 0f, bottom: Float = 0f) =
+    paddingFrom(Baseline.First, before = top).paddingFrom(Baseline.Last, after = bottom)
 
 /**
  * Draws this node, and everything under it, through a shader.

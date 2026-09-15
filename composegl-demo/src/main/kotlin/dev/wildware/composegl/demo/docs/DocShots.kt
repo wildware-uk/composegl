@@ -95,6 +95,9 @@ import dev.wildware.composegl.ui.widget.TextField
 import dev.wildware.composegl.ui.widget.Toggle
 import dev.wildware.composegl.ui.widget.Tooltip
 import dev.wildware.composegl.ui.widget.TooltipHost
+import dev.wildware.composegl.ui.layout.Baseline
+import dev.wildware.composegl.ui.modifier.paddingFrom
+import dev.wildware.composegl.ui.text.TextStyle
 
 /**
  * Every picture in the wiki, and the interface each one is a photograph of.
@@ -306,6 +309,36 @@ private fun MutableList<DocShot>.layout() {
                     Modifier.weight(1f).wrapContentWidth(
                         listOf(HorizontalAlignment.Start, HorizontalAlignment.Centre, HorizontalAlignment.End)[index],
                     )
+                }
+            }
+        }
+    })
+
+    add(DocShot("layout-baseline", 460, 150) {
+        Frame {
+            Row(horizontalArrangement = Arrangement.spacedBy(24f)) {
+                Labelled("VerticalAlignment.Top") { Readout(VerticalAlignment.Top) }
+                Labelled("VerticalAlignment.Baseline") { Readout(VerticalAlignment.Baseline) }
+            }
+        }
+    })
+
+    // Two sizes side by side, because that is where the difference shows: the same top padding
+    // leaves their letters on two different lines, the same baseline padding puts them on one.
+    add(DocShot("layout-padding-from-baseline", 360, 220) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(12f)) {
+                Labelled("padding(top = 10f)") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
+                        Heading(Modifier.padding(left = 10f, top = 10f), Display)
+                        Heading(Modifier.padding(left = 10f, top = 10f), Body)
+                    }
+                }
+                Labelled("paddingFrom(Baseline.First, before = 44f)") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
+                        Heading(Modifier.padding(left = 10f).paddingFrom(Baseline.First, before = 44f), Display)
+                        Heading(Modifier.padding(left = 10f).paddingFrom(Baseline.First, before = 44f), Body)
+                    }
                 }
             }
         }
@@ -1075,6 +1108,30 @@ private fun WrapRow(slot: (Int) -> Modifier) {
         repeat(3) { index ->
             Box(slot(index).width(40f).height(24f).background(Accent, corner = 12f)) {}
         }
+    }
+}
+
+private val Display = TextStyle(family = "display", size = 34f)
+private val Body = TextStyle(family = "body", size = 16f)
+
+/** A title in a panel, so where its letters land against the panel's top edge can be seen. */
+@Composable
+private fun Heading(modifier: Modifier, style: TextStyle) {
+    Box(Modifier.background(Ink, corner = 6f).width(150f).height(60f)) {
+        Text("Title", modifier, textStyle = style)
+    }
+}
+
+/** A big number and a small unit, the case baseline alignment exists for. */
+@Composable
+private fun Readout(alignment: VerticalAlignment) {
+    Row(
+        Modifier.background(Ink, corner = 6f).padding(10f),
+        horizontalArrangement = Arrangement.spacedBy(6f),
+        verticalAlignment = alignment,
+    ) {
+        Text("120", textStyle = Display)
+        Text("HP", style = "label.dim", textStyle = Body)
     }
 }
 

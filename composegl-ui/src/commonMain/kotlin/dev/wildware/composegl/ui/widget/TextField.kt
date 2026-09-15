@@ -597,7 +597,12 @@ private class FieldPainter(
         view.metrics = metrics
         keepCaretInView(width, height)
 
-        return layout(width, height) {}
+        // Where the first line stands before any scrolling, so a field in a baseline row does not
+        // hop up and down as its caret scrolls a long entry. The last line is the last one the box
+        // has room for, which for a single-line field is the same line.
+        val first = metrics.layoutOf(0).firstBaseline
+        val shown = ((height / metrics.lineHeight).toInt() - 1).coerceIn(0, metrics.lines.lastIndex)
+        return layout(width, height, first, first + shown * metrics.lineHeight) {}
     }
 
     /**
