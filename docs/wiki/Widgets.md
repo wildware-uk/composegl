@@ -191,6 +191,9 @@ Every state comes from the skin — no Kotlin here names a colour:
 A disabled button still swallows the click, so it cannot fall through to whatever
 is behind it.
 
+A click also asks for a light tap on a phone or a pad, if the game provided one —
+see [[Input#haptics|haptics]].
+
 Same widget, a different style name, and it is a chip:
 
 ![four chips, one chosen and one in the danger style](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-chips.png)

@@ -2,6 +2,8 @@ package dev.wildware.composegl.ui.widget
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import dev.wildware.composegl.ui.backend.Haptic
+import dev.wildware.composegl.ui.backend.Haptics
 import dev.wildware.composegl.ui.focus.FocusDirection
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.input.DirectionHandler
@@ -84,6 +86,7 @@ fun Slider(
     slider.knob = knob
     slider.report = onValueChange
     slider.sounds = LocalUiSounds.current
+    slider.haptics = LocalHaptics.current
 
     val pointer = remember(slider) { PointerHandler { slider.pointer(it) } }
     val directions = remember(slider) { DirectionHandler { slider.nudge(it) } }
@@ -197,6 +200,7 @@ private class SliderLogic {
     var knob = 0f
     var report: (Float) -> Unit = {}
     var sounds: UiSounds = UiSounds.None
+    var haptics: Haptics = Haptics.None
 
     /**
      * Whether a drag on a continuous slider has moved the value since the press. Such a drag changes
@@ -254,6 +258,9 @@ private class SliderLogic {
         // At the end, the direction is not used. That is how a player leaves the control.
         if (wanted == value) return false
         changed(wanted)
+        // A nudge is a notch even on a continuous slider: it moved by one fixed amount, and a
+        // player holding the stick counts them by feel.
+        haptics.perform(Haptic.Tick)
         report(wanted)
         return true
     }
@@ -273,6 +280,9 @@ private class SliderLogic {
         val wanted = settle(range.start + (if (horizontal) fraction else 1f - fraction) * span)
         if (wanted == value) return
         if (step > 0f) changed(wanted) else dragged = true
+        // Only against notches. A continuous slider changes on nearly every frame of a drag, and
+        // a tick on each would be a buzz rather than something to count.
+        if (step > 0f) haptics.perform(Haptic.Tick)
         report(wanted)
     }
 

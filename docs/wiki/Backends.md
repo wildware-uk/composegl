@@ -149,7 +149,15 @@ val keyboard = AndroidSoftKeyboard(activity.window, view) { focus.clearFocus() }
 Viewport(design, physical, Fit, safeArea = Padding(bottom = keyboard.heightPixels))
 ```
 
-That is the whole of `composegl-android`.
+And the phone's own feel for a tap, which needs no permission and follows the
+player's touch-feedback setting:
+
+```kotlin
+ProvideHaptics(AndroidHaptics(view)) { Hud() }
+```
+
+That is the whole of `composegl-android`. `composegl-robovm` has the same three for
+an iPhone: `UiKitSoftKeyboard`, `UiKitTextInput` and `UiKitHaptics`.
 
 ---
 
@@ -165,6 +173,7 @@ interface UiBackend {
     val softKeyboard: SoftKeyboard
     val textures: TextureSource
     val cursor: SystemCursor          // optional: defaults to one that does nothing
+    val haptics: Haptics              // optional: defaults to Haptics.None
 }
 ```
 

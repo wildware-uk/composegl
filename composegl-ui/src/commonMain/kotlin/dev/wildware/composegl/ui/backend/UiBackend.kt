@@ -42,4 +42,10 @@ interface UiBackend {
      * one for a platform that has none — is still a valid one.
      */
     val cursor: SystemCursor get() = SystemCursor.None
+
+    /**
+     * The phone's vibration or the pad's rumble. Defaults to [Haptics.None], so a backend written
+     * before this existed, or for a platform with no motor, is still a whole one.
+     */
+    val haptics: Haptics get() = Haptics.None
 }

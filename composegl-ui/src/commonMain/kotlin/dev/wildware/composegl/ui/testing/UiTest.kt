@@ -40,6 +40,7 @@ import dev.wildware.composegl.ui.text.graphemeAfter
 import dev.wildware.composegl.ui.widget.ProvideBackStack
 import dev.wildware.composegl.ui.widget.ProvideClipboard
 import dev.wildware.composegl.ui.widget.ProvideFonts
+import dev.wildware.composegl.ui.widget.ProvideHaptics
 import dev.wildware.composegl.ui.widget.ProvideInputSource
 import dev.wildware.composegl.ui.widget.ProvideSoftKeyboard
 
@@ -125,6 +126,9 @@ class UiTest(
     var pointerAt: Offset = Offset(-1f, -1f)
         private set
 
+    /** The mouse buttons held down now: the primary one between a [press] and a [release]. */
+    private var held: Set<PointerButton> = emptySet()
+
     private val back = { if (!backs.back()) onBack() }
     // The backend's cursor, so a test asks the headless one which shape the mouse was given.
     private val pointerRouter = PointerRouter(host.root, focus, backend.cursor)
@@ -152,8 +156,10 @@ class UiTest(
             ProvideFonts(backend.fonts) {
                 ProvideClipboard(backend.clipboard) {
                     ProvideSoftKeyboard(backend.softKeyboard) {
-                        ProvideInputSource(source) {
-                            ProvideBackStack(backs, content)
+                        ProvideHaptics(backend.haptics) {
+                            ProvideInputSource(source) {
+                                ProvideBackStack(backs, content)
+                            }
                         }
                     }
                 }
@@ -242,13 +248,19 @@ class UiTest(
     /** Moves the mouse onto the middle of [tag] with nothing held: a hover. */
     fun moveTo(tag: String): Boolean = moveTo(centreOf(tag))
 
-    fun moveTo(at: Offset): Boolean = send(PointerEvent.Move(PointerId.Mouse, at)).also { pointerAt = at }
+    /**
+     * Moves the mouse to [at]. Between a [press] and a [release] that is a drag, and the move says
+     * the button is still held, as a real mouse's does — a slider only follows a move that does.
+     */
+    fun moveTo(at: Offset): Boolean =
+        send(PointerEvent.Move(PointerId.Mouse, at, pressed = held)).also { pointerAt = at }
 
     /** Moves onto [tag] and holds the mouse down there. [release] lets go. */
     fun press(tag: String): Boolean = press(centreOf(tag))
 
     fun press(at: Offset): Boolean {
         moveTo(at)
+        held = setOf(PointerButton.Primary)
         return send(PointerEvent.Press(PointerId.Mouse, at))
     }
 
@@ -260,7 +272,10 @@ class UiTest(
         send(PointerEvent.Move(PointerId.Mouse, at, setOf(PointerButton.Primary))).also { pointerAt = at }
 
     /** Lets go of the mouse wherever it is now, which is where a drag ended. */
-    fun release(): Boolean = send(PointerEvent.Release(PointerId.Mouse, pointerAt))
+    fun release(): Boolean {
+        held = emptySet()
+        return send(PointerEvent.Release(PointerId.Mouse, pointerAt))
+    }
 
     /** A wheel turned over [tag]. Positive scrolls content up and left. */
     fun scroll(tag: String, delta: Offset): Boolean {

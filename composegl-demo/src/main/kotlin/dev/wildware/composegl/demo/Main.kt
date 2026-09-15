@@ -16,6 +16,7 @@ import dev.wildware.composegl.gdx.GdxSoftKeyboard
 import dev.wildware.composegl.gdx.GdxCanvas
 import dev.wildware.composegl.gdx.GdxFonts
 import dev.wildware.composegl.gdx.GdxGamepadInput
+import dev.wildware.composegl.gdx.GdxHaptics
 import dev.wildware.composegl.gdx.GdxKeyboardInput
 import dev.wildware.composegl.gdx.GdxPointerInput
 import dev.wildware.composegl.gdx.GdxSystemCursor
@@ -101,7 +102,9 @@ class Demo : ApplicationAdapter() {
         sprites = SpriteBatch()
         canvas = GdxCanvas(sprites, fonts.atlas)
         host = UiHost()
-        host.setContent { Screen(fonts, skin.skin, state, GdxClipboard(), GdxSoftKeyboard()) }
+        // Haptics told what the player last used, so a mouse click does not hum a pad on the desk.
+        val haptics = GdxHaptics(source = state.source)
+        host.setContent { Screen(fonts, skin.skin, state, GdxClipboard(), GdxSoftKeyboard(), haptics) }
 
         // The whole of the engine's involvement in input: a translator, pointed at a sink. What
         // the sink does with an event — which node it hit, whether that is a click — is the

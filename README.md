@@ -76,7 +76,7 @@ You need `composegl-ui` and exactly one backend.
 | `composegl-ui` | the toolkit. Multiplatform: JVM, Linux native, iOS |
 | `composegl-gdx` | the LibGDX backend. The one to use |
 | `composegl-lwjgl3` | a second backend, raw OpenGL. Exists to disagree with the first |
-| `composegl-android` | on a phone: what the keyboard covers, and the platform's own typing |
+| `composegl-android` | on a phone: what the keyboard covers, the platform's own typing, and haptics |
 | `composegl-robovm` | the same, on an iPhone, through UIKit |
 | `composegl-effects` | blur, outline, colour grade, dissolve. Optional |
 | `composegl-testing` | the scenes both backends draw, for testing your own widgets |

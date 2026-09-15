@@ -49,12 +49,13 @@ fun Button(
     content: @Composable () -> Unit,
 ) {
     val resolved = rememberStyle(style, rememberStates(interaction, enabled))
+    val tapped = rememberTapped(onClick)
 
     Box(
         modifier = modifier
             .interaction(interaction)
             .focusable(interaction, enabled = enabled, initial = initialFocus)
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled, onClick = tapped)
             .styled(resolved),
         contentAlignment = contentAlignment,
     ) {

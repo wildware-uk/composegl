@@ -82,8 +82,10 @@ import dev.wildware.composegl.ui.game.HotbarSlot
 import dev.wildware.composegl.ui.game.HotbarState
 import dev.wildware.composegl.ui.game.RadialCooldown
 import dev.wildware.composegl.ui.game.rememberCooldown
+import dev.wildware.composegl.ui.backend.Haptics
 import dev.wildware.composegl.ui.backend.SoftKeyboard
 import dev.wildware.composegl.ui.widget.Button
+import dev.wildware.composegl.ui.widget.LocalHaptics
 import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.Dialog
 import dev.wildware.composegl.ui.widget.Image
@@ -126,9 +128,12 @@ fun Screen(
     state: DemoState,
     clipboard: Clipboard = Clipboard.None,
     softKeyboard: SoftKeyboard = SoftKeyboard.None,
+    haptics: Haptics = Haptics.None,
 ) {
     CompositionLocalProvider(
         LocalFonts provides fonts,
+        // The buttons, tick boxes and sliders ask for their own small bump; this is where it goes.
+        LocalHaptics provides haptics,
         LocalInputSource provides state.source,
         // What the player has each action bound to. A rebinding screen would write into this and
         // every prompt on screen would change on the next frame.

@@ -39,9 +39,11 @@ import dev.wildware.composegl.ui.modifier.onTextEvent
 import dev.wildware.composegl.ui.modifier.scale
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.testTag
+import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.LocalInputSource
 import dev.wildware.composegl.ui.widget.OnBack
+import dev.wildware.composegl.ui.widget.Slider
 import dev.wildware.composegl.ui.widget.Text
 import dev.wildware.composegl.ui.widget.TextField
 import kotlin.test.AfterTest
@@ -632,5 +634,27 @@ class UiTestTest {
         ui.close()
 
         assertTrue(ui.host.isDisposed)
+    }
+
+    @Test
+    fun `a press moved and released drags a slider the way a mouse does`() {
+        val ui = open {
+            var level by remember { mutableStateOf(0f) }
+            Column {
+                Slider(level, { level = it }, Modifier.testTag("level").width(216f), range = 0f..10f, step = 1f)
+                Text("level ${level.toInt()}", Modifier.testTag("value"))
+            }
+        }
+        val track = ui.node("level").boundsInRoot
+
+        // Moves between the press and the release say the button is held; a slider ignores a move
+        // that does not, because that is a hover.
+        ui.press(Offset(track.left + 8f, track.centre.y))
+        ui.moveTo(Offset(track.left + 8f + 100f, track.centre.y))
+        ui.assertText("value", "level 5")
+
+        ui.release()
+        ui.moveTo(Offset(track.left + 8f + 200f, track.centre.y))
+        ui.assertText("value", "level 5")
     }
 }
