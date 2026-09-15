@@ -120,15 +120,16 @@ fun NumberStepper(
 
     val count = (range.last - range.first) / step + 1
     // A value between two steps shows as it is. Right lands it on the step above and left on the
-    // one below, so neither direction skips a step on the way.
-    val inRange = value.coerceIn(range.first, range.last)
-    val index = ((inRange - range.first) / step).coerceAtMost(count - 1)
+    // one below, so neither direction skips a step on the way. Below the range it is on no step at
+    // all, like a Stepper's selection that is not an option: right goes to the first, left nowhere.
+    val below = value < range.first
+    val index = if (below) -1 else ((value.coerceAtMost(range.last) - range.first) / step).coerceAtMost(count - 1)
     StepperControl(
         count = count,
         index = index,
         onIndex = { onValueChange(range.first + it * step) },
         text = format(value),
-        between = value != range.first + index * step,
+        between = !below && value != range.first + index * step,
         // The ends are the widest a counted value usually gets, and measuring all of a big range
         // to find out would be a frame spent on nothing.
         sizing = listOf(format(range.first), format(range.first + (count - 1) * step)),
