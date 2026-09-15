@@ -51,6 +51,7 @@ import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onKeyEvent
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
+import dev.wildware.composegl.ui.modifier.tint
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.skin.ProvideSkin
 import dev.wildware.composegl.ui.skin.Skin
@@ -62,6 +63,7 @@ import dev.wildware.composegl.ui.input.KeyShortcut
 import dev.wildware.composegl.ui.input.Modifiers
 import dev.wildware.composegl.ui.input.plus
 import dev.wildware.composegl.ui.widget.CollapsingHeader
+import dev.wildware.composegl.ui.widget.ColourPickerButton
 import dev.wildware.composegl.ui.widget.LocalFonts
 import dev.wildware.composegl.ui.widget.MenuBar
 import dev.wildware.composegl.ui.widget.PopupHost
@@ -258,7 +260,8 @@ private fun CombatHud(state: ShowcaseState) {
     // Wider while the weapon is hot, which is the whole reason a reticle has a spread.
     reticle.spread = state.heat
 
-    Reticle(reticle, Modifier.align(Alignment.Centre))
+    // Tinted with whatever the player picked in the hull panel's colour swatch.
+    Reticle(reticle, Modifier.align(Alignment.Centre).tint(state.reticleTint))
 
     Panel(Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 28f).width(280f)) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
@@ -276,11 +279,31 @@ private fun CombatHud(state: ShowcaseState) {
                 Text("AMMO", style = "label.dim")
                 Text("${state.ammo}", style = "label")
             }
+            // A click, Enter or South on the swatch opens a colour picker under it. The stick moves
+            // round its square, the shoulders turn the hue, and the reticle changes as it does.
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = VerticalAlignment.Centre,
+            ) {
+                Text("RETICLE", style = "label.dim")
+                ColourPickerButton(
+                    colour = state.reticleTint,
+                    onColourChange = { state.reticleTint = it },
+                    alpha = true,
+                    presets = ReticlePresets,
+                )
+            }
         }
     }
 
     if (target != null) TargetPanel(target, state) else ScanningPanel()
 }
+
+/** The reticle colours offered as swatches in its picker. */
+private val ReticlePresets = listOf(
+    Colour.White, Colour.rgb(0x4CC2FF), Colour.rgb(0x46A758), Colour.rgb(0xFFD600), Colour.rgb(0xFF5A2A), Colour.Magenta,
+)
 
 /** What is locked: its shields, its hull, and how far away it is. */
 @Composable

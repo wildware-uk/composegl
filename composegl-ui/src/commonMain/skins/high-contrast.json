@@ -194,6 +194,28 @@
       "disabled": { "background": { "fill": "#B0B0B0", "corner": 2 } }
     },
 
+    // A colour picker on black: white frames round the square and strips, yellow where focus is,
+    // and a white ring outlined in black so it shows on any colour.
+
+    "colourpicker": {
+      "background": { "fill": "#000000", "corner": 6, "border": "#FFFFFF", "padding": 10, "borderWidth": 2 }
+    },
+    "colourpicker.area": {
+      "background": { "fill": "#000000", "corner": 2, "border": "#FFFFFF", "borderWidth": 2 },
+      "hovered": { "background": { "fill": "#000000", "corner": 2, "border": "#FFD600", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#000000", "corner": 2, "border": "#FFD600", "borderWidth": 2 } },
+      "disabled": { "background": { "fill": "#000000", "corner": 2, "border": "#B0B0B0", "borderWidth": 2 }, "tint": "#B0FFFFFF" }
+    },
+    "colourpicker.marker": { "background": { "fill": "#000000" }, "textColour": "#FFFFFF" },
+    "colourpicker.checker": { "background": { "fill": "#FFFFFF" }, "textColour": "#808080" },
+    "colourswatch": {
+      "background": { "fill": "#000000", "corner": 3, "border": "#FFFFFF", "padding": 2, "borderWidth": 2 },
+      "hovered": { "background": { "fill": "#000000", "corner": 3, "border": "#FFD600", "padding": 2, "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#000000", "corner": 3, "border": "#FFD600", "borderWidth": 2, "padding": 2 } },
+      "pressed": { "background": { "fill": "#000000", "corner": 3, "border": "#FFD600", "borderWidth": 2, "padding": 2 } },
+      "disabled": { "background": { "fill": "#000000", "corner": 3, "border": "#B0B0B0", "padding": 2, "borderWidth": 2 }, "tint": "#B0FFFFFF" }
+    },
+
     // A stepper is picked with left and right, so its arrows are what say it is one. An arrow at an
     // end it cannot pass is dimmed rather than hidden, so the value does not jump sideways.
 

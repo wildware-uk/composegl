@@ -198,6 +198,29 @@
       "disabled": { "tint": "#A0FFFFFF" }
     },
 
+    // A colour picker: the panel round it, the frame round its square and strips (lit where focus
+    // is), the ring and bars that mark the colour, and the checkerboard behind a see-through colour.
+    // A swatch is a small framed square of colour that lights up like a button when it is one.
+
+    "colourpicker": {
+      "background": { "fill": "#1A1F28", "corner": 6, "border": "#2C3545", "padding": 10 }
+    },
+    "colourpicker.area": {
+      "background": { "fill": "#10131A", "corner": 2, "border": "#2C3545" },
+      "hovered": { "background": { "fill": "#10131A", "corner": 2, "border": "#4A5670" } },
+      "focused": { "background": { "fill": "#10131A", "corner": 2, "border": "#5B8DEF", "borderWidth": 2 } },
+      "disabled": { "tint": "#A0FFFFFF" }
+    },
+    "colourpicker.marker": { "background": { "fill": "#10131A" }, "textColour": "#FFFFFF" },
+    "colourpicker.checker": { "background": { "fill": "#C8CCD2" }, "textColour": "#8A9099" },
+    "colourswatch": {
+      "background": { "fill": "#10131A", "corner": 3, "border": "#39445A", "padding": 2 },
+      "hovered": { "background": { "fill": "#10131A", "corner": 3, "border": "#4A5670", "padding": 2 } },
+      "focused": { "background": { "fill": "#10131A", "corner": 3, "border": "#5B8DEF", "borderWidth": 2, "padding": 2 } },
+      "pressed": { "background": { "fill": "#10131A", "corner": 3, "border": "#5B8DEF", "padding": 2 } },
+      "disabled": { "tint": "#A0FFFFFF" }
+    },
+
     // A stepper is picked with left and right, so its arrows are what say it is one. An arrow at an
     // end it cannot pass is dimmed rather than hidden, so the value does not jump sideways.
 

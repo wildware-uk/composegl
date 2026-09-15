@@ -618,6 +618,74 @@ fails as it is built, saying so.
 The field is the `"dropdown"` style, the list's panel `"dropdown.list"`, and
 the options are `"item"` and `"item.selected"`.
 
+### Colour pickers
+
+A character's hair, a team colour, a crosshair, a tint you are tweaking in a
+debug window:
+
+```kotlin
+var tint by remember { mutableStateOf(Colour.rgb(0x4CC2FF)) }
+
+ColourPicker(
+    colour = tint,
+    onColourChange = { tint = it },
+    alpha = true,                        // adds the see-through strip
+    presets = listOf(Colour.Red, Colour.Blue, Colour.Green),
+)
+```
+
+![a colour picker: a saturation and brightness square with a ring on it, a rainbow hue strip, an alpha strip over a checkerboard, a hex field reading #C04CC2FF and six team colour swatches](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-colour-picker.png)
+
+It has a square (strength across, brightness up), a hue strip beside it, an
+alpha strip when `alpha = true`, a hex field with a swatch of the colour, and a
+swatch for each preset. Like a slider, it reports and the screen holds the
+answer. It keeps the hue itself, so dragging to grey or black and back does not
+lose it.
+
+- **Mouse or finger.** Press or drag on the square or a strip. The drag carries
+  on past the edge and holds the marker there.
+- **Arrow keys or d-pad.** Move the marker on whichever part has focus, a
+  twentieth of the way per press. At an edge the next press moves focus on.
+- **Left stick.** On the focused square it moves the marker smoothly, faster
+  the further you push. No virtual cursor needed. A fresh push against the edge
+  the marker is already on moves focus instead, so a stick alone can leave.
+- **Shoulder buttons.** Turn the hue from anywhere in the picker, and keep
+  turning while held. It wraps past red.
+- **Hex field.** An ordinary `TextField`, so a pad player gets the on-screen
+  keyboard — delete with DEL and type the code key by key. It takes `#RRGGBB`,
+  `#RGB`, or `#AARRGGBB` with `alpha`. The colour changes as soon as the text is
+  one. Half a code is left as typed, and put back to the colour once you leave
+  the field, which the on-screen keyboard being open does not count as.
+- **Presets.** A click, Enter or South picks one.
+
+On a right-to-left screen the square mirrors: grey is on the right, and the
+arrows still move the marker the way they point.
+
+For a settings list, `ColourPickerButton` is a small swatch that opens the
+picker under itself. It needs a `PopupHost`, like a dropdown:
+
+```kotlin
+PopupHost {
+    ColourPickerButton(colour = crosshair, onColourChange = { crosshair = it }, alpha = true)
+}
+```
+
+![a Crosshair setting with its green swatch clicked, and the colour picker open under it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-colour-picker-button.png)
+
+Focus goes to the square when it opens. Escape, East, Back, a press outside or
+another press on the swatch closes it, and focus goes back to the swatch.
+`ColourSwatch(colour = tint, onClick = { ... })` is the plain swatch, if you
+want to open something of your own. Without `onClick` it only shows the colour.
+
+The colour maths is public too: `Hsv(hue, saturation, value, alpha).toColour()`,
+`Hsv.of(colour)`, `colour.toHex()` and `Colour.fromHex("#FF8000")`.
+
+Styles: `"colourpicker"` is the panel, `"colourpicker.area"` the frame round
+the square and strips (hovered, focused, disabled), `"colourpicker.marker"` the
+ring and bars (text colour for the ring, fill for its outline),
+`"colourpicker.checker"` the checkerboard's two greys, `"colourswatch"` a
+swatch's frame, and `"field"` the hex field.
+
 ---
 
 ## Menus

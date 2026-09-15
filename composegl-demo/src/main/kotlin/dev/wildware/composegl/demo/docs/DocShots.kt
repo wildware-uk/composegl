@@ -150,6 +150,8 @@ import dev.wildware.composegl.ui.widget.Splitter
 import dev.wildware.composegl.ui.widget.Table
 import dev.wildware.composegl.ui.widget.rememberTableState
 import dev.wildware.composegl.ui.widget.Divider
+import dev.wildware.composegl.ui.widget.ColourPicker
+import dev.wildware.composegl.ui.widget.ColourPickerButton
 import dev.wildware.composegl.ui.widget.Dropdown
 import dev.wildware.composegl.ui.widget.PopupHost
 import dev.wildware.composegl.ui.widget.MenuBar
@@ -878,6 +880,33 @@ private fun MutableList<DocShot>.widgets() {
                     Toggle(true, onCheckedChange = {}, label = "V-Sync")
                     Checkbox(false, onCheckedChange = {}, label = "Show frame rate")
                     Slider(0.6f, onValueChange = {}, modifier = Modifier.width(220f))
+                }
+            }
+        }
+    })
+
+    // A colour picker with alpha and team colours, focus on its square as a pad player lands on it.
+    add(DocShot("widget-colour-picker", 290, 300, focus = true, stock = true) {
+        Frame {
+            var tint by remember { mutableStateOf(Colour.argb(0xC04CC2FF)) }
+            ColourPicker(
+                colour = tint,
+                onColourChange = { tint = it },
+                alpha = true,
+                presets = DocTeamColours,
+                initialFocus = true,
+            )
+        }
+    })
+
+    // A settings row whose swatch is really clicked, so the picture is the picker it opens under itself.
+    add(DocShot("widget-colour-picker-button", 290, 330, pointer = Offset(222f, 26f), click = true, stock = true) {
+        Box(Modifier.fillMaxSize().background(Colour.rgb(0x0B0E13)).padding(14f)) {
+            PopupHost {
+                var crosshair by remember { mutableStateOf(Colour.rgb(0x46A758)) }
+                Row(Modifier.width(220f), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = VerticalAlignment.Centre) {
+                    Text("Crosshair")
+                    ColourPickerButton(colour = crosshair, onColourChange = { crosshair = it }, presets = DocTeamColours)
                 }
             }
         }
@@ -2682,3 +2711,8 @@ private fun WorkingScene() {
         }
     }
 }
+/** Six team colours, for the colour picker pictures. */
+private val DocTeamColours = listOf(
+    Colour.rgb(0xE5484D), Colour.rgb(0x5B8DEF), Colour.rgb(0x46A758),
+    Colour.rgb(0xFFD600), Colour.rgb(0xFF8000), Colour.rgb(0xB06CF0),
+)
