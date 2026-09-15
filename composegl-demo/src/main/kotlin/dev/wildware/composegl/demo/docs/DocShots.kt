@@ -127,6 +127,8 @@ import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.Divider
 import dev.wildware.composegl.ui.widget.Dropdown
 import dev.wildware.composegl.ui.widget.PopupHost
+import dev.wildware.composegl.ui.widget.DragAndDropHost
+import dev.wildware.composegl.ui.widget.DropTargetState
 import dev.wildware.composegl.ui.widget.Image
 import dev.wildware.composegl.ui.widget.NumberStepper
 import dev.wildware.composegl.ui.widget.LazyGridState
@@ -147,6 +149,8 @@ import dev.wildware.composegl.ui.layout.Baseline
 import dev.wildware.composegl.ui.modifier.paddingFrom
 import dev.wildware.composegl.ui.text.TextStyle
 import dev.wildware.composegl.ui.widget.rememberScrollState
+import dev.wildware.composegl.ui.widget.dragSource
+import dev.wildware.composegl.ui.widget.dropTarget
 
 /**
  * Every picture in the wiki, and the interface each one is a photograph of.
@@ -650,6 +654,44 @@ private fun MutableList<DocShot>.widgets() {
                             Checkbox(true, onCheckedChange = {}, label = "Subtitles")
                             Stepper(listOf(Skin.Default, Skin.HighContrast), skin, onSelect = {}, label = { it.name }, initialFocus = true)
                             Button("APPLY", onClick = {}, style = "button.primary")
+                        }
+                    }
+                }
+            }
+        }
+    })
+
+    // Picked up out of the first slot by a real press and carried over the third, still held.
+    add(DocShot("input-drag-drop", 440, 200, pointer = Offset(92f, 112f), dragTo = Offset(232f, 118f), hold = true) {
+        val slots = remember { mutableStateListOf<String?>("SWORD", "BOW", null, null) }
+        val colours = mapOf("SWORD" to Colour.rgb(0xE0303A), "BOW" to Colour.rgb(0x3070E0))
+        DragAndDropHost {
+            Box(Modifier.fillMaxSize().background(Colour.rgb(0x0B0E13))) {
+                Panel(Modifier.offset(30f, 40f).width(380f)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10f)) {
+                        Text("BACKPACK")
+                        Row(horizontalArrangement = Arrangement.spacedBy(10f)) {
+                            slots.forEachIndexed { index, item ->
+                                val look = remember { DropTargetState() }
+                                var slot = Modifier.size(70f, 70f)
+                                if (item != null) {
+                                    slot = slot.dragSource(payload = item) {
+                                        Box(Modifier.size(50f, 50f).background(colours.getValue(item), corner = 6f).border(Colour.White, width = 2f, corner = 6f))
+                                    }
+                                }
+                                slot = slot.dropTarget<String>(state = look, onDrop = { moved ->
+                                    slots[slots.indexOf(moved)] = slots[index]
+                                    slots[index] = moved
+                                })
+                                val edge = when {
+                                    look.isHovered -> Colour.rgb(0x30C060)
+                                    look.isOffered -> Steel
+                                    else -> Colour.rgb(0x252B34)
+                                }
+                                Box(slot.background(Colour.rgb(0x151A21), corner = 6f).border(edge, width = 2f, corner = 6f), contentAlignment = Alignment.Centre) {
+                                    if (item != null) Box(Modifier.size(50f, 50f).background(colours.getValue(item), corner = 6f))
+                                }
+                            }
                         }
                     }
                 }

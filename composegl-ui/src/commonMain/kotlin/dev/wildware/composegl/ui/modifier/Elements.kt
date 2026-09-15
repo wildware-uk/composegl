@@ -16,6 +16,7 @@ import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NinePatch
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.input.ActivateHandler
 import dev.wildware.composegl.ui.input.DirectionHandler
 import dev.wildware.composegl.ui.input.GamepadHandler
 import dev.wildware.composegl.ui.input.InteractionState
@@ -483,6 +484,9 @@ data class FocusableElement(
  * data class changes its constructor and every game compiled against the old one fails to link.
  */
 data class PointerFocusElement(val state: InteractionState?) : Modifier.Element
+
+/** South or Enter on this node while it has focus, before its click. See [ActivateHandler]. */
+data class ActivateElement(val handler: ActivateHandler) : Modifier.Element
 
 /** Directions this node uses itself rather than letting focus move off it. See [DirectionHandler]. */
 data class FocusDirectionElement(val handler: DirectionHandler) : Modifier.Element
@@ -1568,6 +1572,22 @@ fun Modifier.focusableByPointer(state: InteractionState? = null) = then(PointerF
  * Both the arrow keys and the pad arrive here, because both ask focus to move.
  */
 fun Modifier.onFocusDirection(handler: DirectionHandler) = then(FocusDirectionElement(handler))
+
+/**
+ * Lets this node answer the pad's South button or Enter itself, before they are a click.
+ *
+ * ```kotlin
+ * Slot(Modifier.focusable().onActivate { pickUp(item) })
+ * ```
+ *
+ * Asked when the press comes up on the focused node, in chain order, first to say yes wins. A yes
+ * is instead of the click; a no, or no handler at all, leaves the click to happen as it always did.
+ * The node does not need a [clickable] for South to reach it. The pointer never asks this: a mouse
+ * has its own ways to say the same thing, and [draggable] is the usual one.
+ *
+ * `remember` the handler, for the same reason as every other handler here.
+ */
+fun Modifier.onActivate(handler: ActivateHandler) = then(ActivateElement(handler))
 
 /**
  * Called when focus lands on something inside this node, with that thing's bounds.

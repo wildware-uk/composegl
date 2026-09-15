@@ -132,6 +132,20 @@ fun interface DirectionHandler {
 }
 
 /**
+ * The pad's South button or Enter, let go on the focused node, offered before it is a click.
+ *
+ * What drag and drop needs from a pad: South on a slot picks the item up, and South on another
+ * slot puts it down. Return true and that was the whole of it — no click. Return false and the
+ * node's `clickable`, if it has one, is clicked as usual.
+ *
+ * Only the focused node itself is asked, never its ancestors, and only for a press that is still a
+ * click: a long press or a repeat that already spent it is not offered.
+ */
+fun interface ActivateHandler {
+    fun onActivate(): Boolean
+}
+
+/**
  * Committed text for one node, while it has focus.
  *
  * Separate from [KeyHandler] because the two are genuinely different things: Shift and A are two

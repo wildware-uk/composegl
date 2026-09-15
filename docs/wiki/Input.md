@@ -417,6 +417,59 @@ It is the primary button or a finger. Two fingers drag two things at once. A dis
 
 ---
 
+## Drag and drop
+
+Moving an item from the backpack to the hotbar. One slot hands over a payload, another
+takes it:
+
+```kotlin
+DragAndDropHost {                       // once, round the screen
+    Inventory()
+}
+
+// a slot with something in it
+Slot(Modifier.dragSource(payload = item) { ItemIcon(item) })
+
+// a slot that can take something
+val look = remember { DropTargetState() }
+Slot(Modifier.dropTarget<Item>(
+    state = look,                        // isHovered, isRefusing, isOffered
+    accepts = { it.fits(slot) },
+    onDrop = { move(it, slot) },
+))
+```
+
+![an item carried over a lit slot, drawn over the panel it came from](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/input-drag-drop.png)
+
+Think of carrying a cup across a kitchen. You pick it up in one place, you can see it
+in your hand the whole way, and the counter you put it on either has room or does not.
+
+- **The picture.** The trailing lambda is what is carried. The host draws it over
+  everything, held where it was grabbed, so it never jumps under the pointer.
+- **The targets.** The one under the pointer is the one on top, the same one a click
+  there would reach. `state.isHovered` lights it; `isRefusing` says "not here";
+  `isOffered` is every slot that would take it, for a hint while carrying.
+- **Types.** `dropTarget<Item>` refuses anything that is not an `Item` without asking
+  `accepts`, so a sword slot and a spell slot sit side by side.
+- **Letting go.** Over a target that accepts: its `onDrop` runs. Anywhere else, or a
+  cancel, or Escape: nothing moves. The source's `onDragEnd(dropped)` hears which.
+- **A pad.** South on a slot picks the item up. Move focus as usual; the picture floats
+  over whatever has focus, a slot or a plain button. South on a slot drops it; on a
+  button it is still a click, and the item stays in hand. East, or South on the slot
+  it came from, puts it back. Enter and the arrow keys do the same on a keyboard.
+
+Both modifiers make the node focusable, so a pad can reach it. If the widget reads its
+focus from its own `InteractionState`, pass it as `interaction =`, or write your own
+`focusable(state)` before them in the chain and they share it. A slot that is a source
+and a target stays focusable while either is on, so a locked slot can still be emptied. The pointer side is a
+`draggable` underneath, with its slop, capture and cancel.
+
+South reaches a slot through `Modifier.onActivate { … }`, which you can use yourself: it
+is asked when South or Enter comes up on the focused node, before the click. Return
+true and there is no click.
+
+---
+
 ## Raw events
 
 When a widget needs more than a click or a drag:

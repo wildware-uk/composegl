@@ -527,6 +527,9 @@ Modifier.clickable(onDoubleClick = { equip() }, onLongPress = { actions() }) { s
 Modifier.repeatingClickable { count++ }   // the + on a quantity picker
 Modifier.interaction(state)               // hover and press, for drawing
 Modifier.draggable { delta -> at += delta } // slop, capture and cancel done for you
+Modifier.dragSource(payload = item) { ItemIcon(item) } // inside a DragAndDropHost
+Modifier.dropTarget<Item>(accepts = { it.fits(slot) }, onDrop = { move(it, slot) })
+Modifier.onActivate { pickUp(); true }    // South or Enter, before the click
 Modifier.onPointer(handler)               // raw pointer events
 Modifier.onKeyEvent(handler)
 Modifier.onTextEvent(handler)
