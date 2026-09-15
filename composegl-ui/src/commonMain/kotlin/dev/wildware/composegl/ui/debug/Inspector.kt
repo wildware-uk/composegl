@@ -405,7 +405,7 @@ internal class InspectorState {
         val screen = screen ?: return null
         fun visit(node: UiNode): UiNode? {
             val resolved = node.resolved
-            if (resolved.alpha <= 0f || resolved.scale <= 0f || node.content is LayoutOverlayPainter) return null
+            if (resolved.alpha <= 0f || resolved.scale <= 0f || node.content is LayoutOverlayPainter || node.content is OverdrawPainter) return null
             val inside = node.everMeasured && point in node.boundsInRoot
             if (!inside && (resolved.clip != null || resolved.scale != 1f)) return null
             val children = node.drawOrder
@@ -511,6 +511,8 @@ internal class InspectorHighlight(
     var node: UiNode? = null
 
     override fun invoke(canvas: UiCanvas, content: Rect) {
+        // Drawn into OverdrawOverlay's count: its outlines are not what the screen paints.
+        if (canvas is OverdrawCanvas) return
         val self = node ?: return
         // As the layout overlay does: the canvas is in the root's coordinates unless a caller drew
         // this into a picture somewhere else, and where the layer's own box landed says which.

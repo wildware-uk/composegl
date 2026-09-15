@@ -3,6 +3,8 @@ package dev.wildware.composegl.ui.testing
 import androidx.compose.runtime.Composable
 import dev.wildware.composegl.ui.backend.HeadlessBackend
 import dev.wildware.composegl.ui.backend.UiBackend
+import dev.wildware.composegl.ui.debug.OverdrawMap
+import dev.wildware.composegl.ui.debug.measureOverdraw
 import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Offset
@@ -478,6 +480,14 @@ class UiTest(
         nanos += FrameNanos
         return renderer.render(viewport, nanos)
     }
+
+    /**
+     * How many times each part of the screen is painted in one frame, as the backend's canvas
+     * would draw it. See [measureOverdraw] for what is counted.
+     *
+     * For a test that holds a screen to a fill-rate budget: `assertTrue(ui.overdraw().deepest <= 3)`.
+     */
+    fun overdraw(cell: Float = 1f): OverdrawMap = measureOverdraw(root, backend.canvas, cell)
 
     override fun close() = host.dispose()
 
