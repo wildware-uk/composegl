@@ -111,6 +111,11 @@ class ResolvedModifier private constructor(
     val focusWithin: List<FocusWithinHandler>,
     /** Whether focus is confined to this node's subtree. */
     val focusTrap: Boolean,
+    /**
+     * The name a test finds this node by, or null for almost every node there has ever been. See
+     * [dev.wildware.composegl.ui.modifier.testTag].
+     */
+    val testTag: String?,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
@@ -160,6 +165,7 @@ class ResolvedModifier private constructor(
             val reveals = mutableListOf<RevealHandler>()
             val focusWithin = mutableListOf<FocusWithinHandler>()
             var focusTrap = false
+            var testTag: String? = null
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -217,6 +223,7 @@ class ResolvedModifier private constructor(
                     is RevealElement -> reveals += element.handler
                     is FocusWithinElement -> focusWithin += element.handler
                     is FocusTrapElement -> focusTrap = element.enabled
+                    is TestTagElement -> testTag = element.tag
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
             }
@@ -229,7 +236,7 @@ class ResolvedModifier private constructor(
                 interactions.toList(), handlers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), click,
                 focusable, focusRequester, focusOrder, focusDirections.toList(),
-                reveals.toList(), focusWithin.toList(), focusTrap,
+                reveals.toList(), focusWithin.toList(), focusTrap, testTag,
             )
         }
     }

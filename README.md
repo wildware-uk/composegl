@@ -97,6 +97,7 @@ You need `composegl-ui` and exactly one backend.
 | [Widgets](docs/wiki/Widgets.md) · [Layout](docs/wiki/Layout.md) · [Modifiers](docs/wiki/Modifiers.md) | what there is, and how it fits together |
 | [Skins](docs/wiki/Skins.md) | every colour and corner comes out of a JSON file |
 | [Input](docs/wiki/Input.md) · [Backends](docs/wiki/Backends.md) · [Shaders](docs/wiki/Shaders.md) | mouse, keyboard, gamepad; and writing your own |
+| [Testing](docs/wiki/Testing.md) | screens tested with no window: tag a widget, find it, click it |
 | [How it works](docs/how-it-works.md) | the long version: what is built, and why |
 | [Releasing](docs/releasing.md) | how a version gets to Maven Central |
 
