@@ -12,7 +12,7 @@ import dev.wildware.composegl.ui.backend.Haptics
  * The vibration motor, for the controls inside it. A game provides its backend's.
  *
  * Buttons, tick boxes, switches and radio buttons ask for a [LightTap][dev.wildware.composegl.ui.backend.Haptic.LightTap]
- * when they are clicked, and a stepped slider asks for a
+ * when they are clicked, and a stepped slider and a stepper ask for a
  * [Tick][dev.wildware.composegl.ui.backend.Haptic.Tick] on every notch. Anything else — a failed
  * purchase, a hit — is the game's to ask for, from the same place.
  *

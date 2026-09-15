@@ -222,7 +222,8 @@ LocalHaptics.current.perform(Haptic.Failure)   // not enough gold
 
 `LightTap`, `MediumTap`, `HeavyTap`, `Tick`, `Success`, `Warning`, `Failure`.
 Buttons, tick boxes, switches and radio buttons already give a `LightTap` when
-clicked, and a slider gives a `Tick` for each notch it moves. Anything else is
+clicked. A slider gives a `Tick` for each notch it moves, and a stepper for
+each option it steps to. Anything else is
 yours to ask for.
 
 Provide the platform's, the same way as the clipboard:

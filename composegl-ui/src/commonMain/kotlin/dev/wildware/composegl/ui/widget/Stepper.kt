@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import dev.wildware.composegl.ui.backend.Haptic
+import dev.wildware.composegl.ui.backend.Haptics
 import dev.wildware.composegl.ui.focus.FocusDirection
 import dev.wildware.composegl.ui.input.DirectionHandler
 import dev.wildware.composegl.ui.input.InteractionState
@@ -176,6 +178,7 @@ private fun StepperControl(
     stepper.enabled = enabled
     stepper.report = onIndex
     stepper.sounds = LocalUiSounds.current
+    stepper.haptics = LocalHaptics.current
     // Disabled while an arrow was held: the hold is over, or its repeat would outlive the control.
     if (!enabled) stepper.held = 0
 
@@ -313,6 +316,9 @@ private class StepperLogic {
     var report: (Int) -> Unit = {}
     var sounds: UiSounds = UiSounds.None
 
+    /** Told about every step as a [Haptic.Tick], the notch a phone's own picker gives. */
+    var haptics: Haptics = Haptics.None
+
     /** Where the left arrow ends and the right one starts, in the control's own units. From layout. */
     var leftEnd = 0f
     var rightStart = 0f
@@ -345,9 +351,10 @@ private class StepperLogic {
         index = wanted
         between = false
         // Every way a step happens comes through here — an arrow key, the pad, an arrow held down
-        // and repeating, a click on the value — so each one is heard once. An end with nowhere to
-        // go returned above, and stays quiet: nothing changed.
+        // and repeating, a click on the value — so each one is heard and felt once. An end with
+        // nowhere to go returned above, and stays quiet and still: nothing changed.
         sounds.change()
+        haptics.perform(Haptic.Tick)
         report(wanted)
         return true
     }

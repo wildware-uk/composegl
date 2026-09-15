@@ -195,6 +195,145 @@ class HapticsTest {
         assertEquals(emptyList(), felt.performed, "a slider with no notches has nothing to tick against")
     }
 
+    @Composable
+    private fun Quality(wrap: Boolean = false, enabled: Boolean = true) {
+        var quality by remember { mutableStateOf("Medium") }
+        Column {
+            Stepper(
+                options = listOf("Low", "Medium", "High"),
+                selected = quality,
+                onSelect = { quality = it },
+                wrap = wrap,
+                enabled = enabled,
+                initialFocus = true,
+                modifier = Modifier.testTag("quality"),
+            )
+            Button("Apply", onClick = {}, modifier = Modifier.testTag("apply"))
+        }
+    }
+
+    /** The middle of one of a stepper's three pieces: 0 the left arrow, 1 the value, 2 the right. */
+    private fun UiTest.pieceOf(tag: String, piece: Int): Offset = node(tag).children[piece].boundsInRoot.centre
+
+    /** What a stepper shows, as it is drawn: left arrow, value, right arrow. */
+    private fun shows(value: String) = "<\n$value\n>"
+
+    @Test
+    fun `a stepper ticks for each option the pad and the keys step to and not at the end`() {
+        val ui = open { Quality() }
+        ui.assertFocused("quality")
+
+        ui.pad(GamepadButton.DpadRight)
+        ui.assertText("quality", shows("High"))
+        assertEquals(listOf(Haptic.Tick), felt.performed)
+
+        // Past the end the stepper lets go and focus moves on. Nothing changed, so nothing is felt.
+        ui.pad(GamepadButton.DpadRight)
+        ui.assertText("quality", shows("High"))
+        assertEquals(listOf(Haptic.Tick), felt.performed, "a press that only left the stepper should not tick")
+
+        ui.key(Key.Up)
+        ui.assertFocused("quality")
+        ui.key(Key.Left)
+        ui.key(Key.Left)
+        ui.assertText("quality", shows("Low"))
+        assertEquals(listOf(Haptic.Tick, Haptic.Tick, Haptic.Tick), felt.performed)
+    }
+
+    @Test
+    fun `a stepper's arrows value and enter each tick once`() {
+        val ui = open { Quality() }
+
+        ui.click(ui.pieceOf("quality", 0))
+        ui.assertText("quality", shows("Low"))
+        assertEquals(listOf(Haptic.Tick), felt.performed, "the arrow's click is the step, not a second tap")
+
+        ui.click(ui.pieceOf("quality", 1))
+        ui.assertText("quality", shows("Medium"))
+        ui.key(Key.Enter)
+        ui.assertText("quality", shows("High"))
+        ui.pad(GamepadButton.South)
+        ui.assertText("quality", shows("Low"))
+
+        assertEquals(List(4) { Haptic.Tick }, felt.performed)
+    }
+
+    @Test
+    fun `holding a stepper's arrow ticks with every repeat and goes quiet at the end`() {
+        val ui = open { Quality() }
+
+        ui.press(ui.pieceOf("quality", 0))
+        ui.release()
+        ui.assertText("quality", shows("Low"))
+        assertEquals(listOf(Haptic.Tick), felt.performed)
+
+        ui.press(ui.pieceOf("quality", 2))
+        ui.advanceBy(3_000)
+        ui.release()
+
+        ui.assertText("quality", shows("High"))
+        assertEquals(List(3) { Haptic.Tick }, felt.performed, "two steps up from Low, then a held arrow at the end")
+    }
+
+    @Test
+    fun `a disabled stepper gives nothing back`() {
+        val ui = open { Quality(enabled = false) }
+
+        ui.click(ui.pieceOf("quality", 2))
+        ui.click(ui.pieceOf("quality", 1))
+
+        ui.assertText("quality", shows("Medium"))
+        assertEquals(emptyList(), felt.performed)
+    }
+
+    @Test
+    fun `a stick held on a number stepper ticks once per number and stops at the top`() {
+        val ui = open {
+            var volume by remember { mutableStateOf(6) }
+            NumberStepper(
+                value = volume,
+                onValueChange = { volume = it },
+                initialFocus = true,
+                modifier = Modifier.testTag("volume"),
+            )
+        }
+
+        ui.stick(1f, 0f)
+        ui.advanceBy(3_000)
+        ui.stick(0f, 0f)
+        ui.advanceBy(500)
+
+        ui.assertText("volume", shows("10"))
+        assertEquals(List(4) { Haptic.Tick }, felt.performed, "6 to 10 is four numbers, and the end is not one")
+    }
+
+    @Test
+    fun `a wrapping stepper ticks going round and a number between steps ticks landing on one`() {
+        val ui = open {
+            var volume by remember { mutableStateOf(7) }
+            Column {
+                Quality(wrap = true)
+                NumberStepper(
+                    value = volume,
+                    onValueChange = { volume = it },
+                    range = 0..20,
+                    step = 5,
+                    modifier = Modifier.testTag("volume"),
+                )
+            }
+        }
+
+        ui.key(Key.Right)
+        ui.key(Key.Right)
+        ui.assertText("quality", shows("Low"))
+        assertEquals(List(2) { Haptic.Tick }, felt.performed, "going round from High is still a step")
+
+        felt.clear()
+        ui.click(ui.pieceOf("volume", 0))
+        ui.assertText("volume", shows("5"))
+        assertEquals(listOf(Haptic.Tick), felt.performed)
+    }
+
     @Test
     fun `a game asks for its own feedback when an action fails`() {
         val ui = open {

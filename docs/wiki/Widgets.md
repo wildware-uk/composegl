@@ -342,6 +342,9 @@ NumberStepper(fov, range = 60..110, step = 5, format = { "$it°" }, onValueChang
   round at the end.
 - **The arrows stay put.** The value is as wide as the widest option. Give the
   stepper a width and the extra goes to the value.
+- **Each step ticks.** On a phone or a pad every change asks for a
+  [[Input#haptics|haptic]] `Tick`. A press at an end that only moves focus
+  gives nothing.
 
 Styles: `stepper` behind it, `stepper.arrow` for the two arrows (pressed while
 held, disabled at an end), `stepper.value` for the words.
