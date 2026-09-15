@@ -63,7 +63,7 @@ import kotlin.math.roundToInt
  */
 class BrowserUi(
     val backend: WebGlBackend,
-    val design: Size,
+    design: Size,
     private val policy: ScalePolicy = ScalePolicy.Fit,
     private val background: Colour = Colour.rgb(0x0B0E13),
     onBack: () -> Unit = {},
@@ -71,6 +71,13 @@ class BrowserUi(
     pads: () -> JsArray<JsGamepad?> = ::browserGamepads,
     content: @Composable () -> Unit,
 ) : AutoCloseable {
+
+    /**
+     * The size the interface is laid out at. Settable, for a page that reshapes its interface to the
+     * window — a phone held upright gets a narrow layout rather than a wide one shrunk to fit — and
+     * read again on every [frame].
+     */
+    var design: Size = design
 
     val host = UiHost()
     val focus = FocusManager(host.root)

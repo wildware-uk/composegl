@@ -149,6 +149,19 @@ class WebFonts(private val pageSize: Int = 1024) : FontProvider, AutoCloseable {
         registerCss(family, css, sizes)
     }
 
+    /**
+     * Where characters a family does not have come from, in order, by the names they were registered
+     * under — a Chinese or Korean cut, say, loaded with [load]. The browser tries each before its own
+     * system fallback, glyph by glyph, so one label can mix all of them.
+     *
+     * Set before text is drawn: a face already measured keeps the fonts it was made with.
+     */
+    fun fallBackTo(families: List<String>) {
+        fallbacks = families.map { name -> requireNotNull(this.families[name]) { "no font is registered as $name" } }
+    }
+
+    private var fallbacks: List<String> = emptyList()
+
     /** The families that were registered. */
     fun families(): List<String> = families.keys.toList()
 
@@ -288,7 +301,8 @@ class WebFonts(private val pageSize: Int = 1024) : FontProvider, AutoCloseable {
             error("no font for ${key.family} at ${key.size}: $detail")
         }
         // Quoted, so a family with a space or a digit in its name is still one name to CSS.
-        return Face("${key.size}px \"$css\"", key.size).also { faces[key] = it }
+        val stack = (listOf(css) + fallbacks.filter { it != css }).joinToString(", ") { "\"$it\"" }
+        return Face("${key.size}px $stack", key.size).also { faces[key] = it }
     }
 
     // --- the atlas ---
