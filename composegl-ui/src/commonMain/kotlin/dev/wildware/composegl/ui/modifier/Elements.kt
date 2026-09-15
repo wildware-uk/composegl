@@ -348,6 +348,18 @@ const val DefaultCameraDistance = 8f
  */
 const val CameraDistanceUnit = 72f
 
+/** @see dev.wildware.composegl.ui.modifier.perspective */
+data class PerspectiveElement(
+    val distance: Float,
+    val origin: Alignment = Alignment.Centre,
+) : Modifier.Element {
+    init {
+        require(distance > 0f && distance.isFinite()) {
+            "a perspective distance must be positive and finite, was $distance"
+        }
+    }
+}
+
 /** @see dev.wildware.composegl.ui.modifier.effect */
 data class EffectElement(val effect: ShaderEffect) : Modifier.Element
 
@@ -1327,6 +1339,43 @@ fun Modifier.rotate3d(
     cameraDistance: Float = DefaultCameraDistance,
     origin: Alignment = Alignment.Centre,
 ) = then(Rotate3dElement(x, y, z, cameraDistance, origin))
+
+/**
+ * One camera for every [rotate3d] inside this node, [distance] pixels in front of the point
+ * [origin] names, so a row of cards tilting together looks like one scene rather than five.
+ *
+ * ```kotlin
+ * Row(Modifier.perspective(distance = 800f, origin = Alignment.Centre)) {
+ *     cards.forEach { Card(Modifier.rotate3d(y = tilt)) }
+ * }
+ * ```
+ *
+ * Without it, each tilted node has a camera of its own straight in front of its own middle, so
+ * five cards turned the same way are five identical shapes side by side. With it, they share a
+ * vanishing point: a card left of the camera shows more of its face than one to the right, the
+ * way a row of real cards on a table does. CSS's `perspective` and `perspective-origin`, in the
+ * same units — pixels, where [rotate3d]'s own `cameraDistance` is in 72-pixel inches.
+ *
+ * Every tilted node anywhere under this one uses it, not only direct children, so a card
+ * wrapped in a box of its own still joins the scene. The shared camera replaces each node's own
+ * `cameraDistance`; the node's `origin` is still what it turns about. Two things stop it:
+ *
+ * - **A nearer `perspective` wins.** A group inside the scene can set up a camera of its own.
+ * - **A tilted node flattens what is inside it.** Its subtree is drawn into a flat picture first,
+ *   so a tilt inside that picture goes back to its own camera — unless the tilted node carries a
+ *   `perspective` itself, which then applies inside its picture.
+ *
+ * The node with this modifier is not tilted by it, and its own [rotate3d], if it has one, is seen
+ * by the camera *outside* it. It costs nothing to draw: no picture, only a camera handed down.
+ * Clicks do not follow what the camera does, as with [rotate3d].
+ *
+ * @param distance how far the camera is from the screen, in pixels. Closer is more dramatic.
+ * @param origin where on this node the camera sits: [Alignment.Centre] looks at the middle of the
+ *   row, [Alignment.CentreStart] looks along it from the left end.
+ * @throws IllegalArgumentException if [distance] is not positive and finite.
+ */
+fun Modifier.perspective(distance: Float, origin: Alignment = Alignment.Centre) =
+    then(PerspectiveElement(distance, origin))
 
 fun Modifier.drawBehind(draw: UiCanvas.(Rect) -> Unit) = then(DrawBehindElement(draw))
 

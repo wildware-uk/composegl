@@ -103,6 +103,7 @@ import dev.wildware.composegl.ui.modifier.shake
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.skew
 import dev.wildware.composegl.ui.modifier.rotate3d
+import dev.wildware.composegl.ui.modifier.perspective
 import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.modifier.widthIn
@@ -1306,6 +1307,29 @@ private fun MutableList<DocShot>.modifiers() {
                 }
             }
             LayoutOverlay(enabled = true)
+        }
+    })
+
+    // The same three cards turned the same way twice: each with a camera of its own, so three
+    // identical shapes, then under one shared camera, so they recede towards one point.
+    add(DocShot("modifier-perspective", 560, 250) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(24f)) {
+                Labelled("rotate3d(y = 45f) on each") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(40f)) {
+                        repeat(3) { index ->
+                            SkewTile("CARD ${index + 1}") { Modifier.rotate3d(y = 45f, cameraDistance = 4f) }
+                        }
+                    }
+                }
+                Labelled("perspective(300f) on the row") {
+                    Row(Modifier.perspective(300f), horizontalArrangement = Arrangement.spacedBy(40f)) {
+                        repeat(3) { index ->
+                            SkewTile("CARD ${index + 1}") { Modifier.rotate3d(y = 45f) }
+                        }
+                    }
+                }
+            }
         }
     })
 

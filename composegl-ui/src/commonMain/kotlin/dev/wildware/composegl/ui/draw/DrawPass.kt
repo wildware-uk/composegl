@@ -44,8 +44,9 @@ private const val DegreesToRadians = (PI / 180.0).toFloat()
  * paints what its chain put behind it, then its own content, then its children, then anything the
  * chain put in front — which is exactly the order a person reading the modifier chain expects.
  *
- * The pass holds no state of its own beyond the canvas, so drawing the same tree twice draws the
- * same thing, and a test can draw a tree without a GPU anywhere near it. That also means a game
+ * The pass holds no state of its own beyond the canvas and the camera a `Modifier.perspective` hands
+ * down while its subtree is being drawn, which is put back before [draw] returns. So drawing the same
+ * tree twice draws the same thing, and a test can draw a tree without a GPU anywhere near it. That also means a game
  * whose canvas does not change can make one of these once and keep it, rather than one a frame —
  * see the demos. [canvas] is public so that a caller holding one can check it is still the right
  * one.
@@ -57,6 +58,13 @@ class DrawPass(val canvas: UiCanvas) {
      * off a drawing: a title with its copy coming round behind it is still one title.
      */
     internal var marqueesAtRest = false
+
+    // The camera a `Modifier.perspective` above the node being drawn shares with every tilt under
+    // it, in the coordinates that node is drawn in, or a distance of zero for none. Set on the way
+    // into a subtree and put back on the way out, so a whole frame leaves it as it found it.
+    private var cameraX = 0f
+    private var cameraY = 0f
+    private var cameraDistance = 0f
 
     /** Draws [node] and everything under it. [origin] is where its parent's content box starts. */
     fun draw(node: UiNode, origin: Offset = Offset.Zero) = draw(node, origin.x, origin.y)
@@ -112,14 +120,34 @@ class DrawPass(val canvas: UiCanvas) {
         val anchorX = if (scale == 1f) 0f else bounds.left + resolved.scaleOrigin.xIn(node.width, 0f)
         val anchorY = if (scale == 1f) 0f else bounds.top + resolved.scaleOrigin.yIn(node.height, 0f)
 
+        // The camera this node's own tilt is seen by is the one handed down to it. What it hands
+        // its subtree is its own perspective if it has one; otherwise nothing if it tilts, because
+        // its subtree goes into a flat picture that the outer camera does not look into; otherwise
+        // whatever it was handed. Three floats, so a still screen allocates nothing for it.
+        val tilts = tilted(resolved)
+        val outerX = cameraX
+        val outerY = cameraY
+        val outerDistance = cameraDistance
+        if (resolved.perspective > 0f) {
+            cameraX = bounds.left + resolved.perspectiveOrigin.xIn(node.width, 0f)
+            cameraY = bounds.top + resolved.perspectiveOrigin.yIn(node.height, 0f)
+            cameraDistance = resolved.perspective
+        } else if (tilts) {
+            cameraDistance = 0f
+        }
+
         // A turn, a slant and a tilt are the outermost things a node does, and the only ones that
         // are not a rectangle, so they take a picture of their own rather than sharing one. A slant
         // or a tilt on a canvas that cannot draw it is not worth a picture at all.
-        if (resolved.rotation == 0f && !slanted(resolved) && !tilted(resolved)) {
+        if (resolved.rotation == 0f && !slanted(resolved) && !tilts) {
             upright(node, resolved, bounds, scale, anchorX, anchorY)
         } else {
-            turned(node, resolved, bounds, scale, anchorX, anchorY)
+            turned(node, resolved, bounds, scale, anchorX, anchorY, outerX, outerY, outerDistance)
         }
+
+        cameraX = outerX
+        cameraY = outerY
+        cameraDistance = outerDistance
 
         if (tinted) canvas.popTint()
         if (blended) canvas.popBlend()
@@ -206,6 +234,9 @@ class DrawPass(val canvas: UiCanvas) {
         scale: Float,
         anchorX: Float,
         anchorY: Float,
+        cameraX: Float,
+        cameraY: Float,
+        cameraDistance: Float,
     ) {
         val drawn = bounds.scaledAbout(anchorX, anchorY, scale)
         var bleed = 0f
@@ -224,7 +255,7 @@ class DrawPass(val canvas: UiCanvas) {
 
         // A tilt first: its matrix carries the slant and the flat turn too, so it is the one call.
         if (tilted(resolved)) {
-            canvas.drawLayer(picture, area, transform(resolved, drawn))
+            canvas.drawLayer(picture, area, transform(resolved, drawn, cameraX, cameraY, cameraDistance))
             return
         }
 
@@ -302,18 +333,39 @@ class DrawPass(val canvas: UiCanvas) {
      * names — seen by a camera straight in front of that point — and the flat turn on what that
      * made, about its own. All three pivots are points of [drawn], so a bleed moves none of them.
      *
+     * Under a `Modifier.perspective` ([cameraDistance] above zero) the camera is not in front of the
+     * node's own pivot but at ([cameraX], [cameraY]), [cameraDistance] pixels away, shared with every
+     * other tilted node in that scene; the node still turns about its own pivot.
+     *
      * A handful of small matrices a frame while the node tilts, the same order of cost as the
      * corners a slant makes; a node that tilts is being animated or was asked to look different.
      */
-    private fun transform(resolved: ResolvedModifier, drawn: Rect): Matrix4 {
+    private fun transform(
+        resolved: ResolvedModifier,
+        drawn: Rect,
+        cameraX: Float,
+        cameraY: Float,
+        cameraDistance: Float,
+    ): Matrix4 {
         val pivotX = drawn.left + drawn.width * resolved.rotation3dOrigin.xIn(1f, 0f)
         val pivotY = drawn.top + drawn.height * resolved.rotation3dOrigin.yIn(1f, 0f)
-        var transform = Matrix4.translation(pivotX, pivotY) *
-            Matrix4.perspective(resolved.cameraDistance * CameraDistanceUnit) *
-            Matrix4.rotationX(resolved.rotation3dX) *
-            Matrix4.rotationY(resolved.rotation3dY) *
-            Matrix4.rotationZ(resolved.rotation3dZ) *
-            Matrix4.translation(-pivotX, -pivotY)
+        var transform = if (cameraDistance > 0f) {
+            // Turned about its own pivot, then moved to where it sits relative to the shared camera.
+            Matrix4.translation(cameraX, cameraY) *
+                Matrix4.perspective(cameraDistance) *
+                Matrix4.translation(pivotX - cameraX, pivotY - cameraY) *
+                Matrix4.rotationX(resolved.rotation3dX) *
+                Matrix4.rotationY(resolved.rotation3dY) *
+                Matrix4.rotationZ(resolved.rotation3dZ) *
+                Matrix4.translation(-pivotX, -pivotY)
+        } else {
+            Matrix4.translation(pivotX, pivotY) *
+                Matrix4.perspective(resolved.cameraDistance * CameraDistanceUnit) *
+                Matrix4.rotationX(resolved.rotation3dX) *
+                Matrix4.rotationY(resolved.rotation3dY) *
+                Matrix4.rotationZ(resolved.rotation3dZ) *
+                Matrix4.translation(-pivotX, -pivotY)
+        }
 
         if (resolved.skewX != 0f || resolved.skewY != 0f) {
             val skewPivotX = drawn.left + drawn.width * resolved.skewOrigin.xIn(1f, 0f)
