@@ -6,13 +6,14 @@ The long version. The [README](../README.md) is the short one.
 
 Compose is the brain: the compiler plugin, the state system, and recomposition, which is the part
 that makes an interface redraw only when something actually changed. Everything below the neck —
-the widgets, the layout, the drawing, the input — is ours, drawn through LibGDX with a sprite batch
-and a font.
+the widgets, the layout, the drawing, the input — is ours. The drawing is one renderer,
+`composegl-render`, shared by every backend.
 
 The toolkit itself is a Kotlin Multiplatform module: every line of it is common code, and it is
 compiled for a JVM *and* for Linux native on every build. That second target is not a product — it
 is the thing that stops "this is portable" from being a claim nobody checks. A backend is what ties
-it to a machine, and there are two of those.
+it to a machine. It is a thin wrapper: it hands the shared renderer a way to call OpenGL, a way to
+make glyphs, and the game's own textures.
 
 It also means we are free to build the toolkit games actually need — skins from a texture atlas,
 focus that works on a gamepad, animations on a clock the game can pause — instead of a
@@ -40,8 +41,8 @@ Compose, and it survives without Compose UI.
 
 ## What works today
 
-**0.1.0 is the first release, and it is a first release.** The interfaces will move. What works
-today is the picture above: layout,
+**This page describes ComposeGL 0.5.0, and the interfaces will still move.** What works starts
+with the picture above: layout,
 the modifier chain, the renderer, fonts, nine-patch art, and all three ways in — a mouse, a
 keyboard and a gamepad, with hit testing, focus and key routing behind them. The chips and the
 hotbar in the example light up under the pointer, respond to a click, draw a focus ring that Tab
@@ -108,7 +109,7 @@ about. `ParticleLayer` is a bounded pool — a burst takes slots that already ex
 dies gives its slot back, and the simulation allocates nothing at all — with gravity, drag, size and
 colour over life, and either a plain quad or a picture. Two ways to feed it: a `burst` for a hit or
 a win, or a source that runs at so many a second and can be moved, which is a trail behind something
-flying. It is seeded, so the same burst comes out the same on every machine and on both backends —
+flying. It is seeded, so the same burst comes out the same on every machine and on every backend —
 which is what makes a shower of random sparks something a golden screenshot can actually check. An
 emitter with nothing alive asks the runtime for no frames at all.
 
@@ -142,7 +143,7 @@ terminal, the display on a gun. It is the same tree, laid out the same way, draw
 passes; the only difference is where the pixels land, and a test asserts the two are call for call
 identical. The backend draws it into a texture the game maps onto whatever quad it likes, and what
 comes out is premultiplied, so `GL_ONE, GL_ONE` gives a hologram for free rather than a grey haze
-over every transparent pixel. Both backends do it, both are checked pixel for pixel against the
+over every transparent pixel. Every backend does it, each is checked pixel for pixel against the
 same drawing on the HUD, and resizing one fifty times hands every framebuffer back — asserted by
 the names being handed out again rather than marching upwards. The point of doing it this way at
 all is the last part: **a panel is drawn only when its tree changes**, so a terminal nobody is
@@ -198,7 +199,7 @@ drawn straight into the frame by a renderer that has never heard of a compositio
 HUD, the pause screen and the game over screen are the toolkit's, over the top, in one canvas. The
 two halves share one object of Compose state, which the game loop writes and the interface reads. A
 frame of the running game is one draw call and the menu is three. What that port cost, and what it
-gave up — there is no `AnimatedVisibility`, so screens snap rather than fade — is written down
+gave up at the time — the port has no `AnimatedVisibility`, so its screens snap rather than fade — is written down
 honestly in [`docs/snake-port.md`](snake-port.md).
 
 ![The showcase running](images/showcase.png)
@@ -274,7 +275,8 @@ Panel(Modifier.effect(ShaderEffect(myGlsl))) { … }    // one of yours, on the 
 A subtree with an effect on it is drawn into an offscreen picture instead of onto the screen, and
 the shader decides what that picture comes out as. The shader is text — a fragment shader in the old
 dialect, `varying` and `texture2D` and `gl_FragColor` — because text is the only thing that crosses
-from common code, where there is no OpenGL, into a backend, where there is. It arrives with the
+from the toolkit, which knows nothing of OpenGL, to the renderer's OpenGL device, which rewrites it
+for whichever OpenGL the machine has: desktop, ES or WebGL. It arrives with the
 picture, its size in real pixels, the widget's size in design units, and the opacity in force;
 whatever else it wants is a named [`Uniform`](../composegl-ui/src/commonMain/kotlin/dev/wildware/composegl/ui/effect/ShaderEffect.kt).
 
@@ -299,10 +301,10 @@ What is left is the part only a GPU can answer: whether the pixels are right. Th
 golden images, compared with a tolerance that survives two different software rasterisers
 disagreeing about the last bit of an antialiased edge.
 
-Both backends draw the same six scenes, out of `composegl-testing`, and each keeps its own goldens
+Every backend draws the same scenes, out of `composegl-testing`, and each keeps its own goldens
 beside its own tests. They are not shared on purpose: FreeType and stb_truetype will never agree on
 a glyph pixel for pixel, and a tolerance loose enough to cover that would catch nothing. What the
-two sets are for is the comparison a person makes by looking at them — shapes, positions and
+sets are for is the comparison a person makes by looking at them — shapes, positions and
 clipping have to match, and where they do not, the toolkit has leaked something into one backend
 that the other never heard about.
 

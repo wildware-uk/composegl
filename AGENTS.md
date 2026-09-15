@@ -20,6 +20,10 @@ tag it is `X.Y.Z`, and on any later commit it is the next minor as `X.Y+1.0-SNAP
 feature or merging work is not a reason to move it. Work lands on master and builds as the current
 snapshot until the owner asks for a release. See `CLAUDE.md` for how a release is cut when asked.
 
+When a release is cut on the owner's instruction, the docs follow it in the same change: the version
+line at the top of `README.md` and `docs/wiki/Home.md`, and every dependency snippet in `README.md`
+and `docs/wiki`, say that version.
+
 ## Definition of done
 
 A change is not done until **the wiki is updated for every feature it adds or changes**:

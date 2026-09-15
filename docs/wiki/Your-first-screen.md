@@ -48,16 +48,22 @@ repositories {
 }
 
 dependencies {
-    implementation("dev.wildware.composegl:composegl-ui:0.1.0")
+    implementation("dev.wildware.composegl:composegl-ui:0.5.0")
     // One backend. This one draws through LibGDX.
-    implementation("dev.wildware.composegl:composegl-gdx:0.1.0")
+    implementation("dev.wildware.composegl:composegl-gdx:0.5.0")
+
+    // LibGDX's desktop window, and the native code it and its FreeType fonts need.
+    implementation("com.badlogicgames.gdx:gdx-backend-lwjgl3:1.14.2")
+    runtimeOnly("com.badlogicgames.gdx:gdx-platform:1.14.2:natives-desktop")
+    runtimeOnly("com.badlogicgames.gdx:gdx-freetype-platform:1.14.2:natives-desktop")
 }
 ```
 
 > **Backends.** A backend is the piece that turns "draw a rounded box here" into
-> actual OpenGL calls. There are two: `composegl-gdx` (LibGDX) and
-> `composegl-lwjgl3` (raw OpenGL, desktop only). Pick the one your game already
-> uses. Nothing in your interface code changes if you swap.
+> actual OpenGL calls. There are four: `composegl-gdx` (LibGDX),
+> `composegl-lwjgl3` (raw OpenGL, desktop only), `composegl-webgl` (a browser tab)
+> and `composegl-korge` (KorGE). Pick the one your game already uses. Nothing in
+> your interface code changes if you swap. See [[Backends]].
 
 ---
 
@@ -176,6 +182,7 @@ import dev.wildware.composegl.ui.host.UiHost
 import dev.wildware.composegl.ui.host.UiRenderer
 import dev.wildware.composegl.ui.input.PointerRouter
 import dev.wildware.composegl.ui.layout.*
+import dev.wildware.composegl.ui.widget.ProvideFonts
 
 class HelloGame : ApplicationAdapter() {
 
@@ -193,8 +200,9 @@ class HelloGame : ApplicationAdapter() {
         fonts = GdxFonts()
         fonts.registerTrueType("default", Gdx.files.internal("DejaVuSans.ttf"), listOf(13, 16, 20))
 
+        // The canvas draws text from the fonts' pages, so panels and labels share one texture.
         sprites = SpriteBatch()
-        canvas = GdxCanvas(sprites, fonts.atlas)
+        canvas = GdxCanvas(sprites, fonts)
 
         host = UiHost()
         host.setContent { ProvideFonts(fonts) { Hello() } }

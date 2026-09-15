@@ -174,7 +174,7 @@ val ListItem = MeasurePolicy { measurables, constraints ->
 
 Layout(measurePolicy = ListItem, content = {
     if (unread > 0) Badge(unread, Modifier.layoutId("badge"))   // only sometimes, and first
-    Icon(mail, Modifier.layoutId("icon"))
+    Image(mail, Modifier.layoutId("icon"))
     Text("Inbox", Modifier.layoutId("label"))
 })
 ```
@@ -206,6 +206,7 @@ private class DialPainter(private val value: Float) : MeasurePolicy {
         layout(constraints.constrainWidth(64f), constraints.constrainHeight(64f)) {}
 
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
+        // wedge is your own function: the fan's points, x, y, x, y…, as a FloatArray
         fan(wedge(bounds, value), Colour.rgb(0x5B8DEF))
     }
 }

@@ -1,5 +1,7 @@
 # ComposeGL
 
+These docs are for **ComposeGL 0.5.0**. New since 0.4.0: **[[What's new in 0.5.0|Whats-new-0.5.0]]**.
+
 A UI toolkit for games, built on `androidx.compose.runtime` and nothing else.
 
 **Try it in your browser: [the showcase](https://wildware-uk.github.io/composegl/)** — click, type or
@@ -40,6 +42,7 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
 | **[[Layout]]** | `Column`, `Row`, `Box`, `FlowRow`, `Grid`, lazy lists and grids, `weight`, and what differs from Compose |
 | **[[Modifiers]]** | the full list, and the three rules that are ours |
 | **[[Widgets]]** | everything that ships, including the game tier |
+| **[[Animation]]** | clocks, springs, panels that animate in and out, screens that crossfade or slide, and pausing it all to look |
 
 ## Then
 
@@ -52,6 +55,7 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
 | **[[Localisation]]** | strings by language, screens that mirror for Arabic and Hebrew, and Hebrew and English on one line |
 | **[[Shaders]]** | blur, outline, dissolve — and your own GLSL bound to any widget |
 | **[[Backends]]** | LibGDX, raw OpenGL, a browser tab, Android, and writing your own |
+| **[[KorGE]]** | a screen on a KorGE stage: fonts, skins, input, split-screen, in-world panels, testing, and the limits |
 | **[[Testing]]** | a whole interface tested with no window and no GPU, and `@Preview` composables drawn to PNGs |
 | **[[Custom layouts]]** | writing your own `MeasurePolicy` when the three are not enough |
 
@@ -63,7 +67,7 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
   take their look from a skin file.
 - **Not `androidx.compose.ui`.** No `dp`, no `Modifier.Node`, no density. Sizes are
   floats against a design resolution; the viewport does the rest.
-- **Not tied to an engine.** LibGDX is one optional module. The core names no
+- **Not tied to an engine.** LibGDX and KorGE are optional modules. The core names no
   engine anywhere, and the build fails if anybody adds one.
 
 ## What it is for

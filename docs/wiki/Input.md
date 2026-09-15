@@ -242,6 +242,8 @@ Provide the platform's, the same way as the clipboard:
 | Android | `AndroidHaptics(view)` | the phone's own tap, confirm and reject effects. No permission needed |
 | iPhone | `UiKitHaptics()` | UIKit's impact, selection and notification generators |
 | LibGDX, anywhere | `GdxHaptics(source = source)` | a touch buzzes the phone; a pad rumbles the pad; a mouse or keyboard moves nothing |
+| KorGE | `KorgeBackend`'s `haptics`, a `KorgeHaptics`. `ComposeGlView` gives it the input source | the phone's own feedback. A pad does not rumble: KorGE has no call for it |
+| browser | `DomHaptics()`, made for you by `WebGlBackend` | `navigator.vibrate` on a phone, and the first pad's rumble where it has one |
 | LWJGL3, headless | nothing | `Haptics.None`. GLFW has no rumble |
 
 ```kotlin
@@ -277,7 +279,7 @@ screen in `VirtualCursor` and the pad drives a pointer instead:
 VirtualCursor(enabled = onMapScreen, speed = 900f, snapToTargets = true) { MapScreen() }
 ```
 
-![A pad cursor resting on a map node](images/input-virtual-cursor.png)
+![A pad cursor resting on a map node](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/input-virtual-cursor.png)
 
 - The left stick (or the d-pad) moves a drawn arrow. A small push is slow aim; a full
   push crosses the screen in about a second and a half.
@@ -374,7 +376,7 @@ the game. It also means a test runs a two-second hold by advancing frames.
 A `clickable` with no `onDoubleClick` or `onLongPress` is timed by nothing, so a
 held plain button still costs no frames.
 
-![a quantity picker with + held down](images/input-hold-to-repeat.png)
+![a quantity picker with + held down](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/input-hold-to-repeat.png)
 
 ---
 
@@ -585,7 +587,7 @@ The rules, all of them things you would otherwise find out by accident:
   starts with the shape of what the press landed on.
 
 `pointer.pointerIcon` says what the shape should be, for a game that draws its own
-cursor. `GdxBackend`, `Lwjgl3Backend` and `WebGlBackend` change the real one; on Android and iOS there
+cursor. `GdxBackend`, `Lwjgl3Backend`, `WebGlBackend` and `KorgeBackend` change the real one; on Android and iOS there
 is nothing to change and the call does nothing. A backend that cannot show a shape
 shows the arrow.
 
