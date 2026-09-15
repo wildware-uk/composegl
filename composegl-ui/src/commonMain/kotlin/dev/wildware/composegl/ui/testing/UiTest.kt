@@ -244,7 +244,7 @@ class UiTest(
     // --- the pointer -----------------------------------------------------------------------------
 
     /** Presses and releases the mouse on the middle of the node tagged [tag]. */
-    fun click(tag: String): Boolean = click(centreOf(tag))
+    fun click(tag: String, button: PointerButton = PointerButton.Primary): Boolean = click(centreOf(tag), button)
 
     /**
      * Presses and releases the mouse at [at], in screen coordinates, with a frame between.
@@ -252,9 +252,9 @@ class UiTest(
      * Returns whether something took the press. A click on plain scenery is not a failure — a test
      * may be checking exactly that it does nothing.
      */
-    fun click(at: Offset): Boolean {
-        val took = press(at)
-        release()
+    fun click(at: Offset, button: PointerButton = PointerButton.Primary): Boolean {
+        val took = press(at, button)
+        release(button)
         return took
     }
 
@@ -269,12 +269,12 @@ class UiTest(
         send(PointerEvent.Move(PointerId.Mouse, at, pressed = held)).also { pointerAt = at }
 
     /** Moves onto [tag] and holds the mouse down there. [release] lets go. */
-    fun press(tag: String): Boolean = press(centreOf(tag))
+    fun press(tag: String, button: PointerButton = PointerButton.Primary): Boolean = press(centreOf(tag), button)
 
-    fun press(at: Offset): Boolean {
+    fun press(at: Offset, button: PointerButton = PointerButton.Primary): Boolean {
         moveTo(at)
-        held = setOf(PointerButton.Primary)
-        return send(PointerEvent.Press(PointerId.Mouse, at))
+        held = setOf(button)
+        return send(PointerEvent.Press(PointerId.Mouse, at, button))
     }
 
     /**
@@ -285,9 +285,9 @@ class UiTest(
         send(PointerEvent.Move(PointerId.Mouse, at, setOf(PointerButton.Primary))).also { pointerAt = at }
 
     /** Lets go of the mouse wherever it is now, which is where a drag ended. */
-    fun release(): Boolean {
+    fun release(button: PointerButton = PointerButton.Primary): Boolean {
         held = emptySet()
-        return send(PointerEvent.Release(PointerId.Mouse, pointerAt))
+        return send(PointerEvent.Release(PointerId.Mouse, pointerAt, button))
     }
 
     /** A wheel turned over [tag]. Positive scrolls content up and left. */
@@ -306,8 +306,9 @@ class UiTest(
         return took
     }
 
-    fun keyDown(key: Key, modifiers: Modifiers = Modifiers.None): Boolean =
-        send(KeyEvent(key, KeyEventType.Down, modifiers))
+    /** A key going down. [repeat] is the platform saying a held key is still held. */
+    fun keyDown(key: Key, modifiers: Modifiers = Modifiers.None, repeat: Boolean = false): Boolean =
+        send(KeyEvent(key, KeyEventType.Down, modifiers, repeat))
 
     fun keyUp(key: Key, modifiers: Modifiers = Modifiers.None): Boolean =
         send(KeyEvent(key, KeyEventType.Up, modifiers))

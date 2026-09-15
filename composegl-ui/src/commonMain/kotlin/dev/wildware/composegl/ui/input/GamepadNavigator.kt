@@ -48,7 +48,7 @@ class GamepadNavigator(
     /** The direction being held, if any. For tests, and for a game that wants to show it. */
     val direction: FocusDirection? get() = held
 
-    fun onGamepad(event: GamepadEvent): Boolean = when (event) {
+    fun onGamepad(event: GamepadEvent): Boolean = offered(event) || when (event) {
         is GamepadEvent.Axis -> axis(event)
         is GamepadEvent.ButtonDown -> down(event.button)
         is GamepadEvent.ButtonUp -> up(event.button)
@@ -80,6 +80,22 @@ class GamepadNavigator(
     }
 
     // --- what the pad said ---------------------------------------------------------------------
+
+    /**
+     * The focused node, and each node outside it, gets first refusal — the same walk a key takes.
+     *
+     * Buttons and sticks only. A pad being plugged in or pulled out is the navigator's to clear up
+     * whatever anything on the screen thinks of it, so those are never offered.
+     */
+    private fun offered(event: GamepadEvent): Boolean {
+        if (event is GamepadEvent.Connected || event is GamepadEvent.Disconnected) return false
+        var node = focus.focused
+        while (node != null) {
+            node.resolved.gamepadHandlers.forEach { if (it.onGamepad(event)) return true }
+            node = node.parent
+        }
+        return false
+    }
 
     private fun axis(event: GamepadEvent.Axis): Boolean {
         when (event.axis) {

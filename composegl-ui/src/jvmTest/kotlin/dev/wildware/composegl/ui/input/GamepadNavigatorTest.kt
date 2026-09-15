@@ -6,6 +6,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.focusable
 import dev.wildware.composegl.ui.modifier.interaction
+import dev.wildware.composegl.ui.modifier.onGamepadEvent
 import dev.wildware.composegl.ui.testing.TestTree
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -196,5 +197,55 @@ class GamepadNavigatorTest {
         stick(y = 1f)
 
         assertEquals("0", focused(), "the first press selects rather than doing nothing")
+    }
+
+    @Test
+    fun `the focused node hears a pad button before the navigator does`() {
+        val heard = mutableListOf<GamepadEvent>()
+        val taker = GamepadHandler { event ->
+            heard += event
+            event is GamepadEvent.ButtonDown || event is GamepadEvent.ButtonUp
+        }
+        val state = InteractionState().also { states += it }
+        screen.box("0", modifier = Modifier.interaction(state).focusable(state).clickable { clicks += 1 }.onGamepadEvent(taker))
+        val other = InteractionState()
+        screen.box("1", x = 50f, modifier = Modifier.interaction(other).focusable(other).clickable { clicks += 1 })
+        focus.refresh()
+
+        assertTrue(button(GamepadButton.South, down = true))
+        assertTrue(button(GamepadButton.South, down = false))
+        assertTrue(button(GamepadButton.DpadRight, down = true))
+        button(GamepadButton.East, down = true)
+
+        assertEquals(0, clicks, "South was the node's, so nothing was pressed")
+        assertEquals("0", focused(), "the d-pad was the node's, so focus stayed")
+        assertEquals(0, backs, "East was the node's, so nothing went back")
+        assertEquals(4, heard.size)
+    }
+
+    @Test
+    fun `a node that declines leaves the pad to navigate as before`() {
+        val declines = GamepadHandler { false }
+        val state = InteractionState().also { states += it }
+        screen.box("0", modifier = Modifier.interaction(state).focusable(state).clickable { clicks += 1 }.onGamepadEvent(declines))
+        focus.refresh()
+
+        button(GamepadButton.South, down = true)
+        button(GamepadButton.South, down = false)
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun `plugging and unplugging is never offered to the screen`() {
+        var offered = 0
+        val state = InteractionState().also { states += it }
+        screen.box("0", modifier = Modifier.interaction(state).focusable(state).onGamepadEvent { offered += 1; true })
+        focus.refresh()
+
+        assertFalse(pad.onGamepad(GamepadEvent.Connected(GamepadId.First)))
+        pad.onGamepad(GamepadEvent.Disconnected(GamepadId.First))
+
+        assertEquals(0, offered)
     }
 }

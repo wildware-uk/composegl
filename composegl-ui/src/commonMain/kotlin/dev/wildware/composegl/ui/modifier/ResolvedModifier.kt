@@ -8,6 +8,7 @@ import dev.wildware.composegl.ui.focus.RevealHandler
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.input.DirectionHandler
+import dev.wildware.composegl.ui.input.GamepadHandler
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.KeyHandler
 import dev.wildware.composegl.ui.input.PointerHandler
@@ -175,6 +176,8 @@ class ResolvedModifier private constructor(
     val keyHandlers: List<KeyHandler>,
     /** Text handlers, in chain order. Only ever asked on the focused node itself. */
     val textHandlers: List<TextHandler>,
+    /** Pad handlers, in chain order. Asked from the focused node outwards, before the pad navigates. */
+    val gamepadHandlers: List<GamepadHandler>,
     /** The node's `clickable`, if it has one. A later one replaces an earlier one. */
     val click: ClickableElement?,
     /** The node's `draggable`, if it has an enabled one. A later one replaces an earlier one. */
@@ -285,6 +288,7 @@ class ResolvedModifier private constructor(
             val handlers = mutableListOf<PointerHandler>()
             val keyHandlers = mutableListOf<KeyHandler>()
             val textHandlers = mutableListOf<TextHandler>()
+            val gamepadHandlers = mutableListOf<GamepadHandler>()
             var click: ClickableElement? = null
             var drag: DraggableElement? = null
             var focusable: FocusableElement? = null
@@ -413,6 +417,7 @@ class ResolvedModifier private constructor(
                     is PointerInputElement -> handlers += element.handler
                     is KeyInputElement -> keyHandlers += element.handler
                     is TextInputElement -> textHandlers += element.handler
+                    is GamepadInputElement -> gamepadHandlers += element.handler
                     is ClickableElement -> click = element
                     // Resolved away when disabled, rather than carried: a disabled draggable is an
                     // absent one, and every reader asking `drag != null` gets that for free.
@@ -448,7 +453,7 @@ class ResolvedModifier private constructor(
                 blend, zIndex, tint, clip, clipBehind, clipInFront, hitShape, hoverIcon, effects.toList(),
                 behind.toList(), inFront.toList(),
                 interactions.toList(), handlers.toList(),
-                keyHandlers.toList(), textHandlers.toList(), click, drag,
+                keyHandlers.toList(), textHandlers.toList(), gamepadHandlers.toList(), click, drag,
                 focusable, pointerFocus, focusRequester, focusOrder, focusDirections.toList(),
                 reveals.toList(), focusWithin.toList(), focusTrap, testTag,
                 sizeChanged.toList(), placed.toList(), contentSize,

@@ -17,6 +17,7 @@ import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NinePatch
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.input.DirectionHandler
+import dev.wildware.composegl.ui.input.GamepadHandler
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.KeyHandler
 import dev.wildware.composegl.ui.input.PointerIcon
@@ -459,6 +460,9 @@ data class KeyInputElement(val handler: KeyHandler) : Modifier.Element
 
 /** Committed text for this node while it has focus. See [TextHandler]. */
 data class TextInputElement(val handler: TextHandler) : Modifier.Element
+
+/** Pad events for this node while it has focus, before navigation. See [GamepadHandler]. */
+data class GamepadInputElement(val handler: GamepadHandler) : Modifier.Element
 
 /**
  * The node can hold focus, so keys and pad presses can reach it.
@@ -1517,6 +1521,15 @@ fun Modifier.onKeyEvent(handler: KeyHandler) = then(KeyInputElement(handler))
  * quietly collecting the player's password.
  */
 fun Modifier.onTextEvent(handler: TextHandler) = then(TextInputElement(handler))
+
+/**
+ * Pad buttons and sticks for this node, while focus is on it or inside it, before the pad moves
+ * focus or presses anything.
+ *
+ * What a control that listens for "any button" needs, and nothing else should: a widget that takes
+ * South away from the navigator is a widget a pad cannot press.
+ */
+fun Modifier.onGamepadEvent(handler: GamepadHandler) = then(GamepadInputElement(handler))
 
 /**
  * Lets this node hold focus.

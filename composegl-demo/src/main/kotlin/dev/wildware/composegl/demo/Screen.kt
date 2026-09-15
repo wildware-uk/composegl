@@ -16,7 +16,10 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.input.PointerIcon
 import dev.wildware.composegl.ui.input.BackStack
 import dev.wildware.composegl.ui.input.Action
+import dev.wildware.composegl.ui.input.InputBinding
 import dev.wildware.composegl.ui.input.InputSourceTracker
+import dev.wildware.composegl.ui.input.bind
+import dev.wildware.composegl.ui.widget.KeyBindButton
 import dev.wildware.composegl.ui.input.Prompts
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.Key
@@ -594,6 +597,18 @@ private fun LorePanel(modifier: Modifier, state: DemoState) {
                 Spacer(Modifier.width(8f))
                 PromptGlyph(Action.Cancel)
                 Text("stand down", style = "label.dim")
+                Spacer(Modifier.width(16f))
+                // Rebinds accept. The glyph at the start of this row reads the same prompt table,
+                // so it says the new key on the next frame.
+                Text("rebind", style = "label.dim")
+                KeyBindButton(
+                    binding = state.acceptKey,
+                    onBind = { input ->
+                        state.acceptKey = input
+                        state.prompts.bind(Action.Confirm, input)
+                    },
+                    modifier = Modifier.width(120f),
+                )
             }
         }
     }
@@ -823,6 +838,9 @@ class DemoState {
     var invertY by mutableStateOf(false)
     var subtitles by mutableStateOf(true)
     var difficulty by mutableStateOf("Normal")
+
+    /** What ACCEPT is bound to, as the settings page shows it. E, as the prompt table starts out. */
+    var acceptKey: InputBinding? by mutableStateOf(InputBinding.Keyboard(Key.E))
 
     var selected by mutableStateOf(3)
 

@@ -98,6 +98,13 @@
       "disabled": { "textColour": "#5E6B7E", "tint": "#A0FFFFFF" }
     },
 
+    // A KeyBindButton waiting for a press. Amber rather than the focus blue, because "the next key
+    // you press goes here" has to be impossible to miss on a list of twenty of them.
+    "button.listening": {
+      "background": { "fill": "#4A3A12", "corner": 5, "border": "#F0B429", "padding": [14, 8] },
+      "textColour": "#F0B429"
+    },
+
     "button.primary": {
       "background": { "fill": "#3F6BD6", "corner": 5, "border": "#5B8DEF", "padding": [14, 8] },
       "hovered": { "background": { "fill": "#5B8DEF", "corner": 5, "border": "#7BA5F5" } },

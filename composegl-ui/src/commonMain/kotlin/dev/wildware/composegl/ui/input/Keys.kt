@@ -16,6 +16,12 @@ import kotlin.jvm.JvmInline
 @JvmInline
 value class Key(val code: Int) {
 
+    /**
+     * What the constant is called — `"Escape"`, `"Digit1"`, `"F12"` — or `"Unknown"` for a code this
+     * toolkit has no name for. Stable, so a game can save a binding by it.
+     */
+    val name: String get() = names[code] ?: "Unknown"
+
     override fun toString(): String = names[code]?.let { "Key.$it" } ?: "Key(unknown $code)"
 
     @Suppress("MemberVisibilityCanBePrivate")
