@@ -485,6 +485,12 @@ data class TextInputElement(val handler: TextHandler) : Modifier.Element
 /** Pad events for this node while it has focus, before navigation. See [GamepadHandler]. */
 data class GamepadInputElement(val handler: GamepadHandler) : Modifier.Element
 
+/** Keys nothing around focus took, offered here wherever focus is. See [onShortcutKey]. */
+data class ShortcutKeyElement(val handler: KeyHandler) : Modifier.Element
+
+/** Pad events nothing around focus took, offered here wherever focus is. See [onShortcutGamepad]. */
+data class ShortcutGamepadElement(val handler: GamepadHandler) : Modifier.Element
+
 /**
  * The node can hold focus, so keys and pad presses can reach it.
  *
@@ -1601,6 +1607,41 @@ fun Modifier.onTextEvent(handler: TextHandler) = then(TextInputElement(handler))
  * South away from the navigator is a widget a pad cannot press.
  */
 fun Modifier.onGamepadEvent(handler: GamepadHandler) = then(GamepadInputElement(handler))
+
+/**
+ * Keys for this node **wherever focus is**, once the focused node and everything around it have let
+ * them through.
+ *
+ * ```kotlin
+ * val save = remember { KeyHandler { event -> (Modifiers.Primary + Key.S).matches(event).also { if (it) save() } } }
+ * Box(Modifier.onShortcutKey(save)) { … }
+ * ```
+ *
+ * What a shortcut needs and [onKeyEvent] cannot give it: Ctrl+S has to save while focus is on a
+ * field at the other side of the screen, which is not inside the node that knows how to save. A
+ * `MenuBar` puts its items' shortcuts here.
+ *
+ * Three rules keep that from being a free-for-all:
+ *
+ * - **Last.** The key goes to the focused node and outwards first, as every key does, so a field
+ *   that uses Ctrl+A for itself keeps it. Only a key nobody on that walk took comes here, and it
+ *   comes here before the keyboard navigator, so a shortcut on an arrow key still works.
+ * - **Inside the dialogue.** Only nodes inside the innermost focus trap are asked. A shortcut on the
+ *   screen behind an open dialogue does not fire through it.
+ * - **Seen.** A node faded or shrunk to nothing is not asked, nor is anything inside it.
+ *
+ * Nodes are asked in tree order until one says it used the key. A `KeyRouter` does the asking.
+ */
+fun Modifier.onShortcutKey(handler: KeyHandler) = then(ShortcutKeyElement(handler))
+
+/**
+ * Pad buttons and sticks for this node wherever focus is, once the focused node and everything
+ * around it have let them through, and before the pad navigates.
+ *
+ * The pad's twin of [onShortcutKey], with the same three rules: last, inside the innermost trap,
+ * and only where it can be seen. A `MenuBar` bound to a pad button listens here for it.
+ */
+fun Modifier.onShortcutGamepad(handler: GamepadHandler) = then(ShortcutGamepadElement(handler))
 
 /**
  * Lets this node hold focus.

@@ -1,6 +1,10 @@
 package dev.wildware.composegl.ui.input
 
+import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.animation.Clocks
+import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.modifier.DefaultLongPressMillis
+import dev.wildware.composegl.ui.widget.openContextMenu
 import dev.wildware.composegl.ui.modifier.ClickableElement
 import dev.wildware.composegl.ui.node.UiNode
 
@@ -19,7 +23,17 @@ internal fun interface FrameWaiter {
  * Only a press on something timed — a long press, a repeat — waits on the tree at all, so a plain
  * button held down costs exactly what it did before this existed.
  */
-internal class PressGesture(private val node: UiNode) : FrameWaiter {
+internal class PressGesture(
+    private val node: UiNode,
+    /**
+     * The node whose context menu holding this press opens, when nothing of the node's own does.
+     * Only a pointer passes one: a held Enter or South stays a click, since Shift+F10 and the
+     * menu's pad button are how a keyboard and a pad open it. See [menuOnHold].
+     */
+    menu: UiNode? = null,
+    /** Called once the hold has opened [menu], so the owner can let go of the press. */
+    private val onMenuOpened: () -> Unit = {},
+) : FrameWaiter {
 
     private val tree = node.tree
     private val element = node.resolved.click
@@ -37,13 +51,23 @@ internal class PressGesture(private val node: UiNode) : FrameWaiter {
         }
 
     private var longPressRefused = false
+
+    /** The menu a hold still may open. Let go of for good once the press turns into something else. */
+    private var menu: UiNode? = menu
     private var longPressed = false
     private var repeats = 0
     private var nextRepeatAt = 0L
 
+    /**
+     * Where the press is, in the root's coordinates, for a context menu a long press opens. Null for
+     * a press from a key or the pad, whose menu opens at the node's edge instead.
+     */
+    var at: Offset? = null
+
     init {
         val clocks = tree?.clocks
-        val clock = element?.clock
+        val holdsForMenu = menu != null
+        val clock = element?.clock ?: Clock.Ui.takeIf { holdsForMenu }
         if (clocks != null && clock != null) {
             // An unregistered clock is never advanced, and a hold on it would never end.
             clocks.register(clock)
@@ -53,7 +77,18 @@ internal class PressGesture(private val node: UiNode) : FrameWaiter {
         }
         val repeat = element?.repeat
         if (repeat != null) nextRepeatAt = pressedAt + repeat.initialDelayMillis * NanosPerMilli
-        if (element?.isTimed == true) tree?.wait(this)
+        if (element?.isTimed == true || holdsForMenu) tree?.wait(this)
+    }
+
+    /**
+     * The press is being used for something other than holding still — a slider's thumb moving, a
+     * list scrolling, a drag about to start — so a hold no longer opens a context menu. A node's
+     * own long press is its own business and is left alone.
+     */
+    fun refuseMenu() {
+        if (menu == null) return
+        menu = null
+        if (element?.isTimed != true) stop()
     }
 
     /** Whether the press has already done its thing, so the release is not a click as well. */
@@ -64,21 +99,32 @@ internal class PressGesture(private val node: UiNode) : FrameWaiter {
         // disables + at its most, or a slot the game locks mid-hold, has to stop where it is.
         val click = node.resolved.click
         // A node taken out of the tree mid-hold is not somewhere a long press can happen any more.
-        if (click == null || node.tree == null) return stop()
+        val menu = menu?.takeIf { it.tree != null && it.resolved.contextMenu?.enabled == true }
+        if ((click == null && menu == null) || node.tree == null) return stop()
         // Disabled is a pause, like sliding off: it may be enabled again before the press comes up.
-        if (!click.enabled) return
-        val now = clocks.time(click.clock)
+        if (click != null && !click.enabled) return
+        val now = clocks.time(click?.clock ?: Clock.Ui)
 
-        val onLongPress = click.onLongPress
-        if (onLongPress != null && !longPressed && !longPressRefused && inside &&
-            now - pressedAt >= click.longPressMillis * NanosPerMilli
+        // A node's own long press wins; without one, holding it opens the nearest context menu — its
+        // own, or the one round it, as a right-click would.
+        val onLongPress = click?.onLongPress
+        val longPressMillis = click?.longPressMillis ?: DefaultLongPressMillis
+        if ((onLongPress != null || menu != null) && !longPressed && !longPressRefused && inside &&
+            now - pressedAt >= longPressMillis * NanosPerMilli
         ) {
             longPressed = true
-            onLongPress()
+            if (onLongPress != null) {
+                onLongPress()
+            } else if (menu != null && menu.openContextMenu(at?.let(menu::toLocal))) {
+                // The press was the menu's, and it is over: nothing repeats behind an open menu.
+                stop()
+                onMenuOpened()
+                return
+            }
         }
 
-        val repeat = click.repeat
-        if (repeat != null && inside && now >= nextRepeatAt) {
+        val repeat = click?.repeat
+        if (click != null && repeat != null && inside && now >= nextRepeatAt) {
             repeats++
             click.onClick()
             nextRepeatAt += repeat.intervalMillis * NanosPerMilli
@@ -102,6 +148,27 @@ internal class PressGesture(private val node: UiNode) : FrameWaiter {
         tree?.stopWaiting(this)
     }
 }
+
+/**
+ * The node whose context menu holding this one down opens, or null for none.
+ *
+ * Its own, or the nearest one round it past anything that only clicks — a long press on a button
+ * inside an inventory slot is about the slot, exactly as a right-click is, and on a touch screen it
+ * is the only way to that menu. A long press of its own on the way stops the walk, since that is
+ * what the hold means there, and so does a focus trap: a menu about the screen behind a dialogue
+ * does not open from inside it.
+ */
+internal val UiNode.menuOnHold: UiNode?
+    get() {
+        var walk: UiNode? = this
+        while (walk != null) {
+            if (walk.resolved.click?.onLongPress != null) return null
+            if (walk.resolved.contextMenu?.enabled == true) return walk
+            if (walk.resolved.focusTrap) return null
+            walk = walk.parent
+        }
+        return null
+    }
 
 /**
  * Which click was the last one, so the next can tell whether it is the second of a double.

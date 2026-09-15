@@ -339,6 +339,36 @@ GamepadNavigator(focus, onBack = { if (!backs.back()) state.back() })
 
 ---
 
+## Shortcuts
+
+A key goes to the focused widget first, then outwards to its parents. Ctrl+S has to
+save from anywhere, and "anywhere" is not inside the thing that saves. So a widget
+can ask for the keys nobody around focus wanted:
+
+```kotlin
+val save = remember {
+    KeyHandler { event ->
+        (Modifiers.Primary + Key.S).matches(event).also { if (it) save() }
+    }
+}
+Box(Modifier.onShortcutKey(save)) { Editor() }
+```
+
+`KeyRouter` offers a key here after the walk from focus found no taker, and before
+`KeyNavigator` moves focus. Three rules:
+
+- **Last.** A text field that uses Ctrl+A keeps it.
+- **Inside the dialogue.** Only nodes inside the innermost focus trap hear it, so a
+  shortcut does not fire through an open dialogue.
+- **Seen.** A faded-out panel's shortcuts are off.
+
+`Modifiers.Primary` is Command on a Mac and Control everywhere else.
+`KeyShortcut.label` writes it the way that machine does: `Ctrl+S`, `Cmd+S`.
+`Modifier.onShortcutGamepad` is the same for a pad button, asked before
+`GamepadNavigator` acts. A `MenuBar` uses both; see [[Widgets]].
+
+---
+
 ## Long press, double click, hold to repeat
 
 ```kotlin
@@ -375,6 +405,12 @@ the game. It also means a test runs a two-second hold by advancing frames.
 
 A `clickable` with no `onDoubleClick` or `onLongPress` is timed by nothing, so a
 held plain button still costs no frames.
+
+A widget with a `Modifier.contextMenu` and no `onLongPress` of its own opens that
+menu on a long press instead, and so does a plain button inside it. Only a
+pointer's hold does that: a held Enter or South stays a click, and a press that
+moves stops being a hold. A right-click opens it too, and so do Shift+F10 and a
+pad button on the focused widget. See [[Widgets]].
 
 ![a quantity picker with + held down](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/input-hold-to-repeat.png)
 

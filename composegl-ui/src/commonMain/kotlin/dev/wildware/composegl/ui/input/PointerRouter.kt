@@ -8,6 +8,9 @@ import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.modifier.DraggableElement
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.modifier.DefaultDragSlop
+import dev.wildware.composegl.ui.widget.canOpenContextMenu
+import dev.wildware.composegl.ui.widget.openContextMenu
 
 /**
  * Where a pointer event goes, and what that means.
@@ -61,6 +64,12 @@ class PointerRouter(
         val pressedAt: Offset,
         /** What the pointer was hovering before the press, so letting go over it again is quiet. */
         val hovered: List<UiNode>,
+        /** The press itself, for the kind of pointer it was when the gesture has to be cancelled. */
+        val press: PointerEvent.Press,
+        /** The context menu holding still opens, if any. */
+        menu: UiNode?,
+        /** What the router does once that hold has opened it. */
+        onMenuOpened: (Capture) -> Unit,
     ) {
         /** True while the pointer is inside the captured node, which is what "pressed" means. */
         var inside = true
@@ -73,7 +82,7 @@ class PointerRouter(
          * The long press, the repeat and the start time a double click is measured from. Always
          * the node that took the press: a drag stops it, and a drag is never a click anyway.
          */
-        val gesture = PressGesture(node)
+        val gesture = PressGesture(node, menu) { onMenuOpened(this) }
 
         /**
          * The draggable this gesture turned into, or null while it is still a press that might be
@@ -143,6 +152,8 @@ class PointerRouter(
     // --- the events ---------------------------------------------------------------------------
 
     private fun press(event: PointerEvent.Press): Boolean {
+        // Before anything takes it: a menu bar watching for Alt+click has to hear the click either way.
+        root.tree?.watched(event)
         val held = captures[event.pointerId]
         if (held != null) {
             // A second button on a pointer already holding something belongs to the same gesture.
@@ -157,13 +168,36 @@ class PointerRouter(
         // it at. A press with no move before it, or after a scroll slid something new under a still
         // mouse, would otherwise drag with whatever shape the last move left.
         if (event.type.hasCursor) show(iconOf(hoverPathFrom(candidates.firstOrNull(), event.position)))
-        val taker = candidates.firstOrNull { consumes(it, event) } ?: return false
+        val menu = if (event.button == PointerButton.Secondary) menuUnder(candidates) else -1
+        val taker = if (menu < 0) {
+            // Nothing else wanting it, a node with a context menu holds the press itself, since a
+            // long press may open that menu. Only then: a press that would reach a clickable or a
+            // scroll round it is theirs, and the hold finds the menu from there.
+            candidates.firstOrNull { consumes(it, event) } ?: holdOnly(candidates, event)
+        } else {
+            // A right press opens the nearest context menu under it, at the pointer — nearest past
+            // anything inside it that only clicks, since a right-click on a button inside an
+            // inventory slot is about the slot. A node whose own handler takes the press first, a map
+            // that moves a unit on a right-click, keeps it. Something not inside the menu's node — a
+            // HUD button drawn over the map, a dialog over the screen — takes it as it always did.
+            val opener = candidates[menu]
+            val handled = candidates.subList(0, menu).firstOrNull {
+                if (it.isUnder(opener)) deliver(it, event) else consumes(it, event)
+            }
+            if (handled == null && opener.openContextMenu(opener.toLocal(event.position))) {
+                hover(event.pointerId, emptyList())
+                return true
+            }
+            handled ?: candidates.drop(menu).firstOrNull { consumes(it, event) }
+        } ?: return false
 
         // A gesture has started, so nothing is merely hovered any more.
         val hovered = hovering[event.pointerId].orEmpty()
         hover(event.pointerId, emptyList())
         captures[event.pointerId] =
-            Capture(taker, mutableSetOf(event.button), event.button, event.position, hovered)
+            Capture(taker, mutableSetOf(event.button), event.button, event.position, hovered, event, menuForHold(candidates, taker, event), ::menuOpened)
+                // A long press that opens a context menu opens it under the finger.
+                .also { it.gesture.at = event.position }
         taker.resolved.interactions.forEach { it.press() }
         if (taker.usable) taker.sounds.press()
         focus?.focusOn(taker)
@@ -181,6 +215,12 @@ class PointerRouter(
                 capture.node.resolved.interactions.forEach { if (inside) it.press() else it.release() }
             }
             val used = deliver(capture.node, event)
+            // A press that is doing something — a slider's thumb following it, a selection growing,
+            // a list about to scroll — is not a hold, and a context menu opening under it would pull
+            // the gesture out from under the player half way through.
+            if (used || capture.node.toLocal(event.position).distanceTo(capture.node.toLocal(capture.pressedAt)) > DefaultDragSlop) {
+                capture.gesture.refuseMenu()
+            }
             drag(capture, event, used)
             // Captured means captured: the event belongs to this gesture whether or not a handler
             // had anything to say about it.
@@ -498,6 +538,55 @@ class PointerRouter(
     private fun consumes(node: UiNode, event: PointerEvent.Press): Boolean =
         deliver(node, event) || node.resolved.click != null ||
             (node.resolved.drag != null && event.button == PointerButton.Primary)
+
+    /**
+     * Where in [candidates] the context menu a right press opens is, or -1 for none: the nearest
+     * one, but never one past a focus trap, since that is a menu behind a dialog.
+     */
+    private fun menuUnder(candidates: List<UiNode>): Int {
+        candidates.forEachIndexed { index, candidate ->
+            if (candidate.resolved.contextMenu?.enabled == true) return index
+            if (candidate.resolved.focusTrap) return -1
+        }
+        return -1
+    }
+
+    /**
+     * The node that holds a primary press nobody else took, because holding it opens its context
+     * menu: the nearest one with a menu that can open. Null when there is none, and the press goes
+     * nowhere, exactly as it did before context menus.
+     */
+    private fun holdOnly(candidates: List<UiNode>, event: PointerEvent.Press): UiNode? {
+        if (event.button != PointerButton.Primary) return null
+        return candidates.firstOrNull()?.menuOnHold?.takeIf { it in candidates && it.canOpenContextMenu }
+    }
+
+    /**
+     * The context menu a long press on [taker] opens, or null for none.
+     *
+     * Found from the deepest node under the pointer that [taker] holds, not from [taker] itself: a
+     * box with a menu inside a clickable card leaves the card its click but still opens on a hold.
+     * Only the primary button, and only a menu that can actually open, so a hold that could not
+     * open anything is still a click when it comes up.
+     */
+    private fun menuForHold(candidates: List<UiNode>, taker: UiNode, event: PointerEvent.Press): UiNode? {
+        if (event.button != PointerButton.Primary) return null
+        val deepest = candidates.firstOrNull { it === taker || it.isUnder(taker) } ?: taker
+        return deepest.menuOnHold?.takeIf { it.canOpenContextMenu }
+    }
+
+    /**
+     * A long press opened a context menu: the press is let go of exactly as a cancel lets go, so a
+     * scroll or a slider it started stops where it is and the release that follows clicks nothing.
+     */
+    private fun menuOpened(capture: Capture) {
+        val id = capture.press.pointerId
+        if (captures[id] !== capture) return
+        captures.remove(id)
+        if (capture.inside) capture.node.resolved.interactions.forEach { it.release() }
+        deliver(capture.node, PointerEvent.Cancel(id, capture.lastAt, capture.press.type, capture.press.timeMillis))
+        cancelDrag(capture)
+    }
 
     // --- dragging -----------------------------------------------------------------------------
 

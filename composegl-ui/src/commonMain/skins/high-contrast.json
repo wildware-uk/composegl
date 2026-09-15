@@ -341,6 +341,54 @@
       "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "padding": 4, "borderWidth": 2 }
     },
 
+    // --- menus ---
+    //
+    // Titles and rows are black with white words; the open title is filled in blue so the menu under
+    // it is plainly its own, and focus is the yellow edge it is everywhere else.
+
+    "menubar": { "background": { "fill": "#000000", "border": "#FFFFFF", "padding": [4, 2], "borderWidth": 2 } },
+
+    "menubar.title": {
+      "background": { "fill": "#000000", "corner": 4, "padding": [10, 5] },
+      "hovered": { "background": { "fill": "#333333", "corner": 4 } },
+      "focused": { "background": { "fill": "#000000", "corner": 4, "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#333333", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#B0B0B0" }
+    },
+
+    "menubar.title.open": {
+      "background": { "fill": "#0033AA", "corner": 4, "padding": [10, 5] },
+      "focused": { "background": { "fill": "#0033AA", "corner": 4, "border": "#FFD600", "borderWidth": 2 } }
+    },
+
+    "menu": {
+      "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "padding": 4, "borderWidth": 2 }
+    },
+
+    "menu.item": {
+      "background": "none",
+      "padding": [10, 5],
+      "hovered": { "background": { "fill": "#333333", "corner": 3 } },
+      "focused": { "background": { "fill": "#000000", "corner": 3, "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#333333", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#B0B0B0" }
+    },
+
+    "menu.item.open": {
+      "background": { "fill": "#0033AA", "corner": 3, "padding": [10, 5] }
+    },
+
+    "menu.shortcut": { "textColour": "#FFFFFF", "text": { "size": 14 } },
+    "menu.separator": { "background": { "fill": "#FFFFFF" } },
+    "menu.check": {
+      "background": { "fill": "#FFD600", "corner": 2 },
+      "disabled": { "tint": "#B0FFFFFF" }
+    },
+    "menu.radio": {
+      "background": { "fill": "#FFD600", "corner": 7 },
+      "disabled": { "tint": "#B0FFFFFF" }
+    },
+
     // --- tabs ---
     //
     // A heading rather than a button: flat until it is the chosen one, which is the one thing a

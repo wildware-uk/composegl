@@ -127,6 +127,13 @@ value class Modifiers(val bits: Int) {
         val Meta = Modifiers(META)
 
         /**
+         * The one a shortcut is written with: [Meta] — Command — on a Mac, [Control] everywhere else.
+         * `Modifiers.Primary + Key.S` is Save on every machine. Read each time, after a backend has
+         * set [isMac].
+         */
+        val Primary: Modifiers get() = if (isMac) Meta else Control
+
+        /**
          * Whether the primary shortcut key is Command rather than Control.
          *
          * Set by the backend at startup, because only a backend knows what it is running on. The
