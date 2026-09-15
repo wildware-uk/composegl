@@ -183,6 +183,14 @@ Modifier.onReveal { child -> scrollTo(child) }
 
 Focus has its own page: [[Input]].
 
+**Testing**
+
+```kotlin
+Modifier.testTag("play")                  // host.root.find("play") from a test
+```
+
+Changes nothing about how the node looks or behaves. See [[Testing]].
+
 ---
 
 The decoration ones, on the same box:

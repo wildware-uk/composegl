@@ -449,11 +449,61 @@ class UiNode(var name: String = "node") {
         return null
     }
 
+    // --- finding a node from a test ---
+
+    /**
+     * The name a test gave this node with [dev.wildware.composegl.ui.modifier.testTag], or null.
+     *
+     * Read off the chain rather than stored, so it is whatever the last recomposition said.
+     */
+    val testTag: String? get() = resolved.testTag
+
+    /**
+     * Every node under this one — this one included — whose [testTag] is [tag], parents before
+     * children and in the order they were written. Empty when there are none.
+     */
+    fun findAll(tag: String): List<UiNode> {
+        val found = mutableListOf<UiNode>()
+        forEach { if (it.testTag == tag) found += it }
+        return found
+    }
+
+    /**
+     * The one node under this one tagged [tag], or null when there is none.
+     *
+     * Fails when there are two, for the same reason [find] does.
+     */
+    fun findOrNull(tag: String): UiNode? {
+        val found = findAll(tag)
+        check(found.size <= 1) {
+            "$tag is on ${found.size} nodes under $name, so there is no one node to hand back. " +
+                "Use findAll, or look inside the part of the screen you mean first:\n" + debugTree()
+        }
+        return found.firstOrNull()
+    }
+
+    /**
+     * The one node under this one tagged [tag].
+     *
+     * Fails with the subtree printed, tags and all, because a misspelt tag is otherwise a test
+     * that asserts about nothing. Two nodes with the tag fail too: picking the first would make
+     * the test depend on the order of a screen it was trying not to depend on. Ask on a tagged
+     * parent to narrow it — `root.find("inventory").find("slot")`.
+     */
+    fun find(tag: String): UiNode = checkNotNull(findOrNull(tag)) {
+        "no node under $name is tagged $tag:\n" + debugTree()
+    }
+
     override fun toString(): String = "UiNode($name)"
 
-    /** The shape of this subtree, one node per line. For test failures and for people. */
+    /**
+     * The shape of this subtree, one node per line. For test failures and for people.
+     *
+     * A node with a test tag shows it after its name as `#tag`.
+     */
     fun debugTree(indent: String = ""): String = buildString {
         append(indent).append(name)
+        testTag?.let { append(" #").append(it) }
         if (width != 0f || height != 0f || x != 0f || y != 0f) {
             append(" [").append(x).append(',').append(y)
             append(' ').append(width).append('x').append(height).append(']')

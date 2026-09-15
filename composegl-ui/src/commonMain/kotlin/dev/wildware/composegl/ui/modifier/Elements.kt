@@ -518,6 +518,27 @@ fun Modifier.focusTrap(enabled: Boolean = true) = then(FocusTrapElement(enabled)
 
 fun Modifier.focusRequester(requester: FocusRequester) = then(FocusRequesterElement(requester))
 
+/** @see dev.wildware.composegl.ui.modifier.testTag */
+data class TestTagElement(val tag: String) : Modifier.Element
+
+/**
+ * A name a test can find this node by, in UI that was composed rather than built by hand.
+ *
+ * ```
+ * Button("PLAY", onClick = ::play, modifier = Modifier.testTag("play"))
+ *
+ * host.root.find("play").boundsInRoot
+ * host.root.findAll("slot")
+ * ```
+ *
+ * It lands on whichever node the widget hands its modifier to — for a button that is the button
+ * itself, not the label inside it. It changes nothing about layout, drawing or input: a tagged
+ * label is still scenery to the pointer. A data class holding a string, so a recomposition that
+ * writes the same tag again compares equal and a still screen stays free. Two on one node are two
+ * answers to the same question, so the later one wins.
+ */
+fun Modifier.testTag(tag: String) = then(TestTagElement(tag))
+
 fun Modifier.focusOrder(
     up: FocusRequester? = null,
     down: FocusRequester? = null,

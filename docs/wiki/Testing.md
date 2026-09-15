@@ -77,6 +77,32 @@ hit in or focused in.
 
 ---
 
+## Finding a widget in a composed screen
+
+`TestTree` names nodes you built by hand. For a real screen, tag the widget with the
+modifier it already takes and find it from the host's root:
+
+```kotlin
+Button("PLAY", onClick = ::play, modifier = Modifier.testTag("play"))
+
+host.root.find("play").boundsInRoot      // exactly one, or it fails
+host.root.findAll("slot")                // every one, top of the tree first
+host.root.findOrNull("banner")           // null once a recomposition took it away
+host.root.find("inventory").find("slot") // a tag that repeats, inside one part
+```
+
+A test that asserts on a tag keeps passing when the layout around it moves, which one
+that asserts on a child index or a golden image does not.
+
+`find` fails with the tree printed, tags shown as `#play`, so a misspelt tag says what
+was there. It also fails when two nodes share the tag rather than guess which you meant.
+
+The tag goes on whichever node the widget hands its modifier to — for a button, the
+button. It changes nothing about layout, drawing or input, and it is a data class, so a
+still screen stays free.
+
+---
+
 ## One call instead of three
 
 A test that only wants to *read* the tree — what is on the screen, where it is,
