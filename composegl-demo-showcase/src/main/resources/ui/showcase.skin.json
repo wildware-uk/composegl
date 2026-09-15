@@ -193,6 +193,43 @@
       "hovered": { "background": { "fill": "#608AFFD8", "corner": 4, "border": "#D8FFF4", "borderWidth": 2 } },
       "pressed": { "background": { "fill": "#908AFFD8", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
       "focused": { "background": { "fill": "#308AFFD8", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } }
-    }
+    },
+
+    // --- the developer console ---
+    //
+    // The drop-down console from composegl-debug, in the showcase's own blue. Dark enough to read
+    // a log through and still see the scene moving behind it.
+
+    "console": {
+      "background": { "fill": "#E80A1018", "border": "#404CC2FF", "padding": 12 },
+      "textColour": "#DCE6F2"
+    },
+
+    "console.title": { "textColour": "#7E8DA3", "text": { "size": 12 } },
+    "console.prompt": { "textColour": "#4CC2FF" },
+
+    "console.line": { "textColour": "#DCE6F2", "text": { "size": 14 } },
+    "console.line.debug": { "textColour": "#7E8DA3", "text": { "size": 14 } },
+    "console.line.info": { "textColour": "#DCE6F2", "text": { "size": 14 } },
+    "console.line.warn": { "textColour": "#FFC24C", "text": { "size": 14 } },
+    "console.line.error": { "textColour": "#FF7A6E", "text": { "size": 14 } },
+    "console.line.echo": { "textColour": "#8ADBFF", "text": { "size": 14 } },
+
+    "console.suggestion": { "textColour": "#8ADBFF", "padding": [6, 2], "text": { "size": 14 } },
+    "console.suggestion.selected": {
+      "background": { "fill": "#304CC2FF", "corner": 3 },
+      "textColour": "#E6F4FF",
+      "padding": [6, 2],
+      "text": { "size": 14 }
+    },
+
+    "console.field": {
+      "background": { "fill": "#00000000", "padding": [2, 3] },
+      "textColour": "#E6F4FF"
+    },
+    "console.field.placeholder": { "textColour": "#5A6A80" },
+    "console.field.caret": { "background": { "fill": "#4CC2FF" } },
+    "console.field.selection": { "background": { "fill": "#504CC2FF" } },
+    "console.field.composition": { "background": { "fill": "#7E8DA3" } }
   }
 }

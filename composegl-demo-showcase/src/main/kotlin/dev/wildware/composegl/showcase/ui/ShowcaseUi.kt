@@ -2,6 +2,7 @@ package dev.wildware.composegl.showcase.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,7 +18,10 @@ import dev.wildware.composegl.ui.animation.Easings
 import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.animateFloatAsState
 import dev.wildware.composegl.ui.debug.FrameBudget
+import dev.wildware.composegl.debug.DevConsole
 import dev.wildware.composegl.debug.FrameBudgetOverlay
+import dev.wildware.composegl.debug.arg
+import dev.wildware.composegl.debug.rememberDevConsole
 import dev.wildware.composegl.game.Bar
 import dev.wildware.composegl.game.BarThreshold
 import dev.wildware.composegl.game.Cooldown
@@ -143,6 +147,9 @@ fun ShowcaseUi(
                     // Last, so it is over the scene's panels. Alt or F10 reaches it from the keyboard,
                     // the pad's View button from a pad.
                     ShowcaseMenus(state, budget)
+
+                    // And after even that, because a console goes over everything. ` opens it.
+                    ShowcaseConsole(state)
                 }
             }
         }
@@ -151,6 +158,58 @@ fun ShowcaseUi(
 
 /** How far down the panels along the top start, clear of the menu bar. */
 private const val BelowMenus = 64f
+
+/**
+ * The developer console: ` brings it down, Back and the right bumper together do on a pad.
+ *
+ * Every command here pokes the same state the panels and the menus read, which is the point of
+ * having one: `heat 0.95` and the reticle spreads, `lock RAVEN-2` and the target panel changes,
+ * while the game carries on running behind it. Tab finishes a command or a callsign, Up brings back
+ * the last line, and `help` lists the lot.
+ */
+@Composable
+private fun ShowcaseConsole(state: ShowcaseState) {
+    val console = rememberDevConsole {
+        command("heat", arg<Float>("level"), help = "How hot the weapon is, 0 to 1") {
+            state.heat = it.coerceIn(0f, 1f)
+        }
+        command("hull", arg<Float>("level"), help = "How much hull is left, 0 to 1") {
+            state.hull = it.coerceIn(0f, 1f)
+        }
+        command("ammo", arg<Int>("rounds"), help = "How many rounds are in the magazine") {
+            state.ammo = it.coerceAtLeast(0)
+        }
+        command(
+            "lock",
+            arg<String>("callsign", suggest = { state.targets.map { target -> target.callsign } }),
+            help = "Lock on to a drone by its callsign",
+        ) { callsign ->
+            val index = state.targets.indexOfFirst { it.callsign.equals(callsign, ignoreCase = true) }
+            if (index < 0) error("no drone called $callsign")
+            state.locked = index
+        }
+        command("release", help = "Let the locked drone go") { state.locked = -1 }
+        command(
+            "show",
+            arg<String>("exhibit", suggest = { Exhibit.entries.map { it.name.lowercase() } }),
+            arg<Boolean>("on", default = true),
+            help = "Turn one exhibit on or off",
+        ) { name, on ->
+            val exhibit = Exhibit.entries.firstOrNull { it.name.equals(name, ignoreCase = true) }
+                ?: error("no exhibit called $name")
+            if (state.isOn(exhibit) != on) state.toggle(exhibit)
+        }
+    }
+
+    // Something in it before it is ever opened, so the first thing a player sees is a log rather
+    // than a blank panel. Once, not every recomposition.
+    LaunchedEffect(console) {
+        console.log("Showcase ready. ${state.targets.size} drones in the scene.")
+        console.log("Type help for what this console can do.")
+    }
+
+    DevConsole(console)
+}
 
 /**
  * The menu bar across the top: what is on show, which drone is locked, and the frame budget.

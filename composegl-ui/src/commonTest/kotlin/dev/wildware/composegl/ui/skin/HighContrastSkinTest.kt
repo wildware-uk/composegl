@@ -59,6 +59,11 @@ class HighContrastSkinTest {
         "tree.row" to null, "tree.row.selected" to null,
         "hotbar.prompt" to "hotbar.slot", "hotbar.charges" to "hotbar.slot",
         "damage" to null, "damage.critical" to null,
+        "console.title" to "console", "console.prompt" to "console",
+        "console.line" to "console", "console.line.debug" to "console", "console.line.info" to "console",
+        "console.line.warn" to "console", "console.line.error" to "console", "console.line.echo" to "console",
+        "console.suggestion" to "console", "console.suggestion.selected" to "console",
+        "console.field" to "console", "console.field.placeholder" to "console",
     )
 
     @Test
