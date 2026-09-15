@@ -144,6 +144,7 @@ import dev.wildware.composegl.ui.widget.GamepadKeyboard
 import dev.wildware.composegl.ui.widget.KeyboardTarget
 import dev.wildware.composegl.ui.widget.ProvideGamepadKeyboard
 import dev.wildware.composegl.ui.widget.Checkbox
+import dev.wildware.composegl.ui.widget.CollapsingHeader
 import dev.wildware.composegl.ui.widget.Divider
 import dev.wildware.composegl.ui.widget.Dropdown
 import dev.wildware.composegl.ui.widget.PopupHost
@@ -914,6 +915,27 @@ private fun MutableList<DocShot>.widgets() {
         ProvideSkin(Skin.HighContrast) {
             ProvideLayoutDirection(LayoutDirection.Rtl) {
                 PopupHost { EditorMenuBar() }
+            }
+        }
+    })
+
+    // Three sections of a settings page: Physics open with its slider and toggle, the other two folded.
+    add(DocShot("widget-collapsing-header", 380, 250, stock = true) {
+        Frame { SettingsSections() }
+    })
+
+    // A real click on the folded Audio header, taken part way through, so its contents are still
+    // growing in and Graphics is sliding down to make room.
+    add(DocShot("widget-collapsing-header-opening", 380, 250, pointer = Offset(120f, 146f), click = true, stock = true) {
+        Frame { SettingsSections() }
+    })
+
+    // Right to left in the high-contrast skin, with focus on a folded header as a pad or Tab leaves
+    // it: the triangle sits at the right, and the closed ones point left.
+    add(DocShot("widget-collapsing-header-rtl", 380, 250, focus = true) {
+        ProvideSkin(Skin.HighContrast) {
+            ProvideLayoutDirection(LayoutDirection.Rtl) {
+                Frame { SettingsSections(focusAudio = true) }
             }
         }
     })
@@ -2191,6 +2213,28 @@ private fun EditorMenuBar() {
                 }
             }
             Menu("&Help") { Item("&About") {} }
+        }
+    }
+}
+
+/** A settings page in three folding sections, Physics open, for the collapsing header pictures. */
+@Composable
+private fun SettingsSections(focusAudio: Boolean = false) {
+    Column(Modifier.width(320f)) {
+        CollapsingHeader("Physics", initiallyExpanded = true) {
+            Column(verticalArrangement = Arrangement.spacedBy(10f)) {
+                Slider(0.6f, onValueChange = {}, modifier = Modifier.width(220f))
+                Toggle(true, onCheckedChange = {}, label = "Ragdolls")
+            }
+        }
+        CollapsingHeader("Audio", initialFocus = focusAudio) {
+            Column(verticalArrangement = Arrangement.spacedBy(10f)) {
+                Slider(0.8f, onValueChange = {}, modifier = Modifier.width(220f))
+                Checkbox(true, onCheckedChange = {}, label = "Subtitles")
+            }
+        }
+        CollapsingHeader("Graphics") {
+            Toggle(false, onCheckedChange = {}, label = "V-Sync")
         }
     }
 }

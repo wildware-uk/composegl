@@ -400,10 +400,14 @@ Column(Modifier.width(320f)) {
 }
 ```
 
+![three headers on a settings page: Physics open with a slider and a Ragdolls toggle under it, Audio and Graphics folded with their triangles pointing right](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-collapsing-header.png)
+
 A click, Enter, Space or the pad's South opens or closes it. The contents grow in
 and shrink away with `animateContentSize`, so the sections under it slide instead of
 jumping. Closed, the contents are not composed at all: the pad, Tab and the mouse
 go straight past them to the next header.
+
+![Audio a moment after it was clicked: its slider is growing in under it and Graphics is sliding down to make room](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-collapsing-header-opening.png)
 
 Whether a section is open is kept with `rememberSaveable`, so it is still open when
 the player comes back to the screen (see [[Saving state]]). When the game wants to
@@ -421,6 +425,8 @@ being lost. `spec` and `clock` pick how it moves, as for `animateContentSize`.
 
 On a right-to-left screen the triangle is at the right, and a closed one points
 left.
+
+![the same headers right to left in the high-contrast skin: triangles at the right, the closed ones pointing left, and a yellow focus ring on Audio](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-collapsing-header-rtl.png)
 
 The look is the skin's: `"collapsingheader"` for the bar and
 `"collapsingheader.open"` while it is open; `"collapsingheader.glyph"`, whose text
