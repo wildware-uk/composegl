@@ -38,7 +38,7 @@ class KorgeBackendTest {
         // The only observable way: a label measured by these fonts draws from the atlas the canvas uses
         // for its white block — both are page zero of the same object.
         val layout = fonts.measure("x", TextStyle.Default) as KorgeTextLayout
-        assertSame(fonts.atlas, layout.atlas)
+        assertSame(fonts.atlas.white.page, layout.placed.single().glyph.page)
         assertFalse(backend.canvas.warmedUp, "merely having a canvas builds nothing")
     }
 

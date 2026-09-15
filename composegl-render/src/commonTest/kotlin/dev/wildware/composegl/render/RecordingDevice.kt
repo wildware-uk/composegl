@@ -49,8 +49,14 @@ class RecordingDevice(offscreen: Boolean = true, maxTextureSize: Int = 4096) : G
         calls += "resume"
     }
 
+    /** Whether each texture made was asked to be sampled smoothly, in order. */
+    val smoothness = ArrayList<Boolean>()
+
     override fun texture(width: Int, height: Int, smooth: Boolean): DeviceTexture =
-        FakeTexture(next++, width, height).also { calls += "texture(${it.id}, ${width}x$height)" }
+        FakeTexture(next++, width, height).also {
+            calls += "texture(${it.id}, ${width}x$height)"
+            smoothness += smooth
+        }
 
     override fun write(texture: DeviceTexture, x: Int, y: Int, width: Int, height: Int, source: ByteArray, sourceWidth: Int) {
         calls += "write(${(texture as FakeTexture).id}, $x, $y, ${width}x$height)"

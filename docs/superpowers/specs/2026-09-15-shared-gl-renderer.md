@@ -1,8 +1,9 @@
 # One shared renderer; backends become thin wrappers
 
 Status: **step 1 built** — `composegl-render` exists and `composegl-lwjgl3` draws with it (steps 1, 2a
-and 2b of §8 landed together). **gdx built** (step 3): `composegl-gdx` draws with it too. webgl and
-korge still carry their own renderers. Supersedes the "engine-agnostic toolkit, engine-specific renderer" row of
+and 2b of §8 landed together). **gdx built** (step 3): `composegl-gdx` draws with it too.
+**korge built** (step 5): `composegl-korge` draws with it through `KorgeKmlGl` and `HostState.Restore`,
+3,934 lines down to 1,966. webgl still carries its own renderer. Supersedes the "engine-agnostic toolkit, engine-specific renderer" row of
 `2026-09-09-runtime-ui-design.md` §4, and the "shares no code with the LibGDX backend" promise in
 `docs/wiki/Backends.md` and `GlShapeBatch`.
 
@@ -44,6 +45,14 @@ What the code does where this design said otherwise. The code is the reference.
   rather than by a helper in `composegl-android`, which has no renderer dependency. Render gained
   `BoundPicture.rotated`, an open `lend` round `raw` blocks, and text drawn by a canvas made
   without fonts.
+- **korge (step 5).** `AtlasFonts` gained `LineBreaking.Paragraph` (ui's `paragraph()`, which KorGE
+  already used), `wholePixelWidths` and `smoothPages = false`, so no KorGE golden or text test moved.
+  `RenderCanvas.begin(…, topRowFirst = true)` turns the viewport, scissor and projection over for a
+  KorGE render texture, which KorGE stores top row first; there is still no device-level origin. A
+  canvas can be made on a bare `GlyphAtlas` (`KorgeCanvas(fonts.atlas)`), draws text measured onto
+  pages it was not given, and gives its device's atlas textures back on `close()`. KorGE's game
+  textures are adopted by the GL name KorGE binds, with a bind hook that binds through
+  `AGOpengl.textureBind`. A KorGE atlas is 1,024-pixel pages that do not grow, up to 16.
 - lwjgl3 `src/main` went from 4,574 lines to 1,782 (the estimate was 1,680). `composegl-render` is
   3,949 lines, plus 1,706 of common tests (93 tests on jvm, linuxX64 and wasmJs) using a recording
   `GpuDevice` and a recording `Gl`.

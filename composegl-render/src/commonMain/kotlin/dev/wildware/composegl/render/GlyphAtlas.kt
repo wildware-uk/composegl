@@ -12,12 +12,15 @@ package dev.wildware.composegl.render
  * it has been drawn, a full page means a new page, up to [maxPages].
  *
  * @param owner how a "full" error names what to make bigger.
+ * @param smooth whether pages are sampled smoothly. Glyphs are drawn at whole pixels, where the two
+ *   agree; they part only for a copy drawn a fraction of a pixel off, such as an outline's ring.
  */
 class GlyphAtlas(
     pageSize: Int = 512,
     val maxPageSize: Int = 4096,
     val maxPages: Int = 8,
     private val owner: String = "the glyph atlas",
+    val smooth: Boolean = true,
 ) {
 
     init {
@@ -32,7 +35,7 @@ class GlyphAtlas(
     val white: AtlasSpot
 
     init {
-        pages += AtlasPage(pageSize)
+        pages += AtlasPage(pageSize, smooth)
         white = checkNotNull(pages[0].place(WhiteBlock, WhiteBlock, maxPageSize = 0)) { "no room for the white block" }
         val pixels = pages[0].pixels
         for (y in 0 until WhiteBlock) for (x in 0 until WhiteBlock) pixels[(y * pageSize + x) * 4 + 3] = -1
@@ -51,7 +54,7 @@ class GlyphAtlas(
         for (page in pages) page.place(width, height, maxPageSize)?.let { return it }
         if (pages.size < maxPages && width + Gap <= maxPageSize && height + Gap <= maxPageSize) {
             val size = pages.last().size
-            val page = AtlasPage(size)
+            val page = AtlasPage(size, smooth)
             pages += page
             page.place(width, height, maxPageSize)?.let { return it }
         }
@@ -65,6 +68,9 @@ class GlyphAtlas(
 
     /** The context of [device] went away with its textures: forget them. */
     fun forget(device: GpuDevice) = pages.forEach { it.forget(device) }
+
+    /** Gives every page uploaded to [device] back to it: the device is going away, the pages are not. */
+    fun release(device: GpuDevice) = pages.forEach { it.release(device) }
 
     /** Gives every uploaded page back to the device it was uploaded to. */
     fun close() = pages.forEach { it.close() }
@@ -82,7 +88,7 @@ class GlyphAtlas(
 class AtlasSpot(val page: AtlasPage, val x: Int, val y: Int)
 
 /** One page of the atlas: its pixels, its shelves, and a texture per device it was drawn on. */
-class AtlasPage internal constructor(size: Int) {
+class AtlasPage internal constructor(size: Int, private val smooth: Boolean = true) {
 
     var size: Int = size
         private set
@@ -193,7 +199,7 @@ class AtlasPage internal constructor(size: Int) {
         var upload: Upload? = null
         for (candidate in uploads) if (candidate.device === device) upload = candidate
         if (upload == null) {
-            upload = Upload(device, device.texture(size, size, smooth = true), size)
+            upload = Upload(device, device.texture(size, size, smooth), size)
             uploads += upload
         }
         if (upload.right > upload.left && upload.bottom > upload.top) {
@@ -206,6 +212,20 @@ class AtlasPage internal constructor(size: Int) {
 
     internal fun forget(device: GpuDevice) {
         uploads.removeAll { it.device === device }
+    }
+
+    internal fun release(device: GpuDevice) {
+        uploads.removeAll { upload ->
+            (upload.device === device).also { mine -> if (mine) device.delete(upload.texture) }
+        }
+    }
+
+    /** The pixel at [x], [y] as `0xRRGGBBAA`, straight alpha: what was placed there, for a test or a tool to look at. */
+    fun rgbaAt(x: Int, y: Int): Int {
+        require(x in 0 until size && y in 0 until size) { "($x, $y) is outside a ${size}x$size page" }
+        val at = (y * size + x) * 4
+        return ((pixels[at].toInt() and 0xFF) shl 24) or ((pixels[at + 1].toInt() and 0xFF) shl 16) or
+            ((pixels[at + 2].toInt() and 0xFF) shl 8) or (pixels[at + 3].toInt() and 0xFF)
     }
 
     internal fun close() {

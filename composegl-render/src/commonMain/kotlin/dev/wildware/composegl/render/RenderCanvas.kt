@@ -36,15 +36,27 @@ import kotlin.math.roundToInt
  * Merely having one costs no GPU: everything is built the first time something is drawn, or when
  * [warmUp] is called.
  *
- * @param fonts where text is measured and solid colour is sampled from. Sharing the glyph atlas is
- *   what makes a screen of panels and labels one draw call. Without it the canvas keeps a
- *   one-pixel white texture of its own and cannot draw text.
+ * @param atlas where solid colour is sampled from: the fonts' glyph atlas, so a panel and its label
+ *   are one draw call. Without one the canvas keeps a one-pixel white texture of its own. Text
+ *   still draws either way, from the pages its layout was measured onto.
+ * @param prepareFonts called before the atlas is first read, for fonts that make glyphs up front.
  */
-open class RenderCanvas(
+open class RenderCanvas protected constructor(
     val device: GpuDevice,
-    private val fonts: AtlasFonts? = null,
-    private val textures: TextureResolver = TextureResolver { null },
+    private val atlas: GlyphAtlas?,
+    private val textures: TextureResolver,
+    private val prepareFonts: (() -> Unit)?,
 ) : UiCanvas, AutoCloseable {
+
+    /**
+     * @param fonts where text is measured and solid colour is sampled from. Sharing the glyph atlas
+     *   is what makes a screen of panels and labels one draw call.
+     */
+    constructor(
+        device: GpuDevice,
+        fonts: AtlasFonts? = null,
+        textures: TextureResolver = TextureResolver { null },
+    ) : this(device, fonts?.atlas, textures, fonts?.let { owner -> { owner.prepare() } })
 
     private var batch: QuadBatch? = null
 
@@ -81,6 +93,9 @@ open class RenderCanvas(
 
     private val effectQuad = EffectQuad()
 
+    /** Whether the frame's own target keeps its top row first, rather than OpenGL's bottom row. */
+    private var topRowFirst = false
+
     /** How many times the frame so far has talked to the device. Nothing drawn yet is none. */
     override val drawCalls: Int get() = batch?.renderCalls ?: 0
 
@@ -104,7 +119,7 @@ open class RenderCanvas(
     }
 
     /** Whether the GPU resources exist yet. */
-    val warmedUp: Boolean get() = batch != null && device.prepared
+    open val warmedUp: Boolean get() = batch != null && device.prepared
 
     override fun begin(viewport: Viewport) = begin(viewport, FrameTarget.Host)
 
@@ -113,8 +128,16 @@ open class RenderCanvas(
      *
      * @param clear what to fill the target with first, or null to draw over what is there.
      */
-    open fun begin(viewport: Viewport, into: FrameTarget, clear: Colour? = null) {
+    open fun begin(viewport: Viewport, into: FrameTarget, clear: Colour? = null) = begin(viewport, into, clear, topRowFirst = false)
+
+    /**
+     * The same, into a target that stores its top row first: a render texture an engine reads back
+     * the way up it is drawn, as KorGE does. The viewport, the scissor and the projection are turned
+     * over for it here, so everything below still gets pixels counted from the target's first row.
+     */
+    fun begin(viewport: Viewport, into: FrameTarget, clear: Colour?, topRowFirst: Boolean) {
         check(!drawing) { "begin() was called twice without an end()" }
+        this.topRowFirst = topRowFirst
         drawing = true
         begun = true
         device.begin(into)
@@ -129,7 +152,11 @@ open class RenderCanvas(
         setViewport(
             viewport.origin.x.roundToInt(),
             // The device counts up from the bottom; the viewport counts down from the top.
-            (viewport.physical.height - viewport.origin.y - viewport.design.height * viewport.scaleY).roundToInt(),
+            if (topRowFirst) {
+                viewport.origin.y.roundToInt()
+            } else {
+                (viewport.physical.height - viewport.origin.y - viewport.design.height * viewport.scaleY).roundToInt()
+            },
             (viewport.design.width * viewport.scaleX).roundToInt(),
             (viewport.design.height * viewport.scaleY).roundToInt(),
         )
@@ -138,6 +165,10 @@ open class RenderCanvas(
             device.clear(clear.red / 255f * alpha, clear.green / 255f * alpha, clear.blue / 255f * alpha, alpha)
         }
         orthographic(projection, viewport.design.width, viewport.design.height)
+        if (topRowFirst) {
+            projection[5] = -projection[5]
+            projection[13] = -projection[13]
+        }
         batch().begin(projection)
         // A picture bigger than its area is cut off at the area's edge rather than drawn over the
         // next player's.
@@ -518,7 +549,7 @@ open class RenderCanvas(
 
         device.scissor(
             left.roundToInt(),
-            (viewport.physical.height - bottom).roundToInt(),
+            (if (topRowFirst) top else viewport.physical.height - bottom).roundToInt(),
             (right - left).roundToInt().coerceAtLeast(0),
             (bottom - top).roundToInt().coerceAtLeast(0),
         )
@@ -887,7 +918,7 @@ open class RenderCanvas(
         layers.forget()
         ownWhite = null
         whiteSpot = null
-        fonts?.atlas?.forget(device)
+        atlas?.forget(device)
     }
 
     /**
@@ -896,6 +927,7 @@ open class RenderCanvas(
      */
     override fun close() {
         layers.close()
+        atlas?.release(device)
         ownWhite?.let(device::delete)
         ownWhite = null
         whiteSpot = null
@@ -907,17 +939,17 @@ open class RenderCanvas(
      * panel and its label are one draw call; a one-pixel texture of this canvas's own when not.
      */
     private fun white(): WhiteSpot {
-        val fonts = fonts
+        val atlas = atlas
         val cached = whiteSpot
-        if (fonts == null) {
+        if (atlas == null) {
             if (cached != null) return cached
             val texture = device.texture(1, 1, smooth = true)
             device.write(texture, 0, 0, 1, 1, byteArrayOf(-1, -1, -1, -1), 1)
             ownWhite = texture
             return WhiteSpot(texture, 0.5f, 0.5f).also { whiteSpot = it }
         }
-        fonts.prepare()
-        val spot = fonts.atlas.white
+        prepareFonts?.invoke()
+        val spot = atlas.white
         val texture = spot.page.texture(device)
         if (cached != null && cached.texture === texture && whiteSize == spot.page.size) return cached
         val size = spot.page.size.toFloat()

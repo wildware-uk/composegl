@@ -1,5 +1,10 @@
 # KorGE backend
 
+> **Drawing has moved.** `KorgeShapeBatch`, `KorgeAtlas`, `KorgeLayers`, `KorgeEffects` and
+> `KorgeFallback` are gone: the backend now draws with `composegl-render` (see
+> `2026-09-15-shared-gl-renderer.md`). Input, clipboard, cursor, haptics and the soft keyboard below
+> are unchanged.
+
 The owner asked for first-class KorGE support, the same as LibGDX. This note says what the first step
 built and splits the rest into pieces that separate people can pick up without editing the same files.
 

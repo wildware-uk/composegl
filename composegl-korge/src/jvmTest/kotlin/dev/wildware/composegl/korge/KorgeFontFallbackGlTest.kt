@@ -55,7 +55,7 @@ class KorgeFontFallbackGlTest {
     private fun style(size: Float = 24f, family: String = "test") = TextStyle(family = family, size = size)
 
     /** DejaVu Sans as the display font, with Noto Sans CJK cuts and a Noto emoji behind it. */
-    private fun fonts(atlas: KorgeAtlas = KorgeAtlas()) = KorgeFonts(atlas).also {
+    private fun fonts(pageSize: Int = 1024) = KorgeFonts(pageSize).also {
         it.registerTrueType("test", TestFonts.dejaVu(), Sizes)
         it.registerTrueType("cjk", TestPictures.chinese(), Sizes)
         it.registerTrueType("korean", TestPictures.korean(), Sizes)
@@ -273,7 +273,7 @@ class KorgeFontFallbackGlTest {
             open(backend) { Text(text, Modifier.offset(4f, 10f), textStyle = style(), colour = white) }.using { frame(it, backend) }
         }
         var pages = 0
-        val cramped = withBackend(fonts(KorgeAtlas(pageSize = 128))) { backend, fonts ->
+        val cramped = withBackend(fonts(pageSize = 96)) { backend, fonts ->
             open(backend) { Text(text, Modifier.offset(4f, 10f), textStyle = style(), colour = white) }.using { frame(it, backend) }
                 .also { pages = fonts.atlas.pageCount }
         }

@@ -7,6 +7,7 @@ import korlibs.io.stream.openSync
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -48,7 +49,7 @@ class KorgeFontFallbackTest {
     private fun width(text: String, family: String = "test", size: Float = 16f) =
         fonts.measure(text, style.copy(family = family, size = size)).size.width
 
-    private fun drawn(text: String, textStyle: TextStyle = style) = (fonts.measure(text, textStyle) as KorgeTextLayout).glyphs
+    private fun drawn(text: String, textStyle: TextStyle = style) = (fonts.measure(text, textStyle) as KorgeTextLayout).placed
 
     @Test
     fun `the main font's own emoji glyph wins over a picture, and the test emoji is one it lacks`() {
@@ -59,8 +60,8 @@ class KorgeFontFallbackTest {
         fonts.registerPictures("emoji", mapOf("😀" to smiley, "🥳" to smiley), listOf(16))
         fonts.fallBackTo(listOf("emoji"))
 
-        assertFalse(drawn("😀").single().picture)
-        assertTrue(drawn("🥳").single().picture)
+        assertFalse(drawn("😀").single().glyph.colour)
+        assertTrue(drawn("🥳").single().glyph.colour)
     }
 
     @Test
@@ -80,12 +81,12 @@ class KorgeFontFallbackTest {
     @Test
     fun `a character the main font has is still the main font's`() {
         val before = width("Ace of spades")
-        val beforeGlyphs = drawn("Ace").map { it.region }
+        val beforeGlyphs = drawn("Ace").map { it.glyph }
 
         fonts.fallBackTo(listOf("cjk"))
 
         assertEquals(before, width("Ace of spades"))
-        assertEquals(beforeGlyphs, drawn("Ace").map { it.region }, "the very same glyphs, not copies of them")
+        assertEquals(beforeGlyphs, drawn("Ace").map { it.glyph }, "the very same glyphs, not copies of them")
     }
 
     @Test
@@ -107,8 +108,8 @@ class KorgeFontFallbackTest {
         fonts.fallBackTo(listOf("cjk", "pictures"))
         val fontFirst = drawn("玩").single()
 
-        assertTrue(pictureFirst.picture)
-        assertFalse(fontFirst.picture)
+        assertTrue(pictureFirst.glyph.colour)
+        assertFalse(fontFirst.glyph.colour)
     }
 
     @Test
@@ -160,7 +161,7 @@ class KorgeFontFallbackTest {
         // in where it is drawn is the difference between the two baselines.
         assertEquals(own.top - cjkBaseline, borrowed.top - mainBaseline, 1f)
         assertEquals(own.width, borrowed.width)
-        assertTrue(own.region === borrowed.region, "one rasterisation, shared")
+        assertTrue(own.glyph === borrowed.glyph, "one rasterisation, shared")
     }
 
     @Test
@@ -172,7 +173,7 @@ class KorgeFontFallbackTest {
 
         assertEquals(1, glyphs.size, "two halves of one character, one glyph")
         val picture = glyphs.single()
-        assertTrue(picture.picture)
+        assertTrue(picture.glyph.colour)
         assertEquals(16f, picture.height, "as tall as the text size")
         assertEquals(16f, picture.width, "a square picture stays square")
         // A gap of one each side at 16, as the other backends leave.
@@ -199,7 +200,7 @@ class KorgeFontFallbackTest {
 
         val large = drawn("🥳", style.copy(size = 20f)).single()
         assertEquals(20f, large.height)
-        assertEquals(0, large.region.page, "beside the white block and the letters")
+        assertSame(fonts.atlas.page(0), large.glyph.page, "beside the white block and the letters")
     }
 
     @Test
@@ -207,13 +208,13 @@ class KorgeFontFallbackTest {
         fonts.registerPictures("emoji", mapOf("🥳" to smiley), listOf(16))
         fonts.fallBackTo(listOf("emoji"))
 
-        val region = drawn("🥳").single().region
-        val page = fonts.atlas.pages[region.page]
+        val region = drawn("🥳").single().glyph
+        val page = checkNotNull(region.page)
         // The face is yellow: somewhere in its middle, red and green are high and blue is low.
-        val yellow = (0 until region.height).sumOf { y ->
-            (0 until region.width).count { x ->
-                val pixel = page.getRgbaRaw(region.x + x, region.y + y)
-                pixel.r > 180 && pixel.g > 140 && pixel.b < 100
+        val yellow = (0 until region.height.toInt()).sumOf { y ->
+            (0 until region.width.toInt()).count { x ->
+                val pixel = page.rgbaAt(region.x + x, region.y + y)
+                (pixel ushr 24) > 180 && (pixel ushr 16 and 0xFF) > 140 && (pixel ushr 8 and 0xFF) < 100
             }
         }
         assertTrue(yellow > 40, "the packed picture should be yellow, found $yellow yellow pixels")
@@ -224,11 +225,11 @@ class KorgeFontFallbackTest {
         fonts.registerPictures("emoji", mapOf("🥳" to smiley), listOf(16))
         fonts.fallBackTo(listOf("emoji"))
 
-        val region = drawn("🥳").single().region
-        val page = fonts.atlas.pages[region.page]
+        val region = drawn("🥳").single().glyph
+        val page = checkNotNull(region.page)
         // The middle row of a round face is solid from edge to edge: no pixel skipped by a careless shrink.
-        val middle = region.height / 2
-        val alphas = (2 until region.width - 2).map { x -> page.getRgbaRaw(region.x + x, region.y + middle).a }
+        val middle = region.height.toInt() / 2
+        val alphas = (2 until region.width.toInt() - 2).map { x -> page.rgbaAt(region.x + x, region.y + middle) and 0xFF }
         assertTrue(alphas.all { it > 200 }, "the middle row should be solid, was $alphas")
     }
 
@@ -246,7 +247,7 @@ class KorgeFontFallbackTest {
         fonts.registerPictures("emoji", mapOf("🧡️" to smiley), listOf(16))
         fonts.fallBackTo(listOf("emoji"))
 
-        assertTrue(drawn("🧡").single().picture)
+        assertTrue(drawn("🧡").single().glyph.colour)
     }
 
     @Test
@@ -263,7 +264,7 @@ class KorgeFontFallbackTest {
         fonts.registerEncodedPictures("emoji", mapOf("🥳" to TestPictures.bytes("/emoji/emoji_u1f600.png")), listOf(16))
         fonts.fallBackTo(listOf("emoji"))
 
-        assertTrue(drawn("🥳").single().picture)
+        assertTrue(drawn("🥳").single().glyph.colour)
     }
 
     @Test
@@ -287,12 +288,12 @@ class KorgeFontFallbackTest {
         val text = "🥳🥳 ".repeat(6).trim()
 
         val glyphs = drawn(text)
-        val cut = (fonts.measure(text, style.copy(maxLines = 1), maxWidth = 70f) as KorgeTextLayout).glyphs
+        val cut = (fonts.measure(text, style.copy(maxLines = 1), maxWidth = 70f) as KorgeTextLayout).placed
 
         assertEquals(12, glyphs.size)
         assertTrue(cut.size in 2..11, "cut to ${cut.size} glyphs")
-        assertTrue(cut.dropLast(1).all { it.picture }, "every glyph before the ellipsis is a whole emoji")
-        assertFalse(cut.last().picture, "the ellipsis is a letter")
+        assertTrue(cut.dropLast(1).all { it.glyph.colour }, "every glyph before the ellipsis is a whole emoji")
+        assertFalse(cut.last().glyph.colour, "the ellipsis is a letter")
     }
 
     @Test

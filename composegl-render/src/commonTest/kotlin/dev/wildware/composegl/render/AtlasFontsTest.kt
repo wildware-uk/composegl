@@ -41,7 +41,11 @@ class AtlasFontsTest {
         }
     }
 
-    private class TestFonts(val rasteriser: FakeRasteriser = FakeRasteriser()) : AtlasFonts(rasteriser, atlasOwner = "TestFonts") {
+    private class TestFonts(
+        val rasteriser: FakeRasteriser = FakeRasteriser(),
+        lineBreaking: LineBreaking = LineBreaking.Words,
+        wholePixelWidths: Boolean = false,
+    ) : AtlasFonts(rasteriser, atlasOwner = "TestFonts", lineBreaking = lineBreaking, wholePixelWidths = wholePixelWidths) {
         fun font(family: String, characters: String, advance: Float, sizes: List<Int> = listOf(10)) {
             rasteriser.families[family] = characters to advance
             registerFont(family, sizes)
@@ -162,6 +166,89 @@ class AtlasFontsTest {
         val cut = fonts.measure("abc def ghi", TextStyle(family = "body", size = 10f, maxLines = 1), maxWidth = 40f) as AtlasTextLayout
         assertEquals(1, cut.lineCount)
         assertTrue(cut.size.width <= 40f)
+    }
+
+    @Test
+    fun `paragraph breaking leaves a word too long for the width to overflow`() {
+        val words = TestFonts().apply { font("body", "abcdefghij", advance = 0.55f) }
+        val paragraphs = TestFonts(lineBreaking = AtlasFonts.LineBreaking.Paragraph).apply { font("body", "abcdefghij", advance = 0.55f) }
+
+        assertTrue(words.measure("abcdefghij", style(), maxWidth = 20f).lineCount > 1, "broken where it had to be")
+        val whole = paragraphs.measure("abcdefghij", style(), maxWidth = 20f)
+        assertEquals(1, whole.lineCount)
+        assertEquals(2, paragraphs.measure("abc def ghij", style(), maxWidth = 45f).lineCount)
+        assertEquals(2, paragraphs.measure("abc\ndef", style()).lineCount)
+    }
+
+    @Test
+    fun `paragraph breaking ends a cut line with the ellipsis`() {
+        val fonts = TestFonts(lineBreaking = AtlasFonts.LineBreaking.Paragraph).apply { font("body", "abcdefghij…", advance = 0.5f) }
+        val cut = fonts.measure("abc def ghi", TextStyle(family = "body", size = 10f, maxLines = 1), maxWidth = 40f) as AtlasTextLayout
+
+        assertEquals(1, cut.lineCount)
+        assertTrue(cut.size.width <= 40f, "${cut.size}")
+        val uncut = fonts.measure("abc def ghi", style(), maxWidth = 40f) as AtlasTextLayout
+        assertTrue(uncut.lineCount > 1)
+        assertTrue(cut.placed.size < 9, "cut short of the whole text's nine glyphs: ${cut.placed.size}")
+    }
+
+    @Test
+    fun `whole pixel widths round a layout up`() {
+        val exact = TestFonts().apply { font("body", "abc", advance = 0.55f) }
+        val rounded = TestFonts(wholePixelWidths = true).apply { font("body", "abc", advance = 0.55f) }
+
+        assertEquals(16.5f, width(exact, "abc"), 0.001f)
+        assertEquals(17f, width(rounded, "abc"))
+    }
+
+    @Test
+    fun `a canvas with no fonts of its own still draws text from the pages it was measured onto`() {
+        val fonts = TestFonts().apply { font("body", "A", advance = 0.5f, sizes = listOf(16)) }
+        val device = RecordingDevice()
+        val canvas = RenderCanvas(device)
+        val layout = fonts.measure("A", TextStyle(family = "body", size = 16f))
+        canvas.begin(Viewport.oneToOne(Size(100f, 100f)))
+        canvas.rect(Rect.of(0f, 0f, 10f, 10f), Colour.Blue)
+        canvas.text(layout, 0f, 0f, Colour.Red)
+        canvas.end()
+
+        assertEquals(2, device.draws.size, "its own white texture, then the glyph page")
+    }
+
+    @Test
+    fun `closing a canvas gives back the atlas pages uploaded to its device and leaves the fonts usable`() {
+        val fonts = TestFonts().apply { font("body", "A", advance = 0.5f, sizes = listOf(16)) }
+        val device = RecordingDevice()
+        val canvas = RenderCanvas(device, fonts)
+        canvas.begin(Viewport.oneToOne(Size(100f, 100f)))
+        canvas.text(fonts.measure("A", TextStyle(family = "body", size = 16f)), 0f, 0f, Colour.Red)
+        canvas.end()
+        val page = device.draws.single().texture
+        canvas.close()
+
+        assertEquals(listOf<DeviceResource>(page), device.deleted)
+        assertEquals(1, fonts.measure("A", TextStyle(family = "body", size = 16f)).lineCount)
+    }
+
+    @Test
+    fun `a glyph is drawn with texture coordinates at its spot's edges over the page`() {
+        val fonts = TestFonts().apply { font("body", "A", advance = 0.5f, sizes = listOf(16)) }
+        val device = RecordingDevice()
+        val canvas = RenderCanvas(device, fonts)
+        val layout = fonts.measure("A", TextStyle(family = "body", size = 16f)) as AtlasTextLayout
+        canvas.begin(Viewport.oneToOne(Size(100f, 100f)))
+        canvas.text(layout, 0f, 0f, Colour.Red)
+        canvas.end()
+
+        val glyph = layout.placed.single().glyph
+        val size = checkNotNull(glyph.page).size.toFloat()
+        val draw = device.draws.single()
+        val u = ShapeVertex.Attributes.single { it.name == "a_texCoord0" }.offset
+        // The second corner is the top-left and the fourth the bottom-right.
+        assertEquals(glyph.x / size, draw.at(1, u))
+        assertEquals(glyph.y / size, draw.at(1, u + 1))
+        assertEquals((glyph.x + glyph.width) / size, draw.at(3, u))
+        assertEquals((glyph.y + glyph.height) / size, draw.at(3, u + 1))
     }
 
     @Test
