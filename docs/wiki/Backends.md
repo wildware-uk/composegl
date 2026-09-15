@@ -3,13 +3,14 @@
 A backend is the bit that turns "draw a rounded box here" into actual OpenGL, and
 "how wide is this word?" into a number.
 
-Three ship. None is required: the toolkit names no engine anywhere.
+Four ship. None is required: the toolkit names no engine anywhere.
 
 | module | what it is |
 |---|---|
 | `composegl-gdx` | LibGDX. Desktop, Android, iOS. The one to ship a game on. |
 | `composegl-lwjgl3` | Raw OpenGL and stb_truetype. Desktop only. |
 | `composegl-webgl` | WebGL in a browser tab, from WebAssembly. The page's own fonts and input. |
+| `composegl-korge` | KorGE 6. A screen is a view on the stage (`Container.composeGl`), with KorGE's input. Desktop JVM for now; try `./gradlew :composegl-demo-korge:run`. |
 | `composegl-android` | Not a backend — the things about an Android phone LibGDX cannot answer. |
 | `composegl-robovm` | The same, for an iPhone, through UIKit. |
 
@@ -24,8 +25,14 @@ of them.
 The LWJGL3 backend exists to keep the others honest. It is written against the same
 interface, shares **no code** with the LibGDX one, and draws the same test scenes —
 so anything the toolkit quietly assumes about LibGDX shows up here as a picture
-that came out wrong or as code that will not compile. Both backends' golden images
-are checked against each other in CI.
+that came out wrong or as code that will not compile.
+
+Each backend has its own golden images, and CI checks each backend against its own.
+The LibGDX and LWJGL3 sets are never compared with each other by a test — FreeType
+and stb_truetype never agree on a glyph pixel for pixel — so that comparison is one a
+person makes by looking at the two sets. The WebGL and KorGE backends go one step
+further: besides their own goldens, their scenes with no text in them must also match
+the LWJGL3 goldens.
 
 ---
 

@@ -56,6 +56,7 @@ include(
     "composegl-demo-snake-core",
     "composegl-demo-snake-android",
     "composegl-demo-showcase",
+    "composegl-demo-korge",
     // Throwaway feasibility spike; see docs/superpowers/spikes/s6-runtime-ui.md.
     "spikes:s6-runtime-ui",
 )
