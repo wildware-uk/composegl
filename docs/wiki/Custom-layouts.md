@@ -64,6 +64,20 @@ placeable.at(x, y)                                // inside the layout { } block
 layout in the tree has a size, which is why you can place a child you measured
 earlier without measuring it again.
 
+### Baselines
+
+A measured child knows where its text stands: `placeable.firstBaseline` and
+`placeable.lastBaseline`, down from its top, or `NaN` when it has no text. That is
+how a layout of your own lines things up by their letters.
+
+You rarely need to report one. A layout that only arranges children reports the
+baselines of the text inside them without being asked. A layout that draws text
+itself says where its lines are:
+
+```kotlin
+layout(width, height, firstBaseline = ascent, lastBaseline = ascent + (lines - 1) * lineHeight) {}
+```
+
 ---
 
 ## Measure each child exactly once

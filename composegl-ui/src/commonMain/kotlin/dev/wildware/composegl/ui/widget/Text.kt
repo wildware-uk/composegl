@@ -221,7 +221,10 @@ private class TextPainter(
             HorizontalAlignment.End -> width - block.size.width
         }.coerceAtLeast(0f)
 
-        return layout(width, constraints.constrainHeight(block.size.height)) {}
+        // Where the letters stand, for a row lining this label up with its neighbours. The same
+        // arithmetic `ink` below does: every line after the first is a line height further down.
+        val last = block.firstBaseline + (block.lineCount - 1).coerceAtLeast(0) * style.lineHeight
+        return layout(width, constraints.constrainHeight(block.size.height), block.firstBaseline, last) {}
     }
 
     /**
@@ -502,7 +505,11 @@ private class RunPainter(
             HorizontalAlignment.End -> width - block.size.width
         }.coerceAtLeast(0f)
 
-        return layout(width, constraints.constrainHeight(block.size.height)) {}
+        // The paragraph already knows where every line stands. No lines, no baseline.
+        val lines = block.lines
+        val height = constraints.constrainHeight(block.size.height)
+        return if (lines.isEmpty()) layout(width, height) {}
+        else layout(width, height, lines.first().baseline, lines.last().baseline) {}
     }
 
     /** Which run [point] is in, in the paragraph's own coordinates. The later run wins an overlap. */

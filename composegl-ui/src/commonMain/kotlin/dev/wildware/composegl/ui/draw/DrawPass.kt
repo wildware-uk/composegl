@@ -347,9 +347,11 @@ class DrawPass(val canvas: UiCanvas) {
                 canvas,
                 node.drawnContent.of(
                     bounds.left + padding.left,
-                    bounds.top + padding.top,
+                    // `paddingFrom` is padding decided by layout rather than written down, so the
+                    // content box moves in by it the same way.
+                    bounds.top + padding.top + node.baselineTop,
                     bounds.right - padding.right,
-                    bounds.bottom - padding.bottom,
+                    bounds.bottom - padding.bottom - node.baselineBottom,
                 ),
             )
         }

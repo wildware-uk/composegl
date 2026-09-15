@@ -280,6 +280,28 @@ class UiNode(var name: String = "node") {
     var width = 0f
     var height = 0f
 
+    /**
+     * How far down from this node's top its first line of text stands, or NaN when there is no text
+     * anywhere inside it.
+     *
+     * A label reports its own; anything else reports the highest one among the children it placed.
+     * Not moved by this node's own `offset`. See [dev.wildware.composegl.ui.layout.Placeable.firstBaseline].
+     */
+    var firstBaseline = Float.NaN
+        internal set
+
+    /** The same, for the lowest last line inside this node. */
+    var lastBaseline = Float.NaN
+        internal set
+
+    /**
+     * The room `paddingFrom` added above and below this node's content on the last pass. Zero for
+     * nearly every node; where it is not, the content box starts and stops this much further in,
+     * the way it does for padding.
+     */
+    internal var baselineTop = 0f
+    internal var baselineBottom = 0f
+
     val size: Size get() = Size(width, height)
 
     /** Where this node sits inside its parent. */
@@ -499,7 +521,12 @@ class UiNode(var name: String = "node") {
 
         if (content != null) {
             val padding = resolved.padding
-            val box = Rect(padding.left, padding.top, width - padding.right, height - padding.bottom)
+            val box = Rect(
+                padding.left,
+                padding.top + baselineTop,
+                width - padding.right,
+                height - padding.bottom - baselineBottom,
+            )
             // Null from `ink` is a widget saying it drew nothing this frame, which is not the same
             // as having no ink function at all — that means "wherever you put me, I filled it".
             val declared = ink

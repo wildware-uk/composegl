@@ -69,6 +69,11 @@ class ResolvedModifier private constructor(
     /** See [dev.wildware.composegl.ui.modifier.defaultMinSize]. */
     val defaultMinSize: DefaultMinSizeElement?,
     val padding: Padding,
+    /**
+     * Room measured from a line of text, in chain order. Empty for almost every node there has ever
+     * been; see [dev.wildware.composegl.ui.modifier.paddingFrom].
+     */
+    val baselinePadding: List<BaselinePaddingElement>,
     val offset: Offset,
     val weight: Float?,
     val alignment: Alignment?,
@@ -213,6 +218,7 @@ class ResolvedModifier private constructor(
             var sizeIn: SizeInElement? = null
             var defaultMinSize: DefaultMinSizeElement? = null
             var padding = Padding.None
+            val baselinePadding = mutableListOf<BaselinePaddingElement>()
             var offset = Offset.Zero
             var weight: Float? = null
             var alignment: Alignment? = null
@@ -276,6 +282,9 @@ class ResolvedModifier private constructor(
                         element.minHeight ?: defaultMinSize?.minHeight,
                     )
                     is PaddingElement -> padding += element.padding
+                    // Kept, not folded: each one is measured from a line that is not known until
+                    // layout, and the room one adds is the most any of them asks for, not a sum.
+                    is BaselinePaddingElement -> baselinePadding += element
                     is OffsetElement -> offset += Offset(element.x, element.y)
                     is WeightElement -> weight = element.weight
                     is AlignElement -> alignment = element.alignment
@@ -370,7 +379,7 @@ class ResolvedModifier private constructor(
             }
 
             return ResolvedModifier(
-                size, fill, aspectRatio, sizeIn, defaultMinSize, padding, offset, weight, alignment, layoutId, wrap, alpha,
+                size, fill, aspectRatio, sizeIn, defaultMinSize, padding, baselinePadding.toList(), offset, weight, alignment, layoutId, wrap, alpha,
                 scale, scaleOrigin,
                 rotation, rotationOrigin, mirrorX, mirrorY,
                 if (skewSlopeX == 0f) 0f else atan(skewSlopeX) / DegreesToRadians,

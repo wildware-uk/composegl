@@ -13,6 +13,30 @@ abstract class Placeable {
     abstract val width: Float
     abstract val height: Float
 
+    /**
+     * How far down from this child's top its first line of text stands, or NaN when there is no
+     * text in it to stand on.
+     *
+     * Known once it has been measured, which is the whole reason it is here rather than worked out
+     * from a font: a row lining up "120" beside "HP" by their baselines has to know where each one's
+     * baseline landed, and only measuring the child says. Measured from the top of the child's own
+     * box, padding included, and not moved by its `offset` — an offset moves a node without
+     * changing the space it takes, and so does not change where layout thinks its words are.
+     *
+     * NaN rather than null so that asking costs nothing: a nullable float is a boxed float, asked
+     * of every child of every baseline row every frame.
+     */
+    open val firstBaseline: Float get() = Float.NaN
+
+    /** The same, for the last line. The same as [firstBaseline] for a single line of text. */
+    open val lastBaseline: Float get() = Float.NaN
+
+    /** [firstBaseline] or [lastBaseline], whichever [baseline] names. */
+    fun baseline(baseline: Baseline): Float = when (baseline) {
+        Baseline.First -> firstBaseline
+        Baseline.Last -> lastBaseline
+    }
+
     /** Called by the parent, from inside its placement block. Coordinates are relative to it. */
     abstract fun placeAt(x: Float, y: Float)
 }
@@ -58,6 +82,21 @@ val Measurable.layoutId: Any? get() = layoutData.layoutId
 interface MeasureResult {
     val width: Float
     val height: Float
+
+    /**
+     * Where this layout's own first line of text stands, down from the top of its content, or NaN
+     * for "I have none of my own".
+     *
+     * NaN is the answer almost every layout gives, and it does not mean the node has no baseline:
+     * a row, a box or a button with a label in it reports the baseline of the text inside it, which
+     * the measure pass works out from the children once they are placed. Only a layout that draws
+     * text itself — a label, a text field — has a baseline of its own to report.
+     */
+    val firstBaseline: Float get() = Float.NaN
+
+    /** The same, for the last line. */
+    val lastBaseline: Float get() = Float.NaN
+
     fun placeChildren(scope: PlacementScope)
 }
 
@@ -89,6 +128,32 @@ interface MeasureScope {
         object : MeasureResult {
             override val width = width
             override val height = height
+            override fun placeChildren(scope: PlacementScope) = scope.place()
+        }
+
+    /**
+     * The same, for a layout that draws text itself and so knows where its lines stand.
+     *
+     * Both baselines are measured down from the top of this layout's content, the same coordinates
+     * its children are placed in. A layout that only arranges other nodes has no reason to call
+     * this: its baseline is taken from the text inside it without being asked.
+     *
+     * ```kotlin
+     * return layout(width, height, firstBaseline = block.firstBaseline, lastBaseline = last) {}
+     * ```
+     */
+    fun layout(
+        width: Float,
+        height: Float,
+        firstBaseline: Float,
+        lastBaseline: Float,
+        place: PlacementScope.() -> Unit,
+    ): MeasureResult =
+        object : MeasureResult {
+            override val width = width
+            override val height = height
+            override val firstBaseline = firstBaseline
+            override val lastBaseline = lastBaseline
             override fun placeChildren(scope: PlacementScope) = scope.place()
         }
 
