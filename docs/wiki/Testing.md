@@ -237,6 +237,41 @@ prints the dump, so a failing test already says where everything was.
 
 ---
 
+## The layout, on the screen
+
+A dump says where everything is. `LayoutOverlay` shows it, over the running game:
+
+```kotlin
+Box(Modifier.fillMaxSize()) {
+    Game()
+    LayoutOverlay(enabled = debug)                                    // everything
+    LayoutOverlay(enabled = debug, show = setOf(Show.Padding, Show.Gaps)) // or just some of it
+}
+```
+
+| `Show` | Drawn as | What it is |
+|---|---|---|
+| `Bounds` | blue edge | every node's box, where layout put it (`layoutBoundsInRoot`) |
+| `Drawn` | yellow edge | where a `scale` really draws it (`boundsInRoot`), left out where a blue edge already is |
+| `Painted` | pink edge | where its ink really is (`paintedInRoot`) — text inside its line box, a background inside padding — left out where a blue or yellow edge already is |
+| `Padding` | green wash | the padding inside each box |
+| `Gaps` | orange wash | the space a `Row` or `Column` leaves between children |
+
+"Why is there a gap here?" is the orange. "Why is this three pixels off?" is usually a
+pink edge sitting inside a blue one.
+
+Put it last, at the top of the screen. It has no size and takes no clicks, so it moves
+nothing and a click goes straight through it. It reads the tree as it is drawn, so it
+follows every change, and it never marks the tree changed itself: a still screen with it
+on stays still. It has its own colours, the same over any skin. Take it off before
+shipping.
+
+![a panel with padding, a row of buttons with gaps between them and a label, under the layout overlay](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-overlay.png)
+
+Gaps are shown for rows and columns; a `FlowRow` or a grid does not shade its gaps yet.
+
+---
+
 ## Animations a frame at a time
 
 A spring that overshoots for three frames is over before you can see it. Freeze the

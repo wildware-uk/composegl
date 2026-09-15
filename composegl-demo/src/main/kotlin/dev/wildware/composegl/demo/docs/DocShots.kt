@@ -84,6 +84,7 @@ import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.tint
 import dev.wildware.composegl.ui.modifier.debugBounds
+import dev.wildware.composegl.ui.debug.LayoutOverlay
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -1271,6 +1272,26 @@ private fun MutableList<DocShot>.modifiers() {
                 Scrolling("scrolling", "Sword of a Thousand Truths", delayMillis = 1_500, speed = 40f)
                 Scrolling("coming round", "Sword of a Thousand Truths", delayMillis = 0, speed = 55f)
             }
+        }
+    })
+
+    add(DocShot("layout-overlay", 420, 170) {
+        Box(Modifier.fillMaxSize()) {
+            Frame {
+                // A padded panel with a row of two buttons spaced apart and a label, so the picture has
+                // every kind of mark on it: boxes, padding, gaps, and text ink inside its line box.
+                Column(
+                    Modifier.background(Ink, corner = 6f).padding(18f),
+                    verticalArrangement = Arrangement.spacedBy(10f),
+                ) {
+                    Text("SETTINGS", style = "label.dim")
+                    Row(horizontalArrangement = Arrangement.spacedBy(16f)) {
+                        Button("APPLY", onClick = {})
+                        Button("CANCEL", onClick = {})
+                    }
+                }
+            }
+            LayoutOverlay(enabled = true)
         }
     })
 

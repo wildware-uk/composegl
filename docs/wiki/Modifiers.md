@@ -342,6 +342,10 @@ assertion in a test. Using the node box for any of those over-reports by roughly
 the leading plus the descent: small enough to look like a rounding bug, big enough
 to fail a strict check.
 
+To see all three on a running screen, turn on `LayoutOverlay`: blue for the laid-out
+box, yellow for where a scale draws it, pink for the ink. See
+[Testing](Testing.md#the-layout-on-the-screen).
+
 A few things to know. It magnifies a picture, so past about 1.15 it is visibly
 soft and text is soft sooner — a world that wants to be crisp at three times the
 size wants to be *laid out* three times the size. The capture is the widget's own
@@ -509,6 +513,9 @@ widget's own `modifier` puts it, boxes the whole widget; after a `padding` it bo
 what the padding left. A widget laid out with no width shows as a line, which is
 often the answer. The label's digits are drawn with rectangles, so they need no
 font and look the same on every backend.
+
+For every widget on the screen at once — boxes, padding and the gaps between
+children — use `LayoutOverlay` instead ([Testing](Testing.md#the-layout-on-the-screen)).
 
 ![a panel, its padding, a button and a zero-width box, each outlined with its size](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-debug-bounds.png)
 
