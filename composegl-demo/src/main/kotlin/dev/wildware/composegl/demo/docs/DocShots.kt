@@ -97,6 +97,8 @@ import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.rememberSpriteAnimation
 import dev.wildware.composegl.ui.widget.Checkbox
 import dev.wildware.composegl.ui.widget.Divider
+import dev.wildware.composegl.ui.widget.Dropdown
+import dev.wildware.composegl.ui.widget.PopupHost
 import dev.wildware.composegl.ui.widget.Image
 import dev.wildware.composegl.ui.widget.NumberStepper
 import dev.wildware.composegl.ui.widget.Panel
@@ -554,6 +556,26 @@ private fun MutableList<DocShot>.widgets() {
                 Toggle(false, onCheckedChange = {}, label = "Invert Y")
                 Checkbox(true, onCheckedChange = {}, label = "Remember me")
                 Checkbox(false, onCheckedChange = {}, label = "Hardcore")
+            }
+        }
+    })
+
+    // Opened by a real click on the field, which sits at the top of the frame, so the picture is
+    // the list the toolkit actually opens and lays over the controls underneath.
+    add(DocShot("widget-dropdown", 320, 250, pointer = Offset(124f, 41f), click = true, stock = true) {
+        Frame {
+            PopupHost {
+                Column(verticalArrangement = Arrangement.spacedBy(10f)) {
+                    Dropdown(
+                        options = listOf("1280 x 720", "1600 x 900", "1920 x 1080", "2560 x 1440"),
+                        selected = "1920 x 1080",
+                        onSelect = {},
+                        modifier = Modifier.width(220f),
+                    ) { Text(it) }
+                    Toggle(true, onCheckedChange = {}, label = "V-Sync")
+                    Checkbox(false, onCheckedChange = {}, label = "Show frame rate")
+                    Slider(0.6f, onValueChange = {}, modifier = Modifier.width(220f))
+                }
             }
         }
     })

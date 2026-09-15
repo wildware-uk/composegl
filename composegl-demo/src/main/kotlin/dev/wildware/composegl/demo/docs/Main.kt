@@ -168,12 +168,19 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
     // After layout, because a pointer lands on whatever is under it and nothing is anywhere until
     // the tree has been measured.
     var dragged = false
+    var clicked = false
     ui.onLaidOut = {
         val to = shot.dragTo
         shot.pointer?.let { at ->
             if (to == null) {
                 router.onPointer(PointerEvent.Move(PointerId.Mouse, at))
                 if (shot.press) router.onPointer(PointerEvent.Press(PointerId.Mouse, at))
+                // Once, not every frame: a click every frame on a dropdown opens and closes it in turn.
+                if (shot.click && !clicked) {
+                    clicked = true
+                    router.onPointer(PointerEvent.Press(PointerId.Mouse, at))
+                    router.onPointer(PointerEvent.Release(PointerId.Mouse, at))
+                }
             } else if (!dragged) {
                 // Once, in steps, the way a hand does it: a drag is a gesture rather than a state,
                 // and pressing again every frame would be a new one each time.

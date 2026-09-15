@@ -295,6 +295,21 @@
       "hovered": { "background": { "fill": "#3F6BD6", "corner": 4 } }
     },
 
+    // A dropdown is a field that opens a list. Closed, it looks like something you can type into
+    // rather than a button, because it holds a value; its list is a raised panel of "item"s.
+
+    "dropdown": {
+      "background": { "fill": "#10131A", "corner": 4, "border": "#39445A", "padding": [10, 7] },
+      "hovered": { "background": { "fill": "#1A1F28", "corner": 4, "border": "#4A5670" } },
+      "focused": { "background": { "fill": "#10131A", "corner": 4, "border": "#5B8DEF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#1A1F28", "corner": 4, "border": "#5B8DEF" } },
+      "disabled": { "textColour": "#5E6B7E" }
+    },
+
+    "dropdown.list": {
+      "background": { "fill": "#232A35", "corner": 4, "border": "#39445A", "padding": 4 }
+    },
+
     // --- tabs ---
     //
     // A heading rather than a button: flat until it is the chosen one, which is the one thing a

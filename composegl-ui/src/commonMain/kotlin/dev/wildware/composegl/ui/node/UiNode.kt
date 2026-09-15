@@ -439,6 +439,18 @@ class UiNode(var name: String = "node") {
     val boundsInRoot: Rect get() = inRoot(0f, 0f, width, height)
 
     /**
+     * Where this node is drawn in [ancestor]'s own coordinates: [boundsInRoot], stopping short of
+     * [ancestor] and everything above it.
+     *
+     * For a layer that places something next to a node from inside the same layout pass. Only the
+     * nodes between the two are walked, and the layout pass has already placed every one of them by
+     * the time a later sibling of their subtree is measured — which [boundsInRoot] cannot promise,
+     * because the ancestor's own corner is still last frame's. A node not under [ancestor] at all
+     * gets its rectangle in the root's coordinates.
+     */
+    internal fun boundsIn(ancestor: UiNode): Rect = inRoot(0f, 0f, width, height, until = ancestor)
+
+    /**
      * A rectangle written in this node's own coordinates, in the root's.
      *
      * The walk [boundsInRoot] is: carried up a level at a time, scaled about this level's anchor,
@@ -456,13 +468,14 @@ class UiNode(var name: String = "node") {
         startRight: Float,
         startBottom: Float,
         into: RectCache? = null,
+        until: UiNode? = null,
     ): Rect {
         var left = startLeft
         var top = startTop
         var right = startRight
         var bottom = startBottom
         var node: UiNode? = this
-        while (node != null) {
+        while (node != null && node !== until) {
             // A mirror first, because the draw pass flips the picture in place and then puts it
             // down scaled: a flip about the middle of the node is a flip about its own width.
             if (node.drawnMirrorX) {
