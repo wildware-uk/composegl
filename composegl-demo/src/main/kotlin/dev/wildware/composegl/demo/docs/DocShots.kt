@@ -110,6 +110,9 @@ import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.wrapContentWidth
 import dev.wildware.composegl.ui.saveable.SaveableStateHolder
 import dev.wildware.composegl.ui.saveable.rememberSaveable
+import dev.wildware.composegl.ui.skin.ProvideSkin
+import dev.wildware.composegl.ui.skin.Skin
+import dev.wildware.composegl.ui.skin.styled
 import dev.wildware.composegl.ui.widget.AnimatedImage
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.rememberSpriteAnimation
@@ -631,6 +634,25 @@ private fun MutableList<DocShot>.widgets() {
                 Stepper(listOf("Low", "Medium", "High"), "Medium", onSelect = {})
                 NumberStepper(7, onValueChange = {}, range = 0..10, initialFocus = true)
                 Stepper(listOf("Story", "Normal", "Veteran"), "Story", onSelect = {})
+            }
+        }
+    })
+
+    // The same options panel twice, one in each shipped skin: what a player sees before and after
+    // moving the skin stepper. Same sizes, same places, only the look changed.
+    add(DocShot("skins-switch", 560, 200, stock = true) {
+        Row(Modifier.padding(12f), horizontalArrangement = Arrangement.spacedBy(12f)) {
+            listOf(Skin.Default, Skin.HighContrast).forEach { skin ->
+                ProvideSkin(skin) {
+                    Box(Modifier.size(262f, 176f).styled("panel")) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10f)) {
+                            Text("OPTIONS", style = "label.heading")
+                            Checkbox(true, onCheckedChange = {}, label = "Subtitles")
+                            Stepper(listOf(Skin.Default, Skin.HighContrast), skin, onSelect = {}, label = { it.name }, initialFocus = true)
+                            Button("APPLY", onClick = {}, style = "button.primary")
+                        }
+                    }
+                }
             }
         }
     })

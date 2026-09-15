@@ -38,6 +38,7 @@ internal class SkinWrite(private val art: ArtAtlas?) {
         text.clear()
         depth = 0
         obj {
+            if (skin.name.isNotEmpty()) key("name") { string(skin.name) }
             skin.defaults?.let { key("defaults") { state(it.asState()) } }
             key("styles") {
                 obj {

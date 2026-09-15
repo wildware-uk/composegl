@@ -213,6 +213,54 @@ val source = if (Files.exists(onDisk)) FileSkinSource(onDisk) else Packaged
 
 ---
 
+## Letting the player choose one
+
+High contrast, a colourblind palette, light and dark — each of those is a skin, and
+the player picks it from the options screen while the options screen is open. Keep
+the choice in state and hand it to `ProvideSkin`:
+
+```kotlin
+val skins = listOf(Skin.Default, Skin.HighContrast)
+var skin by remember { mutableStateOf(skins.first()) }
+
+ProvideSkin(skin) {
+    Game()
+    // on the options screen:
+    Stepper(options = skins, selected = skin, onSelect = { skin = it }, label = { it.name })
+}
+```
+
+![The same options panel in the standard skin and in high contrast](images/skins-switch.png)
+
+The frame after the player moves the stepper is drawn entirely in the new skin:
+every background, border and text colour, and text measured again if the new skin's
+sizes or fonts differ. Nothing the player did is lost. What they typed, the boxes
+they ticked, where focus is and what the pointer is over all stay put, because a
+skin change restyles the widgets rather than building them again.
+
+`Skin.HighContrast` ships with the toolkit: black surfaces, white text and edges,
+two-pixel borders, and focus in yellow. It names every style the default does, in
+the same sizes, so switching between the two moves nothing on the screen — the
+stepper the player just used is still under their thumb.
+
+A skin file can say what it is called, which is what `it.name` shows:
+
+```jsonc
+{ "name": "Colourblind", "styles": { … } }
+```
+
+Your own skins work the same way. A `ReloadingSkin` can be one of the choices —
+pass `reloading.skin` when it is the chosen one — and an artist's saves still reach
+the screen while it is. A `SkinOverride` inside the game is laid over whichever skin
+the player chose.
+
+If your game's skin has styles of its own, lay the high-contrast skin over it rather
+than swapping it in, so those styles are still there:
+`remember(mine) { mine.overriddenWith(Skin.HighContrast) }`. Every style the toolkit
+names turns high contrast, and your own keep their look.
+
+---
+
 ## Overriding part of one
 
 ```kotlin

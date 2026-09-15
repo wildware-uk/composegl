@@ -24,12 +24,16 @@ import dev.wildware.composegl.ui.text.FontProvider
  * @param defaults what a style leaves unsaid. A skin sets the game's body font and text colour
  *   here once, rather than in forty styles. Null means [ResolvedStyle.Plain], and is not the same
  *   as passing Plain: a skin laid over another keeps the one underneath unless it names its own.
+ * @param name what a player calls this skin in an options menu — "Standard", "High contrast".
+ *   Nothing in the toolkit reads it; it is there so a list of skins can be shown without a second
+ *   list of their names kept beside it. A skin file says it as `"name"`.
  */
 class Skin(
     val styles: Map<String, Style> = emptyMap(),
     val fonts: FontProvider? = null,
     val art: ArtAtlas? = null,
     val defaults: ResolvedStyle? = null,
+    val name: String = "",
 ) {
 
     /**
@@ -76,7 +80,7 @@ class Skin(
      */
     fun overriddenWith(overrides: Skin): Skin {
         if (overrides.styles.isEmpty() && overrides.fonts == null &&
-            overrides.art == null && overrides.defaults == null
+            overrides.art == null && overrides.defaults == null && overrides.name.isEmpty()
         ) {
             return this
         }
@@ -89,8 +93,12 @@ class Skin(
             fonts = overrides.fonts ?: fonts,
             art = overrides.art ?: art,
             defaults = overrides.defaults ?: defaults,
+            name = overrides.name.ifEmpty { name },
         )
     }
+
+    /** [name], or a note that there is none, so a skin in a debugger or a test failure says which. */
+    override fun toString(): String = "Skin(${name.ifEmpty { "unnamed" }}, ${styles.size} styles)"
 
     companion object {
 
@@ -113,5 +121,23 @@ class Skin(
          * system would not be finished.
          */
         val Default: Skin by lazy { SkinFormat.read(DEFAULT_SKIN_JSON) }
+
+        /**
+         * The default skin for a player who needs to see it more clearly.
+         *
+         * Black behind, white text, a white edge on everything that can be pressed, and focus in
+         * yellow and twice as thick — the accessibility option a player expects to find in an
+         * options menu, shipped so that a game offers it on day one:
+         *
+         * ```kotlin
+         * var skin by remember { mutableStateOf(Skin.Default) }
+         * ProvideSkin(skin) { Game() }
+         * Stepper(listOf(Skin.Default, Skin.HighContrast), skin, { skin = it }, label = { it.name })
+         * ```
+         *
+         * It names every style [Default] names, so a widget looks deliberate in both. Another
+         * ordinary file: `src/commonMain/skins/high-contrast.json`.
+         */
+        val HighContrast: Skin by lazy { SkinFormat.read(HIGH_CONTRAST_SKIN_JSON) }
     }
 }

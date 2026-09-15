@@ -35,6 +35,17 @@ val embedDefaultSkin = tasks.register<EmbedTextAsSource>("embedDefaultSkin") {
     outputDirectory.set(layout.buildDirectory.dir("generated/skin"))
 }
 
+/** The high-contrast skin, embedded the same way and for the same reason. */
+val embedHighContrastSkin = tasks.register<EmbedTextAsSource>("embedHighContrastSkin") {
+    description = "Turns the high-contrast skin file into a Kotlin source file."
+    group = "build"
+    source.set(layout.projectDirectory.file("src/commonMain/skins/high-contrast.json"))
+    packageName.set("dev.wildware.composegl.ui.skin")
+    propertyName.set("HIGH_CONTRAST_SKIN_JSON")
+    // Its own directory: two tasks writing into one would each count the other's file as stale.
+    outputDirectory.set(layout.buildDirectory.dir("generated/skin-high-contrast"))
+}
+
 kotlin {
     jvm()
     linuxX64()
@@ -54,7 +65,10 @@ kotlin {
     compilerOptions { freeCompilerArgs.add("-Xexpect-actual-classes") }
 
     sourceSets {
-        commonMain { kotlin.srcDir(embedDefaultSkin) }
+        commonMain {
+            kotlin.srcDir(embedDefaultSkin)
+            kotlin.srcDir(embedHighContrastSkin)
+        }
 
         commonMain.dependencies {
             api(libs.compose.runtime)

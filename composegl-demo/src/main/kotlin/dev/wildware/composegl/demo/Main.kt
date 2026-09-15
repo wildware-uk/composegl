@@ -89,6 +89,8 @@ class Demo : ApplicationAdapter() {
         val file = Gdx.files.internal("fonts/DejaVuSans.ttf")
         fonts.registerTrueType("body", file, listOf(13, 16, 20))
         fonts.registerTrueType("display", file, listOf(34))
+        // What the toolkit's own skins ask for, so the high-contrast choice in the options has text.
+        fonts.registerTrueType("default", file, listOf(12, 13, 14, 16, 18, 22, 26))
 
         atlas = TextureAtlas(Gdx.files.internal("ui/ui.atlas"))
         // The regions by name, and nothing about what they mean: which one is a panel, where its
