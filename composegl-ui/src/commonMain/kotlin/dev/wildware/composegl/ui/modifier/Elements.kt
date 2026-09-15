@@ -1546,7 +1546,8 @@ const val DefaultDragSlop = 8f
  *   from there — so the thing being dragged is never [slop] behind the pointer. A press that never
  *   goes that far is still a click, if the node is [clickable].
  * - **Capture.** The press takes the pointer, so the drag carries on outside the node and outside
- *   the window. A drag that did start is never a click, wherever it is let go.
+ *   the window, and the node stays pressed however far the pointer outruns it. A drag that did
+ *   start is never a click, wherever it is let go.
  * - **A node that moves.** Deltas are in the node's own units but measured against the screen,
  *   so a window following the pointer does not cancel out its own movement. A node drawn at half
  *   [scale] reports a 10 pixel drag as 20, the same way [onPointer] does.
