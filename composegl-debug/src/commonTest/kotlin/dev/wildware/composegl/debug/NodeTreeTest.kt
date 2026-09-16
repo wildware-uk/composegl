@@ -31,11 +31,13 @@ import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onPlaced
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.testTag
+import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.testing.UiTest
 import dev.wildware.composegl.ui.testing.uiTest
 import dev.wildware.composegl.ui.widget.Button
+import dev.wildware.composegl.ui.widget.Spinner
 import dev.wildware.composegl.ui.widget.Text
 import kotlin.math.abs
 import kotlin.test.AfterTest
@@ -324,6 +326,109 @@ class NodeTreeTest {
         assertTrue(hot.fromRed() < cold.fromRed(), "the counts went red when they ticked: $cold then $hot")
         ui.advanceBy(2000)
         assertEquals(cold, ui.countsDrawn("score"), "and faded back")
+    }
+
+    // --- the flash, widget by widget ----------------------------------------------------------------
+
+    /** How long a flash takes to fade in these tests: six frames, so a fade shows inside a short run. */
+    private val FlashHold = 100
+
+    /** What the test itself drives: the spinner being there, and a number it ticks over by hand. */
+    private class Flashing {
+        var spinning by mutableStateOf(false)
+        var count by mutableStateOf(0)
+    }
+
+    /** The only thing that reads the number, so a tick rebuilds this line and nothing else. */
+    @Composable
+    private fun TickingLine(state: Flashing, modifier: Modifier) = Text("ticks ${state.count}", modifier)
+
+    /**
+     * One of each kind of widget under a tree: a spinner that redraws every frame, a line rebuilt
+     * whenever the test ticks it, and a box that never changes at all.
+     *
+     * The spinner starts off, because a spinner with a tree over it really does change the screen
+     * every frame — the counts beside its name go up — and [UiTest] settles the screen as it opens.
+     * The test turns it on and draws its own frames from there.
+     */
+    private fun openFlashScreen(state: Flashing): UiTest =
+        uiTest(Size(640f, 420f)) {
+            var top by remember { mutableStateOf<UiNode?>(null) }
+            val placed = remember { PlacedHandler { top = it } }
+            Column(Modifier.fillMaxSize()) {
+                Row(Modifier.fillMaxWidth().height(40f).onPlaced(placed)) {
+                    if (state.spinning) Spinner(Modifier.size(14f, 14f).testTag("spin"))
+                    TickingLine(state, Modifier.testTag("tick"))
+                    Box(Modifier.size(20f, 20f).testTag("still"))
+                }
+                NodeTree(top, Modifier.fillMaxWidth().weight(1f), holdMillis = FlashHold)
+            }
+        }.also { opened += it }
+
+    /**
+     * One more frame, and the colour each row's counts came out in — null where a row has no counts
+     * because nothing has ever changed that node. Every colour is from the same frame, which is the
+     * whole point: asking one row at a time would draw a frame between the two answers.
+     */
+    private fun UiTest.countsDrawn(tags: List<String>): Map<String, Colour?> {
+        val canvas = backend.canvas as RecordingCanvas
+        canvas.clear()
+        render()
+        return tags.associateWith { tag ->
+            val box = root.findOrNull(NodeTreeTags.counts(tag))?.boundsInRoot ?: return@associateWith null
+            canvas.calls.filterIsInstance<DrawCall.Text>().lastOrNull { it.at in box }?.colour
+        }
+    }
+
+    /** Whether a row's counts are drawn red rather than in the tree's own text colour. */
+    private fun Colour?.isHot(cold: Colour): Boolean =
+        this != null && fromRed() * 2 < cold.fromRed()
+
+    @Test
+    fun `a widget that redraws every frame is red on every frame`() {
+        val state = Flashing()
+        val ui = openFlashScreen(state)
+        // From here on the test draws its own frames one at a time: nothing settles, because a
+        // spinner under a tree is meant never to settle.
+        state.spinning = true
+        val tags = listOf("spin", "tick", "still")
+        repeat(10) { ui.countsDrawn(tags) }
+        // One tick, left to fade right out, is the tree's own cold colour to measure against.
+        state.count++
+        repeat(12) { ui.countsDrawn(tags) }
+        val cold = assertNotNull(ui.countsDrawn(tags)["tick"], "the ticking line has counts by now")
+
+        val spin = mutableListOf<Boolean>()
+        val tick = mutableListOf<Boolean>()
+        var stillCounted = false
+        val ticked = mutableListOf<Int>()
+        repeat(24) { frame ->
+            if (frame % 6 == 0) {
+                state.count++
+                ticked += frame
+            }
+            val drawn = ui.countsDrawn(tags)
+            spin += drawn["spin"].isHot(cold)
+            tick += drawn["tick"].isHot(cold)
+            if (drawn["still"] != null) stillCounted = true
+        }
+
+        assertEquals(
+            List(24) { true },
+            spin,
+            "a spinner redrawing every frame is the thing the flash exists to catch, so it is red " +
+                "on every frame; it was red on ${spin.count { it }} of 24",
+        )
+        assertTrue(tick.any { it }, "the line that ticks goes red when it ticks: $tick")
+        assertTrue(tick.any { !it }, "and cools off between ticks: $tick")
+        // Red near a tick and nowhere else: a hold of 100ms is six frames, and a row is never redder
+        // than the fade left in it.
+        tick.forEachIndexed { frame, hot ->
+            if (!hot) return@forEachIndexed
+            val since = frame - ticked.last { it <= frame }
+            assertTrue(since <= 6, "frame $frame was red $since frames after the last tick: $tick")
+        }
+        assertFalse(stillCounted, "a box that never changes is never counted and never red")
     }
 
     @Test

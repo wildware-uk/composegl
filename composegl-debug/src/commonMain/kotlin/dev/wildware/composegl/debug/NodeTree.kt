@@ -236,6 +236,17 @@ class NodeTreeState {
      */
     internal var flashNanos by mutableStateOf(NeverChanged)
 
+    /**
+     * When each flashing node last changed, read in the same pass that wrote [flashNanos].
+     *
+     * Both halves of a flash have to be one frame's answer. [flashNanos] is state, so a row is built
+     * again with it a frame after it is written; [UiNode.changedAtNanos] is a plain field that has
+     * moved on by then. A node that changes every frame — a spinner turning — would have already
+     * changed again, so the row would work out a change in the future and draw it cold: the one thing
+     * the flash exists to catch would be the one thing it never caught.
+     */
+    internal var changedAt by mutableStateOf<Map<UiNode, Long>>(emptyMap())
+
     /** The filter the rows were last opened for, so a new one opens them and clearing it puts them back. */
     private var lastFilter = ""
 
@@ -264,6 +275,7 @@ class NodeTreeState {
         // still: the row is only built again because something wrote here.
         val window = if (now == NeverChanged) 0L else maxOf(holdNanos, OneFrameNanos)
         var flashing = false
+        var flashed: HashMap<UiNode, Long>? = null
 
         fun visit(node: UiNode): Boolean {
             // Its own subtree, and the overlays, are the tooling looking at itself: left out so that
@@ -281,15 +293,25 @@ class NodeTreeState {
             if (!mine && here == null) return false
             // Only a node with a row to flash on: one filtered away costs nobody a frame.
             val at = node.changedAtNanos
-            if (at != NeverChanged && now - at in 0 until window) flashing = true
+            if (at != NeverChanged && now - at in 0 until window) {
+                flashing = true
+                // Kept, so the row works its colour out against the frame this was read on rather
+                // than against a time the node has moved on to since.
+                (flashed ?: HashMap<UiNode, Long>().also { flashed = it })[node] = at
+            }
             return true
         }
         visit(root)
 
         val next = NodeTreeView(shown[root] ?: emptyList(), shown)
         if (next != view) view = next
+        // What each flashing node's row ages itself against, kept as it was read here.
+        val times = flashed ?: emptyMap()
+        if (times != changedAt) changedAt = times
         // Written every frame while anything is flashing, which is what builds the rows again so
         // their counts and their colour are this frame's; once, going cold, when the last fade ends.
+        // The times above stand still through a fade — one change, cooling off — so this is what
+        // builds a row again while it cools.
         if (flashing) flashNanos = now else if (flashNanos != NeverChanged) flashNanos = NeverChanged
 
         forgetRowsNotIn(alive)
@@ -352,6 +374,7 @@ class NodeTreeState {
         cleared = true
         if (view !== NodeTreeView.Empty) view = NodeTreeView.Empty
         if (flashNanos != NeverChanged) flashNanos = NeverChanged
+        if (changedAt.isNotEmpty()) changedAt = emptyMap()
         rows.collapseAll()
         savedOpen = null
         openedTo = null
@@ -410,7 +433,7 @@ private fun NodeTreeRow(node: UiNode, state: NodeTreeState, holdNanos: Long) {
             Text(
                 counts,
                 modifier = numbers,
-                colour = colour.lerp(RedrawColour, heatOf(node, now, holdNanos)),
+                colour = colour.lerp(RedrawColour, heatOf(state.changedAt[node], now, holdNanos)),
                 maxLines = 1,
                 softWrap = false,
             )
@@ -418,10 +441,14 @@ private fun NodeTreeRow(node: UiNode, state: NodeTreeState, holdNanos: Long) {
     }
 }
 
-/** How red a row's counts are: full on the frame they ticked, fading to none over the hold. */
-private fun heatOf(node: UiNode, now: Long, holdNanos: Long): Float {
-    val at = node.changedAtNanos
-    if (at == NeverChanged || now == NeverChanged || holdNanos <= 0L) return 0f
+/**
+ * How red a row's counts are: full on the frame they ticked, fading to none over the hold.
+ *
+ * [at] is the time the refresh that wrote [now] read off the node, not the node's own field, so the
+ * two are the same frame's answer however often the node changes.
+ */
+private fun heatOf(at: Long?, now: Long, holdNanos: Long): Float {
+    if (at == null || at == NeverChanged || now == NeverChanged || holdNanos <= 0L) return 0f
     val age = now - at
     if (age < 0L || age >= holdNanos) return 0f
     return 1f - age.toFloat() / holdNanos

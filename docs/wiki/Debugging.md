@@ -274,8 +274,9 @@ NodeTree(inspection, Modifier.width(300f).height(320f))
 
 One real click on that button did all of it: the rows opened down to it and the branches beside
 it stayed folded, its row is the one chosen, it is outlined on the screen, and the panel on the
-right is filled in. The red `c7` near the bottom is a line of the game's own HUD that keeps
-being rebuilt.
+right is filled in. The two red counts near the bottom are what the game is paying for while it
+stands still: `r64` on `spinner #saving`, which redraws every single frame, and `c7` on
+`text #salvage`, a line of the HUD that is rebuilt every few frames.
 
 Sharing one `rememberInspectorState()` is what joins the two: the rows open down to whatever
 the pointer is over, and choosing a row pins that node — outlined in orange on the screen,
