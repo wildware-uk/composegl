@@ -128,6 +128,7 @@ import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.Table
 import dev.wildware.composegl.ui.widget.rememberTableState
 import dev.wildware.composegl.ui.widget.Text
+import dev.wildware.composegl.ui.widget.TooltipHost
 import dev.wildware.composegl.ui.widget.Toggle
 import dev.wildware.composegl.ui.widget.TreeView
 import dev.wildware.composegl.ui.widget.rememberTreeState
@@ -172,76 +173,82 @@ fun ShowcaseUi(
                 // whatever is being carried is drawn over everything, so a crate on its way from the
                 // hold to the locker is never clipped by the panel it is leaving.
                 DragAndDropHost {
-                    Box(Modifier.fillMaxSize().onPlaced(placed).onKeyEvent(hotbar::onKey)) {
-                        if (state.isOn(Exhibit.Hud)) {
-                            CombatHud(state)
-                            Radar(state)
-                            Compass(state)
-                            Abilities(state, hotbar)
+                    // One host for the lot, so anything with a tooltip — a skill node, a widget a
+                    // game adds later — is drawn over every panel rather than inside the one it
+                    // belongs to.
+                    TooltipHost {
+                        Box(Modifier.fillMaxSize().onPlaced(placed).onKeyEvent(hotbar::onKey)) {
+                            if (state.isOn(Exhibit.Hud)) {
+                                CombatHud(state)
+                                Radar(state)
+                                Compass(state)
+                                Abilities(state, hotbar)
+                            }
+
+                            if (state.isOn(Exhibit.Comms)) Comms(state)
+
+                            if (state.isOn(Exhibit.Tracking)) TargetTags(state, projection)
+
+                            if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
+
+                            if (state.isOn(Exhibit.Contacts)) Contacts(state)
+                            if (state.isOn(Exhibit.Tree)) SceneTree(state)
+                            if (state.isOn(Exhibit.Starmap)) StarMap()
+                            if (state.isOn(Exhibit.Skills)) SkillBoard()
+                            if (state.isOn(Exhibit.Telemetry)) Telemetry(state, budget)
+
+                            // Over the scene and under the panels, which is where a hit happens. The game
+                            // fills the pool from its own loop; this only draws it.
+                            if (state.isOn(Exhibit.Sparks)) ParticleLayer(state.sparks, Modifier.fillMaxSize())
+
+                            // The numbers live in the pool the game writes to; this only draws them, through
+                            // the game's own camera.
+                            if (state.isOn(Exhibit.Damage)) {
+                                DamageNumberLayer(state.damage, Modifier.fillMaxSize(), projection)
+                            }
+
+                            ExhibitPanel(state)
+
+                            // Along the bottom, where a conversation goes, and over the HUD it covers a
+                            // little of: somebody talking is the thing to read.
+                            if (state.isOn(Exhibit.Dialogue)) CommsChannel(state)
+
+                            // Over the HUD and under the menus, because a wheel covers the fight but not
+                            // the things that are not part of it.
+                            if (state.isOn(Exhibit.Wheel)) WeaponWheel(state)
+
+                            // Over the HUD like the wheel, because a player looking in the hold is not
+                            // flying: the grids want the right-hand side of the screen to themselves.
+                            if (state.isOn(Exhibit.Cargo)) CargoHold(state)
+
+                            // The bench, and over it the card: a drop's card has to be drawn past the
+                            // panel the drop is sitting in, which is why the layer covers the screen.
+                            if (state.isOn(Exhibit.Salvage)) SalvageBench()
+
+                            // Behind the game's own switch, which is the only place that decision belongs.
+                            if (budget.isOn) {
+                                FrameBudgetOverlay(
+                                    budget,
+                                    Modifier.align(Alignment.TopStart).padding(left = 28f, top = 220f),
+                                )
+                            }
+
+                            // Last, so it is over the scene's panels. Alt or F10 reaches it from the keyboard,
+                            // the pad's View button from a pad.
+                            ShowcaseMenus(state, budget)
+
+                            // And after even that, because a console goes over everything. ` opens it.
+                            ShowcaseConsole(state)
                         }
 
-                        if (state.isOn(Exhibit.Comms)) Comms(state)
+                        // Written here, drawn by the host over the lot, and draggable anywhere. F9 puts them
+                        // away with every other debug window; the Debug menu brings them back.
+                        if (state.tuningOpen) TuningWindow(state)
 
-                        if (state.isOn(Exhibit.Tracking)) TargetTags(state, projection)
-
-                        if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
-
-                        if (state.isOn(Exhibit.Contacts)) Contacts(state)
-                        if (state.isOn(Exhibit.Tree)) SceneTree(state)
-                        if (state.isOn(Exhibit.Starmap)) StarMap()
-                        if (state.isOn(Exhibit.Telemetry)) Telemetry(state, budget)
-
-                        // Over the scene and under the panels, which is where a hit happens. The game
-                        // fills the pool from its own loop; this only draws it.
-                        if (state.isOn(Exhibit.Sparks)) ParticleLayer(state.sparks, Modifier.fillMaxSize())
-
-                        // The numbers live in the pool the game writes to; this only draws them, through
-                        // the game's own camera.
-                        if (state.isOn(Exhibit.Damage)) {
-                            DamageNumberLayer(state.damage, Modifier.fillMaxSize(), projection)
-                        }
-
-                        ExhibitPanel(state)
-
-                        // Along the bottom, where a conversation goes, and over the HUD it covers a
-                        // little of: somebody talking is the thing to read.
-                        if (state.isOn(Exhibit.Dialogue)) CommsChannel(state)
-
-                        // Over the HUD and under the menus, because a wheel covers the fight but not
-                        // the things that are not part of it.
-                        if (state.isOn(Exhibit.Wheel)) WeaponWheel(state)
-
-                        // Over the HUD like the wheel, because a player looking in the hold is not
-                        // flying: the grids want the right-hand side of the screen to themselves.
-                        if (state.isOn(Exhibit.Cargo)) CargoHold(state)
-
-                        // The bench, and over it the card: a drop's card has to be drawn past the
-                        // panel the drop is sitting in, which is why the layer covers the screen.
-                        if (state.isOn(Exhibit.Salvage)) SalvageBench()
-
-                        // Behind the game's own switch, which is the only place that decision belongs.
-                        if (budget.isOn) {
-                            FrameBudgetOverlay(
-                                budget,
-                                Modifier.align(Alignment.TopStart).padding(left = 28f, top = 220f),
-                            )
-                        }
-
-                        // Last, so it is over the scene's panels. Alt or F10 reaches it from the keyboard,
-                        // the pad's View button from a pad.
-                        ShowcaseMenus(state, budget)
-
-                        // And after even that, because a console goes over everything. ` opens it.
-                        ShowcaseConsole(state)
+                        // Outside the Box above on purpose: the tree walks that Box, so a window written
+                        // here is not something it can find, and it never lists the tool looking at it.
+                        if (state.isOn(Exhibit.Nodes)) NodeWindow(state, interfaceRoot)
                     }
-
-                    // Written here, drawn by the host over the lot, and draggable anywhere. F9 puts them
-                    // away with every other debug window; the Debug menu brings them back.
-                    if (state.tuningOpen) TuningWindow(state)
-
-                    // Outside the Box above on purpose: the tree walks that Box, so a window written
-                    // here is not something it can find, and it never lists the tool looking at it.
-                    if (state.isOn(Exhibit.Nodes)) NodeWindow(state, interfaceRoot)
                 }
             }
         }

@@ -4,9 +4,9 @@ The in-play widgets: health bars with a damage trail, a crosshair, hit markers a
 damage direction arcs, a low-health vignette, damage numbers anchored in the world,
 nameplates and waypoints pinned to points in the world, cooldowns, a hotbar, a
 weapon wheel, an inventory grid, a minimap frame, a compass bar, a dialogue box
-with answers and a log, notifications, timed subtitles, item cards that compare a
-drop against what is equipped, and particles. These are
-the ones that made this toolkit worth building.
+with answers and a log, a skill tree, notifications, timed subtitles, item cards
+that compare a drop against what is equipped, and particles. These are the ones
+that made this toolkit worth building.
 
 ---
 
@@ -42,9 +42,9 @@ text that takes a [[ring|Widgets#outlined-text]] only when there is one,
 **Their look is in the skin.** The default and high-contrast [[skins|Skins]]
 already have every style these use (`bar.*`, `reticle.*`, `hitmarker.*`,
 `damage.*`, `vignette`, `marker.*`, `cooldown.*`, `hotbar.*`, `wheel.*`,
-`inventory.*`, `minimap.*`, `compass.*`, `dialogue.*`, `notification.*`,
-`subtitle.*`, `itemtip.*`), so they look right with no setup. Your own skin file
-styles them by the same names.
+`inventory.*`, `minimap.*`, `compass.*`, `dialogue.*`, `skilltree.*`,
+`notification.*`, `subtitle.*`, `itemtip.*`), so they look right with no setup.
+Your own skin file styles them by the same names.
 
 `Typewriter`, `PromptGlyph` and `ProvidePrompts` stay in `composegl-ui`: they
 are not only for games, and the [dialogue box](#dialogue) here is built on the
@@ -1089,6 +1089,109 @@ Its own menu entries read `inventory.split.half`, `inventory.split.some`,
 `inventory.rotate`, `inventory.split.title`, `inventory.split.confirm` and
 `inventory.cancel` from your [[strings|Localisation]], and keep their English
 when a key has not been translated.
+
+## Skill trees
+
+```kotlin
+val skills = listOf(
+    SkillNode("power", x = 0f, y = 0f, rank = 1, label = "R", tooltip = "Reactor"),
+    SkillNode("guns", x = 130f, y = -80f, ranks = 3, label = "G", tooltip = "Autocannon"),
+    SkillNode("shield", x = 130f, y = 80f, ranks = 2, label = "S", tooltip = "Shield"),
+)
+val links = listOf(SkillEdge("power", "guns"), SkillEdge("power", "shield"))
+
+val camera = rememberPanZoomState(bounds = remember { skillTreeBounds(skills) })
+
+SkillTree(
+    nodes = skills,
+    edges = links,
+    state = camera,
+    onActivate = { buy(it.id) },
+)
+```
+
+A graph of unlockable nodes joined by lines: a skill tree, a tech tree, a talent
+grid, a constellation board. It is a [[pan-and-zoom canvas|Widgets#panning-and-zooming]]
+with the graph on it, so it drags, wheels, pinches and double-clicks like one, and
+every node is an ordinary widget laid out in world units — as sharp at three times
+its size as at its own.
+
+![a six-node upgrade board: a gold reactor on the left with every rank bought, a green autocannon reading 2 / 3 above it, a blue shield reading 0 / 2 below it, a blue burst node, and two grey nodes still shut; the line from the reactor to the autocannon is green, the two lines to the open nodes are blue, and the rest are grey](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-skill-tree.png)
+
+### The tree works out each node's state
+
+You say how many ranks a node has and how many are bought. It says what that
+means:
+
+| State | When |
+|---|---|
+| `Available` | nothing bought, and everything leading into it is bought |
+| `Owned` | some ranks bought, some left |
+| `Maxed` | every rank bought |
+| `Locked` | anything else |
+
+A node with no line into it is a root and starts `Available`. `unlock =
+SkillUnlock.All` (the default) makes a node with two lines into it wait for both,
+which is what a tech tree wants; `SkillUnlock.Any` opens it on either, which is
+what a talent grid wants.
+
+The one decision left to the game is `SkillNode.enabled`: "will I let you, right
+now" — enough points, high enough level, the right class. A node switched off
+never becomes `Available`, and ranks already bought stay bought.
+
+```kotlin
+SkillNode(id = "guns", x = 130f, y = -80f, ranks = 3, rank = spent["guns"] ?: 0, enabled = points > 0)
+```
+
+### Taking a node is a hold
+
+`onActivate` is called only for a node that can really be taken, so the game can
+spend the point without asking again. It takes a **hold**, not a click —
+`holdMillis`, the toolkit's own long press — so a mis-click never spends a point,
+and the node fills clockwise while it is held to say how long "held" is. The same
+hold comes from the mouse, from Enter and from the pad's South button. Pass
+`holdMillis = 0` for a tree where a point is cheap and a click should buy.
+
+![the same board with the mouse held down on the shield node: a pale wedge has swept about two thirds of the way round it, clockwise from the top](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-skill-tree-hold.png)
+
+### The pad follows the lines
+
+A direction from a node goes along whichever line leaves it nearest that way.
+Only where no line goes that way does the toolkit's ordinary
+[[nearest-in-direction search|Input#focus]] take over, so a tree with
+a gap in it still walks. The camera eases to keep the focused node in view, and a
+game can fly it anywhere itself:
+
+```kotlin
+camera.animateTo(centre = Offset(skill.x, skill.y), zoom = 1.5f)
+```
+
+### The lines are one pass, not a node each
+
+They are drawn by the canvas's background in world units, tinted by what they
+join, and lines with no part in view are skipped — so a tree of a thousand links
+costs the few dozen on screen. When a node is taken, the lines that opened it fill
+from the old node to the new one over `unlockMillis`.
+
+`skilltree.node.locked`, `.available`, `.owned` and `.maxed` are the four frames,
+`skilltree.hold` the sweep of a hold, `skilltree.rank` the "2 / 3" under a node
+with more than one, `skilltree.plane` the backdrop, and `skilltree.edge.locked`,
+`.available`, `.owned` and `.fill` the lines.
+
+**Tooltips need a host.** A `SkillNode.tooltip` is an ordinary
+[[Tooltip|Widgets#tooltips-and-prompts]], so the screen needs a `TooltipHost` round it — which
+is also what makes it work from a pad, where nothing is ever hovered. Nodes with
+no tooltip need no host.
+
+**Drawing a node yourself.** The default draws the node's icon or its label inside
+the skin's frame. Pass `content` for your own art, and use `SkillNodeIcon` for the
+nodes you do not want to change:
+
+```kotlin
+SkillTree(nodes = skills, edges = links, state = camera, onActivate = ::buy) { node, state ->
+    if (node.id == "ultimate") Ultimate(node, state) else SkillNodeIcon(node, state)
+}
+```
 
 ## Particles
 

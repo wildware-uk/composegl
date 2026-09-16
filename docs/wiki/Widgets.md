@@ -889,7 +889,7 @@ PanZoomCanvas(
 ) {
     skills.forEach { skill ->
         key(skill.id) {
-            SkillNode(skill, Modifier.worldPosition(skill.x, skill.y, anchor = Alignment.Centre))
+            TalentIcon(skill, Modifier.worldPosition(skill.x, skill.y, anchor = Alignment.Centre))
         }
     }
 }
@@ -897,6 +897,10 @@ PanZoomCanvas(
 camera.animateTo(centre = Offset(skill.x, skill.y), zoom = 1.5f)
 val world = camera.screenToWorld(pointer)
 ```
+
+A skill tree built on this — node states worked out from the graph, lines tinted
+by what they join, the pad walking the branches — comes ready made as
+[[SkillTree|Game-widgets#skill-trees]] in `composegl-game`.
 
 ![a world map zoomed in on Thornfell, Redhollow and Castle Vey, with roads between the pins and a "you are here" marker](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-panzoom-map.png)
 

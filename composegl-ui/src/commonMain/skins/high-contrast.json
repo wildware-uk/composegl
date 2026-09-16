@@ -450,6 +450,58 @@
     "itemtip.flavour": { "textColour": "#FFFFFF", "text": { "size": 12 } },
     "itemtip.hint": { "textColour": "#FFFFFF", "text": { "size": 12 } },
 
+    // A skill tree. With only black, white and yellow to spend, the states are told apart by how
+    // solid they are rather than by hue: locked is an outline, available is the yellow this skin
+    // uses for "here", owned is white, and maxed is white filled in. Focus is still the yellow
+    // edge, so the node a pad is standing on is never in doubt even when it is already owned.
+
+    "skilltree.plane": {
+      "background": { "fill": "#000000" },
+      "focused": { "background": { "fill": "#000000", "border": "#FFD600", "borderWidth": 2 } }
+    },
+
+    "skilltree.node.locked": {
+      "background": { "fill": "#000000", "corner": 8, "border": "#B0B0B0", "borderWidth": 2 },
+      "textColour": "#B0B0B0",
+      "hovered": { "background": { "fill": "#333333", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#000000", "corner": 8, "border": "#FFD600", "borderWidth": 2 } },
+      "disabled": { "textColour": "#B0B0B0", "tint": "#90FFFFFF" }
+    },
+
+    "skilltree.node.available": {
+      "background": { "fill": "#000000", "corner": 8, "border": "#FFD600", "borderWidth": 2 },
+      "textColour": "#FFD600",
+      "hovered": { "background": { "fill": "#333333", "corner": 8, "border": "#FFE866", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#333333", "corner": 8, "border": "#FFE866", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#000000", "corner": 8, "border": "#FFD600", "borderWidth": 2 } },
+      "disabled": { "textColour": "#B0B0B0", "tint": "#90FFFFFF" }
+    },
+
+    "skilltree.node.owned": {
+      "background": { "fill": "#000000", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 },
+      "textColour": "#FFFFFF",
+      "hovered": { "background": { "fill": "#333333", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#333333", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#000000", "corner": 8, "border": "#FFD600", "borderWidth": 2 } },
+      "disabled": { "textColour": "#B0B0B0", "tint": "#90FFFFFF" }
+    },
+
+    "skilltree.node.maxed": {
+      "background": { "fill": "#FFFFFF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 },
+      "textColour": "#000000",
+      "hovered": { "background": { "fill": "#E0E0E0", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#FFD600", "borderWidth": 2 } },
+      "disabled": { "textColour": "#000000", "tint": "#90FFFFFF" }
+    },
+
+    "skilltree.hold": { "background": { "fill": "#A0FFD600" } },
+    "skilltree.rank": { "textColour": "#FFFFFF", "text": { "size": 12 } },
+
+    "skilltree.edge.locked": { "background": { "fill": "#99B0B0B0" } },
+    "skilltree.edge.available": { "background": { "fill": "#FFFFD600" } },
+    "skilltree.edge.owned": { "background": { "fill": "#FFFFFFFF" } },
+    "skilltree.edge.fill": { "background": { "fill": "#FFFFE866" } },
+
     // The crosshair. Off-white rather than white, because a pure white crosshair disappears over
     // a bright sky; the hostile colour is the one thing on screen allowed to be that red.
 

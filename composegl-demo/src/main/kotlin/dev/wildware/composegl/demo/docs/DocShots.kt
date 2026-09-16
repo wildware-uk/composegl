@@ -85,6 +85,9 @@ import dev.wildware.composegl.game.Cooldown
 import dev.wildware.composegl.game.RadialCooldown
 import dev.wildware.composegl.game.RadialMenu
 import dev.wildware.composegl.game.Reticle
+import dev.wildware.composegl.game.SkillEdge
+import dev.wildware.composegl.game.SkillNode
+import dev.wildware.composegl.game.SkillTree
 import dev.wildware.composegl.game.SubtitleQueue
 import dev.wildware.composegl.game.SubtitleSettings
 import dev.wildware.composegl.game.SubtitleSize
@@ -92,6 +95,7 @@ import dev.wildware.composegl.game.Subtitles
 import dev.wildware.composegl.game.rememberCompassLabels
 import dev.wildware.composegl.game.rememberCooldown
 import dev.wildware.composegl.game.rememberReticleState
+import dev.wildware.composegl.game.skillTreeBounds
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Shape
@@ -282,6 +286,7 @@ internal fun docShots(): List<DocShot> = buildList {
     worldMarkers()
     compasses()
     wheels()
+    skillTrees()
     firefight()
     subtitleScenes()
     dialogueScenes()
@@ -5489,6 +5494,77 @@ private fun MirrorPanel() {
             }
         }
     }
+}
+
+// ---------------------------------------------------------------- skill trees
+
+/** The upgrades on the tree in the pictures: where each sits, and how many ranks are bought. */
+private val TreeSkills = listOf(
+    SkillNode("core", 0f, 0f, rank = 1, label = "R"),
+    SkillNode("guns", 110f, -70f, ranks = 3, rank = 2, label = "G"),
+    SkillNode("shield", 110f, 70f, ranks = 2, label = "S"),
+    SkillNode("burst", 220f, -70f, label = "B"),
+    SkillNode("cloak", 220f, 70f, label = "C"),
+    SkillNode("drive", 330f, 0f, label = "D"),
+)
+
+private val TreeLinks = listOf(
+    SkillEdge("core", "guns"),
+    SkillEdge("core", "shield"),
+    SkillEdge("guns", "burst"),
+    SkillEdge("shield", "cloak"),
+    SkillEdge("burst", "drive"),
+    SkillEdge("cloak", "drive"),
+)
+
+/**
+ * A ship's upgrade board, for the pictures of the skill tree.
+ *
+ * Nothing here says what state a node is in: the tree works that out from the ranks and the lines,
+ * which is why the picture shows all four at once — the reactor maxed, the autocannon two of three,
+ * the shield and the burst open, and the cloak and the overdrive still shut.
+ */
+@Composable
+private fun SkillTreeScene() {
+    val camera = rememberPanZoomState(
+        zoom = 0.8f,
+        minZoom = 0.5f,
+        maxZoom = 1.8f,
+        bounds = remember { skillTreeBounds(TreeSkills, margin = 60f) },
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+        Text("Hold a node to buy it", style = "label.dim")
+        SkillTree(
+            nodes = TreeSkills,
+            edges = TreeLinks,
+            modifier = Modifier.size(400f, 224f),
+            state = camera,
+        )
+    }
+}
+
+private fun MutableList<DocShot>.skillTrees() {
+    // All four node states in one picture, and the lines tinted by what they join: green where a
+    // point has been spent, blue where the next one can go, and grey where it cannot go yet.
+    add(
+        DocShot("game-skill-tree", 460, 280, stock = true, seconds = 0.3f) {
+            Frame { SkillTreeScene() }
+        },
+    )
+
+    // The shield held down, three tenths of a second into the half-second hold: the sweep round the
+    // node is how much of the hold is done. Letting go now buys nothing.
+    add(
+        DocShot(
+            "game-skill-tree-hold", 460, 280,
+            pointer = Offset(186f, 208f),
+            press = true,
+            stock = true,
+            seconds = 0.3f,
+        ) {
+            Frame { SkillTreeScene() }
+        },
+    )
 }
 
 // ---------------------------------------------------------------- being shot at, and landing shots

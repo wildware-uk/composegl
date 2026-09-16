@@ -125,7 +125,7 @@ enum class PanZoomReset {
  * ) {
  *     skills.forEach { skill ->
  *         key(skill.id) {
- *             SkillNode(skill, Modifier.worldPosition(skill.x, skill.y, anchor = Alignment.Centre))
+ *             TalentIcon(skill, Modifier.worldPosition(skill.x, skill.y, anchor = Alignment.Centre))
  *         }
  *     }
  * }
