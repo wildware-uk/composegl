@@ -442,10 +442,8 @@ window full of tweakables, a codex chapter. imgui calls it `CollapsingHeader` to
 ```kotlin
 Column(Modifier.width(320f)) {
     CollapsingHeader("Physics", initiallyExpanded = true) {
-        Column {
-            Slider(gravity, onValueChange = { gravity = it }, range = 0f..20f)
-            Toggle(ragdolls, onCheckedChange = { ragdolls = it }, label = "Ragdolls")
-        }
+        Slider(gravity, onValueChange = { gravity = it }, range = 0f..20f)
+        Toggle(ragdolls, onCheckedChange = { ragdolls = it }, label = "Ragdolls")
     }
     CollapsingHeader("Audio") {
         Slider(volume, onValueChange = { volume = it })
@@ -454,6 +452,15 @@ Column(Modifier.width(320f)) {
 ```
 
 ![three headers on a settings page: Physics open with a slider and a Ragdolls toggle under it, Audio and Graphics folded with their triangles pointing right](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-collapsing-header.png)
+
+The contents are a column: each thing you put in goes under the one before, so
+the slider and the toggle above need no `Column` of their own.
+
+> **Changed since 0.6.0.** In 0.6.0 the contents were a `Box`, so several things
+> passed straight into a header were all drawn on top of each other at its top-left
+> corner. They now stack one under another. A section that already wraps its rows
+> in a `Column` looks the same as before. A section that relied on the pile-up to
+> layer things, such as a label over a picture, should wrap those in its own `Box`.
 
 A click, Enter, Space or the pad's South opens or closes it. The contents grow in
 and shrink away with `animateContentSize`, so the sections under it slide instead of
