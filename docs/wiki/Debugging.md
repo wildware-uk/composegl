@@ -716,6 +716,17 @@ LaunchedEffect(Unit) {
 Plot(frameTimes, Modifier.size(240f, 60f), range = 0f..33f, guides = listOf(16.6f), label = "frame")
 ```
 
+![a debug window titled Telemetry over a game, holding a line graph of frame times with one tall spike in it, above lines reading Alive 9 and Wave 3](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/plot-window.png)
+
+The spike in that graph is the wave of drones behind it arriving: the frame they land on really
+does cost what the graph says, and the count under it is the same number the scene is drawn from.
+An average over that second would have hidden the whole thing.
+
+Here it is with the shutter left open — the wave lands, the graph takes the spike, and the trace
+carries it away to the left while the drones are shot down again:
+
+![a live graph of frame times: the trace fills from the left, a spike arrives when the drones do, and scrolls away as the drone count falls](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/plot-live.gif)
+
 `rememberPlotBuffer` is a ring of the last `capacity` numbers. Pushing one drops the oldest
 and **allocates nothing**, so a plot fed every frame for an hour costs what it cost on the
 first frame.
@@ -747,6 +758,12 @@ first frame.
   a graph of 240 samples is one batch rather than 240. It is also why nothing here clips: a
   clip flushes the batch, so the drawing holds itself inside its box by arithmetic.
 
+Pointing at the spike is how it gets a number put on it. The cursor is on the sample under the
+pointer, and the corner says what that sample was — 28.69 ms, which is also the largest of the
+window, written at the bottom right:
+
+![a frame time graph with the pointer on its spike: an upright orange line and a dot mark the sample, and the corner reads 28.69](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/plot-hover.png)
+
 `Histogram` is the same thing drawn as bars, for how often rather than when — a count per
 bucket, standing on zero:
 
@@ -768,6 +785,12 @@ already has, so asking every frame allocates nothing either.
 An array is read as it stands each time the screen recomposes; a `PlotBuffer` counts its own
 changes, so a plot of one is redrawn when a sample arrives and at no other time.
 
+Stack as many as the question needs. These three are the same moment three ways: what the frame
+cost, how many drones are up, and what the guns landed. The step in the middle graph and the spike
+in the top one are the same wave arriving.
+
+![three graphs stacked in one debug window: a line of frame times with a spike, a line of drone counts stepping up then down, and a histogram of hits](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/plot-stack.png)
+
 ### What it looks like
 
 Everything comes from the skin, under `style` — `"plot"` by default:
@@ -786,6 +809,12 @@ Everything comes from the skin, under `style` — `"plot"` by default:
 For a graph that has to read the same over anything — one lying over the game — pass
 `colours = PlotColours(line = …, fill = …, guide = …, cursor = …, bar = …)` and the skin is
 not asked. That is what the frame budget overlay does with its own.
+
+The same window in the high-contrast skin, on a right-to-left screen. Nothing was changed for it:
+the skin names its own colours, and the graph runs the other way because everything the toolkit
+lays out does, so the newest sample is on the left and the readout reads from the right.
+
+![a Telemetry window in the high-contrast skin, reading from the right, its frame time graph mirrored so the newest sample is on the left and the spike sits to the right of it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/plot-rtl.png)
 
 ### The frame budget's own graph
 

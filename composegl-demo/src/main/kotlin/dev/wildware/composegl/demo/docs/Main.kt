@@ -67,7 +67,7 @@ fun main() {
     fonts.register("body", typeface, scaledTextSizes(listOf(12, 13, 16, 20), listOf(1f, 1.25f, 1.5f)))
     fonts.register("display", typeface, listOf(34))
     // What the toolkit's own skin asks for, for the pictures taken without the example's skin.
-    fonts.register("default", typeface, listOf(12, 13, 14, 16, 18, 22, 26))
+    fonts.register("default", typeface, listOf(11, 12, 13, 14, 16, 18, 22, 26))
     // Where characters DejaVu does not have come from, for the chat picture. Small cuts of Noto
     // Sans CJK holding only what that picture says, and Noto's emoji as pictures, at every size any
     // family above is asked for.
