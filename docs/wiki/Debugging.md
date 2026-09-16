@@ -3,7 +3,8 @@
 The tools for finding out why a screen looks or costs what it does, and for changing the game
 while it runs: floating windows of controls wired straight to your own properties, an overlay
 for the layout, an inspector to point at one widget, a browsable tree of the whole screen, a
-console for typing commands at a running game, and overlays for overdraw, draw calls, focus,
+console for typing commands at a running game, live graphs of numbers that change every frame,
+and overlays for overdraw, draw calls, focus,
 redraws and the lines inside text. Each one is drawn by the toolkit itself, so it looks the
 same on every backend.
 
@@ -38,15 +39,21 @@ import dev.wildware.composegl.debug.DebugWindowHost
 import dev.wildware.composegl.debug.DevConsole
 import dev.wildware.composegl.debug.FocusOverlay
 import dev.wildware.composegl.debug.FrameBudgetOverlay
+import dev.wildware.composegl.debug.Histogram
 import dev.wildware.composegl.debug.Inspector
 import dev.wildware.composegl.debug.LayoutOverlay
 import dev.wildware.composegl.debug.NodeTree
+import dev.wildware.composegl.debug.Plot
 import dev.wildware.composegl.debug.arg
 import dev.wildware.composegl.debug.rememberDevConsole
+import dev.wildware.composegl.debug.rememberPlotBuffer
 ```
 
-In 0.5.0 these were in `composegl-ui`, in `dev.wildware.composegl.ui.debug`. Moving to
-`composegl-debug` changes the import and adds the dependency; nothing else about them changed.
+The overlays, the inspector and the console were in `composegl-ui` in 0.5.0, in
+`dev.wildware.composegl.ui.debug`. Moving to `composegl-debug` changes the import and adds the
+dependency; nothing else about them changed. `Plot`, `Histogram`, `rememberPlotBuffer` and
+`NodeTree` are new here and were in no earlier version.
+
 What the renderer measures is still in `composegl-ui`, in `dev.wildware.composegl.ui.debug`:
 `FrameBudget`, `DrawCallTrace`, `OverdrawMap` and `measureOverdraw`, so a test can hold a screen to
 a budget with no debug module at all.
@@ -683,6 +690,110 @@ to, or its hint's when it is empty — typewriters, tooltips and the letter on a
 `PromptGlyph`. A typewriter shows every line as it will stand once typed, so the
 guides do not crawl along with the letters. Damage numbers and a minimap's compass
 letters are not marked yet.
+
+---
+
+## Graphing a number that changes every frame
+
+A frame time printed as `7.31 ms` is unreadable at sixty hertz, and it says nothing about
+the spike that made the game stutter a second ago. `Plot` draws the same numbers as a line,
+where the spike is obvious:
+
+```kotlin
+import dev.wildware.composegl.debug.Plot
+import dev.wildware.composegl.debug.rememberPlotBuffer
+
+val frameTimes = rememberPlotBuffer(capacity = 240)
+
+LaunchedEffect(Unit) {
+    var last = 0L
+    while (true) withFrameNanos { now ->
+        if (last != 0L) frameTimes.add((now - last) / 1_000_000f)
+        last = now
+    }
+}
+
+Plot(frameTimes, Modifier.size(240f, 60f), range = 0f..33f, guides = listOf(16.6f), label = "frame")
+```
+
+`rememberPlotBuffer` is a ring of the last `capacity` numbers. Pushing one drops the oldest
+and **allocates nothing**, so a plot fed every frame for an hour costs what it cost on the
+first frame.
+
+- **The range.** With no `range` the graph scales itself to what it holds, and to the values
+  `guides` names, so a guide is never off the top. A fixed range is the honest one for a
+  frame budget: a graph that rescales itself makes every frame look equally bad. A value
+  outside the range is drawn flat against the edge rather than dropped. A series that never
+  changes is given room either side of its value, so a steady sixty runs across the middle
+  of the box instead of along its bottom edge, where it would read as nothing.
+- **Numbers that are not numbers.** A `NaN` or an infinity — a ping before the first reply,
+  a ratio over a zero denominator — is left out of the range, left out of the readout, and
+  leaves a gap in the trace, rather than taking the rest of the graph with it. Pointing at
+  the gap itself reads `-`, and so does the readout of a graph holding nothing else.
+- **Guides** are the horizontal rules: a frame budget, a target latency, a threshold.
+- **The readout** in the corners is the smallest, the mean and the largest of what is held,
+  with the newest value at the top right. Of the samples, not of the range: a plot drawn
+  against `0f..33f` still says the frame times really were 5 to 7 milliseconds.
+  `readout = false` leaves the graph bare.
+- **Hovering** picks out the sample under the pointer and puts its number in the corner.
+  `focusable = true` makes the graph somewhere Tab and the pad can go as well, and then Left
+  and Right — arrows, stick or D-pad — walk the cursor a sample at a time, Home and End jump
+  to the ends, and Escape puts it away.
+- **A column a sample.** A column is the width divided by the buffer's `capacity`, so a
+  buffer filling up grows from the left at a steady scale and a full one scrolls. On a
+  right-to-left screen it runs the other way, newest on the left.
+- **One draw call.** The guides, the fill, every segment of the line and the cursor are all
+  quads of the same kind a rectangle is, drawn one after another with nothing in between, so
+  a graph of 240 samples is one batch rather than 240. It is also why nothing here clips: a
+  clip flushes the batch, so the drawing holds itself inside its box by arithmetic.
+
+`Histogram` is the same thing drawn as bars, for how often rather than when — a count per
+bucket, standing on zero:
+
+```kotlin
+Histogram(buckets, Modifier.size(240f, 60f), label = "hits per second")
+```
+
+Both take a `FloatArray` as well as a buffer, for numbers something else is already keeping:
+
+```kotlin
+val frames = remember { FloatArray(budget.window) }
+val count = budget.recentFrameMillis(frames)      // how many were written
+Histogram(frames, Modifier.fillMaxWidth().height(40f), count = count)
+```
+
+`FrameBudget.recentFrameMillis` is in `composegl-ui`, and copies into an array the caller
+already has, so asking every frame allocates nothing either.
+
+An array is read as it stands each time the screen recomposes; a `PlotBuffer` counts its own
+changes, so a plot of one is redrawn when a sample arrives and at no other time.
+
+### What it looks like
+
+Everything comes from the skin, under `style` — `"plot"` by default:
+
+| Style | What it is |
+|---|---|
+| `plot` | the box: its background, its border and the padding the readout is written in |
+| `plot.line` | the trace, as its text colour |
+| `plot.fill` | the wash under the trace. A skin that does not name it gets no fill |
+| `plot.guide` | the horizontal rules |
+| `plot.cursor` | the upright line and dot at the sample being read |
+| `plot.bar` | a histogram's bars |
+| `plot.label` | the label and the min, mean and max |
+| `plot.value` | the value under the cursor |
+
+For a graph that has to read the same over anything — one lying over the game — pass
+`colours = PlotColours(line = …, fill = …, guide = …, cursor = …, bar = …)` and the skin is
+not asked. That is what the frame budget overlay does with its own.
+
+### The frame budget's own graph
+
+`FrameBudgetOverlay` draws one under its numbers, from the budget's whole window, with a rule
+across it at `overMillis`. An average says what a frame usually costs; the graph is where the
+stutter nobody can average away is. It costs the screen no extra redraws — the overlay is
+already refreshed four times a second, and each refresh draws the last hundred and twenty
+frames at once. `FrameBudgetOverlay(budget, graph = false)` leaves it out.
 
 ---
 

@@ -282,6 +282,11 @@ interface UiCanvas {
      * radius, no stroke. Whatever wants a circle walks one itself, at whatever smoothness it is
      * being drawn at, which is the only place that knows.
      *
+     * **[points] is read during the call and no longer.** The caller may reuse the array the moment
+     * this returns, and callers that draw many small fans a frame — a plot's trace is one a segment
+     * — do exactly that, handing over the same scratch array hundreds of times. An implementation
+     * that keeps a fan to flush later has to copy the numbers out, not hold on to the array.
+     *
      * Fewer than three points draws nothing.
      */
     fun fan(points: FloatArray, colour: Colour)

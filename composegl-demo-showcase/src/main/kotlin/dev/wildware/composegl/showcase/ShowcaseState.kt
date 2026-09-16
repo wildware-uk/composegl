@@ -25,6 +25,7 @@ enum class Exhibit(val title: String, val blurb: String) {
     Tree("Scene tree", "Rows that open, by mouse or pad"),
     Starmap("Star map", "A plane to drag and zoom"),
     Nodes("UI tree", "The live interface, and what keeps changing"),
+    Telemetry("Live plots", "Heat and frame time as graphs"),
 }
 
 /** How often the fight fires, as a debug window offers it. */
