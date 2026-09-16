@@ -546,6 +546,11 @@ state.scrollToItem(120)   // brings the row item 120 is in to the top
   cell, Tab walks across then down, and moving onto a row below the fold scrolls
   it into view.
 
+A grid of slots is not the same thing as a bag with rules in it. When the items
+stack, split, or take up more than one square,
+[[InventoryGrid|Game-widgets#the-inventory-grid]] in `composegl-game` is that,
+lazy rows included.
+
 `LazyHorizontalGrid(count, rows = GridCells.Fixed(2))` is the same lying down: it
 fills down, then across, and scrolls sideways.
 

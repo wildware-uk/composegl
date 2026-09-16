@@ -71,6 +71,10 @@ import dev.wildware.composegl.game.rememberDamageDirections
 import dev.wildware.composegl.game.rememberHitMarkerState
 import dev.wildware.composegl.game.Hotbar
 import dev.wildware.composegl.game.HotbarSlot
+import dev.wildware.composegl.game.InventoryCell
+import dev.wildware.composegl.game.InventoryGrid
+import dev.wildware.composegl.game.InventoryItem
+import dev.wildware.composegl.game.InventoryState
 import dev.wildware.composegl.game.MinimapFrame
 import dev.wildware.composegl.game.MinimapMarker
 import dev.wildware.composegl.game.OffScreen
@@ -1621,6 +1625,48 @@ private fun MutableList<DocShot>.game() {
             )
         }
     })
+
+    // The crate picked up by its bottom-right square and carried to the corner, still held: the
+    // picture under the hand, and the two-by-two footprint drawn ahead of it where it would land.
+    add(
+        DocShot(
+            "game-inventory",
+            330,
+            230,
+            pointer = Offset(165f, 165f),
+            dragTo = Offset(290f, 90f),
+            hold = true,
+        ) {
+            Frame {
+                DragAndDropHost {
+                    InventoryGrid(state = remember { docBag() }, cellSize = 44f, spacing = 6f) { item ->
+                        Text(item.kind.toString(), maxLines = 1)
+                    }
+                }
+            }
+        },
+    )
+
+    // The same bag with the rifle carried over the crate, where two squares of it would land on
+    // something: the footprint goes red before the player has let go of anything.
+    add(
+        DocShot(
+            "game-inventory-refused",
+            330,
+            230,
+            pointer = Offset(90f, 40f),
+            dragTo = Offset(190f, 140f),
+            hold = true,
+        ) {
+            Frame {
+                DragAndDropHost {
+                    InventoryGrid(state = remember { docBag() }, cellSize = 44f, spacing = 6f) { item ->
+                        Text(item.kind.toString(), maxLines = 1)
+                    }
+                }
+            }
+        },
+    )
 
     // The sweep is a dark wedge drawn over the ability, so a shot of one with nothing underneath
     // is a black square. The icon and the slot behind it are what it is covering.
@@ -4622,6 +4668,24 @@ private val MarkerPatches = listOf(
     MarkerSolid(-19f, 30f, 3.8f, 0f),
     MarkerSolid(4f, 36f, 4.6f, 0f),
     MarkerSolid(-28f, 44f, 5f, 1f),
+)
+
+/**
+ * The bag both inventory pictures are taken of: a long rifle, a stack of cells, a crate two squares
+ * square and a medkit in the corner.
+ *
+ * One bag rather than two, so the picture of a drop that fits and the picture of one that does not
+ * are plainly the same bag.
+ */
+private fun docBag() = InventoryState(
+    columns = 6,
+    rows = 4,
+    items = listOf(
+        InventoryItem(id = "rifle", kind = "RIFLE", at = InventoryCell(0, 0), width = 2, height = 1),
+        InventoryItem(id = "cells", kind = "CELL", at = InventoryCell(0, 1), count = 12, stackLimit = 20),
+        InventoryItem(id = "crate", kind = "CRATE", at = InventoryCell(2, 2), width = 2, height = 2),
+        InventoryItem(id = "medkit", kind = "MED", at = InventoryCell(5, 3)),
+    ),
 )
 
 // ---------------------------------------------------------------- the compass bar

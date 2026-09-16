@@ -11,6 +11,9 @@ import dev.wildware.composegl.game.DamageNumbers
 import dev.wildware.composegl.game.DialogueLine
 import dev.wildware.composegl.game.DialogueLog
 import dev.wildware.composegl.game.HitMarkerState
+import dev.wildware.composegl.game.InventoryCell
+import dev.wildware.composegl.game.InventoryItem
+import dev.wildware.composegl.game.InventoryState
 import dev.wildware.composegl.game.ParticleEmitter
 import dev.wildware.composegl.game.ParticleStyle
 import dev.wildware.composegl.game.SubtitleSize
@@ -34,6 +37,7 @@ enum class Exhibit(val title: String, val blurb: String) {
     Wheel("Weapon wheel", "Hold Q or LB and flick a stick"),
     Comms("Subtitles", "Timed lines, captions and the player's settings"),
     Dialogue("Comms channel", "A conversation with answers and a log"),
+    Cargo("Cargo grid", "Stacks, splits and long items"),
 }
 
 /** How often the fight fires, as a debug window offers it. */
@@ -213,6 +217,38 @@ class ShowcaseState {
      * what makes a burst of particles something a screenshot test can check.
      */
     val sparks = ParticleEmitter(capacity = 240, clock = Clock.World, seed = 11L)
+
+    // --- what is in the hold --------------------------------------------------------------------
+    //
+    // Two grids and the rules between them. Held here rather than in the composition for the reason
+    // everything else here is: switching the exhibit off and on again should not tidy the player's
+    // bag for them.
+
+    /** Names for the piles a split makes, so a saved game could still find them. */
+    private var piles = 0
+
+    /** The ship's hold: a long rifle, a stack of cells and a crate two squares square. */
+    val hold = InventoryState(
+        columns = 4,
+        rows = 4,
+        items = listOf(
+            InventoryItem(id = "rifle", kind = "RFL", at = InventoryCell(0, 0), width = 2, height = 1),
+            InventoryItem(id = "cells", kind = "CEL", at = InventoryCell(0, 1), count = 12, stackLimit = 20),
+            InventoryItem(id = "crate", kind = "CRT", at = InventoryCell(2, 2), width = 2, height = 2),
+        ),
+        newId = { "pile${++piles}" },
+    )
+
+    /** The locker beside it, to drag things into. Neither grid knows the other one exists. */
+    val locker = InventoryState(
+        columns = 4,
+        rows = 4,
+        items = listOf(
+            InventoryItem(id = "medkit", kind = "MED", at = InventoryCell(3, 0)),
+            InventoryItem(id = "spare", kind = "CEL", at = InventoryCell(0, 3), count = 5, stackLimit = 20),
+        ),
+        newId = { "pile${++piles}" },
+    )
 }
 
 /** What a hit throws off: a short, fast, cooling burst. */

@@ -3,9 +3,9 @@
 The in-play widgets: health bars with a damage trail, a crosshair, hit markers and
 damage direction arcs, a low-health vignette, damage numbers anchored in the world,
 nameplates and waypoints pinned to points in the world, cooldowns, a hotbar, a
-weapon wheel, a minimap frame, a compass bar, a dialogue box with answers and a
-log, notifications, timed subtitles and particles. These are the ones that made
-this toolkit worth building.
+weapon wheel, an inventory grid, a minimap frame, a compass bar, a dialogue box
+with answers and a log, notifications, timed subtitles and particles. These are
+the ones that made this toolkit worth building.
 
 ---
 
@@ -41,8 +41,8 @@ text that takes a [[ring|Widgets#outlined-text]] only when there is one,
 **Their look is in the skin.** The default and high-contrast [[skins|Skins]]
 already have every style these use (`bar.*`, `reticle.*`, `hitmarker.*`,
 `damage.*`, `vignette`, `marker.*`, `cooldown.*`, `hotbar.*`, `wheel.*`,
-`minimap.*`, `compass.*`, `dialogue.*`, `notification.*`, `subtitle.*`), so they
-look right with no setup. Your own skin file styles
+`inventory.*`, `minimap.*`, `compass.*`, `dialogue.*`, `notification.*`,
+`subtitle.*`), so they look right with no setup. Your own skin file styles
 them by the same names.
 
 `Typewriter`, `PromptGlyph` and `ProvidePrompts` stay in `composegl-ui`: they
@@ -828,6 +828,127 @@ The skin names every part: `dialogue`, `dialogue.speaker`, `dialogue.text`,
 nothing and asks for no frames. A finished line asks for one thing only: the
 small arrow breathing to say it is waiting for the player. Pass an `indicator` of
 your own — a static glyph, a prompt — and even that goes.
+## The inventory grid
+
+The bag: squares, the things in them, stacks that merge and split, and items
+bigger than one square.
+
+```kotlin
+val bag = remember { InventoryState(columns = 8, rows = 6, items = save.items) }
+
+DragAndDropHost {                        // once, round the screen
+    InventoryGrid(
+        state = bag,
+        onMove = { item, to -> bag.move(item, to) },
+        canPlace = { item, at -> bag.canPlace(item, at) },
+    ) { item -> Image(art(item.kind)) }
+}
+```
+
+The trailing lambda is what **you** draw in a square — the picture, the name,
+whatever your game has. The frame, the count badge, the footprint under a drag
+and every way of picking something up are the grid's.
+
+| | |
+|---|---|
+| ![a crate being carried across a bag, with the four squares it would land on lit green](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-inventory.png) | the crate is held by the square it was grabbed by, and the squares it would land on are lit before the player lets go |
+| ![the rifle carried over the crate, with the squares it would land on barred in red](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-inventory-refused.png) | one square of the rifle would land on the crate, which is one too many, so the answer is no while it is still in the air |
+
+### The bag itself
+
+`InventoryState` is the rulebook, and it has no screen in it, so the fiddly half
+of an inventory is testable without composing anything.
+
+```kotlin
+InventoryItem(id = "bow1", kind = Bow, at = InventoryCell(2, 0), width = 1, height = 3)
+InventoryItem(id = "arrows1", kind = Arrow, count = 12, stackLimit = 20)
+```
+
+`id` is *this pile* and `kind` is *what it holds*: two piles of arrows have two
+ids and one kind, which is what says they would merge. `kind` is usually your own
+item type, and it is what the picture is looked up from.
+
+| | |
+|---|---|
+| `bag.move(item, to)` | a move inside one bag: onto free squares, merged into a pile of the same kind, or swapped with the one item in the way. A pile of the same kind that is already full has no room to merge into, so that is a swap as well |
+| `bag.accept(item, to)` | a pile arriving from another bag. Hands back what would not fit |
+| `bag.take(item, count)` | that many out of a pile, as a hand takes them |
+| `bag.split(item, n)`, `bag.splitHalf(item)` | a pile of `n` in the first square it fits |
+| `bag.addAnywhere(item)` | loot: fills the stacks it can, then takes a square. Hands back what will not go in |
+| `bag.rotate(item)` | turns a long item where it stands |
+| `bag.sort()` | merges the stacks and packs everything back in from the corner. False and nothing moves when it cannot |
+| `bag.matching { … }`, `bag.countOf(kind)` | the filter half, for a search box or "do I have ten arrows?" |
+| `bag.fits`, `bag.canPlace`, `bag.firstFree` | the questions, without changing anything |
+
+### What a player does
+
+- **A mouse** picks a pile up and drops it. A long item hangs from the square it
+  was *grabbed by*, and the squares it would land on are drawn ahead of it —
+  green when it fits, red when it does not.
+- **A pad or a keyboard** moves focus square by square, empty ones included,
+  because an empty square is where a player wants to put something. South or
+  Enter picks up and puts down; East or Escape puts it back.
+- **Stacks** show a count, merge on a drop onto the same kind, and split in half
+  when the split key (Shift) or pad button (West) is **held as the pile is picked
+  up**. What is in hand is settled at that moment, so letting go of Shift halfway
+  across the bag does not change it. The grid also lets go of the key on its own
+  when the pile's menu or the split prompt opens, because a menu keeps the
+  keyboard to itself and the release would never arrive — so a right-click with
+  Shift held never leaves the bag splitting everything afterwards.
+- **Long items turn** with R, or the right bumper, *while they are in the air* —
+  and the square they are held by turns with them, so the part under the hand
+  does not jump.
+- **A right-click, a long press or the pad's North** opens the pile's menu. Yours
+  goes in `menu = { item -> … }`, written in the same
+  [[MenuScope|Widgets#menus]] a menu bar uses, and the grid adds what it
+  can do itself under a line: split half, split a number with a stepper, turn.
+  Those three go out through your `canPlace`, `onTake`, `onAccept` and `onMove`
+  just as a drag does, so a rule of yours about where things may sit holds for
+  the menu too — and a pile with nowhere allowed to go is simply not split. A
+  grid that is not `enabled` offers none of the three, because all three
+  rearrange the bag; yours still show, since a read-only bag may still be worth
+  examining.
+- **Right to left**, the first column is the right-hand one. Nothing else changes.
+
+### Two grids
+
+A bag and a chest are two `InventoryState`s and two grids under one
+`DragAndDropHost`. Neither knows the other exists:
+
+```kotlin
+DragAndDropHost {
+    Row(horizontalArrangement = Arrangement.spacedBy(32f)) {
+        InventoryGrid(state = bag) { Image(art(it.kind)) }
+        InventoryGrid(state = chest) { Image(art(it.kind)) }
+    }
+}
+```
+
+The grid a pile lands on asks its own `canPlace` and puts it in with its own
+`onAccept`; the one it came from gives it up through its own `onTake` and takes
+back anything that would not fit through `onPutBack`. A pad carries it across the
+same way a mouse drags it.
+
+### The rest of the parameters
+
+| | |
+|---|---|
+| `cellSize`, `spacing` | how big a square is and the gap between them |
+| `matches` | the filter: a pile it says no to is faded, not hidden — a filter is for finding something |
+| `lazy`, `scroll`, `overscan` | a stash of a thousand squares builds only the rows in view and scrolls |
+| `enabled` | a bag that can be read but not rearranged: nothing can be picked up or dropped, and the grid drops its own three menu entries, since all three rearrange it |
+| `splitKey`, `splitButton`, `rotateKey`, `rotateButton` | the bindings, any of them null for none |
+| `rotating` | false for a bag where nothing turns: no R, no bumper, and no "Rotate" in the menu |
+| `style` | the skin names: `inventory.cell`, `inventory.item`, `inventory.count`, `inventory.footprint`, `inventory.footprint.invalid`, `inventory.split` |
+
+**Item tooltips** are the ordinary [[tooltip|Widgets#tooltips-and-prompts]] modifier on what
+you draw in a square — the grid does not own the inside of a square, so nothing
+special is needed.
+
+Its own menu entries read `inventory.split.half`, `inventory.split.some`,
+`inventory.rotate`, `inventory.split.title`, `inventory.split.confirm` and
+`inventory.cancel` from your [[strings|Localisation]], and keep their English
+when a key has not been translated.
 
 ## Particles
 

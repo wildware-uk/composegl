@@ -39,9 +39,12 @@ ProvideLocale(Locale("he"), strings) {
 - **File format** for `Strings.parse`: one `key = value` per line, `#` comments, `\n` for a
   line break.
 - **Keys the toolkit looks up itself:** `compass.n`, `compass.ne` and the rest of the
-  compass points, for [[CompassBar|Game-widgets#compass-bar]], and `dialogue.auto`,
+  compass points, for [[CompassBar|Game-widgets#compass-bar]]; `dialogue.auto`,
   `dialogue.skip` and `dialogue.log` for the [[dialogue box|Game-widgets#dialogue]]'s own
-  buttons. One you have not translated keeps its English word rather than showing the key.
+  buttons; and `inventory.split.half`, `inventory.split.some`, `inventory.rotate`,
+  `inventory.split.title`, `inventory.split.confirm` and `inventory.cancel` for the
+  [[inventory grid|Game-widgets#the-inventory-grid]]'s own menu and split prompt.
+  One you have not translated keeps its English word rather than showing the key.
 
 Changing the locale — a player picking a language on the options screen — recomposes the screen
 underneath, so every string and the layout direction change on the next frame.

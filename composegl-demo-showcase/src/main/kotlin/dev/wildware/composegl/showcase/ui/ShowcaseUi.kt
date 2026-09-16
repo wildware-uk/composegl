@@ -47,6 +47,8 @@ import dev.wildware.composegl.game.HitMarker
 import dev.wildware.composegl.game.Hotbar
 import dev.wildware.composegl.game.HotbarSlot
 import dev.wildware.composegl.game.HotbarState
+import dev.wildware.composegl.game.InventoryGrid
+import dev.wildware.composegl.game.InventoryState
 import dev.wildware.composegl.game.LowHealthVignette
 import dev.wildware.composegl.game.MinimapFrame
 import dev.wildware.composegl.game.ParticleLayer
@@ -86,6 +88,7 @@ import dev.wildware.composegl.ui.modifier.onShortcutGamepad
 import dev.wildware.composegl.ui.modifier.onShortcutKey
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
+import dev.wildware.composegl.ui.modifier.testTag
 import dev.wildware.composegl.ui.modifier.tint
 import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
@@ -113,6 +116,7 @@ import dev.wildware.composegl.ui.widget.MenuBar
 import dev.wildware.composegl.ui.widget.Splitter
 import dev.wildware.composegl.ui.widget.Spinner
 import dev.wildware.composegl.ui.widget.IndeterminateBar
+import dev.wildware.composegl.ui.widget.DragAndDropHost
 import dev.wildware.composegl.ui.widget.contextMenu
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.Table
@@ -158,68 +162,77 @@ fun ShowcaseUi(
             // The windows go over everything, and the host is a PopupHost too, so the menu bar's
             // menus and the target panel's context menu drop through it.
             DebugWindowHost {
-                Box(Modifier.fillMaxSize().onPlaced(placed).onKeyEvent(hotbar::onKey)) {
-                    if (state.isOn(Exhibit.Hud)) {
-                        CombatHud(state)
-                        Radar(state)
-                        Compass(state)
-                        Abilities(state, hotbar)
+                // One drag and drop host round the whole screen, which is what its own advice says:
+                // whatever is being carried is drawn over everything, so a crate on its way from the
+                // hold to the locker is never clipped by the panel it is leaving.
+                DragAndDropHost {
+                    Box(Modifier.fillMaxSize().onPlaced(placed).onKeyEvent(hotbar::onKey)) {
+                        if (state.isOn(Exhibit.Hud)) {
+                            CombatHud(state)
+                            Radar(state)
+                            Compass(state)
+                            Abilities(state, hotbar)
+                        }
+
+                        if (state.isOn(Exhibit.Comms)) Comms(state)
+
+                        if (state.isOn(Exhibit.Tracking)) TargetTags(state, projection)
+
+                        if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
+
+                        if (state.isOn(Exhibit.Contacts)) Contacts(state)
+                        if (state.isOn(Exhibit.Tree)) SceneTree(state)
+                        if (state.isOn(Exhibit.Starmap)) StarMap()
+                        if (state.isOn(Exhibit.Telemetry)) Telemetry(state, budget)
+
+                        // Over the scene and under the panels, which is where a hit happens. The game
+                        // fills the pool from its own loop; this only draws it.
+                        if (state.isOn(Exhibit.Sparks)) ParticleLayer(state.sparks, Modifier.fillMaxSize())
+
+                        // The numbers live in the pool the game writes to; this only draws them, through
+                        // the game's own camera.
+                        if (state.isOn(Exhibit.Damage)) {
+                            DamageNumberLayer(state.damage, Modifier.fillMaxSize(), projection)
+                        }
+
+                        ExhibitPanel(state)
+
+                        // Along the bottom, where a conversation goes, and over the HUD it covers a
+                        // little of: somebody talking is the thing to read.
+                        if (state.isOn(Exhibit.Dialogue)) CommsChannel(state)
+
+                        // Over the HUD and under the menus, because a wheel covers the fight but not
+                        // the things that are not part of it.
+                        if (state.isOn(Exhibit.Wheel)) WeaponWheel(state)
+
+                        // Over the HUD like the wheel, because a player looking in the hold is not
+                        // flying: the grids want the right-hand side of the screen to themselves.
+                        if (state.isOn(Exhibit.Cargo)) CargoHold(state)
+
+                        // Behind the game's own switch, which is the only place that decision belongs.
+                        if (budget.isOn) {
+                            FrameBudgetOverlay(
+                                budget,
+                                Modifier.align(Alignment.TopStart).padding(left = 28f, top = 220f),
+                            )
+                        }
+
+                        // Last, so it is over the scene's panels. Alt or F10 reaches it from the keyboard,
+                        // the pad's View button from a pad.
+                        ShowcaseMenus(state, budget)
+
+                        // And after even that, because a console goes over everything. ` opens it.
+                        ShowcaseConsole(state)
                     }
 
-                    if (state.isOn(Exhibit.Comms)) Comms(state)
+                    // Written here, drawn by the host over the lot, and draggable anywhere. F9 puts them
+                    // away with every other debug window; the Debug menu brings them back.
+                    if (state.tuningOpen) TuningWindow(state)
 
-                    if (state.isOn(Exhibit.Tracking)) TargetTags(state, projection)
-
-                    if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
-
-                    if (state.isOn(Exhibit.Contacts)) Contacts(state)
-                    if (state.isOn(Exhibit.Tree)) SceneTree(state)
-                    if (state.isOn(Exhibit.Starmap)) StarMap()
-                    if (state.isOn(Exhibit.Telemetry)) Telemetry(state, budget)
-
-                    // Over the scene and under the panels, which is where a hit happens. The game
-                    // fills the pool from its own loop; this only draws it.
-                    if (state.isOn(Exhibit.Sparks)) ParticleLayer(state.sparks, Modifier.fillMaxSize())
-
-                    // The numbers live in the pool the game writes to; this only draws them, through
-                    // the game's own camera.
-                    if (state.isOn(Exhibit.Damage)) {
-                        DamageNumberLayer(state.damage, Modifier.fillMaxSize(), projection)
-                    }
-
-                    ExhibitPanel(state)
-
-                    // Along the bottom, where a conversation goes, and over the HUD it covers a
-                    // little of: somebody talking is the thing to read.
-                    if (state.isOn(Exhibit.Dialogue)) CommsChannel(state)
-
-                    // Over the HUD and under the menus, because a wheel covers the fight but not
-                    // the things that are not part of it.
-                    if (state.isOn(Exhibit.Wheel)) WeaponWheel(state)
-
-                    // Behind the game's own switch, which is the only place that decision belongs.
-                    if (budget.isOn) {
-                        FrameBudgetOverlay(
-                            budget,
-                            Modifier.align(Alignment.TopStart).padding(left = 28f, top = 220f),
-                        )
-                    }
-
-                    // Last, so it is over the scene's panels. Alt or F10 reaches it from the keyboard,
-                    // the pad's View button from a pad.
-                    ShowcaseMenus(state, budget)
-
-                    // And after even that, because a console goes over everything. ` opens it.
-                    ShowcaseConsole(state)
+                    // Outside the Box above on purpose: the tree walks that Box, so a window written
+                    // here is not something it can find, and it never lists the tool looking at it.
+                    if (state.isOn(Exhibit.Nodes)) NodeWindow(state, interfaceRoot)
                 }
-
-                // Written here, drawn by the host over the lot, and draggable anywhere. F9 puts them
-                // away with every other debug window; the Debug menu brings them back.
-                if (state.tuningOpen) TuningWindow(state)
-
-                // Outside the Box above on purpose: the tree walks that Box, so a window written
-                // here is not something it can find, and it never lists the tool looking at it.
-                if (state.isOn(Exhibit.Nodes)) NodeWindow(state, interfaceRoot)
             }
         }
     }
@@ -816,6 +829,62 @@ private fun WeaponWheel(state: ShowcaseState) {
         ) { gun, highlighted ->
             Text(gun, style = if (highlighted) "wheel.label" else "label")
         }
+    }
+}
+
+/**
+ * The ship's hold and the locker beside it: an inventory grid with the rules a game needs.
+ *
+ * Everything fiddly about a bag is the widget's rather than the demo's. A stack of cells dragged
+ * onto another stack merges; Shift held as one is picked up takes half of it; the rifle is two
+ * squares long and hangs from whichever square it was grabbed by, with R turning it while it is in
+ * the air; and a right-click on a pile offers to split it by any number. The hold and the locker
+ * know nothing of each other — dragging between them is the toolkit's own drag and drop, so a pad
+ * carries a crate across with South exactly as a mouse drags it.
+ */
+@Composable
+internal fun CargoHold(state: ShowcaseState) {
+    // The width is written down rather than asked for, because everything inside wants to fill it:
+    // the row that spreads the two labels apart, and the grids themselves. A panel that did not say
+    // how wide it is would be handed the whole screen and paint the HUD out behind it.
+    Panel(Modifier.testTag(CargoTag).align(Alignment.CentreEnd).padding(right = 28f).width(CargoWidth)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("HOLD", style = "label.dim")
+                Text("LOCKER", style = "label.dim")
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16f)) {
+                CargoGrid(state.hold)
+                CargoGrid(state.locker)
+            }
+        }
+    }
+}
+
+/**
+ * How wide the hold sits, gap off the screen edge included.
+ *
+ * A 4x4 grid of 34-pixel squares 4 apart is 148 across; two of them 16 apart is 312, on 16 of the
+ * panel's own padding a side, held 28 in from the right of the screen.
+ */
+internal const val CargoWidth = 148f * 2 + 16f + 32f + 28f
+
+/** So a test can find the panel and check it stayed a panel. */
+internal const val CargoTag = "showcase.cargo"
+
+/** One of the two grids. Everything it looks like is the skin's; the demo only says what is in it. */
+@Composable
+private fun CargoGrid(bag: InventoryState) {
+    InventoryGrid(
+        state = bag,
+        cellSize = 34f,
+        spacing = 4f,
+        menu = { item ->
+            Item("Jettison") { bag.remove(item) }
+            Item("Tidy") { bag.sort() }
+        },
+    ) { item ->
+        Text(item.kind.toString(), style = "label")
     }
 }
 

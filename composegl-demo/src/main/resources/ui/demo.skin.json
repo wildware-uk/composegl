@@ -277,6 +277,30 @@
     "hotbar.prompt": { "textColour": "#6E8093", "text": { "size": 13 } },
     "hotbar.charges": { "textColour": "#FFFFFF", "text": { "size": 13 } },
 
+    // --- the inventory grid ---
+    //
+    // An empty square is a hole to put something in and a square with something in it is a tile
+    // over that hole. The two footprints are the answer to "will it go here?", given while the
+    // thing is still in the air, so both are see-through: the squares underneath still read.
+
+    "inventory.cell": {
+      "background": { "fill": "#0B1119", "corner": 6, "border": "#18212B" },
+      "hovered": { "background": { "fill": "#141B24", "corner": 6, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#141B24", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+
+    "inventory.item": {
+      "background": { "fill": "#141B24", "corner": 6, "border": "#243140" },
+      "hovered": { "background": { "fill": "#1C2632", "corner": 6, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#1C2632", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#4A5A6A", "tint": "#80FFFFFF" }
+    },
+
+    "inventory.count": { "textColour": "#FFFFFF", "text": { "size": 13 } },
+    "inventory.footprint": { "background": { "fill": "#6046A758", "corner": 6, "border": "#46A758" } },
+    "inventory.footprint.invalid": { "background": { "fill": "#80E5484D", "corner": 6, "border": "#E5484D" } },
+    "inventory.split": { "background": { "fill": "#F0141B24", "corner": 8, "border": "#4CC2FF" } },
+
     // --- abilities ---
 
     "cooldown.sweep": { "background": { "fill": "#B0060A12" } },

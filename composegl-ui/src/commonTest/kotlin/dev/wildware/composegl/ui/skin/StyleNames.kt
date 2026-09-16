@@ -47,6 +47,8 @@ val StyleNames = listOf(
     "cooldown.sweep", "cooldown.flash", "cooldown.seconds",
     "wheel.backdrop", "wheel.slice", "wheel.slice.selected", "wheel.slice.highlighted",
     "wheel.ring", "wheel.ring.highlighted", "wheel.hub", "wheel.label",
+    "inventory.cell", "inventory.item", "inventory.count",
+    "inventory.footprint", "inventory.footprint.invalid", "inventory.split",
     "prompt", "reticle", "reticle.hostile", "reticle.hit", "reticle.kill",
     "hitmarker", "hitmarker.critical", "hitmarker.kill",
     "progress.track", "progress.fill", "progress.fill.danger", "progress.fill.good",
