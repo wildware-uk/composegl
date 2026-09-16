@@ -23,6 +23,9 @@ if (panel.needsRedraw(now)) target.draw(canvas) { panel.draw(canvas) }
 scene.drawQuad(target.texture)
 ```
 
+To show a 3D scene inside a panel of your interface, you usually want [[Scene view]]
+instead: it makes the target, sizes it to the panel, and redraws it only when asked.
+
 `draw` clears the picture, runs your block in a frame of the canvas, and puts back the
 framebuffer and viewport it found. So you can call it in the middle of your own scene.
 

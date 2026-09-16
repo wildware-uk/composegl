@@ -128,6 +128,22 @@ class KorgeCanvas private constructor(
     private fun measured(layout: TextLayout): TextLayout =
         layout as? AtlasTextLayout ?: error("this canvas can only draw text measured by KorgeFonts, not ${layout::class}")
 
+    // --- scenes ---
+
+    /**
+     * Not yet on KorGE: the device only has KorGE's GL while a frame is open, and a scene is
+     * rendered before the frame. A `SceneView` here shows nothing rather than failing; the
+     * handover that makes it work is issue #228.
+     */
+    override val drawsScenes: Boolean get() = false
+
+    override fun scene(
+        surface: dev.wildware.composegl.ui.graphics.SceneSurface?,
+        width: Int,
+        height: Int,
+        draw: (dev.wildware.composegl.ui.graphics.SceneTarget) -> Unit,
+    ): dev.wildware.composegl.ui.graphics.SceneSurface? = null
+
     // --- the escape hatch ---
 
     /**

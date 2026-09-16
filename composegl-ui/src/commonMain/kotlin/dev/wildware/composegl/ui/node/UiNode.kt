@@ -447,6 +447,21 @@ class UiNode(var name: String = "node") {
             if (value) tree.watchPointer(this) else tree.stopWatchingPointer(this)
         }
 
+    /**
+     * The state of the `SceneView` this node is, or null for every other node.
+     *
+     * Kept on a register by the tree it is in, the way [pointerWatching] is, so the prepass visits
+     * the handful of scene views there are rather than walking every node to find them.
+     */
+    internal var sceneView: dev.wildware.composegl.ui.widget.SceneViewState? = null
+        set(value) {
+            if (field === value) return
+            val had = field != null
+            field = value
+            val tree = tree ?: return
+            if (value != null && !had) tree.addScene(this) else if (value == null) tree.removeScene(this)
+        }
+
     /** The chain read into the answers layout and drawing ask, computed once per change. */
     val resolved: ResolvedModifier
         get() = cachedResolution ?: modifier.resolve(layoutDirection).also { cachedResolution = it }
@@ -914,6 +929,10 @@ class UiNode(var name: String = "node") {
             this.tree?.stopWatchingPointer(this)
             tree?.watchPointer(this)
         }
+        if (sceneView != null) {
+            this.tree?.removeScene(this)
+            tree?.addScene(this)
+        }
         this.tree = tree
         onTreeChanged?.invoke()
         if (tree == null) {
@@ -1171,6 +1190,24 @@ class UiTree(val root: UiNode = UiNode("root")) {
      * Kept by [UiNode.pointerWatching] as chains change and as nodes come and go.
      */
     internal val pointerWatchers: List<UiNode> get() = watchingPointer
+
+    /**
+     * Every `SceneView` node on this tree, in the order they arrived. Empty in nearly every
+     * interface, which is what makes the prepass free for a game that has none.
+     *
+     * Kept by [UiNode.sceneView] as nodes come and go.
+     */
+    internal val scenes: List<UiNode> get() = sceneNodes
+
+    private val sceneNodes = ArrayList<UiNode>(0)
+
+    internal fun addScene(node: UiNode) {
+        if (node !in sceneNodes) sceneNodes += node
+    }
+
+    internal fun removeScene(node: UiNode) {
+        sceneNodes -= node
+    }
 
     private val watchingPointer = ArrayList<UiNode>(0)
 

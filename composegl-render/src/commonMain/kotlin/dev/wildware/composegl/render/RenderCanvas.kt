@@ -13,6 +13,8 @@ import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.CanvasState
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
+import dev.wildware.composegl.ui.graphics.SceneSurface
+import dev.wildware.composegl.ui.graphics.SceneTarget
 import dev.wildware.composegl.ui.graphics.TextZoom
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
@@ -495,6 +497,15 @@ open class RenderCanvas protected constructor(
             into.v = handle.v
             into.u2 = handle.u2
             into.v2 = handle.v2
+            into.premultiplied = true
+            into.rotated = false
+        } else if (handle is ScenePicture) {
+            into.texture = handle.texture
+            // Bottom row first, like a layer.
+            into.u = 0f
+            into.v = 1f
+            into.u2 = 1f
+            into.v2 = 0f
             into.premultiplied = true
             into.rotated = false
         } else {
@@ -1046,6 +1057,75 @@ open class RenderCanvas protected constructor(
             lend(lent, projection, block)
         } finally {
             device.resume()
+        }
+    }
+
+    // --- scenes ---
+
+    override val drawsScenes: Boolean get() = offscreen
+
+    /**
+     * Renders a game's scene into a picture with a depth buffer, outside any frame.
+     *
+     * The device is taken for the picture alone — its framebuffer bound, the viewport over all of
+     * it, the scissor off — and given back when [draw] returns, so the state a scene sets (depth
+     * test, culling, its own programs) goes no further. A [SceneTarget.raw] block runs with the
+     * picture still bound rather than suspended to the engine's framebuffer: it is the engine's
+     * frame object, pointed at the picture.
+     *
+     * A picture made by another canvas, or closed, is not reused; the caller gives it back.
+     */
+    override fun scene(surface: SceneSurface?, width: Int, height: Int, draw: (SceneTarget) -> Unit): SceneSurface? {
+        check(!drawing) { "scene() inside a frame: scenes are rendered before the frame begins, not in the middle of it" }
+        if (width <= 0 || height <= 0) return surface
+        if (!device.limits.offscreen) return null
+        val mine = (surface as? ScenePicture)?.takeIf { !it.closed && it.device === device }
+        val picture = mine?.also { it.target.resize(width, height) }
+            ?: ScenePicture(RenderTarget(device, width, height, depth = true), device)
+
+        val into = checkNotNull(picture.target.target)
+        val binding = sceneBinding
+        device.begin(into)
+        try {
+            device.target(into, 0, 0, picture.width, picture.height)
+            device.noScissor()
+            orthographic(binding.projection, picture.width.toFloat(), picture.height.toFloat())
+            binding.picture = picture
+            draw(binding)
+        } finally {
+            binding.picture = null
+            device.end()
+        }
+        return picture
+    }
+
+    private val sceneBinding = SceneBinding()
+
+    /** What a scene's block is handed. One per canvas, pointed at the picture being rendered. */
+    private inner class SceneBinding : SceneTarget {
+        var picture: ScenePicture? = null
+        val projection = FloatArray(16)
+
+        private fun bound(): ScenePicture = checkNotNull(picture) { "a scene target is only good inside scene()" }
+
+        override val width: Int get() = bound().width
+
+        override val height: Int get() = bound().height
+
+        override fun clear(colour: Colour) {
+            val picture = bound()
+            // The game may have moved the viewport or switched a scissor on since the last one.
+            device.target(checkNotNull(picture.target.target), 0, 0, picture.width, picture.height)
+            device.noScissor()
+            val alpha = colour.alphaFraction
+            device.clear(colour.red / 255f * alpha, colour.green / 255f * alpha, colour.blue / 255f * alpha, alpha)
+        }
+
+        override fun raw(block: (Any) -> Unit) {
+            val picture = bound()
+            val handed = projection.copyOf()
+            val viewport = Viewport.oneToOne(Size(picture.width.toFloat(), picture.height.toFloat()))
+            lend(handOver(handed, viewport), handed, block)
         }
     }
 

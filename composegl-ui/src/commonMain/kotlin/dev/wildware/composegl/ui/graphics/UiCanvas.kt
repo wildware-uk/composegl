@@ -816,6 +816,29 @@ interface UiCanvas {
      */
     fun rawY(y: Float): Float = y
 
+    /**
+     * Renders a game's own scene into an offscreen picture [width] by [height] real pixels, with a
+     * depth buffer, and hands the picture back to be drawn with [image].
+     *
+     * What `SceneView`'s prepass calls, **outside** a frame: after layout, so the size is known, and
+     * before [begin], so the state changes a scene makes happen once and not in the middle of the
+     * interface's batch. A canvas refuses it inside a frame.
+     *
+     * [surface] is the picture this canvas made last time, or null. One of the same size is filled
+     * again; one of another size is given back and a new one made, and the new one is returned. A
+     * size of nothing either way does nothing and returns [surface] as it was.
+     *
+     * Returns null when this canvas cannot draw offscreen at all, in which case [draw] is not run.
+     * Ask [drawsScenes] first.
+     */
+    fun scene(surface: SceneSurface?, width: Int, height: Int, draw: (SceneTarget) -> Unit): SceneSurface? = null
+
+    /**
+     * Whether [scene] really renders. False means it returns null and a `SceneView` shows nothing,
+     * which is the same bargain as [drawsLayers].
+     */
+    val drawsScenes: Boolean get() = false
+
     private companion object {
 
         const val PI_OVER_180 = 0.017453292f
