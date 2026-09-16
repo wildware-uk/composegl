@@ -172,15 +172,16 @@ class UiRendererTest {
     fun `the budget it keeps is the one it was given and it is filled in`() {
         val shade = mutableStateOf(Colour.White)
         host.setContent {
-            // Enough blocks that each pass takes measurable time on every target. A browser rounds
-            // its clock to a tenth of a millisecond on purpose, and twenty blocks lay out faster
-            // than that — which read as "not timed" when it was timed and came to nothing.
-            repeat(1_000) { LeafLayout(Modifier.size(4f, 2f).background(shade.value), name = "block$it") }
+            repeat(20) { LeafLayout(Modifier.size(4f, 2f).background(shade.value), name = "block$it") }
         }
-        // Something for the frame's own recompose to do. Setting the content composed it already,
-        // so without this the recompose is timed doing nothing, which a coarse clock reads as zero.
+        // Something for the frame's own recompose to do. Setting the content composed it already.
         shade.value = Colour.Black
-        val budget = FrameBudget()
+        // A clock that moves a millisecond every time it is read, so each pass it wraps costs
+        // exactly one. Measuring real work here used to mean asserting the numbers were above
+        // zero, which is a bet on the machine being slow: a browser rounds its clock to a tenth
+        // of a millisecond on purpose and reads quick work as no work at all.
+        var nanos = 0L
+        val budget = FrameBudget(nanoTime = { nanos += 1_000_000; nanos })
         budget.isOn = true
         val renderer = UiRenderer(host, canvas, budget)
 
@@ -188,9 +189,9 @@ class UiRendererTest {
 
         assertSame(budget, renderer.budget, "a game that wants the overlay reads this one")
         val reading = budget.reading
-        assertTrue(reading.recomposeMillis > 0f, "the recompose was not timed")
-        assertTrue(reading.layoutMillis > 0f, "the layout was not timed")
-        assertTrue(reading.drawMillis > 0f, "the draw was not timed")
+        assertEquals(1f, reading.recomposeMillis, 0.0001f, "the recompose was not timed")
+        assertEquals(1f, reading.layoutMillis, 0.0001f, "the layout was not timed")
+        assertEquals(1f, reading.drawMillis, 0.0001f, "the draw was not timed")
     }
 
     /** A canvas that records the order it was called in, and the one rectangle it was asked for. */

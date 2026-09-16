@@ -315,7 +315,10 @@ class UiHostTest {
     @Test
     fun `settle fills in the budget it was handed`() {
         host.setContent { repeat(20) { LeafLayout(Modifier.size(10f), name = "box$it") } }
-        val budget = FrameBudget()
+        // A clock that moves a millisecond every time it is read, so what is asserted is that the
+        // passes were wrapped at all rather than how fast this machine happens to be.
+        var nanos = 0L
+        val budget = FrameBudget(nanoTime = { nanos += 1_000_000; nanos })
         budget.isOn = true
 
         settled(budget = budget)

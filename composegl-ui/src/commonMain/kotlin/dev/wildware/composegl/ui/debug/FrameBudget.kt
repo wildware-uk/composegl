@@ -44,16 +44,36 @@ import kotlin.time.TimeSource
  * high-resolution clock — a browser with its timers deliberately blunted, say — they will be
  * coarse rather than wrong.
  *
+ * Unless you hand it [nanoTime], which is where a test gets its footing: give the budget a clock it
+ * moves by hand and the numbers it publishes become arithmetic you can assert on, instead of
+ * whatever the machine running the test happened to manage that second.
+ *
+ * ```kotlin
+ * var now = 0L
+ * val budget = FrameBudget(publishEveryMillis = 0L, nanoTime = { now })
+ * budget.draw { now += 5_000_000 }   // five milliseconds of drawing, exactly
+ * budget.endFrame()
+ * assertEquals(5f, budget.reading.drawMillis)
+ * ```
+ *
  * @param window how many frames the averages and the worst case are taken over.
  * @param publishEveryMillis how often [reading] is refreshed.
  * @param busiest how many of the nodes that changed most to list in [FrameReading.busiest]. Zero
  *   lists none, and leaves the tree not counting at all.
+ * @param nanoTime where the times come from: nanoseconds counting up from some fixed point, only
+ *   ever compared with each other. The default is the machine's own monotonic clock, which is what
+ *   a game wants. A test hands in its own so nothing depends on how fast the machine is.
  */
 class FrameBudget(
     val window: Int = 120,
     val publishEveryMillis: Long = 250L,
     busiest: Int = 0,
+    nanoTime: () -> Long = monotonicNanos(),
 ) {
+
+    /** The clock. Public only because the wrappers below are inline. */
+    @PublishedApi
+    internal val nanoTime: () -> Long = nanoTime
 
     /**
      * How many of the tree's busiest nodes each [reading] names: the ones the most frames changed,
@@ -144,9 +164,8 @@ class FrameBudget(
      */
     val trace = DrawCallTrace()
 
-    /** One mark, made once: the difference between two readings off it is monotonic elapsed time. */
-    private val started = TimeSource.Monotonic.markNow()
-    private var lastPublishNanos = -publishEveryMillis * 1_000_000
+    /** Far enough back that the first frame publishes, wherever [nanoTime] happens to start. */
+    private var lastPublishNanos = nanoTime() - publishEveryMillis * 1_000_000
 
     fun toggle() {
         isOn = !measuring
@@ -155,33 +174,33 @@ class FrameBudget(
     /** Times the Compose runtime's own work: everything [dev.wildware.composegl.ui.host.UiHost.frame] does. */
     inline fun <T> recompose(block: () -> T): T {
         if (!measuring) return block()
-        val start = TimeSource.Monotonic.markNow()
+        val start = nanoTime()
         try {
             return block()
         } finally {
-            addRecompose(start.elapsedNow().inWholeNanoseconds)
+            addRecompose(nanoTime() - start)
         }
     }
 
     /** Times the layout pass. */
     inline fun <T> layout(block: () -> T): T {
         if (!measuring) return block()
-        val start = TimeSource.Monotonic.markNow()
+        val start = nanoTime()
         try {
             return block()
         } finally {
-            addLayout(start.elapsedNow().inWholeNanoseconds)
+            addLayout(nanoTime() - start)
         }
     }
 
     /** Times the draw pass. Not the flush: what the GPU then does with it is not ours to claim. */
     inline fun <T> draw(block: () -> T): T {
         if (!measuring) return block()
-        val start = TimeSource.Monotonic.markNow()
+        val start = nanoTime()
         try {
             return block()
         } finally {
-            addDraw(start.elapsedNow().inWholeNanoseconds)
+            addDraw(nanoTime() - start)
         }
     }
 
@@ -226,7 +245,7 @@ class FrameBudget(
         frames++
         if (redrew) redraws++
 
-        val stamp = started.elapsedNow().inWholeNanoseconds
+        val stamp = nanoTime()
         if (stamp - lastPublishNanos < publishEveryMillis * 1_000_000) {
             trace.clear()
             return
@@ -317,7 +336,7 @@ class FrameBudget(
         frameDraw = 0L
         frames = 0L
         redraws = 0L
-        lastPublishNanos = -publishEveryMillis * 1_000_000
+        lastPublishNanos = nanoTime() - publishEveryMillis * 1_000_000
         trace.clear()
         reading = FrameReading.Nothing
         watching?.resetChangeCounts()
@@ -331,6 +350,19 @@ class FrameBudget(
          */
         const val OverlayName = "frame budget"
     }
+}
+
+/**
+ * The machine's own clock, and what a [FrameBudget] reads unless it is handed another.
+ *
+ * One mark, made once, read back as nanoseconds since: the difference between two readings is
+ * monotonic elapsed time, so nothing measured here goes backwards when the system clock is put
+ * right. Each call starts a fresh count from now, so a budget's numbers never depend on when some
+ * other budget was made.
+ */
+fun monotonicNanos(): () -> Long {
+    val started = TimeSource.Monotonic.markNow()
+    return { started.elapsedNow().inWholeNanoseconds }
 }
 
 /**

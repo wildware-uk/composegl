@@ -10,15 +10,36 @@ import kotlin.test.assertTrue
 /**
  * The budget's arithmetic, on every target.
  *
- * What is deliberately not asserted is a duration. A test that says layout took less than a
- * millisecond is a test that fails on a loaded machine, and one that says it took more than zero is
- * a test that fails on a fast one, so the timings are checked for being plausible and the counting
- * is checked for being right.
+ * Every budget here is handed a clock the test moves by hand, so a frame costs exactly the
+ * milliseconds the test said and nothing depends on how fast the machine running it is.
+ *
+ * Measuring real work instead failed a build now and again, from both ends at once: two identical
+ * pieces of work do not take the same time on a loaded machine, so comparing one measured duration
+ * with another is a coin toss, and a browser with its timers deliberately blunted reports short
+ * work as having taken no time at all, so a test that wanted a number above zero got a zero.
  */
 class FrameBudgetTest {
 
+    /** Nanoseconds that only move when a test says so. */
+    private class FakeClock {
+        private var nanos = 0L
+
+        /** Handed to a budget as its [FrameBudget.nanoTime]. */
+        val reading: () -> Long = { nanos }
+
+        fun advance(millis: Long) {
+            nanos += millis * 1_000_000
+        }
+    }
+
+    private val clock = FakeClock()
+
     /** Publishes on every frame, so a test does not have to wait a quarter of a second. */
-    private fun budget() = FrameBudget(window = 4, publishEveryMillis = 0L)
+    private fun budget(window: Int = 4, publishEveryMillis: Long = 0L) =
+        FrameBudget(window = window, publishEveryMillis = publishEveryMillis, nanoTime = clock.reading)
+
+    /** Work that takes exactly this many milliseconds. */
+    private fun costing(millis: Long): Unit = clock.advance(millis)
 
     @Test
     fun `it reports nothing before the first frame`() {
@@ -53,7 +74,7 @@ class FrameBudgetTest {
     @Test
     fun `switching it off clears what it was showing`() {
         val budget = budget()
-        budget.draw { spin() }
+        budget.draw { costing(1) }
         budget.endFrame()
         assertNotEquals(FrameReading.Nothing, budget.reading)
 
@@ -83,52 +104,43 @@ class FrameBudgetTest {
     @Test
     fun `the three phases are measured apart`() {
         val budget = budget()
-        budget.recompose { spin() }
-        budget.layout { spin() }
-        budget.draw { spin() }
+        budget.recompose { costing(2) }
+        budget.layout { costing(3) }
+        budget.draw { costing(5) }
         budget.endFrame()
 
         val reading = budget.reading
-        assertTrue(reading.recomposeMillis >= 0f)
-        assertTrue(reading.layoutMillis >= 0f)
-        assertTrue(reading.drawMillis >= 0f)
-        // The total is the three added up, give or take the rounding each one does to milliseconds.
-        val parts = reading.recomposeMillis + reading.layoutMillis + reading.drawMillis
-        assertTrue(
-            (reading.totalMillis - parts) < 0.01f,
-            "total was ${reading.totalMillis} and the parts add up to $parts",
-        )
+        assertEquals(2f, reading.recomposeMillis, Tolerance)
+        assertEquals(3f, reading.layoutMillis, Tolerance)
+        assertEquals(5f, reading.drawMillis, Tolerance)
+        assertEquals(10f, reading.totalMillis, Tolerance, "the total is the three added up")
     }
 
     @Test
     fun `everything inside one frame is added together`() {
         val budget = budget()
         // Two panels drawn in one frame is one frame's drawing, not two.
-        budget.draw { spin() }
-        budget.draw { spin() }
+        budget.draw { costing(2) }
+        budget.draw { costing(3) }
         budget.endFrame()
-        val both = budget.reading.drawMillis
 
-        val one = budget()
-        one.draw { spin() }
-        one.endFrame()
-
-        assertTrue(both >= one.reading.drawMillis, "two lots of work cannot cost less than one")
+        assertEquals(5f, budget.reading.drawMillis, Tolerance, "both panels, not the last one")
     }
 
     @Test
     fun `the average is taken over the window and no further`() {
-        val budget = FrameBudget(window = 3, publishEveryMillis = 0L)
+        val budget = budget(window = 3)
         // Four frames into a window of three: the first one is gone.
-        budget.draw { spinFor(4) }
+        budget.draw { costing(12) }
         budget.endFrame()
-        val expensive = budget.reading.drawMillis
-        repeat(3) {
-            budget.endFrame()
-        }
+        assertEquals(12f, budget.reading.drawMillis, Tolerance, "the one frame there has been")
 
-        assertTrue(
-            budget.reading.drawMillis < expensive,
+        repeat(3) { budget.endFrame() }
+
+        assertEquals(
+            0f,
+            budget.reading.drawMillis,
+            Tolerance,
             "the expensive frame should have fallen out of a window of three",
         )
         assertEquals(4L, budget.reading.frames, "the frame count is not a window, it is a total")
@@ -137,32 +149,35 @@ class FrameBudgetTest {
     @Test
     fun `the worst frame is remembered when the average has forgiven it`() {
         val budget = budget()
-        budget.draw { spinFor(4) }
+        budget.draw { costing(12) }
         budget.endFrame()
         repeat(3) { budget.endFrame() }
 
         val reading = budget.reading
-        assertTrue(
-            reading.worstMillis >= reading.totalMillis,
-            "worst was ${reading.worstMillis} and the average ${reading.totalMillis}",
-        )
+        assertEquals(3f, reading.totalMillis, Tolerance, "twelve milliseconds spread over four frames")
+        assertEquals(12f, reading.worstMillis, Tolerance, "but the bad frame is still named")
     }
 
     @Test
     fun `it does not publish more often than it was asked to`() {
-        val budget = FrameBudget(window = 8, publishEveryMillis = 60_000L)
+        val budget = budget(window = 8, publishEveryMillis = 60_000L)
         budget.endFrame(drawCalls = 1)
         val first = budget.reading
-        repeat(20) { budget.endFrame(drawCalls = 99) }
 
+        clock.advance(59_999)
+        repeat(20) { budget.endFrame(drawCalls = 99) }
         assertSame(first, budget.reading, "a minute has not passed")
         assertEquals(1, budget.reading.drawCalls)
+
+        clock.advance(1)
+        budget.endFrame(drawCalls = 99)
+        assertEquals(99, budget.reading.drawCalls, "and now it has")
     }
 
     @Test
     fun `reset forgets everything`() {
         val budget = budget()
-        budget.draw { spinFor(2) }
+        budget.draw { costing(2) }
         budget.endFrame(drawCalls = 5)
         budget.reset()
 
@@ -170,6 +185,7 @@ class FrameBudgetTest {
         budget.endFrame(drawCalls = 2, redrew = false)
         assertEquals(1L, budget.reading.frames)
         assertEquals(0L, budget.reading.redraws)
+        assertEquals(0f, budget.reading.drawMillis, Tolerance, "and the frame it measured before")
     }
 
     @Test
@@ -193,7 +209,7 @@ class FrameBudgetTest {
 
     @Test
     fun `a frame that is not published still forgets what it traced`() {
-        val budget = FrameBudget(window = 4, publishEveryMillis = 60_000L)
+        val budget = budget(publishEveryMillis = 60_000L)
         budget.endFrame()
         budget.trace.record(BatchBreak.Clip)
         budget.endFrame()
@@ -211,8 +227,6 @@ class FrameBudgetTest {
 
     @Test
     fun `the frames it hands back are the last ones it measured oldest first`() {
-        // Whole milliseconds put in by hand rather than measured, so the order is readable and the
-        // test does not depend on how fast the machine running it is.
         val budget = budget()
         measure(budget, 1, 2, 3, 4, 5, 6)
 
@@ -247,19 +261,13 @@ class FrameBudgetTest {
     /** Closes off one frame per entry, each costing that many whole milliseconds of draw. */
     private fun measure(budget: FrameBudget, vararg millis: Int) {
         millis.forEach {
-            budget.addDraw(it * 1_000_000L)
+            budget.draw { costing(it.toLong()) }
             budget.endFrame()
         }
     }
 
-    private var sink = 0
-
-    /** A little real work, so that a phase has something to measure. */
-    private fun spin() = spinFor(1)
-
-    private fun spinFor(rounds: Int) {
-        repeat(rounds) {
-            for (index in 0 until 20_000) sink += index
-        }
+    private companion object {
+        /** Floats made of whole milliseconds land exactly; this only guards the arithmetic. */
+        const val Tolerance = 0.0001f
     }
 }
