@@ -366,6 +366,83 @@ class InventoryGridUiTest {
         assertEquals(InventoryCell(0, 0), bag.item("crate")?.at)
     }
 
+    // --- the focus ring --------------------------------------------------------------------------
+    //
+    // A player on a pad who nudges a pile across the bag with a mouse has to be left standing on
+    // that pile. The ring is drawn on whichever node the focus manager holds, so these are all one
+    // question: does the node a square is drawn by still mean the same square after the bag moved?
+
+    @Test
+    fun `the focus ring follows a pile dragged to another square`() {
+        val bag = bag(item("sword"), item("coin", x = 3, y = 3))
+        val ui = open { Screen(bag) }
+        ui.assertFocused("inventory.item.sword")
+
+        ui.drag(ui.pile("sword"), ui.square(2, 1))
+
+        assertEquals(InventoryCell(2, 1), bag.item("sword")?.at)
+        ui.assertFocused("inventory.item.sword")
+    }
+
+    @Test
+    fun `the focus ring follows a crate that takes up four squares`() {
+        val bag = bag(item("crate", width = 2, height = 2), item("coin", x = 3, y = 3))
+        val ui = open { Screen(bag) }
+        ui.assertFocused("inventory.item.crate")
+
+        ui.drag(ui.pileSquare("crate", 0, 0), ui.square(2, 2))
+
+        assertEquals(InventoryCell(2, 2), bag.item("crate")?.at)
+        ui.assertFocused("inventory.item.crate")
+    }
+
+    @Test
+    fun `the focus ring lands on the stack a dropped pile merged into`() {
+        val bag = bag(
+            item("here", kind = "arrow", x = 0, y = 0, count = 3, stackLimit = 20),
+            item("there", kind = "arrow", x = 2, y = 1, count = 4, stackLimit = 20),
+        )
+        val ui = open { Screen(bag) }
+
+        // Start on the pile being moved rather than on whatever the bag focused first.
+        ui.click(ui.pile("there"))
+        ui.assertFocused("inventory.item.there")
+
+        ui.drag(ui.pile("there"), ui.pile("here"))
+
+        assertEquals(7, bag.item("here")?.count)
+        assertNull(bag.item("there"), "it was poured into the other pile")
+        ui.assertFocused("inventory.item.here")
+    }
+
+    @Test
+    fun `a drop the grid refuses leaves the focus ring where it was`() {
+        val bag = bag(item("crate", width = 2, height = 2), item("coin", x = 3, y = 0))
+        val ui = open { Screen(bag) }
+        ui.assertFocused("inventory.item.crate")
+
+        // Held by its top-left square, the crate would hang over the right-hand edge from there.
+        ui.drag(ui.pileSquare("crate", 0, 0), ui.square(3, 2))
+
+        assertEquals(InventoryCell(0, 0), bag.item("crate")?.at)
+        ui.assertFocused("inventory.item.crate")
+    }
+
+    @Test
+    fun `the focus ring follows a pile a pad carried`() {
+        val bag = bag(item("sword"), item("coin", x = 3, y = 3))
+        val ui = open { Screen(bag) }
+        ui.assertFocused("inventory.item.sword")
+
+        ui.pad(GamepadButton.South)
+        ui.pad(GamepadButton.DpadRight)
+        ui.pad(GamepadButton.DpadDown)
+        ui.pad(GamepadButton.South)
+
+        assertEquals(InventoryCell(1, 1), bag.item("sword")?.at)
+        ui.assertFocused("inventory.item.sword")
+    }
+
     // --- turning ---------------------------------------------------------------------------------
 
     @Test
