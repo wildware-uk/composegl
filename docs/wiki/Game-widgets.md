@@ -684,6 +684,8 @@ draws it.
 
 ## Dialogue
 
+![a dialogue box over a scene: the warden's line typing itself out, then the arrow, then the question with its three answers and the timer draining under them](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-dialogue-run.gif)
+
 ```kotlin
 // A beat of your own script. The widget never sees this type: it is handed the line and the
 // answers separately, because a line is a line whoever wrote the script around it.
@@ -728,6 +730,11 @@ it.
 DialogueChoice("pay the toll", tag = "pay")
 DialogueChoice("pay the toll", enabled = false, reason = "you have 40 credits", tag = "pay")
 ```
+
+![the warden's question with three answers: the highlight moved onto the second by a push on the pad, and the third greyed out saying you have 40 crowns](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-dialogue-choices.png)
+
+The highlight above is where a real push on a real pad put it: the box focused
+the first answer as it appeared, and one press of down walked it to the second.
 
 Focus moves to the first answer that can be taken the moment the answers appear,
 so a pad or a keyboard can answer without touching anything else — even if the
@@ -787,6 +794,13 @@ log.answer("say nothing")                        // and answers it never heard
 log.clear()                                      // a new conversation
 ```
 
+![a history panel over a dialogue box: three lines the warden said, and under the question the answer the player gave, in blue](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-dialogue-log.png)
+
+Nothing in that log was put there by hand. A keyboard played the conversation —
+Enter to finish the line and Enter again to move on, Down to walk to the second
+answer and Enter to take it — and the box wrote down what happened as it
+happened.
+
 Pass `log` to the box and it writes both halves down by itself — the line as it
 starts, the answer as it is given — so `say` and `answer` are only for a game
 putting something into the log the box was not showing.
@@ -798,6 +812,12 @@ points](#the-names-are-the-players-language) make. Everything else on the box is
 your text, already in the player's language before it arrives. In Arabic the
 whole box is mirrored: the portrait is on the right, so is where the words and
 the answers start, and the timer bar drains the other way.
+
+![the same box twice through the high-contrast skin: in English with a paragraph wrapped over three lines, and in Hebrew with the face on the right, the name on the right and Auto, Skip and Log on the left in Hebrew](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-dialogue-rtl.png)
+
+A paragraph wraps where the text stack breaks it, and the Hebrew box has nothing
+set on it that the English one does not: the layout direction is the only
+difference between the two.
 
 The skin names every part: `dialogue`, `dialogue.speaker`, `dialogue.text`,
 `dialogue.choice` and `dialogue.choice.reason`, `dialogue.timer.track` and
