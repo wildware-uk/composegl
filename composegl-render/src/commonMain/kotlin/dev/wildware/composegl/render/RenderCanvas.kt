@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.CanvasState
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.NineRegions
+import dev.wildware.composegl.ui.graphics.TextZoom
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.graphics.featherOutline
@@ -76,6 +77,9 @@ open class RenderCanvas protected constructor(
 
     /** The frame's scale to the nearest quarter, as a count of quarters: what glyphs are made again at. */
     private var quarter = SharpGlyphs.One
+
+    /** The larger of the frame's two scales, which a pushed transform's text scale multiplies. */
+    private var frameScale = 1f
 
     private val projection = FloatArray(16)
 
@@ -151,7 +155,8 @@ open class RenderCanvas protected constructor(
         this.viewport = viewport
         state = CanvasState(Rect.of(0f, 0f, viewport.design.width, viewport.design.height))
         antialias = 1f / minOf(viewport.scaleX, viewport.scaleY).coerceAtLeast(0.0001f)
-        quarter = SharpGlyphs.quarterOf(maxOf(viewport.scaleX, viewport.scaleY))
+        frameScale = maxOf(viewport.scaleX, viewport.scaleY)
+        quarter = SharpGlyphs.quarterOf(frameScale)
         atlas?.sharp?.beginFrame()
 
         // The letterbox and the scale live here, so nothing below has to think about them.
@@ -212,23 +217,24 @@ open class RenderCanvas protected constructor(
     @Suppress("LongParameterList")
     private fun gradient(rect: Rect, brush: Brush, topLeft: Float, topRight: Float, bottomRight: Float, bottomLeft: Float) {
         if (state.isHidden || rect.isEmpty) return
+        val box = state.map(rect)
         // Worked out in the toolkit's coordinates, then y flipped. A radial gradient has no axis.
-        val axis = (brush as? Brush.Linear)?.axis(rect.width, rect.height)
+        val axis = (brush as? Brush.Linear)?.axis(box.width, box.height)
         batch().gradient(
             white = white(),
-            left = rect.left,
-            bottom = flip(rect.bottom),
-            width = rect.width,
-            height = rect.height,
+            left = box.left,
+            bottom = flip(box.bottom),
+            width = box.width,
+            height = box.height,
             start = brush.first.inForce(),
             end = brush.last.inForce(),
             radial = brush is Brush.Radial,
             axisX = axis?.x ?: 0f,
             axisY = -(axis?.y ?: 0f),
-            topLeft = topLeft,
-            topRight = topRight,
-            bottomRight = bottomRight,
-            bottomLeft = bottomLeft,
+            topLeft = state.mapLength(topLeft),
+            topRight = state.mapLength(topRight),
+            bottomRight = state.mapLength(bottomRight),
+            bottomLeft = state.mapLength(bottomLeft),
             aa = antialias,
         )
     }
@@ -267,14 +273,14 @@ open class RenderCanvas protected constructor(
         val flipped = FloatArray(points.size)
         var at = 0
         while (at < points.size) {
-            flipped[at] = points[at]
-            flipped[at + 1] = flip(points[at + 1])
+            flipped[at] = state.mapX(points[at])
+            flipped[at + 1] = flip(state.mapY(points[at + 1]))
             at += 2
         }
         batch().fan(white(), flipped, colour.inForce())
     }
 
-    /** The one place a box reaches the batch. */
+    /** The one place a box reaches the batch, and where a pushed transform moves it and grows its thicknesses. */
     @Suppress("LongParameterList")
     private fun shape(
         rect: Rect,
@@ -288,22 +294,24 @@ open class RenderCanvas protected constructor(
         shadow: Colour,
         shadowSpread: Float,
     ) {
+        val box = state.map(rect)
+        val grow = state.transformScale
         batch().shape(
             white = white(),
-            left = rect.left,
-            bottom = flip(rect.bottom),
-            width = rect.width,
-            height = rect.height,
+            left = box.left,
+            bottom = flip(box.bottom),
+            width = box.width,
+            height = box.height,
             fill = fill.inForce(),
             // Top is still top: the flip moves the box, and the batch's own up is the screen's up.
-            topLeft = topLeft,
-            topRight = topRight,
-            bottomRight = bottomRight,
-            bottomLeft = bottomLeft,
+            topLeft = topLeft * grow,
+            topRight = topRight * grow,
+            bottomRight = bottomRight * grow,
+            bottomLeft = bottomLeft * grow,
             border = border.inForce(),
-            borderWidth = borderWidth,
+            borderWidth = borderWidth * grow,
             shadow = shadow.inForce(),
-            shadowSpread = shadowSpread,
+            shadowSpread = shadowSpread * grow,
             aa = antialias,
         )
     }
@@ -328,13 +336,16 @@ open class RenderCanvas protected constructor(
 
         var page: AtlasPage? = null
         var texture: DeviceTexture? = null
+        val quarter = textQuarter()
+        val remade = remadeSharp(quarter)
+        val grow = state.transformScale
         val placedGlyphs = measured.placed
         for (index in placedGlyphs.indices) {
             val placed = placedGlyphs[index]
             val glyph = placed.glyph
             if (ring && glyph.colour) continue
             val on = glyph.page ?: continue
-            val sharp = if (quarter > SharpGlyphs.One) glyph.sharp(quarter) else null
+            val sharp = if (remade) glyph.sharp(quarter) else null
             if (sharp != null) {
                 drawSharp(sharp, placed, x, y, if (sharp.colour) pictureTint else tint)
                 page = null
@@ -345,12 +356,13 @@ open class RenderCanvas protected constructor(
                 texture = on.texture(device)
             }
             val size = on.size.toFloat()
+            val top = state.mapY(y + placed.top)
             batch().textured(
                 texture = checkNotNull(texture),
-                left = x + placed.left,
-                bottom = flip(y + placed.top + placed.height),
-                width = placed.width,
-                height = placed.height,
+                left = state.mapX(x + placed.left),
+                bottom = flip(top + placed.height * grow),
+                width = placed.width * grow,
+                height = placed.height * grow,
                 u = glyph.x / size,
                 v = glyph.y / size,
                 u2 = (glyph.x + glyph.width) / size,
@@ -373,20 +385,24 @@ open class RenderCanvas protected constructor(
         val top: Float
         val width: Float
         val height: Float
+        val grow = state.transformScale
         if (sharp.fillsBox) {
-            left = x + placed.left
-            top = y + placed.top
-            width = placed.width
-            height = placed.height
+            left = state.mapX(x + placed.left)
+            top = state.mapY(y + placed.top)
+            width = placed.width * grow
+            height = placed.height * grow
         } else {
             val scaleX = viewport.scaleX
             val scaleY = viewport.scaleY
             val originX = layer?.bounds?.left ?: 0f
             val originY = layer?.bounds?.top ?: 0f
-            left = originX + floor((x + placed.pen + sharp.xOffset / sharp.pixelsPerUnit - originX) * scaleX + 0.5f) / scaleX
-            top = originY + floor((y + placed.baseline + sharp.yOffset / sharp.pixelsPerUnit - originY) * scaleY + 0.5f) / scaleY
-            width = sharp.width / sharp.pixelsPerUnit
-            height = sharp.height / sharp.pixelsPerUnit
+            val atX = state.mapX(x + placed.pen + sharp.xOffset / sharp.pixelsPerUnit)
+            val atY = state.mapY(y + placed.baseline + sharp.yOffset / sharp.pixelsPerUnit)
+            left = originX + floor((atX - originX) * scaleX + 0.5f) / scaleX
+            top = originY + floor((atY - originY) * scaleY + 0.5f) / scaleY
+            // Made for the nearest step of a zoom, so stretched by whatever the step left over.
+            width = sharp.width / sharp.pixelsPerUnit * grow
+            height = sharp.height / sharp.pixelsPerUnit * grow
         }
         val size = on.size.toFloat()
         batch().textured(
@@ -402,6 +418,25 @@ open class RenderCanvas protected constructor(
             tint = tint,
         )
     }
+
+    /**
+     * The quarters glyphs are made at now: the frame's own, or under a pushed transform the frame's
+     * scale times the transform's text scale, snapped to a [TextZoom] step first.
+     */
+    private fun textQuarter(): Int {
+        val zoom = state.textScale
+        if (zoom == 1f) return quarter
+        return SharpGlyphs.quarterOf(frameScale * TextZoom.snap(zoom)).coerceAtLeast(1)
+    }
+
+    /**
+     * Whether glyphs at [quarter] come off the sharp atlas rather than their ordinary copies.
+     *
+     * A frame's own scale only ever makes glyphs bigger; a zoom makes them smaller as well, and a
+     * zoomed-out plane wants a copy made small just as much as a scaled-up window wants one made big.
+     */
+    private fun remadeSharp(quarter: Int): Boolean =
+        if (state.textScale == 1f) quarter > SharpGlyphs.One else quarter != SharpGlyphs.One
 
     /** The picture being drawn, resolved once per call into fields rather than a fresh object. */
     private val picture = Resolved()
@@ -473,13 +508,14 @@ open class RenderCanvas protected constructor(
         if (state.isHidden || destination.isEmpty) return
         if (texture is NineRegions || !resolve(texture)) notOnePicture(texture)
         picture.slice(source)
+        val box = state.map(destination)
 
         batch().textured(
             texture = picture.texture,
-            left = destination.left,
-            bottom = flip(destination.bottom),
-            width = destination.width,
-            height = destination.height,
+            left = box.left,
+            bottom = flip(box.bottom),
+            width = box.width,
+            height = box.height,
             u = picture.left,
             v = picture.top,
             u2 = picture.right,
@@ -507,16 +543,17 @@ open class RenderCanvas protected constructor(
         if (state.isHidden || destination.isEmpty) return
         if (texture is NineRegions || !resolve(texture)) notOnePicture(texture)
         picture.slice(source)
+        val box = state.map(destination)
 
         batch().textured(
             texture = picture.texture,
-            left = destination.left,
-            bottom = flip(destination.bottom),
-            width = destination.width,
-            height = destination.height,
-            pivotX = destination.left + destination.width * pivotX,
+            left = box.left,
+            bottom = flip(box.bottom),
+            width = box.width,
+            height = box.height,
+            pivotX = box.left + box.width * pivotX,
             // The pivot is a fraction from the top, and this is where it meets a y that counts up.
-            pivotY = flip(destination.top + destination.height * pivotY),
+            pivotY = flip(box.top + box.height * pivotY),
             degrees = degrees,
             u = picture.left,
             v = picture.top,
@@ -564,6 +601,17 @@ open class RenderCanvas protected constructor(
     override fun popTint() = state.popTint()
 
     override val tints: Boolean get() = true
+
+    /** No flush either: each position is multiplied as it is queued. */
+    override fun pushTransform(scale: Float, translateX: Float, translateY: Float) =
+        state.pushTransform(scale, translateX, translateY)
+
+    override fun pushTransform(scale: Float, translateX: Float, translateY: Float, textScale: Float) =
+        state.pushTransform(scale, translateX, translateY, textScale)
+
+    override fun popTransform() = state.popTransform()
+
+    override val transforms: Boolean get() = true
 
     /** A colour as it reaches the batch: the tint in force multiplied in, then faded. */
     private fun Colour.inForce(): Colour = modulate(state.tint).scaleAlpha(state.alpha)
@@ -644,10 +692,12 @@ open class RenderCanvas protected constructor(
     override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? {
         check(drawing) { "layer() outside a frame" }
         if (bounds.isEmpty || !device.limits.offscreen) return null
+        // Where the picture really lands, so it is taken at the screen's resolution of what is there.
+        val area = state.map(bounds)
 
         // Screen resolution, rounded up, so nothing falls off an edge that is not a whole pixel.
-        val pixelWidth = ceil(bounds.width * viewport.scaleX).toInt()
-        val pixelHeight = ceil(bounds.height * viewport.scaleY).toInt()
+        val pixelWidth = ceil(area.width * viewport.scaleX).toInt()
+        val pixelHeight = ceil(area.height * viewport.scaleY).toInt()
         if (pixelWidth <= 0 || pixelHeight <= 0) return null
         val most = minOf(LayerPool.MaxLayerPixels, device.limits.maxTextureSize)
         if (pixelWidth > most || pixelHeight > most) return null
@@ -661,15 +711,15 @@ open class RenderCanvas protected constructor(
         val previousProjection = projection.copyOf()
 
         batch().flush(BatchBreak.Layer)
-        layer = LayerFrame(bounds, pixelWidth, pixelHeight)
-        // Full opacity and a clip of exactly the layer; the tint comes in with it.
-        state = previousState.forLayer(bounds)
+        layer = LayerFrame(area, pixelWidth, pixelHeight)
+        // Full opacity and a clip of exactly the layer; the tint and the transform come in with it.
+        state = previousState.forLayer(area)
 
         target = picture
         setViewport(0, 0, pixelWidth, pixelHeight)
         device.noScissor()
         device.clear(0f, 0f, 0f, 0f)
-        orthographic(projection, bounds.width, bounds.height, bounds.left)
+        orthographic(projection, area.width, area.height, area.left)
         batch().projection(projection)
         // Plain blending inside: adding into transparent black then compositing is not adding.
         applyBlend()
@@ -702,17 +752,18 @@ open class RenderCanvas protected constructor(
     override fun drawLayer(layer: TextureHandle, destination: Rect, effect: ShaderEffect?) {
         if (state.isHidden || destination.isEmpty) return
         layerPicture(layer)
+        val box = state.map(destination)
         if (effect != null) {
-            drawThrough(effect, destination)
+            drawThrough(effect, box)
             return
         }
-        composite(destination, mirrorX = false, mirrorY = false)
+        composite(box, mirrorX = false, mirrorY = false)
     }
 
     override fun drawLayer(layer: TextureHandle, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
         if (state.isHidden || destination.isEmpty) return
         layerPicture(layer)
-        composite(destination, mirrorX, mirrorY)
+        composite(state.map(destination), mirrorX, mirrorY)
     }
 
     override val mirrorsLayers: Boolean get() = offscreen
@@ -755,16 +806,17 @@ open class RenderCanvas protected constructor(
         }
         if (state.isHidden || destination.isEmpty) return
         layerPicture(layer)
+        val box = state.map(destination)
 
         batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         batch().textured(
             texture = picture.texture,
-            left = destination.left,
-            bottom = flip(destination.bottom),
-            width = destination.width,
-            height = destination.height,
-            pivotX = destination.left + destination.width * pivotX,
-            pivotY = flip(destination.top + destination.height * pivotY),
+            left = box.left,
+            bottom = flip(box.bottom),
+            width = box.width,
+            height = box.height,
+            pivotX = box.left + box.width * pivotX,
+            pivotY = flip(box.top + box.height * pivotY),
             degrees = degrees,
             u = picture.u,
             v = picture.v,
@@ -788,16 +840,19 @@ open class RenderCanvas protected constructor(
         batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         val solid = fade()
         val clear = Colour.Transparent
-        val left = destination.left
-        val top = destination.top
-        val width = destination.width
-        val height = destination.height
+        val box = state.map(destination)
+        val left = box.left
+        val top = box.top
+        val width = box.width
+        val height = box.height
         val picture = picture
         val uSpan = picture.u2 - picture.u
         val vSpan = picture.v2 - picture.v
         val texture = picture.texture
+        val edge = if (!state.isTransformed) outline
+        else FloatArray(outline.size) { if (it % 2 == 0) state.mapX(outline[it]) else state.mapY(outline[it]) }
 
-        featherOutline(outline, antialias) { ax, ay, aCover, bx, by, bCover, cx, cy, cCover, dx, dy, dCover ->
+        featherOutline(edge, antialias) { ax, ay, aCover, bx, by, bCover, cx, cy, cCover, dx, dy, dCover ->
             batch().corners(
                 texture,
                 ax, flip(ay),
@@ -828,7 +883,7 @@ open class RenderCanvas protected constructor(
         if (state.isHidden || destination.isEmpty) return
         layerPicture(layer)
 
-        val flipped = FloatArray(8) { if (it % 2 == 0) corners[it] else flip(corners[it]) }
+        val flipped = FloatArray(8) { if (it % 2 == 0) state.mapX(corners[it]) else flip(state.mapY(corners[it])) }
 
         batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         batch().textured(
@@ -857,7 +912,13 @@ open class RenderCanvas protected constructor(
         transform.project(destination.right, destination.top, corners, 3)
         transform.project(destination.right, destination.bottom, corners, 6)
         transform.project(destination.left, destination.bottom, corners, 9)
-        for (at in 0 until 12 step 3) corners[at + 1] = base * corners[at + 2] - corners[at + 1]
+        // A pushed transform after the node's own, on the undivided numbers: scaled, and moved by w.
+        val grow = state.transformScale
+        for (at in 0 until 12 step 3) {
+            corners[at] = corners[at] * grow + state.transformX * corners[at + 2]
+            val y = corners[at + 1] * grow + state.transformY * corners[at + 2]
+            corners[at + 1] = base * corners[at + 2] - y
+        }
 
         batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         batch().projected(
@@ -937,7 +998,7 @@ open class RenderCanvas protected constructor(
     /** The bottom-left corner, because the projection measures y upwards. */
     override fun raw(destination: Rect, block: (Any) -> Unit) {
         batch().flush(BatchBreak.Raw)
-        val moved = projection.copyOf().also {
+        val moved = transformed(projection.copyOf()).also {
             it[12] += rawX(destination.left) * it[0]
             it[13] += rawY(destination.bottom) * it[5]
         }
@@ -947,7 +1008,23 @@ open class RenderCanvas protected constructor(
     override fun raw(block: (Any) -> Unit) {
         // Our own quads first, so the game's drawing lands on top of what came before it.
         batch().flush(BatchBreak.Raw)
-        runRaw(block, projection.copyOf())
+        runRaw(block, transformed(projection.copyOf()))
+    }
+
+    /**
+     * [into] with a pushed transform folded in, so a game drawing through the hatch in the
+     * coordinates it was handed lands where everything else does. In the projection's own y-up
+     * coordinates a design y of `base - y` has to end up at `base - (y × scale + move)`, which is a
+     * scale and a move of `base × (1 - scale) - move`.
+     */
+    private fun transformed(into: FloatArray): FloatArray {
+        if (!state.isTransformed) return into
+        val grow = state.transformScale
+        into[12] += into[0] * state.transformX
+        into[13] += into[5] * (flipBase() * (1f - grow) - state.transformY)
+        into[0] *= grow
+        into[5] *= grow
+        return into
     }
 
     private fun runRaw(block: (Any) -> Unit, projection: FloatArray) {
@@ -997,9 +1074,9 @@ open class RenderCanvas protected constructor(
      */
     private fun white(): WhiteSpot {
         val fonts = atlas
-        // On a scaled-up frame, from the page the sharp glyphs are on, so a panel and its label are
-        // still one draw call.
-        val atlas = if (fonts != null && quarter > SharpGlyphs.One) fonts.sharp?.atlas ?: fonts else fonts
+        // Wherever the glyphs of this draw are coming from, so a panel and its label are still one
+        // draw call — the sharp page on a scaled-up frame, and on a zoomed-out plane too.
+        val atlas = if (fonts != null && remadeSharp(textQuarter())) fonts.sharp?.atlas ?: fonts else fonts
         val cached = whiteSpot
         if (atlas == null) {
             if (cached != null) return cached

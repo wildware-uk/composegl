@@ -860,6 +860,98 @@ back to, as long as a `SaveableStateHolder` is above them — see
 
 ---
 
+## Panning and zooming
+
+A plane of interface the player drags around and zooms into: a world map, a skill
+tree, a tile board, a node editor, a diagram bigger than the screen.
+
+```kotlin
+val camera = rememberPanZoomState(
+    zoom = 1f, minZoom = 0.25f, maxZoom = 3f,
+    bounds = Rect(0f, 0f, 4000f, 3000f),      // world units; panning stops at the edges
+)
+
+PanZoomCanvas(
+    state = camera,
+    modifier = Modifier.fillMaxSize(),
+    // World units, under the children. Remembered on what it draws, like any other draw here:
+    // the canvas redraws when the lambda changes, so a fresh one each time asks for one each time.
+    background = remember(links) { { visible -> drawLanes(links, visible) } },
+) {
+    skills.forEach { skill ->
+        key(skill.id) {
+            SkillNode(skill, Modifier.worldPosition(skill.x, skill.y, anchor = Alignment.Centre))
+        }
+    }
+}
+
+camera.animateTo(centre = Offset(skill.x, skill.y), zoom = 1.5f)
+val world = camera.screenToWorld(pointer)
+```
+
+The children are laid out **once, in world units**, at their natural size, where
+`Modifier.worldPosition` puts them. Pan and zoom are a transform the canvas draws them
+through and the pointer finds them through, so moving the camera measures and composes
+nothing — and a node at three times its size is drawn at three times its size rather
+than stretched from a picture, so its edges and its letters stay sharp. Clicks, hover,
+drags, tooltips, focus rings and `boundsInRoot` all work inside the plane with nothing
+written for them.
+
+This is what `Modifier.scale` cannot do: that is a captured picture magnified, soft past
+about 1.15× and with a ceiling at 4096 pixels. A camera has neither.
+
+- **Drag** empty space to pan, and a fast one flings on. A drag that starts on a button
+  pans once it has moved further than a click would, and the button is not clicked; a
+  slider inside keeps its own drag. Past an edge the world gives a little and springs back.
+- **The wheel** zooms about the pointer, so what is under it stays under it. A sideways
+  wheel pans.
+- **Pinch** with two fingers zooms about their middle and pans with it.
+- **Double click** does `reset`: `PanZoomReset.Initial` goes back to where the camera
+  started, `PanZoomReset.Fit` fits the whole world in view.
+- **The pad**, while focus is on the canvas or inside it: the left stick pans, the right
+  trigger zooms in and the left one out, and `resetButton` (R3 by default) resets. The
+  d-pad walks focus from node to node and the camera eases to keep the focused node in
+  view. With the canvas itself focused, a direction goes to the nearest node that way and
+  pans a step when there is none.
+- **Keys**, the same way: `=` zooms in, `-` zooms out, `0` resets, and the arrows move
+  focus as the d-pad does.
+
+`Modifier.worldPosition(x, y, anchor, scaleWithZoom)` is parent data, like `layoutId`:
+`anchor` says which point of the child sits on the world point — `Alignment.TopStart` for
+a tile board, `Alignment.Centre` for a node in a tree. With `scaleWithZoom = false` the
+child follows the camera but keeps its own size on screen, which is what a label, a pin
+or a player marker wants. A world is a picture rather than a line of text, so it is not
+mirrored on a right-to-left screen.
+
+The camera is plain state and can be driven from anywhere: `screenToWorld` and
+`worldToScreen`, `zoomAbout(point, zoom)`, `panBy`, `snapTo`, `animateTo`, `fit()`,
+`reset()`, and `visibleWorld` for what is in view now. `rememberPanZoomState` keeps it
+where the player left it when a screen comes back, under a `SaveableStateHolder` — see
+[[Saving state]].
+
+A child entirely outside the view is neither drawn nor hit-tested, so a board of
+thousands draws the few dozen on screen. For a world too big to compose at all, the lazy
+form composes only what is near the view:
+
+```kotlin
+LazyPanZoomCanvas(
+    items = tiles,                                                 // 40,000 of them
+    area = { Rect.of(it.column * 64f, it.row * 64f, 64f, 64f) },
+    state = camera,
+    key = { it.id },
+) { tile -> Tile(tile) }
+```
+
+Items are sorted into a grid of cells once per list, and the set composed changes only
+when the view crosses into different cells — so a pan inside one cell composes nothing.
+
+Text is a picture made at one pixel size, so zoomed text is made again at the nearest of
+a few steps (0.5, 0.75, 1, 1.5, 2, 3) once a gesture settles, and stretched between steps
+while the camera is moving. The canvas's own look is the skin's `"panzoom"` style: the
+backdrop behind the world, and a ring when the pad has focus on the canvas itself.
+
+---
+
 ## Tables
 
 Rows with columns that line up, sort and resize: a scoreboard, a server browser,

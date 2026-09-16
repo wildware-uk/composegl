@@ -112,6 +112,19 @@ class Matrix4 private constructor(private val values: FloatArray) {
             ),
         )
 
+        /**
+         * Grows x and y by [scale] and then moves every point by ([x], [y]), leaving depth alone: a
+         * camera looking straight down at a flat plane, which is what a pan-and-zoom canvas is.
+         */
+        fun zoom(scale: Float, x: Float = 0f, y: Float = 0f) = Matrix4(
+            floatArrayOf(
+                scale, 0f, 0f, x,
+                0f, scale, 0f, y,
+                0f, 0f, 1f, 0f,
+                0f, 0f, 0f, 1f,
+            ),
+        )
+
         /** Turns about the x axis, the top edge going away for a positive angle. */
         fun rotationX(degrees: Float): Matrix4 {
             val c = cosOf(degrees)

@@ -61,6 +61,7 @@ Modifier.align(Alignment.TopEnd)   // inside a Box
 Modifier.weight(1f)                // inside a Row or Column
 Modifier.zIndex(1f)                // drawn over its siblings, and clicked first
 Modifier.layoutId("icon")          // inside a layout of your own; see [[Custom layouts]]
+Modifier.worldPosition(120f, 80f)  // inside a PanZoomCanvas; see [[Widgets]]
 Modifier.wrapContentSize()         // its own size, centred in a slot bigger than it
 Modifier.wrapContentWidth(HorizontalAlignment.End)
 Modifier.animatePlacement()        // slides to a new slot instead of jumping there

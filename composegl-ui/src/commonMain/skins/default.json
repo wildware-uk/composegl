@@ -187,6 +187,14 @@
       "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#5B8DEF", "borderWidth": 2 } }
     },
 
+    // A pan-and-zoom canvas is a window onto a world, so its own look is only the backdrop behind
+    // that world and a ring when the pad has focus on the canvas itself.
+
+    "panzoom": {
+      "background": { "fill": "#0B0E14" },
+      "focused": { "background": { "fill": "#0B0E14", "border": "#5B8DEF", "borderWidth": 2 } }
+    },
+
     // A splitter's divider is a quiet bar between two panes that lights up when the pointer finds it,
     // so a player can see there is something to grab before the cursor tells them.
 

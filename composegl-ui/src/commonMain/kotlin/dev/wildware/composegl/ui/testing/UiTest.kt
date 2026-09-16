@@ -312,6 +312,37 @@ class UiTest(
         return send(PointerEvent.Release(PointerId.Mouse, pointerAt, button))
     }
 
+    /**
+     * A fast drag from [from] to [to], let go at the end: the flick that sends a list or a plane
+     * sailing on by itself.
+     *
+     * [press], [dragTo] and [release] stamp every event at time zero, as a backend with no clock
+     * does, so anything that measures a speed measures none and nothing ever flings. This walks the
+     * pointer across in [steps] moves, [millisPerStep] apart on the pointer's own clock, which is
+     * what makes the speed real — six sixteen-millisecond steps by default, a flick of a frame each.
+     *
+     * Returns whether something took the press, and returns once the fling has played itself out,
+     * as every helper here does. What to look at afterwards is how much further than [to] the
+     * contents carried on.
+     */
+    fun flick(from: Offset, to: Offset, steps: Int = 6, millisPerStep: Long = 16L): Boolean {
+        require(steps >= 1) { "a flick needs at least one move, not $steps" }
+        moveTo(from)
+        held = setOf(PointerButton.Primary)
+        var time = 0L
+        val took = send(PointerEvent.Press(PointerId.Mouse, from, PointerButton.Primary, timeMillis = time))
+        for (step in 1..steps) {
+            time += millisPerStep
+            val fraction = step.toFloat() / steps
+            val at = Offset(from.x + (to.x - from.x) * fraction, from.y + (to.y - from.y) * fraction)
+            pointerAt = at
+            send(PointerEvent.Move(PointerId.Mouse, at, held, timeMillis = time))
+        }
+        held = emptySet()
+        send(PointerEvent.Release(PointerId.Mouse, to, PointerButton.Primary, timeMillis = time))
+        return took
+    }
+
     /** A wheel turned over [tag]. Positive scrolls content up and left. */
     fun scroll(tag: String, delta: Offset): Boolean {
         val at = centreOf(tag)

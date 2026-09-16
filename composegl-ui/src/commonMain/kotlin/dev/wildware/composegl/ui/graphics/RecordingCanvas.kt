@@ -275,6 +275,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     private val recorded = mutableListOf<DrawCall>()
     private val recordedBlends = mutableListOf<BlendMode>()
     private val recordedTints = mutableListOf<Colour>()
+    private val recordedScales = mutableListOf<Float>()
     private var drawing = false
 
     /** Everything drawn since the last [clear], in the order it was drawn. */
@@ -320,6 +321,20 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         return if (at < 0) Colour.White else recordedTints[at]
     }
 
+    /**
+     * How much [call] was grown by a [pushTransform] in force when it was drawn: one for none.
+     * Matched by identity, like [blendOf], and beside the calls for the same reason.
+     *
+     * Every position and size a call records is already where the transform put it — the rectangle
+     * on the screen, the point a run of text starts at — so a test compares them with
+     * `boundsInRoot` directly. This is for what a position cannot say: how big the letters of a
+     * [DrawCall.Text] were drawn.
+     */
+    fun scaleOf(call: DrawCall): Float {
+        val at = recorded.indexOfFirst { it === call }
+        return if (at < 0) 1f else recordedScales[at]
+    }
+
     /** Everything drawn under one mode. The quick way to ask "did this group glow?". */
     fun calls(mode: BlendMode): List<DrawCall> =
         recorded.filterIndexed { at, _ -> recordedBlends[at] == mode }
@@ -329,6 +344,21 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         recorded += call
         recordedBlends += state.blend
         recordedTints += if (call is DrawCall.Layer) Colour.White else state.tint
+        recordedScales += state.transformScale
+    }
+
+    /** A thickness as it is drawn. */
+    private fun length(value: Float) = state.mapLength(value)
+
+    /** Corners as they are drawn. */
+    private fun Corners.drawn(): Corners =
+        if (state.transformScale == 1f) this
+        else Corners(length(topLeft), length(topRight), length(bottomRight), length(bottomLeft))
+
+    /** x, y pairs as they are drawn: the same array when nothing is transformed. */
+    private fun FloatArray.drawn(): FloatArray {
+        if (!state.isTransformed) return this
+        return FloatArray(size) { if (it % 2 == 0) state.mapX(this[it]) else state.mapY(this[it]) }
     }
 
     /**
@@ -360,6 +390,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         recorded.clear()
         recordedBlends.clear()
         recordedTints.clear()
+        recordedScales.clear()
         drawing = false
         state.reset(bounds)
     }
@@ -409,22 +440,22 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     }
 
     override fun rect(rect: Rect, colour: Colour, corner: Float) {
-        record(DrawCall.Rectangle(rect, colour, corner, state.clip, state.alpha))
+        record(DrawCall.Rectangle(state.map(rect), colour, length(corner), state.clip, state.alpha))
     }
 
     override fun rect(rect: Rect, brush: Brush, corner: Float) {
-        record(DrawCall.GradientRectangle(rect, brush, corner, state.clip, state.alpha))
+        record(DrawCall.GradientRectangle(state.map(rect), brush, length(corner), state.clip, state.alpha))
     }
 
     /** It writes the brush down, which is the whole of what this canvas can do about anything. */
     override val drawsGradients: Boolean get() = true
 
     override fun border(rect: Rect, colour: Colour, width: Float, corner: Float) {
-        record(DrawCall.Border(rect, colour, width, corner, state.clip, state.alpha))
+        record(DrawCall.Border(state.map(rect), colour, length(width), length(corner), state.clip, state.alpha))
     }
 
     override fun shadow(rect: Rect, colour: Colour, spread: Float, corner: Float) {
-        record(DrawCall.Shadow(rect, colour, spread, corner, state.clip, state.alpha))
+        record(DrawCall.Shadow(state.map(rect), colour, length(spread), length(corner), state.clip, state.alpha))
     }
 
     /**
@@ -433,22 +464,22 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
      */
     override fun rect(rect: Rect, colour: Colour, corners: Corners) {
         if (corners.isUniform) return rect(rect, colour, corners.topLeft)
-        record(DrawCall.CorneredRectangle(rect, colour, corners, state.clip, state.alpha))
+        record(DrawCall.CorneredRectangle(state.map(rect), colour, corners.drawn(), state.clip, state.alpha))
     }
 
     override fun border(rect: Rect, colour: Colour, width: Float, corners: Corners) {
         if (corners.isUniform) return border(rect, colour, width, corners.topLeft)
-        record(DrawCall.CorneredBorder(rect, colour, width, corners, state.clip, state.alpha))
+        record(DrawCall.CorneredBorder(state.map(rect), colour, length(width), corners.drawn(), state.clip, state.alpha))
     }
 
     override fun shadow(rect: Rect, colour: Colour, spread: Float, corners: Corners) {
         if (corners.isUniform) return shadow(rect, colour, spread, corners.topLeft)
-        record(DrawCall.CorneredShadow(rect, colour, spread, corners, state.clip, state.alpha))
+        record(DrawCall.CorneredShadow(state.map(rect), colour, length(spread), corners.drawn(), state.clip, state.alpha))
     }
 
     override fun rect(rect: Rect, brush: Brush, corners: Corners) {
         if (corners.isUniform) return rect(rect, brush, corners.topLeft)
-        record(DrawCall.CorneredGradientRectangle(rect, brush, corners, state.clip, state.alpha))
+        record(DrawCall.CorneredGradientRectangle(state.map(rect), brush, corners.drawn(), state.clip, state.alpha))
     }
 
     /** It writes all four down, which is the whole of what this canvas can do about anything. */
@@ -456,19 +487,19 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     override fun fan(points: FloatArray, colour: Colour) {
         if (points.size < 6) return
-        val offsets = (points.indices step 2).map { Offset(points[it], points[it + 1]) }
+        val offsets = (points.indices step 2).map { Offset(state.mapX(points[it]), state.mapY(points[it + 1])) }
         record(DrawCall.Fan(offsets, colour, state.clip, state.alpha))
     }
 
     override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) {
-        record(DrawCall.Text(layout.text, Offset(x, y), colour, state.clip, state.alpha))
+        record(DrawCall.Text(layout.text, Offset(state.mapX(x), state.mapY(y)), colour, state.clip, state.alpha))
     }
 
     override fun image(texture: TextureHandle, destination: Rect, tint: Colour, source: Rect?) {
         // Every canvas that draws refuses nine separately-cut pieces, so this one does too. A test
         // that recorded them would be passing against art no real backend would put on a screen.
         refuseNineRegions(texture)
-        record(DrawCall.Image(texture, destination, tint, source, state.clip, state.alpha))
+        record(DrawCall.Image(texture, state.map(destination), tint, source, state.clip, state.alpha))
     }
 
     /**
@@ -490,12 +521,12 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     ) {
         refuseNineRegions(texture)
         if (degrees == 0f) {
-            record(DrawCall.Image(texture, destination, tint, source, state.clip, state.alpha))
+            record(DrawCall.Image(texture, state.map(destination), tint, source, state.clip, state.alpha))
             return
         }
         record(
             DrawCall.RotatedImage(
-                texture, destination, degrees, pivotX, pivotY, tint, source, state.clip, state.alpha,
+                texture, state.map(destination), degrees, pivotX, pivotY, tint, source, state.clip, state.alpha,
             ),
         )
     }
@@ -519,7 +550,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         // canvas that behaves differently from every canvas that draws. The tint comes in with it,
         // as it does on those.
         val outer = state
-        state = outer.forLayer(bounds)
+        state = outer.forLayer(outer.map(bounds))
         try {
             block()
             check(state.isBalanced) { UnbalancedInLayer }
@@ -530,7 +561,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     }
 
     override fun drawLayer(layer: TextureHandle, destination: Rect, effect: ShaderEffect?) {
-        record(DrawCall.Layer(destination, effect, clip = state.clip, alpha = state.alpha))
+        record(DrawCall.Layer(state.map(destination), effect, clip = state.clip, alpha = state.alpha))
     }
 
     override fun drawLayer(
@@ -541,7 +572,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         pivotY: Float,
     ) {
         record(
-            DrawCall.Layer(destination, null, degrees, pivotX, pivotY, state.clip, state.alpha),
+            DrawCall.Layer(state.map(destination), null, degrees, pivotX, pivotY, state.clip, state.alpha),
         )
     }
 
@@ -549,7 +580,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     override val turnsLayers: Boolean get() = true
 
     override fun cutLayer(layer: TextureHandle, destination: Rect, outline: FloatArray) {
-        record(DrawCall.Layer(destination, null, clip = state.clip, alpha = state.alpha, outline = outline.toList()))
+        record(DrawCall.Layer(state.map(destination), null, clip = state.clip, alpha = state.alpha, outline = outline.drawn().toList()))
     }
 
     /** It records the outline, so it really cuts one. */
@@ -558,7 +589,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     override fun drawLayer(layer: TextureHandle, destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
         record(
             DrawCall.Layer(
-                destination, null, clip = state.clip, alpha = state.alpha, mirrorX = mirrorX, mirrorY = mirrorY,
+                state.map(destination), null, clip = state.clip, alpha = state.alpha, mirrorX = mirrorX, mirrorY = mirrorY,
             ),
         )
     }
@@ -570,8 +601,8 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         require(corners.size == 8) { "four corners are eight numbers, not ${corners.size}" }
         record(
             DrawCall.LayerOnto(
-                destination,
-                List(4) { Offset(corners[it * 2], corners[it * 2 + 1]) },
+                state.map(destination),
+                List(4) { Offset(state.mapX(corners[it * 2]), state.mapY(corners[it * 2 + 1])) },
                 state.clip,
                 state.alpha,
             ),
@@ -584,12 +615,15 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     override fun drawLayer(layer: TextureHandle, destination: Rect, transform: Matrix4) {
         val xs = floatArrayOf(destination.left, destination.right, destination.right, destination.left)
         val ys = floatArrayOf(destination.top, destination.top, destination.bottom, destination.bottom)
+        // The camera's transform, after the node's own: one matrix, the way a canvas that draws uses it.
+        val seen = if (!state.isTransformed) transform else Matrix4.zoom(state.transformScale, state.transformX, state.transformY) * transform
         record(
             DrawCall.TiltedLayer(
+                // Before anything, the camera included: the corners are this through [seen].
                 destination,
-                transform,
-                List(4) { transform.map(xs[it], ys[it]) },
-                List(4) { transform.depthOf(xs[it], ys[it]) },
+                seen,
+                List(4) { seen.map(xs[it], ys[it]) },
+                List(4) { seen.depthOf(xs[it], ys[it]) },
                 state.clip,
                 state.alpha,
             ),
@@ -621,6 +655,20 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     override fun popTint() = state.popTint()
 
+    override fun pushTransform(scale: Float, translateX: Float, translateY: Float) =
+        state.pushTransform(scale, translateX, translateY)
+
+    override fun pushTransform(scale: Float, translateX: Float, translateY: Float, textScale: Float) =
+        state.pushTransform(scale, translateX, translateY, textScale)
+
+    override fun popTransform() = state.popTransform()
+
+    /** It moves every position it writes down, which is what a transform is. */
+    override val transforms: Boolean get() = true
+
+    /** The scale glyphs would be made for now, for a test of a canvas passing one. */
+    val textScale: Float get() = state.textScale
+
     /** It writes the tint down, which is the whole of what this canvas can do about anything. */
     override val tints: Boolean get() = true
 
@@ -642,7 +690,7 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     }
 
     override fun raw(destination: Rect, block: (Any) -> Unit) {
-        record(DrawCall.Raw(state.clip, state.alpha, destination))
+        record(DrawCall.Raw(state.clip, state.alpha, state.map(destination)))
     }
 
     /** Only the calls of one kind, which is what an assertion usually wants. */

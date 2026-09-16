@@ -316,8 +316,8 @@ knows OpenGL exists.
 ### If you really must draw yourself
 
 `UiCanvas` is the interface `RenderCanvas` implements, and it is deliberately short: `rect`,
-`border`, `shadow`, `text`, `image`, `fan`, a clip stack, an alpha stack, a blend stack
-and `raw`. The richer calls — `layer`, `cutLayer`, `textRing`, turned and tilted
+`border`, `shadow`, `text`, `image`, `fan`, a clip stack, an alpha stack, a blend stack,
+a transform stack and `raw`. The richer calls — `layer`, `cutLayer`, `textRing`, turned and tilted
 layers, `drawCalls`, `traceDrawCalls` — each have a capability flag and a default that
 degrades rather than fails. **The rule for `raw` and for `layer`: leave your own state
 as you found it.**
@@ -326,6 +326,15 @@ as you found it.**
 
 `raw` is the one optional thing with no sensible degrade: the toolkit cannot
 approximate a block it knows nothing about. So it is a question instead.
+
+`pushTransform(scale, translateX, translateY)` is the camera a
+[[pan-and-zoom canvas|Widgets]] is drawn through: everything until `popTransform` is
+placed and sized where the transform puts it, thicknesses included, and a clip pushed
+inside it is the transformed box. `RenderCanvas` does the multiply as each quad is
+queued, so a plane of a thousand nodes is still one draw call. A backend that inherits
+the default draws everything unmoved and answers `transforms = false`, and then the
+toolkit pans the plane by moving where its children are drawn from and leaves the zoom
+out — the pointer agrees with it, so a canvas that cannot zoom is still usable.
 
 - `handsOverRaw` — whether there is a backend object to hand over at all. Answer
   honestly and a widget can pick a composed fallback at construction, instead of

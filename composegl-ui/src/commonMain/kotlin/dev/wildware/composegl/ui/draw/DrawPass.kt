@@ -28,7 +28,10 @@ import dev.wildware.composegl.ui.modifier.SkinBackgroundElement
 import dev.wildware.composegl.ui.modifier.PaintOp
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.modifier.ShadowElement
+import dev.wildware.composegl.ui.node.ContentCamera
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.node.showsChild
+import dev.wildware.composegl.ui.node.visibleWorld
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.geometry.Matrix4
@@ -571,7 +574,71 @@ class DrawPass(val canvas: UiCanvas) {
                 ),
             )
         }
-        for (index in children.indices) draw(children[index], bounds.left + dx, bounds.top)
+        val camera = resolved.camera
+        if (camera == null) {
+            for (index in children.indices) draw(children[index], bounds.left + dx, bounds.top)
+        } else {
+            seen(node, resolved, camera, bounds.left + dx, bounds.top, children)
+        }
+    }
+
+    /**
+     * The children of a node with a camera over them, where the camera shows them.
+     *
+     * One transform for the whole plane, pushed at world (0, 0) — the corner of the content box
+     * moved by the pan — and grown by the zoom, so the children and the background are drawn at
+     * the world positions layout gave them and the canvas does the rest. Nothing was re-measured:
+     * a camera that moved is a different transform, not a different layout.
+     *
+     * A child pinned with `scaleWithZoom = false` takes a second transform inside the first that
+     * undoes the zoom about its pin, so its pin follows the camera and it stays its own size.
+     *
+     * A child the camera does not show is skipped whole, which is what keeps a big board cheap. A
+     * canvas that cannot transform gets the pan alone, by moving where the children are drawn from,
+     * and no background, since that is drawn in world units it could not scale; the node says so, so
+     * the pointer finds the children where they were drawn.
+     */
+    private fun seen(
+        node: UiNode,
+        resolved: ResolvedModifier,
+        camera: ContentCamera,
+        left: Float,
+        top: Float,
+        children: List<UiNode>,
+    ) {
+        camera.attach(node)
+        val zooms = canvas.transforms
+        node.cameraApplied = zooms
+        val padding = resolved.padding
+        // Nothing zoomed to nothing can be seen, and a divide by it would put the world nowhere.
+        val zoom = if (!zooms) 1f else camera.zoom.takeIf { it > 0f } ?: return
+        val worldX = left + padding.left + camera.panX(zoom)
+        val worldY = top + padding.top + camera.panY(zoom)
+        if (!zooms) {
+            for (index in children.indices) {
+                val child = children[index]
+                if (node.showsChild(child)) draw(child, worldX - padding.left, worldY - padding.top)
+            }
+            return
+        }
+
+        canvas.pushTransform(zoom, worldX, worldY, camera.textZoom)
+        camera.drawBackground(canvas, node.visibleWorld(camera))
+        for (index in children.indices) {
+            val child = children[index]
+            if (!node.showsChild(child)) continue
+            val pin = child.resolved.worldPosition
+            if (pin == null || pin.scaleWithZoom) {
+                draw(child, -padding.left, -padding.top)
+            } else {
+                // Inside the zoom: a point p lands at pin × zoom + (p − pin), which is p ÷ zoom
+                // moved by pin × (zoom − 1) ÷ zoom before the zoom multiplies it back.
+                canvas.pushTransform(1f / zoom, pin.x * (zoom - 1f) / zoom, pin.y * (zoom - 1f) / zoom, 1f / camera.textZoom)
+                draw(child, -padding.left, -padding.top)
+                canvas.popTransform()
+            }
+        }
+        canvas.popTransform()
     }
 
     /**

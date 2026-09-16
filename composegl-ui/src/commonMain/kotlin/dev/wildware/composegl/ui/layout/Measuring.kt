@@ -1,5 +1,7 @@
 package dev.wildware.composegl.ui.layout
 
+import dev.wildware.composegl.ui.widget.WorldPositionElement
+
 /**
  * Something that has been measured and is waiting to be told where it goes.
  *
@@ -67,11 +69,14 @@ interface Measurable : IntrinsicMeasurable {
  * @property layoutId the name the child was given with `Modifier.layoutId`, so a layout with
  *   named slots can find "the icon" rather than "the first child" — which stops being the icon the
  *   moment something before it is only there sometimes.
+ * @property worldPosition where the child asked to sit in a pan-and-zoom world, with
+ *   `Modifier.worldPosition`. Only a [dev.wildware.composegl.ui.widget.PanZoomCanvas] reads it.
  */
 data class LayoutData(
     val weight: Float? = null,
     val alignment: Alignment? = null,
     val layoutId: Any? = null,
+    val worldPosition: WorldPositionElement? = null,
 ) {
     companion object {
         val None = LayoutData()
@@ -80,6 +85,9 @@ data class LayoutData(
 
 /** The name this child was given with `Modifier.layoutId`, or null when it was given none. */
 val Measurable.layoutId: Any? get() = layoutData.layoutId
+
+/** Where this child asked to sit in its world, or null when it asked for nowhere in particular. */
+val Measurable.worldPosition: WorldPositionElement? get() = layoutData.worldPosition
 
 /** The size a layout chose, and how to place its children once it has been given that size. */
 interface MeasureResult {

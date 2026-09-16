@@ -247,6 +247,13 @@ class ResolvedModifier private constructor(
      * for almost every node there has ever been. See [dev.wildware.composegl.ui.widget.contextMenu].
      */
     val contextMenu: ContextMenuElement? = null,
+    /** The camera over this node's children, or null for every node but a pan-and-zoom canvas. */
+    internal val camera: dev.wildware.composegl.ui.node.ContentCamera? = null,
+    /**
+     * Where in a pan-and-zoom canvas's world this node sits, or null. See
+     * [dev.wildware.composegl.ui.widget.worldPosition].
+     */
+    val worldPosition: dev.wildware.composegl.ui.widget.WorldPositionElement? = null,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
@@ -341,6 +348,8 @@ class ResolvedModifier private constructor(
             val shortcutKeys = mutableListOf<KeyHandler>()
             val shortcutGamepad = mutableListOf<GamepadHandler>()
             var contextMenu: ContextMenuElement? = null
+            var camera: dev.wildware.composegl.ui.node.ContentCamera? = null
+            var worldPosition: dev.wildware.composegl.ui.widget.WorldPositionElement? = null
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -471,6 +480,9 @@ class ResolvedModifier private constructor(
                     is ShortcutGamepadElement -> shortcutGamepad += element.handler
                     // A choice: one press opens one menu, so a later one is a replacement.
                     is ContextMenuElement -> contextMenu = element
+                    // Choices: a node has one camera over its children and one place in a world.
+                    is dev.wildware.composegl.ui.node.CameraElement -> camera = element.camera
+                    is dev.wildware.composegl.ui.widget.WorldPositionElement -> worldPosition = element
                     is ClickableElement -> click = element
                     // Resolved away when disabled, rather than carried: a disabled draggable is an
                     // absent one, and every reader asking `drag != null` gets that for free.
@@ -515,7 +527,7 @@ class ResolvedModifier private constructor(
                 reveals.toList(), focusWithin.toList(), focusTrap, testTag,
                 sizeChanged.toList(), placed.toList(), contentSize,
                 placement, placementFrame, marquee,
-                shortcutKeys.toList(), shortcutGamepad.toList(), contextMenu,
+                shortcutKeys.toList(), shortcutGamepad.toList(), contextMenu, camera, worldPosition,
             )
         }
     }

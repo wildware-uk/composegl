@@ -476,6 +476,14 @@ class UiNode(var name: String = "node") {
      */
     internal var mirrorApplied: Boolean = true
 
+    /**
+     * Whether the last draw pass could zoom the camera on this node — see [ContentCamera]. A canvas
+     * that cannot transform still pans, by moving where the children are drawn from, but draws them
+     * at their own size; the pointer then finds them at their own size too. Optimistic, like
+     * [scaleApplied].
+     */
+    internal var cameraApplied: Boolean = true
+
     /** Whether this node's left and right are swapped as it is actually drawn. */
     val drawnMirrorX: Boolean get() = mirrorApplied && resolved.mirrorX
 
@@ -522,7 +530,10 @@ class UiNode(var name: String = "node") {
             var node: UiNode? = this
             while (node != null) {
                 scale *= node.drawnScale
-                node = node.parent
+                // A camera over this node grows it as well, unless it is one that keeps its size.
+                val parent = node.parent
+                if (parent?.resolved?.camera != null) scale *= parent.childScale(node)
+                node = parent
             }
             return scale
         }
@@ -622,7 +633,19 @@ class UiNode(var name: String = "node") {
             right += node.x
             top += node.y
             bottom += node.y
-            node = node.parent
+            // Into where the parent's camera shows it, when the parent has one: the same arithmetic
+            // the draw pass hands the canvas and the pointer carries down. See ContentCamera.
+            val parent = node.parent
+            if (parent != null && parent.resolved.camera != null) {
+                val grow = parent.childScale(node)
+                val moveX = parent.childOffsetX(node)
+                val moveY = parent.childOffsetY(node)
+                left = left * grow + moveX
+                right = right * grow + moveX
+                top = top * grow + moveY
+                bottom = bottom * grow + moveY
+            }
+            node = parent
         }
         return into?.of(left, top, right, bottom) ?: Rect(left, top, right, bottom)
     }
