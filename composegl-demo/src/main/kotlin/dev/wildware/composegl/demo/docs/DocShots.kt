@@ -15,6 +15,7 @@ import dev.wildware.composegl.debug.rememberDebugWindowsState
 import dev.wildware.composegl.ui.debug.FrameBudget
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -64,6 +65,7 @@ import dev.wildware.composegl.game.WorldPoint
 import dev.wildware.composegl.game.WorldProjection
 import dev.wildware.composegl.game.RadialCooldown
 import dev.wildware.composegl.game.Reticle
+import dev.wildware.composegl.game.rememberCompassLabels
 import dev.wildware.composegl.game.rememberCooldown
 import dev.wildware.composegl.game.rememberReticleState
 import dev.wildware.composegl.ui.geometry.Corners
@@ -251,6 +253,7 @@ internal fun docShots(): List<DocShot> = buildList {
     plots()
     nodeTree()
     worldMarkers()
+    compasses()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -4593,3 +4596,301 @@ private val MarkerPatches = listOf(
     MarkerSolid(4f, 36f, 4.6f, 0f),
     MarkerSolid(-28f, 44f, 5f, 1f),
 )
+
+// ---------------------------------------------------------------- the compass bar
+
+/**
+ * The heading strip, over a world that really turns under it.
+ *
+ * One patrol: a player standing on a ridge with a camp off to the north-east, raiders to the
+ * north-west and the pickup behind them, turning steadily to the right at sixty degrees a second.
+ * Nothing here is placed by hand. The hills, the camp and the raiders in the picture are drawn from
+ * their own bearings through the same arithmetic the strip uses, so a pin sits over the thing it is
+ * a pin for — and when the player turns far enough that the thing walks off the end of the strip,
+ * the pin stops there with an arrow on it instead of vanishing.
+ */
+private fun MutableList<DocShot>.compasses() {
+    // Part way through the turn: the camp is off to the right with the raiders to the left, and the
+    // pickup is behind, so its pin is stuck to the end with an arrow saying which way to turn.
+    add(
+        DocShot("game-compass-hud", PatrolWidth, PatrolHeight, stock = true, seconds = PatrolStill) {
+            PatrolHud(rememberPatrol().heading)
+        },
+    )
+
+    // The same three things out there, from three headings. A pin that has run out of strip stops at
+    // the end it left by rather than disappearing and leaving the player to guess which way to turn.
+    add(
+        DocShot("game-compass-clamped", 600, 350, stock = true) {
+            Frame {
+                Column(verticalArrangement = Arrangement.spacedBy(14f)) {
+                    ClampStep("facing the camp: the pickup is behind you, pinned to the right-hand end", CampBearing)
+                    ClampStep("turned left to the raiders: the pickup is off the left-hand end instead", 350f)
+                    ClampStep("facing the pickup: the other two are behind you now, one at each end", PickupBearing)
+                }
+            }
+        },
+    )
+
+    // The high-contrast skin, and the same strip in two languages. The words are the player's; the
+    // strip is not mirrored, because east is to the right of north wherever anybody is from and a
+    // mirrored strip would slide the wrong way as they turned. The line under each one is an
+    // ordinary row, and that one does mirror.
+    add(
+        DocShot("game-compass-rtl", 600, 275) {
+            val strings = remember {
+                Strings(
+                    mapOf(
+                        Locale.English to mapOf("objective" to "The camp"),
+                        Locale("he") to mapOf(
+                            "compass.n" to "צפ",
+                            "compass.e" to "מז",
+                            "compass.s" to "דר",
+                            "compass.w" to "מע",
+                            "objective" to "המחנה",
+                        ),
+                    ),
+                )
+            }
+            ProvideSkin(Skin.HighContrast) {
+                Frame {
+                    Column(verticalArrangement = Arrangement.spacedBy(20f)) {
+                        LocalisedStrip("English, read left to right", Locale.English, strings, LayoutDirection.Ltr)
+                        LocalisedStrip("Hebrew, read right to left: same strip, its own words", Locale("he"), strings, LayoutDirection.Rtl)
+                    }
+                }
+            }
+        },
+    )
+
+    // The same patrol a little later each time, for the moving picture: the player turns right, the
+    // ridge and the camp slide left with the names, and each pin rides over the thing it is a pin
+    // for until that thing runs off the end. Only when asked for, because they are frames to be
+    // joined into a GIF rather than pictures of their own: `COMPOSEGL_DOC_FRAMES=1`, then join
+    // `game-compass-turn-frame-*.png` in order, 0.12 s each, which is the speed the turn really ran.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(PatrolFrames) { i ->
+            val name = "game-compass-turn-frame-${i.toString().padStart(2, '0')}"
+            add(
+                DocShot(name, PatrolWidth, PatrolHeight, stock = true, seconds = PatrolFirst + i * PatrolStep) {
+                    PatrolHud(rememberPatrol().heading)
+                },
+            )
+        }
+    }
+}
+
+/** How wide and tall every compass picture of the patrol is. */
+private const val PatrolWidth = 620
+private const val PatrolHeight = 260
+
+/** How much of the circle the strip shows, and how wide the strip and its ruler are inside it. */
+private const val PatrolField = 180f
+private const val PatrolStripWidth = PatrolWidth - 20f
+private const val PatrolStripInner = PatrolWidth - 40f
+
+/** Where the hills stand on the picture, and where the strip hangs. */
+private const val Horizon = 178f
+private const val StripTop = 12f
+
+/** What is out there, in degrees clockwise from north and metres away. */
+private const val CampBearing = 42f
+private const val CampRange = 180f
+private const val RaidBearing = 315f
+private const val RaidRange = 65f
+private const val PickupBearing = 208f
+private const val PickupRange = 410f
+
+/** How far a pin that asked to fade has gone as faint as it goes: further off than the pickup is. */
+private const val PickupFade = 900f
+
+/** Where the player starts looking, and how fast they turn: sixty degrees a second. */
+private const val PatrolStart = 318f
+private const val PatrolTurnPerFrame = 1f
+
+/** The moment the still picture is taken, and the frames the moving one is made of. */
+private const val PatrolStill = 0.9f
+private const val PatrolFrames = 20
+private const val PatrolFirst = 0.1f
+private const val PatrolStep = 0.12f
+
+/**
+ * The player turning, a frame at a time.
+ *
+ * From a frame callback rather than from the composition, like every other moving picture here: the
+ * heading is a plain number the game owns, and the strip is handed whatever it is this frame.
+ */
+@Composable
+private fun rememberPatrol(): DocPatrol {
+    val patrol = remember { DocPatrol() }
+    LaunchedEffect(patrol) {
+        while (true) {
+            withFrameNanos { patrol.step() }
+        }
+    }
+    return patrol
+}
+
+/** A player standing on a ridge and turning to their right. */
+private class DocPatrol {
+
+    private var frames = 0
+
+    var heading by mutableStateOf(PatrolStart)
+        private set
+
+    fun step() {
+        frames++
+        heading = turnWrapped(PatrolStart + frames * PatrolTurnPerFrame)
+    }
+}
+
+/** A HUD as a game has one: the world, the strip across the top of it, and a crosshair. */
+@Composable
+private fun PatrolHud(heading: Float) {
+    Box(Modifier.fillMaxSize()) {
+        PatrolScene(heading)
+        CompassBar(
+            heading = heading,
+            fieldOfView = PatrolField,
+            Modifier.align(Alignment.TopCentre).offset(0f, StripTop).width(PatrolStripWidth),
+            readout = { "${it.roundToInt()}°" },
+            distanceText = { "${it.roundToInt()}m" },
+            fadeRange = PickupFade,
+        ) {
+            pin(bearing = CampBearing, distance = CampRange)
+            pin(bearing = RaidBearing, distance = RaidRange, style = "label.danger")
+            pin(bearing = PickupBearing, distance = PickupRange, fadeWithDistance = true)
+        }
+
+        // The middle of the screen, which is the middle of the strip: what the player is looking at.
+        Box(Modifier.align(Alignment.Centre).size(14f, 2f).background(Colour.rgb(0xE8ECF2)))
+        Box(Modifier.align(Alignment.Centre).size(2f, 14f).background(Colour.rgb(0xE8ECF2)))
+
+        Column(Modifier.offset(16f, PatrolHeight - 56f), verticalArrangement = Arrangement.spacedBy(6f)) {
+            Text("PATROL - RIDGE ROAD", style = "label.heading")
+            Box(Modifier.size(128f, 8f).background(Colour.rgb(0x222B3C), corner = 4f)) {
+                Box(Modifier.size(96f, 8f).background(Colour.rgb(0x46A758), corner = 4f))
+            }
+        }
+    }
+}
+
+/**
+ * What the player can see from the ridge, drawn from bearings.
+ *
+ * Every hill and every landmark is put on the screen by [screenAt], which is the strip's own
+ * arithmetic — so the camp under the camp's pin is the camp, rather than a drawing arranged to look
+ * as though it were.
+ */
+@Composable
+private fun PatrolScene(heading: Float) {
+    Box(Modifier.fillMaxSize().background(Brush.vertical(Colour.rgb(0x131C2E), Colour.rgb(0x3C2C41)))) {
+        Hills.forEach { hill ->
+            val x = screenAt(hill.bearing, heading) ?: return@forEach
+            Box(
+                Modifier.offset(x - hill.width / 2f, Horizon - hill.height)
+                    .size(hill.width, hill.height)
+                    .background(hill.colour, corner = hill.height / 1.6f),
+            )
+        }
+
+        // The ground, and the line along the top of it.
+        Box(Modifier.offset(0f, Horizon).fillMaxWidth().height(PatrolHeight - Horizon).background(Colour.rgb(0x0E1220)))
+        Box(Modifier.offset(0f, Horizon).fillMaxWidth().height(2f).background(Colour.rgb(0x38455F)))
+
+        // The camp: a hut with a fire beside it.
+        screenAt(CampBearing, heading)?.let { x ->
+            Box(Modifier.offset(x - 22f, Horizon - 24f).size(44f, 24f).background(Colour.rgb(0x6B5B43), corner = 5f))
+            Box(Modifier.offset(x - 26f, Horizon - 34f).size(52f, 14f).background(Colour.rgb(0x8A7452), corner = 7f))
+            Box(Modifier.offset(x + 14f, Horizon - 22f).size(28f, 28f).alpha(0.3f).background(Colour.rgb(0xF2C94C), corner = 14f))
+            Box(Modifier.offset(x + 22f, Horizon - 14f).size(12f, 12f).background(Colour.rgb(0xF2C94C), corner = 6f))
+        }
+
+        // The raiders: two of them, standing where the danger pin says they are.
+        screenAt(RaidBearing, heading)?.let { x ->
+            Box(Modifier.offset(x - 16f, Horizon - 38f).size(13f, 38f).background(Colour.rgb(0x1A1016), corner = 6f))
+            Box(Modifier.offset(x + 4f, Horizon - 34f).size(13f, 34f).background(Colour.rgb(0x1A1016), corner = 6f))
+            Box(Modifier.offset(x - 13f, Horizon - 34f).size(7f, 3f).background(Colour.rgb(0xE5484D), corner = 2f))
+            Box(Modifier.offset(x + 7f, Horizon - 30f).size(7f, 3f).background(Colour.rgb(0xE5484D), corner = 2f))
+        }
+    }
+}
+
+/** One hill on the ridge, at the bearing it stands on. */
+private class DocHill(val bearing: Float, val width: Float, val height: Float, val colour: Colour)
+
+/** The ridge all the way round, so that turning always brings another one along. */
+private val Hills = listOf(
+    DocHill(350f, 250f, 92f, Colour.rgb(0x27314F)),
+    DocHill(28f, 190f, 64f, Colour.rgb(0x1A2440)),
+    DocHill(78f, 300f, 104f, Colour.rgb(0x27314F)),
+    DocHill(140f, 230f, 78f, Colour.rgb(0x1A2440)),
+    DocHill(214f, 270f, 96f, Colour.rgb(0x27314F)),
+    DocHill(288f, 210f, 72f, Colour.rgb(0x1A2440)),
+)
+
+/** Where on the screen a bearing falls, or null when it is behind the player. */
+private fun screenAt(bearing: Float, heading: Float): Float? {
+    val away = turnWrapped(bearing - heading)
+    if (abs(away) > PatrolField / 2f + 8f) return null
+    return PatrolWidth / 2f + away / PatrolField * PatrolStripInner
+}
+
+/** A turn as the strip counts one: how far round, and which way, in -180 to 180. */
+private fun turnWrapped(degrees: Float): Float {
+    val wrapped = ((degrees % 360f) + 360f) % 360f
+    return if (wrapped > 180f) wrapped - 360f else wrapped
+}
+
+/** One heading in the picture of clamping, with a line saying what the player has done. */
+@Composable
+private fun ClampStep(caption: String, heading: Float) {
+    Column(verticalArrangement = Arrangement.spacedBy(4f)) {
+        Text(caption, style = "label.dim")
+        CompassBar(
+            heading = heading,
+            fieldOfView = PatrolField,
+            Modifier.width(540f),
+            readout = { "${it.roundToInt()}°" },
+            distanceText = { "${it.roundToInt()}m" },
+            fadeRange = PickupFade,
+            live = false,
+        ) {
+            pin(bearing = CampBearing, distance = CampRange)
+            pin(bearing = RaidBearing, distance = RaidRange, style = "label.danger")
+            pin(bearing = PickupBearing, distance = PickupRange, fadeWithDistance = true)
+        }
+    }
+}
+
+/** The same strip in one language, with an ordinary row under it that does mirror. */
+@Composable
+private fun LocalisedStrip(caption: String, locale: Locale, strings: Strings, direction: LayoutDirection) {
+    ProvideLocale(locale, strings) {
+        ProvideLayoutDirection(direction) {
+            Column(Modifier.width(540f), verticalArrangement = Arrangement.spacedBy(6f)) {
+                // Written in English either way: it is a caption on the picture rather than
+                // anything the strip says, and the point is what the strip does underneath it.
+                ProvideLayoutDirection(LayoutDirection.Ltr) { Text(caption, style = "label.dim") }
+                CompassBar(
+                    heading = CampBearing,
+                    fieldOfView = PatrolField,
+                    Modifier.fillMaxWidth(),
+                    labels = rememberCompassLabels(points = 4),
+                    readout = { "${it.roundToInt()}°" },
+                    distanceText = { "${it.roundToInt()}m" },
+                    fadeRange = PickupFade,
+                    live = false,
+                ) {
+                    pin(bearing = CampBearing, distance = CampRange)
+                    pin(bearing = RaidBearing, distance = RaidRange, style = "label.danger")
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10f)) {
+                    Text(stringOf("objective"), style = "label")
+                    Text("180m", style = "label.dim")
+                }
+            }
+        }
+    }
+}
