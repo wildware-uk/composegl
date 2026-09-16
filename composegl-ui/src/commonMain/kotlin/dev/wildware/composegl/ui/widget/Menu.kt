@@ -17,6 +17,8 @@ import dev.wildware.composegl.ui.animation.wait
 import dev.wildware.composegl.ui.focus.FocusDirection
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.focus.FocusWithinHandler
+import dev.wildware.composegl.ui.focus.focusManagerOrNull
+import dev.wildware.composegl.ui.focus.focusOnNode
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
@@ -291,21 +293,6 @@ internal fun List<MenuEntry>.fireShortcut(event: KeyEvent): Boolean {
         }
     }
     return false
-}
-
-/** The focus manager over the tree [this] is in, or null for a tree nobody built one over. */
-internal fun UiNode.focusManagerOrNull(): FocusManager? {
-    var walk: UiNode? = this
-    while (walk != null) {
-        walk.focusManager?.let { return it }
-        walk = walk.parent
-    }
-    return null
-}
-
-/** Focus onto [node], if it is there and can take it. */
-internal fun focusOnNode(node: UiNode?) {
-    node?.focusManagerOrNull()?.focusOn(node)
 }
 
 // --- the menu bar -------------------------------------------------------------------------------

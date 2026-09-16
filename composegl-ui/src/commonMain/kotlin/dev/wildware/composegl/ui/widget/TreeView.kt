@@ -13,6 +13,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.focus.FocusDirection
 import dev.wildware.composegl.ui.focus.FocusManager
+import dev.wildware.composegl.ui.focus.focusManagerOrNull
+import dev.wildware.composegl.ui.focus.focusOnNode
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas

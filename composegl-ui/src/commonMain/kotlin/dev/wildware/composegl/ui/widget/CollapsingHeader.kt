@@ -10,6 +10,7 @@ import dev.wildware.composegl.ui.animation.AnimationSpec
 import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.animation.Spring
 import dev.wildware.composegl.ui.focus.FocusWithinHandler
+import dev.wildware.composegl.ui.focus.focusOnNode
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas

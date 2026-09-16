@@ -25,6 +25,11 @@ val StyleNames = listOf(
     "minimap", "minimap.marker", "minimap.compass",
     "compass", "compass.tick", "compass.label", "compass.marker", "compass.pin", "compass.readout",
     "subtitle", "subtitle.speaker", "subtitle.caption",
+    "dialogue", "dialogue.speaker", "dialogue.text", "dialogue.advance",
+    "dialogue.choice", "dialogue.choice.reason",
+    "dialogue.timer.track", "dialogue.timer.fill",
+    "dialogue.control", "dialogue.control.on",
+    "dialogue.history.speaker", "dialogue.history.line", "dialogue.history.answer",
     // text
     "label", "label.title", "label.heading", "label.dim", "label.danger", "label.good",
     // buttons

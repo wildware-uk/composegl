@@ -203,6 +203,32 @@ class TypewriterTest {
         assertTrue(line.revealed < line.text.length, "it should be typing the new line, not showing it")
     }
 
+    /**
+     * The line a conversation says twice. Nothing about the text changed, so nothing but the
+     * restart itself can start the typing again — and a dialogue whose second "…" never appeared
+     * would be stuck on an empty box.
+     */
+    @Test
+    fun `a line sent back to the beginning types again even with the same words`() {
+        lateinit var line: TypewriterState
+        show {
+            line = rememberTypewriter("nothing about this changed", Clock.Ui)
+            Typewriter(line, charactersPerSecond = 30f, pauses = false)
+        }
+
+        frames(40, 40)
+        assertTrue(line.isFinished)
+
+        line.restart()
+        frames(2, 0)
+        assertTrue(line.revealed < line.text.length, "it should be typing again rather than showing it all")
+
+        frames(40, 40)
+
+        assertTrue(line.isFinished, "it never finished typing again")
+        assertEquals("nothing about this changed", shown())
+    }
+
     @Test
     fun `a wrapped paragraph is drawn a line at a time`() {
         lateinit var line: TypewriterState

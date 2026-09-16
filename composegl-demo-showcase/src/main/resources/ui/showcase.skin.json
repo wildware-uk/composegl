@@ -202,6 +202,54 @@
     "subtitle.speaker": { "textColour": "#4CC2FF", "text": { "size": 16 } },
     "subtitle.caption": { "textColour": "#7E8DA3", "text": { "size": 16 } },
 
+    // --- the comms channel ---
+    //
+    // A conversation along the bottom of the screen. Darker than a panel and wider than anything
+    // else here, because it is the one thing on screen a player is reading rather than glancing at.
+
+    "dialogue": {
+      "background": { "fill": "#D8060B12", "corner": 4, "border": "#404CC2FF", "padding": [18, 14] }
+    },
+    "dialogue.speaker": { "textColour": "#4CC2FF", "text": { "size": 18 } },
+    "dialogue.text": { "textColour": "#E6F4FF" },
+    "dialogue.portrait": {
+      "background": { "fill": "#300A1018", "corner": 4, "border": "#404CC2FF" }
+    },
+
+    "dialogue.choice": {
+      "background": { "fill": "#200A1018", "corner": 4, "border": "#404CC2FF", "padding": [12, 8] },
+      "textColour": "#DCE6F2",
+      "text": { "size": 15 },
+      "hovered": { "background": { "fill": "#404CC2FF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#704CC2FF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#304CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5A6A80", "tint": "#A0FFFFFF" }
+    },
+    "dialogue.choice.reason": { "textColour": "#FFC24C", "text": { "size": 12 } },
+
+    "dialogue.timer.track": { "background": { "fill": "#400A1018", "corner": 2, "border": "#404CC2FF" } },
+    "dialogue.timer.fill": { "background": { "fill": "#4CC2FF", "corner": 2 } },
+
+    "dialogue.control": {
+      "background": { "fill": "#200A1018", "corner": 3, "border": "#404CC2FF", "padding": [10, 4] },
+      "textColour": "#7E8DA3",
+      "text": { "size": 12 },
+      "hovered": { "background": { "fill": "#404CC2FF", "corner": 3, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#304CC2FF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+    "dialogue.control.on": {
+      "background": { "fill": "#604CC2FF", "corner": 3, "border": "#8ADBFF", "padding": [10, 4] },
+      "textColour": "#E6F4FF",
+      "text": { "size": 12 },
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 3, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+    "dialogue.advance": { "textColour": "#4CC2FF" },
+
+    "dialogue.history.speaker": { "textColour": "#4CC2FF", "text": { "size": 14 } },
+    "dialogue.history.line": { "textColour": "#DCE6F2", "text": { "size": 14 } },
+    "dialogue.history.answer": { "textColour": "#8AFFD8", "text": { "size": 14 } },
+
     "focusRing": {
       "background": { "fill": "#00000000", "corner": 5, "border": "#FFFFFF", "padding": 3 }
     },
