@@ -109,7 +109,7 @@ controls line up.
 |---|---|
 | drag the title bar | the window moves |
 | drag an edge or a corner | the window resizes, down to `minSize`; the cursor says which way |
-| click anywhere on it | it comes to the front |
+| click anywhere on it | it comes to the front, and the keyboard comes with it |
 | the triangle, or a double click on the title | it folds to its title bar, and back |
 | the cross | `onClose`, so the game stops composing it — like a `Dialog` |
 | Ctrl and an arrow, with focus inside | it moves. With Shift too, it resizes |
@@ -118,7 +118,14 @@ controls line up.
 | the pad's right stick, with focus inside | the window moves, and stops as soon as focus leaves it |
 | both sticks clicked together | every window is put away, as F9 does |
 
-![two debug windows over the same game, the Physics one caught mid-drag by its title bar and now drawn in front of the Spawns one](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-two.png)
+![two debug windows over the same game, the Physics one caught mid-drag by its title bar, drawn in front of the Spawns one and the only one with a lit title bar](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-two.png)
+
+**The window in front is the lit one.** Raising a window takes the keyboard with it, and the
+keyboard arriving in a window raises it, so the two can never disagree: exactly one window is
+drawn in its `.active` look, and it is the one on top. Clicking a title bar lights the window
+without arming a control in it, so Enter straight afterwards does nothing. A window that is
+closed, or put away with F9, hands the keyboard to the window now in front, or back to where
+it was in the game.
 
 Every key and button there is an argument of `DebugWindowHost` — `hideShortcut`,
 `hideChord`, `cycleShortcut`, `cycleButton` — and all of them are shortcuts, so a field
@@ -156,14 +163,16 @@ DebugWindowHost(state = rememberDebugWindowsState(MyStore())) { Game() }
 ```
 
 `DebugWindowsState` is also how a game reads and changes the windows from elsewhere:
-`windows` names them from the back to the front, `hidden` puts them away, `bringToFront`,
-`position`, `size`, `isCollapsed`, `setCollapsed`, `focusNextWindow`, and `resetLayout()`
-to put every window back where the code puts it.
+`windows` names them from the back to the front, `hidden` puts them away, `bringToFront`
+(which takes the keyboard with it, as a click does), `position`, `size`, `isCollapsed`,
+`setCollapsed`, `focusNextWindow`, and `resetLayout()` to put every window back where the
+code puts it.
 
 Unlike the overlays below, a window is an ordinary part of the interface and takes the
 mouse, the keyboard and the pad. It is skinned like every other widget: `"debugwindow"`
 and `"debugwindow.active"` for the frame, `"debugwindow.title"` and
-`"debugwindow.title.active"`, `"debugwindow.button"`, `"debugwindow.body"`,
+`"debugwindow.title.active"` for the title bar — the `.active` pair being the window in
+front — then `"debugwindow.button"`, `"debugwindow.body"`,
 `"debugwindow.label"`, `"debugwindow.value"` and `"debugwindow.grip"`. The default and
 high-contrast skins name all of them, and a colour line wears the picker's own
 `"colourswatch"` and `"colourpicker"`.

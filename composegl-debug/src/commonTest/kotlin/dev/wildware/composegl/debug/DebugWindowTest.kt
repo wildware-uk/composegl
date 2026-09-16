@@ -359,6 +359,134 @@ class DebugWindowTest {
         assertTrue(ui.focus.focused?.isInside(ui.window("One")) == true, ui.dump())
     }
 
+    // --- which one is lit ------------------------------------------------------------------------
+    //
+    // The window in front is the one drawn lit, whichever way it got there. These drive the two ways
+    // in — a press on the chrome, a press on a control, the keyboard — and read the answer off the
+    // picture rather than off the focus, because a lit bar behind the window on top is the bug.
+
+    /** A skin that says plainly which window is lit: the active title bar is green, the others grey. */
+    private val litSkin = SkinFormat.read(
+        """{ "styles": {
+            "debugwindow.title": { "background": { "fill": "#202020" } },
+            "debugwindow.title.active": { "background": { "fill": "#00FF00" } }
+        } }""",
+    )
+
+    @Composable
+    private fun TwoLitWindows(state: DebugWindowsState, physics: Physics) {
+        DebugWindowHost(state = state) {
+            Button("PLAY", onClick = {}, modifier = Modifier.align(Alignment.BottomStart).testTag("play"))
+            SkinOverride(litSkin) {
+                DebugWindow("One", initialPosition = Offset(20f, 20f)) {
+                    tweak("Gravity", physics::gravity, 0f..50f)
+                }
+                DebugWindow("Two", initialPosition = Offset(420f, 300f)) {
+                    toggle("God mode", physics::godMode)
+                }
+            }
+        }
+    }
+
+    /** Which of [ids] are drawn with the lit title bar, as the player sees them. */
+    private fun UiTest.lit(vararg ids: String): List<String> {
+        val canvas = RecordingCanvas(Rect.of(0f, 0f, size.width, size.height))
+        DrawPass(canvas).draw(root)
+        val painted = canvas.calls.filterIsInstance<DrawCall.Rectangle>()
+        return ids.filter { id ->
+            val bar = title(id).boundsInRoot
+            painted.any { it.rect == bar && it.colour == Colour.rgb(0x00FF00) }
+        }
+    }
+
+    @Test
+    fun `pressing the title bar of the window behind lights it and dims the one in front`() {
+        val state = DebugWindowsState(store)
+        val ui = open { TwoLitWindows(state, Physics()) }
+        ui.click(ui.control("Gravity", "One").boundsInRoot.centre)
+        assertEquals(listOf("One"), ui.lit("One", "Two"), "the window clicked into is not the lit one")
+
+        ui.click(ui.title("Two").boundsInRoot.centre)
+
+        assertEquals("Two", state.windows.last(), "the window whose title bar was pressed is not in front")
+        assertEquals(listOf("Two"), ui.lit("One", "Two"), "the lit window is not the one in front:\n" + ui.dump())
+    }
+
+    @Test
+    fun `pressing a control in the window behind lights it as well`() {
+        val state = DebugWindowsState(store)
+        val ui = open { TwoLitWindows(state, Physics()) }
+        ui.click(ui.title("Two").boundsInRoot.centre)
+        assertEquals(listOf("Two"), ui.lit("One", "Two"))
+
+        ui.click(ui.control("Gravity", "One").boundsInRoot.centre)
+
+        assertEquals("One", state.windows.last(), "the window the control is in is not in front")
+        assertEquals(listOf("One"), ui.lit("One", "Two"), "the lit window is not the one in front:\n" + ui.dump())
+    }
+
+    @Test
+    fun `the keyboard moving focus into a window never leaves a window behind lit`() {
+        val state = DebugWindowsState(store)
+        val ui = open { TwoLitWindows(state, Physics()) }
+        ui.click(ui.title("Two").boundsInRoot.centre)
+        ui.click("play")
+
+        ui.key(Key.F6)
+
+        assertEquals("One", state.windows.last(), "the window focus went into is not in front")
+        assertEquals(listOf("One"), ui.lit("One", "Two"), "the lit window is not the one in front:\n" + ui.dump())
+    }
+
+    @Test
+    fun `pressing a title bar lights the window without arming a control in it`() {
+        val physics = Physics()
+        val state = DebugWindowsState(store)
+        val ui = open { Screen(physics, state) }
+
+        ui.click(ui.title().boundsInRoot.centre)
+        ui.key(Key.Enter)
+
+        assertFalse(state.isCollapsed("Physics"), "Enter folded the window, so the press armed the triangle")
+        assertEquals(0, physics.waves, "Enter pressed a button in the window")
+    }
+
+    @Test
+    fun `closing the window focus is in hands it to the window now in front`() {
+        val physics = Physics()
+        val state = DebugWindowsState(store)
+        var showTwo by mutableStateOf(true)
+        val ui = open {
+            DebugWindowHost(state = state) {
+                Button("PLAY", onClick = {}, modifier = Modifier.align(Alignment.BottomStart).testTag("play"))
+                DebugWindow("One", initialPosition = Offset(20f, 20f)) { tweak("Gravity", physics::gravity, 0f..50f) }
+                if (showTwo) DebugWindow("Two", initialPosition = Offset(420f, 300f)) { toggle("God mode", physics::godMode) }
+            }
+        }
+        ui.click(ui.title("Two").boundsInRoot.centre)
+        assertEquals("Two", state.windows.last())
+
+        showTwo = false
+        ui.settle()
+
+        assertEquals(listOf("One"), state.windows)
+        assertTrue(ui.focus.focused?.isInside(ui.window("One")) == true, "focus went nowhere sensible:\n" + ui.dump())
+    }
+
+    @Test
+    fun `putting the windows away hands focus back to the game`() {
+        val state = DebugWindowsState(store)
+        val ui = open { Screen(Physics(), state) }
+        ui.click("play")
+        ui.click(ui.title().boundsInRoot.centre)
+        assertTrue(ui.focus.focused?.isInside(ui.window()) == true, "the press did not take focus into the window")
+
+        ui.key(Key.F9)
+
+        assertTrue(state.hidden)
+        assertTrue(ui.focus.focused?.isInside(ui.node("play")) == true, "focus did not go back to the game:\n" + ui.dump())
+    }
+
     @Test
     fun `a press on a window does not reach the game underneath`() {
         val physics = Physics()

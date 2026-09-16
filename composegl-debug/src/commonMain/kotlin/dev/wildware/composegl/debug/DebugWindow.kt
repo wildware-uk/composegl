@@ -201,8 +201,21 @@ fun rememberDebugWindowsState(store: DebugWindowStore = remember { defaultDebugW
  */
 class DebugWindowsState(private val store: DebugWindowStore) {
 
-    /** Whether every window is put away. [DebugWindowHost]'s hide shortcut and chord flip it. */
-    var hidden by mutableStateOf(false)
+    private var away by mutableStateOf(false)
+
+    /**
+     * Whether every window is put away. [DebugWindowHost]'s hide shortcut and chord flip it.
+     *
+     * Putting them away sends focus back where it was in the game, so the keyboard is never left on
+     * a window nobody can see.
+     */
+    var hidden: Boolean
+        get() = away
+        set(value) {
+            if (away == value) return
+            away = value
+            if (value) hostNode?.findFocusManager()?.let { focus -> if (isInAWindow(focus.focused)) handBack(focus) }
+        }
 
     /** Every window there is, in the order they were first shown. */
     internal val entries = mutableStateListOf<WindowEntry>()
@@ -243,9 +256,14 @@ class DebugWindowsState(private val store: DebugWindowStore) {
         save()
     }
 
-    /** Draws the window [id] over all the others. */
+    /**
+     * Draws the window [id] over all the others, and takes focus into it.
+     *
+     * Raising a window takes focus with it, the way a desktop window does, so the window in front is
+     * always the one drawn lit. Focus already inside it stays exactly where it is.
+     */
     fun bringToFront(id: String) {
-        order.firstOrNull { it.id == id }?.let(::bringToFront)
+        order.firstOrNull { it.id == id }?.let(::raise)
     }
 
     /**
@@ -271,9 +289,7 @@ class DebugWindowsState(private val store: DebugWindowStore) {
         val index = showing.indexOfFirst { current != null && current.isInside(it.root) }
         if (index < 0) returnTo = current
         if (index == showing.lastIndex) {
-            val back = returnTo?.takeIf { it.tree != null }
-            returnTo = null
-            if (back == null || !focus.focusOn(back)) focus.clearFocus()
+            handBack(focus)
             return true
         }
         val next = showing[index + 1]
@@ -301,14 +317,59 @@ class DebugWindowsState(private val store: DebugWindowStore) {
     }
 
     internal fun unregister(entry: WindowEntry) {
+        val focus = hostNode?.findFocusManager()
+        val hadFocus = focus != null && focus.focused?.isInside(entry.root) == true
         entries -= entry
         order -= entry
+        if (focus == null || !hadFocus) return
+        // Focus is going with the window, so it is not somewhere to come back to either.
+        returnTo = returnTo?.takeIf { !it.isInside(entry.root) }
+        // A window that closes with focus in it hands it on, the way a desktop does: to the window
+        // now in front, or back to the game when that was the last one.
+        val next = if (hidden) null else order.lastOrNull { it.root.parent != null }
+        if (next != null) focusInto(next, focus, keepReturn = false) else handBack(focus)
+    }
+
+    /** Draws [entry] over the others, and takes focus into it. See [bringToFront]. */
+    internal fun raise(entry: WindowEntry) {
+        bringToFront(entry)
+        hostNode?.findFocusManager()?.let { focusInto(entry, it) }
     }
 
     internal fun bringToFront(entry: WindowEntry) {
         if (order.lastOrNull() === entry || entry !in order) return
         order -= entry
         order += entry
+    }
+
+    /** Whether [node] is in any window at all, rather than out in the game. */
+    private fun isInAWindow(node: UiNode?): Boolean = node != null && entries.any { node.isInside(it.root) }
+
+    /**
+     * Focus into [entry], leaving it alone when it is already there.
+     *
+     * The frame itself is what it lands on: pressing a title bar should light the window without
+     * arming a control in it, and the frame takes focus from a pointer only, so it is never a place
+     * Tab or the pad stops at.
+     *
+     * @param keepReturn whether to keep where focus was, so hiding the windows or closing the last
+     *   one can put it back. False when focus is being moved off a window that is going away.
+     */
+    private fun focusInto(entry: WindowEntry, focus: FocusManager, keepReturn: Boolean = true) {
+        val current = focus.focused
+        if (current != null && current.isInside(entry.root)) return
+        if (keepReturn && !isInAWindow(current)) returnTo = current
+        val frame = entry.frame
+        if (frame != null && focus.focusOn(frame)) return
+        val target = focus.reachable().firstOrNull { it.isInside(entry.root) } ?: return
+        focus.focusOn(target)
+    }
+
+    /** Focus out of the windows: back where it was in the game, or nowhere at all. */
+    private fun handBack(focus: FocusManager) {
+        val back = returnTo?.takeIf { it.tree != null }
+        returnTo = null
+        if (back == null || !focus.focusOn(back)) focus.clearFocus()
     }
 
     internal fun isSectionOpen(window: String, title: String, initially: Boolean): Boolean {
@@ -532,11 +593,16 @@ private fun DebugWindowLayer(state: DebugWindowsState) {
  * up; see [DebugWindowScope] for the lines there are. Ordinary composables go in it too.
  *
  * - **Mouse.** Dragging the title bar moves it. Dragging an edge or a corner resizes it, down to
- *   [minSize]; the cursor says which way. A click anywhere on it brings it to the front. The triangle,
+ *   [minSize]; the cursor says which way. A press anywhere on it brings it to the front. The triangle,
  *   or a double click on the title bar, folds it to its title bar and back. The cross closes it.
  * - **Keyboard.** The triangle and the cross are focusable, like every control in it. With focus
  *   anywhere inside, Ctrl and an arrow (Command on a Mac) moves it, and Ctrl, Shift and an arrow makes
  *   it bigger or smaller. Focus arriving inside brings it to the front.
+ * - **Which one is lit.** Raising a window takes focus with it, and focus arriving in one raises it,
+ *   so there is only ever one answer: the window in front is the one drawn lit. A press on the title
+ *   bar lands focus on the frame rather than on a control, so it lights the window without arming
+ *   anything. A window that is closed or put away hands focus to the window now in front, or back to
+ *   where it was in the game.
  * - **Pad.** The host's cycle button brings focus into it. Inside, the right stick moves it.
  * - **Right to left**, [initialPosition] is measured from the top-right corner, the title bar reads
  *   from the right, and the triangle of a folded window points left.
@@ -546,9 +612,9 @@ private fun DebugWindowLayer(state: DebugWindowsState) {
  * up to the room on the screen under it, so its bottom edge is always somewhere they can grab; after
  * that it keeps its size and what is in it scrolls.
  *
- * Every look is the skin's: `"<style>"` for the frame, and `"<style>.active"` while focus is inside;
- * `"<style>.title"` and `"<style>.title.active"` for the title bar; `"<style>.button"` for the triangle
- * and the cross, in its states, drawn in its text colour; `"<style>.body"` round the contents;
+ * Every look is the skin's: `"<style>"` for the frame, and `"<style>.active"` while it is the window in
+ * front; `"<style>.title"` and `"<style>.title.active"` for the title bar; `"<style>.button"` for the
+ * triangle and the cross, in its states, drawn in its text colour; `"<style>.body"` round the contents;
  * `"<style>.label"` and `"<style>.value"` for a line's label and its readout; and `"<style>.grip"` for
  * the corner a window is resized from. A colour line is the toolkit's own colour button, so it reads
  * `"colourswatch"` and `"colourpicker"` like one anywhere else.
@@ -851,27 +917,32 @@ private fun WindowFrame(
     mover.minSize = chrome.minSize
     mover.rtl = direction == LayoutDirection.Rtl
 
-    var active by remember { mutableStateOf(false) }
+    // The window is lit while focus is anywhere in it, including on the frame itself — which is where
+    // a press on the title bar puts it. A focus-within handler is only told about the nodes inside,
+    // so the frame's own focus is read from its interaction state.
+    var withinBody by remember(entry) { mutableStateOf(false) }
+    val frameFocus = remember(entry) { InteractionState() }
+    val active = withinBody || frameFocus.isFocused
     val within = remember(entry) {
         FocusWithinHandler { inside ->
-            active = inside
+            withinBody = inside
             // Focus leaving takes the pad with it: the stick's return to centre goes wherever focus
             // went, so what is remembered here stops being true the moment focus is elsewhere.
             if (inside) state.bringToFront(entry) else mover.letGoOfStick()
         }
     }
     // The frame takes whatever reaches it — a press, a move, a scroll — so nothing goes through a
-    // window to the game underneath. A press brings it to the front on the way.
+    // window to the game underneath. A press raises it on the way.
     val frameInput = remember(entry) {
         PointerHandler { event ->
-            if (event is PointerEvent.Press) state.bringToFront(entry)
+            if (event is PointerEvent.Press) state.raise(entry)
             true
         }
     }
-    // On the title bar and the edges, which take a press themselves to drag: in front, and let through.
+    // On the title bar and the edges, which take a press themselves to drag: raised, and let through.
     val front = remember(entry) {
         PointerHandler { event ->
-            if (event is PointerEvent.Press) state.bringToFront(entry)
+            if (event is PointerEvent.Press) state.raise(entry)
             false
         }
     }
@@ -935,7 +1006,7 @@ private fun WindowFrame(
         content = {
             Layout(
                 modifier = chrome.modifier
-                    .focusableByPointer()
+                    .focusableByPointer(frameFocus)
                     .onPointer(frameInput)
                     .onFocusWithin(within)
                     .onKeyEvent(keys)
