@@ -125,7 +125,7 @@ class ShowcaseBrowserTest {
         page(1280, 800) { page ->
             page.press("PageDown")
             page.press("PageDown")
-            assertEquals(Section.Layout, page.state.section)
+            assertEquals(Section.Tools, page.state.section)
             page.press("PageUp")
             assertEquals(Section.Widgets, page.state.section)
             page.assertRenders("showcase-keys")

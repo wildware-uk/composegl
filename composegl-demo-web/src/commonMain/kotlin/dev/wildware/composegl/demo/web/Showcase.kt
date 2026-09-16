@@ -2,6 +2,7 @@ package dev.wildware.composegl.demo.web
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import dev.wildware.composegl.ui.animation.AnimatedVisibility
@@ -11,7 +12,11 @@ import dev.wildware.composegl.ui.animation.fadeIn
 import dev.wildware.composegl.ui.animation.fadeOut
 import dev.wildware.composegl.ui.animation.scaleIn
 import dev.wildware.composegl.ui.animation.scaleOut
+import dev.wildware.composegl.debug.DebugWindowHost
+import dev.wildware.composegl.debug.DevConsole
 import dev.wildware.composegl.debug.FocusOverlay
+import dev.wildware.composegl.debug.MemoryDebugWindowStore
+import dev.wildware.composegl.debug.rememberDebugWindowsState
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.debug.Inspector
 import dev.wildware.composegl.debug.LayoutOverlay
@@ -22,20 +27,24 @@ import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
+import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.layout.VerticalAlignment
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
+import dev.wildware.composegl.ui.modifier.onPlaced
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.testTag
 import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
+import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.skin.ProvideSkin
 import dev.wildware.composegl.ui.skin.styled
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Dialog
+import dev.wildware.composegl.ui.widget.DragAndDropHost
 import dev.wildware.composegl.ui.widget.GamepadKeyboard
 import dev.wildware.composegl.ui.widget.PopupHost
 import dev.wildware.composegl.ui.widget.ProvideGamepadKeyboard
@@ -94,33 +103,59 @@ fun Showcase(
     openLink: (String) -> Unit = {},
 ) {
     val keyboard = remember { GamepadKeyboard() }
+    // In memory on every platform: a tour is not somewhere a window's position is worth keeping, and
+    // a test must not find the last test's windows where it left them.
+    val windows = rememberDebugWindowsState(remember { MemoryDebugWindowStore() })
+    val console = rememberShowcaseConsole(state)
+    // The node the whole tour is built into, for the debug page's node tree. The same node every
+    // layout, so writing it costs nothing after the first.
+    val interfaceRoot = remember { mutableStateOf<UiNode?>(null) }
+    val placed = remember { PlacedHandler { if (interfaceRoot.value !== it) interfaceRoot.value = it } }
     CompositionLocalProvider(
         LocalShowcase provides state,
         LocalBudget provides budget,
         LocalOpenLink provides openLink,
         LocalCardWidth provides cardWidthFor(state),
+        LocalWindows provides windows,
+        LocalConsole provides console,
+        LocalInterfaceRoot provides interfaceRoot,
     ) {
         ProvideSkin(skins[state.skin]) {
             ProvideTextScale(state.textScale) {
                 Inspector(state.inspector, Modifier.fillMaxSize()) {
-                    Box(Modifier.fillMaxSize().styled("screen")) {
-                        TooltipHost {
-                            PopupHost {
-                                ProvideGamepadKeyboard(keyboard, Modifier.width(min(600f, state.width - 24f))) {
-                                    if (state.compact) CompactFrame(state) else WideFrame(state)
-                                    AnimatedVisibility(
-                                        state.dialogOpen,
-                                        Modifier.fillMaxSize(),
-                                        enter = fadeIn() + scaleIn(from = 0.92f),
-                                        exit = fadeOut() + scaleOut(to = 0.92f),
-                                    ) { AbandonDialog(state) }
+                    // The debug windows float over every page, so their host is round the lot. It is a
+                    // popup host too, so a window's own menus drop through it.
+                    DebugWindowHost(Modifier.fillMaxSize(), state = windows) {
+                        // One drag and drop host for the whole screen, so a pile carried out of the bag
+                        // is drawn over everything rather than clipped by the card it left.
+                        DragAndDropHost {
+                            Box(Modifier.fillMaxSize().styled("screen").onPlaced(placed)) {
+                                TooltipHost {
+                                    PopupHost {
+                                        ProvideGamepadKeyboard(keyboard, Modifier.width(min(600f, state.width - 24f))) {
+                                            if (state.compact) CompactFrame(state) else WideFrame(state)
+                                            AnimatedVisibility(
+                                                state.dialogOpen,
+                                                Modifier.fillMaxSize(),
+                                                enter = fadeIn() + scaleIn(from = 0.92f),
+                                                exit = fadeOut() + scaleOut(to = 0.92f),
+                                            ) { AbandonDialog(state) }
+                                        }
+                                    }
                                 }
+                                // Over every page. The backtick opens it; the debug page has a button
+                                // for a phone, which has no backtick.
+                                DevConsole(console)
+                                LayoutOverlay(state.layoutOverlay)
+                                FocusOverlay(state.focusOverlay)
+                                RedrawOverlay(state.redrawOverlay)
+                                TextMetricsOverlay(state.textMetricsOverlay)
                             }
                         }
-                        LayoutOverlay(state.layoutOverlay)
-                        FocusOverlay(state.focusOverlay)
-                        RedrawOverlay(state.redrawOverlay)
-                        TextMetricsOverlay(state.textMetricsOverlay)
+                        // Outside the box the node tree walks, so the tree never lists the window
+                        // looking at it.
+                        if (state.tuningOpen) TuningWindow(state)
+                        if (state.nodesOpen) NodesWindow(state, interfaceRoot.value)
                     }
                 }
             }
@@ -237,9 +272,12 @@ private fun PageArea(state: ShowcaseState, modifier: Modifier, padding: Float) {
                     when (section) {
                         Section.Home -> HomePage()
                         Section.Widgets -> WidgetsPage()
+                        Section.Tools -> ToolsPage()
                         Section.Layout -> LayoutPage()
                         Section.Animation -> AnimationPage()
                         Section.Game -> GamePage()
+                        Section.Hud -> HudPage()
+                        Section.Gear -> GearPage()
                         Section.Effects -> EffectsPage()
                         Section.Text -> TextPage()
                         Section.Settings -> SettingsPage()
