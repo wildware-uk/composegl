@@ -62,6 +62,9 @@ import dev.wildware.composegl.ui.input.PointerButton
  *   [typed] is a hand at the keyboard. For a picture of something a stick aims rather than reaches —
  *   a weapon wheel — where a push is the whole picture and there is nothing to click on. Each pad in
  *   it is one player's, so a picture of two players is two thumbs doing different things.
+ * @param drags several drags one after another, a drag to a frame, for a picture that takes more
+ *   than one gesture to reach — a window docked against an edge and then a second one dropped on it.
+ *   [dragTo] is the one-drag form of the same thing; a shot uses one or the other.
  */
 internal class DocShot(
     val name: String,
@@ -85,8 +88,31 @@ internal class DocShot(
     val focus: Boolean = false,
     val typed: List<Typing> = emptyList(),
     val padded: List<Padding> = emptyList(),
+    val drags: List<Dragging> = emptyList(),
     val content: @Composable () -> Unit,
 )
+
+/**
+ * One thing a hand does with the mouse while a picture is being taken. See [DocShot.drags].
+ *
+ * The same real events as [DocShot.dragTo], one drag after another, so a picture that takes two
+ * gestures to reach is two gestures somebody really made rather than a layout handed to the toolkit.
+ * Each [Drag] is its own press, run of moves and release, on its own frame.
+ */
+internal sealed interface Dragging {
+
+    /**
+     * Pressed at [from], moved to [to] in steps, and let go — or kept held, for a picture of
+     * something still being carried, which is where the drop squares and the landing patch are.
+     */
+    data class Drag(val from: Offset, val to: Offset, val hold: Boolean = false) : Dragging
+
+    /**
+     * Frames with the mouse still, so what the drag before it started can finish and be laid out.
+     * A drag lands on whatever is under the pointer, so the next one needs the last one's answer.
+     */
+    data class Wait(val frames: Int) : Dragging
+}
 
 /**
  * One thing a hand does at the keyboard while a picture is being taken. See [DocShot.typed].

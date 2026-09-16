@@ -3657,6 +3657,72 @@ private fun MutableList<DocShot>.debugWindows() {
         },
     )
 
+    // Spawns docked against the bottom edge, Physics dropped on the middle of its cross so the two
+    // share the pane as tabs, and the divider between the pane and the game pulled up to give them
+    // room. Three real drags, one after another: nothing here is a layout handed to the toolkit.
+    add(
+        DocShot("debug-window-dock-tabs", ArenaWidth, ArenaHeight, stock = true, drags = DockAndTab) {
+            DockedWindows()
+        },
+    )
+
+    // And the fourth drag that undoes it: the Physics tab pulled off the strip and dropped on the
+    // game, which floats that window again under the pointer and leaves Spawns holding the pane.
+    add(
+        DocShot(
+            "debug-window-undock",
+            ArenaWidth,
+            ArenaHeight,
+            stock = true,
+            drags = DockAndTab + listOf(Dragging.Drag(TabGrab, Offset(330f, 60f)), Dragging.Wait(3)),
+        ) {
+            DockedWindows()
+        },
+    )
+
+    // The same gestures in the high-contrast skin on a screen that reads from the right. The pane is
+    // the same pane — an edge of the screen is an edge whichever way the words run — and it is the
+    // strip of tabs and the rows inside it that read from the other end.
+    add(
+        DocShot("debug-window-dock-rtl", ArenaWidth, ArenaHeight, drags = DockRtl) {
+            ProvideSkin(Skin.HighContrast) {
+                ProvideLayoutDirection(LayoutDirection.Rtl) { DockedWindows() }
+            }
+        },
+    )
+
+    // The whole gesture a frame at a time, for the animated picture: the squares come up as soon as
+    // the window is carried, the one at the bottom edge lights and the patch appears when the
+    // pointer reaches it, it lands as a pane when the hand lets go, and the divider under the game
+    // is then pulled up to give the pane room. Only when asked for, because they are frames to be
+    // joined into a GIF rather than pictures of their own: `COMPOSEGL_DOC_FRAMES=1`, then join
+    // `debug-window-dock-frame-*.png` in order, 1/12 s each.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(DockFrames) { i ->
+            val name = "debug-window-dock-frame-${i.toString().padStart(2, '0')}"
+            val script = if (i < DockCarriedFrames) {
+                // Still being carried, a little further along the way to the square each frame.
+                val along = (i + 1).toFloat() / DockCarriedFrames
+                listOf(Dragging.Drag(DockGrab, DockGrab + (DockDrop - DockGrab) * along, hold = true))
+            } else {
+                // Let go, and then the divider pulled up a step at a time, the last frames resting
+                // on where it ended so the picture holds still long enough to read.
+                val step = (i - DockCarriedFrames - DockLandedFrames + 1).coerceIn(0, DockDividerSteps)
+                val rise = DockDividerRise * step / DockDividerSteps
+                listOf(Dragging.Drag(DockGrab, DockDrop), Dragging.Wait(2)) +
+                    if (step == 0) {
+                        emptyList()
+                    } else {
+                        listOf(
+                            Dragging.Drag(DockDivider, Offset(DockDivider.x, DockDivider.y - rise)),
+                            Dragging.Wait(2),
+                        )
+                    }
+            }
+            add(DocShot(name, ArenaWidth, ArenaHeight, stock = true, drags = script) { DockedWindows() })
+        }
+    }
+
     // The same picture with the hand further along the slider each time, for the animated one. Only
     // when asked for, because they are frames to be joined into a GIF rather than pictures of their
     // own: `COMPOSEGL_DOC_FRAMES=1`, then join `debug-window-drag-frame-*.png` in order, 1/12 s each.
@@ -3692,6 +3758,83 @@ private const val ArenaHeight = 340
 
 /** Frames in the animated picture of a slider being dragged. */
 private const val DragFrames = 13
+
+/** Where the two windows start in the docking pictures, before anything has been dragged. */
+private val SpawnsAt = Offset(20f, 120f)
+private val PhysicsAt = Offset(296f, 16f)
+
+/** Where the Spawns window is taken hold of, and the square at the bottom edge it is dropped on. */
+private val DockGrab = Offset(150f, 132f)
+private val DockDrop = Offset(310f, 317f)
+
+/** The middle of the bottom pane once it is there, which is the square that tabs a window into it. */
+private val DockTabDrop = Offset(310f, 297f)
+
+/** The divider between that pane and the game, and where it is pulled to for room to read. */
+private val DockDivider = Offset(200f, 255f)
+private val DockDividerTo = Offset(200f, 110f)
+
+/** The Physics tab on the strip, for the picture of one being pulled back out of the pane. */
+private val TabGrab = Offset(106f, 126f)
+
+/**
+ * The animated picture of a window being docked, in frames: carried to the square, resting where it
+ * landed, then the divider pulled up over [DockDividerSteps] of them by [DockDividerRise] in all.
+ * Whatever is left at the end is the picture holding still on the answer.
+ */
+private const val DockFrames = 21
+private const val DockCarriedFrames = 11
+private const val DockLandedFrames = 2
+private const val DockDividerSteps = 5
+private const val DockDividerRise = 40f
+
+/**
+ * The three drags that put two windows in one pane: one docked against the bottom edge of the
+ * screen, the other dropped on the middle square of its cross, and the divider pulled up to give
+ * the pair room. Shared by the picture of the tabs and the picture of one being pulled back out.
+ */
+private val DockAndTab = listOf(
+    Dragging.Drag(DockGrab, DockDrop),
+    Dragging.Wait(3),
+    Dragging.Drag(Offset(380f, 27f), DockTabDrop),
+    Dragging.Wait(3),
+    Dragging.Drag(DockDivider, DockDividerTo),
+    Dragging.Wait(3),
+)
+
+/**
+ * The same thing on a screen that reads from the right: one window carried out of the way, one
+ * docked against the bottom edge, and the divider pulled up to fit it. A position is measured from
+ * the start edge, which is the right one, so both windows start over there; the squares and the
+ * divider are places on the screen and do not move.
+ *
+ * Without the tabbing the picture above shows, because a window tabbed behind another is measured
+ * at no size at all and a `Slider` measured to no width throws on a mirrored screen —
+ * `SliderPolicy` asks its fill for `span - middle` there, which goes negative. Reported rather than
+ * worked around: this picture says what docking looks like mirrored either way.
+ */
+private val DockRtl = listOf(
+    // A position is measured from the start edge, so Physics opens over the HUD on this screen
+    // rather than away from it. Carried out of the way first, which is what a player would do.
+    Dragging.Drag(Offset(100f, 27f), Offset(242f, 21f)),
+    Dragging.Wait(3),
+    Dragging.Drag(Offset(540f, 132f), DockDrop),
+    Dragging.Wait(3),
+    Dragging.Drag(DockDivider, Offset(200f, 230f)),
+    Dragging.Wait(3),
+)
+
+/** The two windows over the arena, where every docking picture starts from. */
+@Composable
+private fun DockedWindows() {
+    val arena = remember { DocArena() }
+    DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+        // The world itself is never mirrored: a game draws its scene where its own code puts it.
+        ProvideLayoutDirection(LayoutDirection.Ltr) { ArenaScene(arena) }
+        ArenaWindow(arena, PhysicsAt)
+        SpawnWindow(arena, SpawnsAt)
+    }
+}
 
 /** Where the ground starts, and where the thrown thing leaves the player's hand. */
 private const val GroundY = 286f
