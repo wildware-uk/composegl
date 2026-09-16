@@ -103,8 +103,12 @@ fun main() {
     val canvas = GlCanvas(fonts)
     val skin = demoSkin(pictures, fonts)
 
+    // Every picture, unless somebody working on one asked for just theirs: `COMPOSEGL_DOC_ONLY=dock`
+    // takes the ones whose name holds "dock" and leaves the other few hundred alone.
+    val only = System.getenv("COMPOSEGL_DOC_ONLY")
+
     try {
-        docShots().forEach { shot ->
+        docShots().filter { only == null || only in it.name }.forEach { shot ->
             val file = File(out, "${shot.name}.png")
             save(file, take(shot, canvas, fonts, if (shot.stock) Skin.Default else skin.skin))
             println("wrote ${file.path}")
@@ -386,6 +390,16 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
     }
     var pushed = 0
 
+    // And the same for a picture that takes more than one drag: one whole gesture a frame, so the
+    // one before it has been composed and laid out before the next one is asked what it is over.
+    val gestures: List<() -> Unit> = shot.drags.flatMap { step ->
+        when (step) {
+            is Dragging.Drag -> listOf({ drag(mouse, step.from, step.to, step.hold) })
+            is Dragging.Wait -> List(step.frames) { {} }
+        }
+    }
+    var gestured = 0
+
     // After layout, because a pointer lands on whatever is under it and nothing is anywhere until
     // the tree has been measured.
     var dragged = false
@@ -426,15 +440,11 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
                 // Once, in steps, the way a hand does it: a drag is a gesture rather than a state,
                 // and pressing again every frame would be a new one each time.
                 dragged = true
-                mouse.onPointer(PointerEvent.Press(PointerId.Mouse, at))
-                for (step in 1..DragSteps) {
-                    val along = at + (to - at) * (step / DragSteps.toFloat())
-                    mouse.onPointer(PointerEvent.Move(PointerId.Mouse, along, setOf(PointerButton.Primary)))
-                }
-                // Held, for a picture of something still being carried.
-                if (!shot.hold) mouse.onPointer(PointerEvent.Release(PointerId.Mouse, to))
+                drag(mouse, at, to, shot.hold)
             }
         }
+        // One whole drag a frame, for a picture that takes several.
+        if (gestured < gestures.size) gestures[gestured++]()
         // One step of the typing a frame, so each one is composed and laid out before the next: a
         // Tab has a word to finish, and an Enter has a line to run.
         if (typed < typing.size) typing[typed++]()
@@ -446,7 +456,12 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
     try {
         // Long enough for the whole script and a few frames after it, so a picture never catches a
         // shot in the middle of its own typing because somebody forgot to ask for the seconds.
-        val frames = maxOf(Settle + (shot.seconds * 60f).toInt(), typing.size + Settle, pushes.size + Settle)
+        val frames = maxOf(
+            Settle + (shot.seconds * 60f).toInt(),
+            typing.size + Settle,
+            pushes.size + Settle,
+            gestures.size + Settle,
+        )
         for (frame in 0..frames) {
             GL11.glClearColor(0f, 0f, 0f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
@@ -466,6 +481,22 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
     } finally {
         hosts.forEach { it.dispose() }
     }
+}
+
+/**
+ * One drag: pressed at [from], carried to [to] in [DragSteps] moves, and let go unless [hold].
+ *
+ * A gesture rather than a state. The moves are what a widget hears while a hand carries something,
+ * so a window in one of these pictures really was dragged across the screen to where it is. The
+ * press needs no move before it: the router hit-tests a press where the press is.
+ */
+private fun drag(mouse: PointerRouter, from: Offset, to: Offset, hold: Boolean) {
+    mouse.onPointer(PointerEvent.Press(PointerId.Mouse, from))
+    for (step in 1..DragSteps) {
+        val along = from + (to - from) * (step / DragSteps.toFloat())
+        mouse.onPointer(PointerEvent.Move(PointerId.Mouse, along, setOf(PointerButton.Primary)))
+    }
+    if (!hold) mouse.onPointer(PointerEvent.Release(PointerId.Mouse, to))
 }
 
 /** The bottom-left corner of the framebuffer, turned the right way up. */

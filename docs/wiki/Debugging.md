@@ -163,6 +163,12 @@ the pointer. Let go on one and the window lands there — a pane down that edge 
 pane taking half of that window's own, or, on the middle square of the cross, a tab beside it.
 A patch shows the space it would take before you let go.
 
+![the Spawns window carried by its title bar down the screen: four squares appear round the edges, the bottom one lights up and a patch covers the bottom quarter, the window lands there as a pane, and the divider above it is then pulled up to give it room](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-dock.gif)
+
+That is one real drag and then another. Nothing in it is a layout handed to the toolkit: the squares
+come up because a window is being carried, the patch appears the moment the pointer is over the
+square at the bottom edge, and the last few frames are the divider being pulled up afterwards.
+
 Dropping on a window that is still floating takes that one along: it docks against the edge of
 the screen it was nearest, and the two land there together. So the first drop of the run works
 like every other one, with nothing to set up first.
@@ -181,6 +187,16 @@ like every other one, with nothing to set up first.
 | Ctrl and Alt and an arrow, with focus inside | dock against that edge of the screen (Command on a Mac) |
 | Ctrl and Alt and F | float it again |
 | the divider focused, and an arrow or the pad | the divider moves a step the way it points |
+
+![a pane across the bottom of the screen with Spawns and Physics tabbed into it, the Physics tab chosen and lit, its sliders, dropdown, colour swatch and button filling the pane, and the game above the divider](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-dock-tabs.png)
+
+Three drags made that: Spawns onto the square at the bottom edge, Physics onto the middle of the
+cross over it, and the divider up to give the pair room. The tab that is lit is the window showing.
+
+![the Physics tab pulled off that strip and dropped on the game, where it is a floating window again with a lit title bar, leaving Spawns alone in the pane](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-undock.png)
+
+And a fourth undoes it: the Physics tab dragged off the strip and let go over the game, which floats
+that window again under the pointer and leaves Spawns holding the pane on its own.
 
 A docked window has no edges to drag and does not fold: its pane is its size, and the dividers
 are what change it. The game is never covered completely — whatever is docked, the space left
@@ -205,6 +221,13 @@ nearest first, so the two always end up together. `isDocked`, `tabsWith`, `docke
 `showTab` read and change the same layout, and `resetLayout()` floats the lot. The layout is kept by the same `DebugWindowStore` as the window
 positions, under one key, so it comes back the next time the game runs — panes and all, including
 ones for windows this run has not composed yet, which are left out until they appear.
+
+![a window docked along the bottom of the screen in the high-contrast skin on a screen that reads from the right: the Spawns tab at the right end of the strip, the close cross at the left, and each row's label on the right with its slider filling from that end](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-dock-rtl.png)
+
+The same drop, on a screen that reads from the right. An edge of the screen is the same edge
+whichever way the words run, so the pane lands where it was dropped; it is the strip of tabs and the
+rows inside it that read from the other end. That is the high-contrast skin, and the line above the
+pane is the divider that was dragged up, still focused.
 
 ### Where a window remembers being
 
