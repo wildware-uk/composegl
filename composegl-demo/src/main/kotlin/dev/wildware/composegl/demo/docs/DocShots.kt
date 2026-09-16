@@ -6,11 +6,16 @@ import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.debug.DebugWindow
 import dev.wildware.composegl.debug.DebugWindowHost
 import dev.wildware.composegl.debug.FrameBudgetOverlay
+import dev.wildware.composegl.debug.Histogram
 import dev.wildware.composegl.debug.MemoryDebugWindowStore
+import dev.wildware.composegl.debug.Plot
+import dev.wildware.composegl.debug.PlotBuffer
+import dev.wildware.composegl.debug.rememberPlotBuffer
 import dev.wildware.composegl.debug.rememberDebugWindowsState
 import dev.wildware.composegl.ui.debug.FrameBudget
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlin.math.sin
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
@@ -231,6 +236,7 @@ internal fun docShots(): List<DocShot> = buildList {
     animation()
     console()
     debugWindows()
+    plots()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -3597,3 +3603,254 @@ private enum class DocThreat(val colour: Colour) {
     Raid(Colour.rgb(0xE8A33D)),
     Swarm(Colour.rgb(0xE5484D)),
 }
+
+// ---------------------------------------------------------------- live plots
+
+/**
+ * The graphs, over numbers that really move.
+ *
+ * Every picture here is taken over the same raid as the debug windows above, ticked a frame at a
+ * time while the shutter is open: a wave lands part way through, the frame it lands on costs three
+ * times what the frames around it cost, and the drones are shot down one at a time afterwards. The
+ * graphs are fed those numbers a frame each, and the scene behind them is drawn from the very same
+ * ones — so the step in the drone graph is the row of drones appearing in the picture.
+ */
+private fun MutableList<DocShot>.plots() {
+    // One graph among ordinary lines, which is where most of them live: a window that says what the
+    // frame costs now and what it just did. The spike is the wave landing.
+    add(
+        DocShot("plot-window", ArenaWidth, ArenaHeight, stock = true, seconds = PlotSeconds) {
+            val raid = rememberRaidPlots()
+            DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+                ArenaScene(raid.arena)
+                DebugWindow("Telemetry", initialPosition = Offset(296f, 16f), onClose = {}, labelWidth = 74f) {
+                    Plot(
+                        raid.frames,
+                        Modifier.size(280f, 78f),
+                        range = 0f..33f,
+                        guides = listOf(BudgetMillis),
+                        label = "frame ms",
+                    )
+                    text("Alive", raid.arena.drones.toString())
+                    text("Wave", "3")
+                }
+            }
+        },
+    )
+
+    // Three of them stacked, which is how a game watches several things at once: what the frame
+    // cost, how many drones are up, and what the guns landed. The step in the middle graph and the
+    // spike in the top one are the same moment.
+    add(
+        DocShot("plot-stack", ArenaWidth, ArenaHeight, stock = true, seconds = PlotSeconds) {
+            val raid = rememberRaidPlots()
+            DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+                ArenaScene(raid.arena)
+                DebugWindow("Telemetry", initialPosition = Offset(286f, 16f), onClose = {}) {
+                    Plot(
+                        raid.frames,
+                        Modifier.size(292f, 72f),
+                        range = 0f..33f,
+                        guides = listOf(BudgetMillis),
+                        label = "frame ms",
+                    )
+                    Plot(
+                        raid.drones,
+                        Modifier.size(292f, 72f),
+                        label = "drones",
+                        format = { if (it.isFinite()) it.toInt().toString() else "-" },
+                    )
+                    Histogram(raid.hits, Modifier.size(292f, 72f), label = "hits")
+                }
+            }
+        },
+    )
+
+    // A hand on the spike. The pointer picks the sample under it, draws the upright line and the dot
+    // through it, and writes that sample's own number in the corner — which is how the stutter two
+    // seconds ago gets a number put on it rather than a shrug.
+    add(
+        DocShot(
+            "plot-hover", 460, 170,
+            stock = true,
+            seconds = PlotSeconds,
+            pointer = Offset(PlotHoverX, 92f),
+        ) {
+            val raid = rememberRaidPlots()
+            Frame {
+                Plot(
+                    raid.frames,
+                    Modifier.size(420f, 128f),
+                    range = 0f..33f,
+                    guides = listOf(BudgetMillis),
+                    label = "frame ms",
+                )
+            }
+        },
+    )
+
+    // The high-contrast skin, reading from the right: the window is measured from the top-right
+    // corner and the graphs run the other way, newest sample on the left.
+    add(
+        DocShot("plot-rtl", ArenaWidth, ArenaHeight, seconds = PlotSeconds) {
+            val raid = rememberRaidPlots()
+            ProvideSkin(Skin.HighContrast) {
+                ProvideLayoutDirection(LayoutDirection.Rtl) {
+                    DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+                        // The world is not mirrored: a game draws its scene where its own code puts
+                        // it. It is the window over it that reads from the right.
+                        ProvideLayoutDirection(LayoutDirection.Ltr) { ArenaScene(raid.arena) }
+                        DebugWindow("Telemetry", initialPosition = Offset(20f, 16f), onClose = {}, labelWidth = 74f) {
+                            Plot(
+                                raid.frames,
+                                Modifier.size(280f, 78f),
+                                range = 0f..33f,
+                                guides = listOf(BudgetMillis),
+                                label = "frame ms",
+                            )
+                            text("Alive", raid.arena.drones.toString())
+                        }
+                    }
+                }
+            }
+        },
+    )
+
+    // The same window a little later each time, for the animated one: the wave lands, the graph
+    // takes the spike, and the trace carries it away to the left while the drones are shot down.
+    // Only when asked for, because they are frames to be joined into a GIF rather than pictures of
+    // their own: `COMPOSEGL_DOC_FRAMES=1`, then join `plot-live-frame-*.png` in order, 0.15 s each,
+    // which is the real time between them and so the speed the raid really ran at.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(PlotFrames) { i ->
+            val name = "plot-live-frame-${i.toString().padStart(2, '0')}"
+            add(
+                DocShot(name, ArenaWidth, ArenaHeight, stock = true, seconds = PlotFirstSecond + i * PlotFrameStep) {
+                    val raid = rememberRaidPlots()
+                    DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+                        ArenaScene(raid.arena)
+                        DebugWindow("Telemetry", initialPosition = Offset(296f, 16f), onClose = {}, labelWidth = 74f) {
+                            Plot(
+                                raid.frames,
+                                Modifier.size(280f, 78f),
+                                range = 0f..33f,
+                                guides = listOf(BudgetMillis),
+                                label = "frame ms",
+                            )
+                            text("Alive", raid.arena.drones.toString())
+                            text("Wave", "3")
+                        }
+                    }
+                },
+            )
+        }
+    }
+}
+
+/** The frame budget the graphs draw a line across: sixty frames a second. */
+private const val BudgetMillis = 16.6f
+
+/** How long every plot picture runs before the shutter. Long enough to fill the ring and scroll it. */
+private const val PlotSeconds = 2.3f
+
+/** How many samples the graphs hold: two seconds of frames. */
+private const val PlotWindow = 120
+
+/** Where the pointer rests in the hover picture — on the spike the wave made. */
+private const val PlotHoverX = 193.5f
+
+/** The animated picture: how many frames, when the first one is taken, and how far apart they are. */
+private const val PlotFrames = 16
+private const val PlotFirstSecond = 0.85f
+private const val PlotFrameStep = 0.15f
+
+/**
+ * The raid the graphs are of, and the buffers they read.
+ *
+ * One tick a frame, from a frame callback rather than from the composition: each sample moves the
+ * buffer's revision, which is Compose state, and writing state a plot is reading while that plot is
+ * being composed is a screen that never settles. The drone count is written into the same [DocArena]
+ * the scene is drawn from, so the picture and the graph can never disagree about it.
+ */
+@Composable
+private fun rememberRaidPlots(): RaidPlots {
+    val plots = remember {
+        RaidPlots(DocArena(), DocRaid(), PlotBuffer(PlotWindow), PlotBuffer(PlotWindow), PlotBuffer(PlotWindow))
+    }
+    LaunchedEffect(plots) {
+        while (true) {
+            withFrameNanos {
+                plots.raid.step()
+                plots.arena.drones = plots.raid.drones
+                plots.frames.add(plots.raid.frameMillis)
+                plots.drones.add(plots.raid.drones.toFloat())
+                plots.hits.add(plots.raid.hits)
+            }
+        }
+    }
+    return plots
+}
+
+/** What one plot picture holds: the arena the scene reads, the raid that moves it, and the graphs. */
+private class RaidPlots(
+    val arena: DocArena,
+    val raid: DocRaid,
+    val frames: PlotBuffer,
+    val drones: PlotBuffer,
+    val hits: PlotBuffer,
+)
+
+/**
+ * A wave of drones, a frame at a time.
+ *
+ * Ordinary numbers of the kind a game already has, worked out from the tick rather than from a die,
+ * so the same picture comes out of the same command every time. The wave lands on [WaveTick]: the
+ * drones arrive, the frame they arrive on costs what a frame costs when a pile of work turns up on
+ * it, and the guns take them down again.
+ */
+private class DocRaid {
+
+    private var at = 0
+
+    /** How many drones are up. The scene draws this many. */
+    var drones = HoldingDrones
+        private set
+
+    /** What the last frame cost, in milliseconds. */
+    var frameMillis = 0f
+        private set
+
+    /** What the guns landed on that frame. */
+    var hits = 0f
+        private set
+
+    fun step() {
+        at++
+        val since = at - WaveTick
+        drones = if (since < 0) HoldingDrones else (WaveDrones - since / ShotDownEvery).coerceAtLeast(2)
+        // The work the wave brings with it: the frame it lands on pays for all of it, and the two
+        // after it are the renderer catching up. This is the shape of spike a graph is bought for —
+        // an average over the same second hides it completely.
+        val spike = when (since) {
+            0 -> 18f
+            1 -> 7.5f
+            2 -> 2.5f
+            else -> 0f
+        }
+        val wobble = sin(at * 0.9f) * 0.3f + sin(at * 0.31f) * 0.22f
+        frameMillis = BaseMillis + drones * MillisPerDrone + spike + wobble
+        hits = if (since < 0) 0f else (sin(at * 0.42f) * 3f).coerceAtLeast(0f)
+    }
+}
+
+/** How many drones are up before the wave lands, and how many it brings. */
+private const val HoldingDrones = 3
+private const val WaveDrones = 14
+
+/** Which tick the wave lands on, and how many ticks each drone after that takes to go down. */
+private const val WaveTick = 72
+private const val ShotDownEvery = 14
+
+/** What a frame costs with nothing on the screen, and what each drone adds to it. */
+private const val BaseMillis = 4.6f
+private const val MillisPerDrone = 0.42f
