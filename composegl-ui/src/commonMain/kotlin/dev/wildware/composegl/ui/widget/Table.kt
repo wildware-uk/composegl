@@ -460,12 +460,18 @@ internal data class TableSizing(
 /** How many halvings find a dragged edge: well under a hundredth of a pixel across any screen. */
 private const val EdgeSearchSteps = 24
 
-/** The x of every column's start edge, with [inner] the room the columns are laid across. */
-private fun columnStarts(widths: FloatArray, inner: Float, direction: LayoutDirection): FloatArray {
+/**
+ * The x of every column's start edge, with [inner] the room the columns are laid across.
+ *
+ * [gutter] is the room the scroll bar keeps for itself, at the end of the row: the right of an
+ * ordinary row, and the left of a mirrored one, which is why the mirrored columns are counted back
+ * from the far edge rather than from [inner].
+ */
+private fun columnStarts(widths: FloatArray, inner: Float, gutter: Float, direction: LayoutDirection): FloatArray {
     val starts = FloatArray(widths.size)
     var along = 0f
     for (index in widths.indices) {
-        starts[index] = if (direction == LayoutDirection.Rtl) inner - along - widths[index] else along
+        starts[index] = if (direction == LayoutDirection.Rtl) inner + gutter - along - widths[index] else along
         along += widths[index]
     }
     return starts
@@ -669,7 +675,7 @@ private data class HeaderPolicy(
         }
         val height = constraints.constrainHeight(cells.maxOfOrNull { it.height } ?: 0f)
         val handles = List(dividers.size) { slot -> measurables[count + slot].measure(Constraints.fixed(DividerGrab, height)) }
-        val starts = columnStarts(widths, inner, layoutDirection)
+        val starts = columnStarts(widths, inner, sizing.gutter, layoutDirection)
         val rtl = layoutDirection == LayoutDirection.Rtl
 
         return layout(width, height) {
@@ -748,7 +754,7 @@ private data class RowPolicy(val sizing: TableSizing) : MeasurePolicy {
             measurables[index].measure(Constraints(widths[index], widths[index], 0f, constraints.maxHeight))
         }
         val height = constraints.constrainHeight(cells.maxOfOrNull { it.height } ?: 0f)
-        val starts = columnStarts(widths, inner, layoutDirection)
+        val starts = columnStarts(widths, inner, sizing.gutter, layoutDirection)
         return layout(width, height) {
             cells.forEachIndexed { index, cell -> cell.at(starts[index], (height - cell.height) / 2f) }
         }

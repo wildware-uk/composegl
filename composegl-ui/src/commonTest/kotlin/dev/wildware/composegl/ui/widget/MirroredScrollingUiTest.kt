@@ -19,6 +19,7 @@ import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.testTag
 import dev.wildware.composegl.ui.modifier.width
+import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.testing.UiTest
 import dev.wildware.composegl.ui.testing.uiTest
 import kotlin.test.AfterTest
@@ -46,8 +47,27 @@ class MirroredScrollingUiTest {
 
     private fun UiTest.left(tag: String) = node(tag).boundsInRoot.left
 
+    /** Where the up-and-down bar of the scrolling widget tagged [tag] was put on the screen. */
+    private fun UiTest.verticalBar(tag: String) =
+        checkNotNull(named(node(tag), "scroll.bar.y")) { "nothing under $tag draws a vertical bar:\n" + dump() }
+            .boundsInRoot
+
+    /** The nearest node called [name], so that an outer scroll area finds its own bar and not an inner one. */
+    private fun named(from: UiNode, name: String): UiNode? {
+        var level = listOf(from)
+        while (level.isNotEmpty()) {
+            level.firstOrNull { it.name == name }?.let { return it }
+            level = level.flatMap { it.children }
+        }
+        return null
+    }
+
     @Composable
     private fun Square(tag: String) = Box(Modifier.size(50f).testTag(tag))
+
+    /** A line of a page: narrower than the window, so where it sits can be seen. */
+    @Composable
+    private fun Line(tag: String) = Box(Modifier.size(200f, 50f).testTag(tag))
 
     @Test
     fun `a lazy row starts on the right and a drag to the right scrolls it on`() {
@@ -215,6 +235,139 @@ class MirroredScrollingUiTest {
         ui.settle()
 
         assertEquals(250f, ui.left("item0"))
+    }
+
+    // --- which edge the up-and-down bar sits on --------------------------------------------------
+
+    @Test
+    fun `a mirrored scroll area hangs its vertical bar on the left where the lines end`() {
+        val state = ScrollState()
+        val ui = open {
+            ScrollArea(Modifier.size(300f, 200f).testTag("page"), state) {
+                Column { repeat(20) { Line("line$it") } }
+            }
+        }
+
+        val bar = ui.verticalBar("page")
+        assertEquals(0f, bar.left, "the bar is against the left edge")
+        assertEquals(8f, bar.right)
+
+        val first = ui.node("line0").boundsInRoot
+        assertEquals(300f, first.right, "a line begins against the right edge")
+        assertTrue(first.left >= bar.right, "and none of it is hidden under the bar: $first against $bar")
+    }
+
+    @Test
+    fun `the same scroll area left to right keeps its vertical bar on the right`() {
+        val ui = open(LayoutDirection.Ltr) {
+            ScrollArea(Modifier.size(300f, 200f).testTag("page")) {
+                Column { repeat(20) { Line("line$it") } }
+            }
+        }
+
+        val bar = ui.verticalBar("page")
+        assertEquals(292f, bar.left)
+        assertEquals(300f, bar.right, "unchanged for a screen that reads the usual way")
+        assertEquals(0f, ui.left("line0"))
+    }
+
+    @Test
+    fun `the thumb of a mirrored vertical bar is grabbed and dragged down the left edge`() {
+        val state = ScrollState()
+        val ui = open {
+            ScrollArea(Modifier.size(300f, 200f).testTag("page"), state) {
+                Column { repeat(20) { Line("line$it") } }
+            }
+        }
+
+        // A 200-tall window onto 1000 of lines: the thumb is a fifth of the bar, 40 long, with 160
+        // of travel for 800 of contents.
+        ui.press(Offset(4f, 5f))
+        assertEquals(0f, state.y, 0.5f, "a press on the thumb where it already is does not move it")
+        ui.dragTo(Offset(4f, 85f))
+        ui.release()
+        ui.settle()
+
+        assertEquals(400f, state.y, 1f, "half way down the travel is half way down the list")
+    }
+
+    @Test
+    fun `a press on the right edge of a mirrored area misses the bar and reaches the contents`() {
+        val state = ScrollState()
+        val ui = open {
+            ScrollArea(Modifier.size(300f, 200f).testTag("page"), state) {
+                Column { repeat(20) { Line("line$it") } }
+            }
+        }
+
+        ui.press(Offset(296f, 180f))
+        ui.release()
+        ui.settle()
+
+        assertEquals(0f, state.y, "the old edge is ordinary content now and a press on it scrolls nothing")
+    }
+
+    @Test
+    fun `a mirrored lazy column hangs its bar on the left and starts its rows on the right`() {
+        val ui = open {
+            LazyColumn(20, Modifier.size(300f, 200f).testTag("list")) { Line("row$it") }
+        }
+
+        val bar = ui.verticalBar("list")
+        assertEquals(0f, bar.left)
+        assertEquals(8f, bar.right)
+
+        val first = ui.node("row0").boundsInRoot
+        assertEquals(300f, first.right, "the row begins against the right edge")
+        assertTrue(first.left >= bar.right, "clear of the bar: $first against $bar")
+    }
+
+    @Test
+    fun `a mirrored vertical grid hangs its bar on the left`() {
+        val ui = open {
+            LazyVerticalGrid(30, GridCells.Fixed(3), Modifier.size(300f, 200f).testTag("grid")) { Square("cell$it") }
+        }
+
+        val bar = ui.verticalBar("grid")
+        assertEquals(0f, bar.left)
+        assertEquals(8f, bar.right)
+        assertEquals(250f, ui.left("cell0"), "the first cell is still against the right")
+    }
+
+    @Test
+    fun `a scroll area inside a mirrored one puts its bar on its own left edge`() {
+        val ui = open {
+            ScrollArea(Modifier.size(300f, 200f).testTag("outer")) {
+                Column {
+                    repeat(4) { Line("outerLine$it") }
+                    ScrollArea(Modifier.size(200f, 100f).testTag("inner")) {
+                        Column { repeat(20) { Box(Modifier.size(100f, 50f).testTag("innerLine$it")) } }
+                    }
+                }
+            }
+        }
+
+        val outer = ui.verticalBar("outer")
+        val inner = ui.verticalBar("inner")
+        assertEquals(0f, outer.left, "the outer bar is on the screen's left")
+        assertEquals(100f, inner.left, "and the inner one on the left of its own box")
+        assertEquals(108f, inner.right)
+    }
+
+    @Test
+    fun `a mirrored table keeps the room for its bar on the left so the columns line up`() {
+        val ui = open {
+            Table(List(30) { it }, Modifier.size(300f, 200f).testTag("table")) {
+                column("One", width = 100f) { Box(Modifier.size(80f, 20f).testTag("one$it")) }
+                column("Two", width = 100f) { Box(Modifier.size(80f, 20f).testTag("two$it")) }
+            }
+        }
+
+        val bar = ui.verticalBar("table")
+        val one = ui.node("one0").boundsInRoot
+        val two = ui.node("two0").boundsInRoot
+        assertTrue(one.left > two.left, "the first column is the right-hand one: $one against $two")
+        assertTrue(two.left >= bar.right, "and the last column clears the bar on the left: $two against $bar")
     }
 
     @Test
