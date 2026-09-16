@@ -57,6 +57,20 @@ Two consequences worth knowing:
 - **Failures are loud at load time and quiet at draw time.** A typo in the file is
   reported with its line; a name nobody wrote is silently plain.
 
+### What "plain" actually looks like
+
+Plain means *nothing*: no fill, no border, no corner, no padding, and — this is the
+one that catches people — no highlight for hovered, focused, pressed or selected.
+
+So a skin with no `"tree.row.selected"` draws a chosen row exactly like an unchosen
+one, and a skin with no `"tree.row"` loses the ring that shows a pad player where
+they are. The widget works perfectly; nobody can see what it is doing.
+
+It costs nothing to fall back while you are still writing the file. It costs a lot
+once somebody is playing. Before you ship, walk the list on **[[Widgets]]** and
+write a style for every widget you actually use — especially the `.selected`,
+`.open` and `.active` ones, because those are the states a fallback erases.
+
 ---
 
 ## States
@@ -258,6 +272,72 @@ If your game's skin has styles of its own, lay the high-contrast skin over it ra
 than swapping it in, so those styles are still there:
 `remember(mine) { mine.overriddenWith(Skin.HighContrast) }`. Every style the toolkit
 names turns high contrast, and your own keep their look.
+
+---
+
+## Three ways a skin goes quietly wrong
+
+None of these is a crash, a warning or a broken layout. Each of them is a screen
+that draws perfectly and that somebody cannot read.
+
+### Something drawn on its own backdrop
+
+Most widgets sit on your screen colour, so a dark widget on a dark screen is
+obviously wrong and you fix it the first time you look. A few bring their own
+backdrop with them — a radial menu dims the world behind itself, a dialogue has its
+scrim — and there the trap is that both halves came from the same palette. Black
+slices on a black backdrop is a wheel nobody can see:
+
+```jsonc
+"wheel.backdrop": { "background": { "fill": "#E6000000" } },   // the dim over the game
+"wheel.slice":    { "background": { "fill": "#F2606060" } },   // has to be a step away from it
+```
+
+![the same weapon wheel in the high-contrast skin: grey slices on a black backdrop, the one in hand blue, the one being pointed at in yellow, and a white hub with black words](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-wheel-high-contrast.png)
+
+### An outline with no room for itself
+
+An indeterminate bar draws its moving block *inside* its track's padding. A track
+with a two-pixel edge and no padding is a track whose edge the block rubs out every
+time it slides past:
+
+```jsonc
+"indeterminatebar.track": {
+  "background": { "fill": "#000000", "corner": 3, "border": "#FFFFFF", "borderWidth": 2, "padding": 2 }
+}
+```
+
+The rule is padding at least as thick as the border. A plain `Bar` is different —
+its fill is a separate piece laid over the whole track — so there the track's edge
+is simply covered when the bar is full, which is what a full bar should look like.
+
+### Words on a colour that moved
+
+A style's text colour and the fill behind it are usually in the same block, so they
+stay in step. Trouble starts when they are not: `menu.shortcut` is written on
+`menu`, a compass pin's distance is written *under* the pin on the compass, and the
+label on a wheel's lit slice is the same style as the label in the hub. Change one
+of those fills and the words somewhere else stop reading.
+
+---
+
+## If you ship a high-contrast skin
+
+Two numbers, both from the web's accessibility guidelines, both worth holding
+yourself to:
+
+- **4.5:1** between text and whatever is behind it.
+- **3:1** for anything with no words — a tick, a knob, a caret, a selected row's
+  fill, and an edge against either its own fill or the screen behind it.
+
+The second one is the one people miss. A navy selection on a black list is
+comfortably readable *as text* and still leaves the player unable to see which row
+is chosen. The same goes for a dark grey edge on a black box: an unticked checkbox
+that nobody can find.
+
+The toolkit's own `Skin.HighContrast` is measured against both, in
+`HighContrastSkinTest`, so if you copy it as a starting point you are starting from
+something that passes.
 
 ---
 

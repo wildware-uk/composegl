@@ -348,6 +348,435 @@
       "background": { "fill": "#39445A", "corner": 4, "border": "#8994A8", "padding": [6, 0] },
       "textColour": "#E8ECF2",
       "text": { "size": 13 }
-    }
+    },
+
+    // --- the rest of the toolkit ---
+    //
+    // A skin does not have to answer every name: a widget whose style nobody wrote still draws,
+    // because a missing style falls back to a plainer one and then to nothing at all. The catch is
+    // what "nothing at all" looks like — no fill, no edge, no highlight — so a tree row that is
+    // chosen looks exactly like one that is not, and the pad's cursor disappears. That is invisible
+    // until somebody uses the widget, which is why the rest of the toolkit's names are written out
+    // here in this example's own blue rather than left to fall back.
+
+    "panel.raised": {
+      "background": { "fill": "#F0232B38", "corner": 10, "border": "#40FFFFFF", "padding": 16 }
+    },
+
+    "separator": { "background": { "fill": "#40FFFFFF" } },
+
+    "label.heading": { "textColour": "#E6EAF2", "text": { "size": 18 } },
+    "label.danger": { "textColour": "#FF5C5C" },
+    "label.good": { "textColour": "#7BE08A" },
+
+    // --- more buttons ---
+
+    "button.primary": {
+      "background": { "fill": "#804CC2FF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2, "padding": [16, 10] },
+      "textColour": "#08131C",
+      "hovered": { "background": { "fill": "#B04CC2FF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#FF4CC2FF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "button.danger": {
+      "background": { "fill": "#40FF5C5C", "corner": 8, "border": "#FF5C5C", "padding": [16, 10] },
+      "textColour": "#FFD5D5",
+      "hovered": { "background": { "fill": "#70FF5C5C", "corner": 8, "border": "#FF8F8F", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#A0FF5C5C", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "button.icon": {
+      "background": { "fill": "#18FFFFFF", "corner": 8, "border": "#30FFFFFF", "padding": 6 },
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 8, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "contentOffset": [0, 1] }
+    },
+
+    // The keyboard a pad player types with: a panel of small keys, with Shift lit while the next
+    // letter is a capital.
+
+    "panel.keyboard": {
+      "background": { "fill": "#F01B1F2A", "corner": 12, "border": "#304CC2FF", "padding": 12 }
+    },
+
+    "button.key": {
+      "background": { "fill": "#18FFFFFF", "corner": 6, "border": "#30FFFFFF", "padding": [4, 7] },
+      "textColour": "#E6EAF2",
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 6, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#404CC2FF", "corner": 6, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#604CC2FF", "corner": 6, "border": "#4CC2FF" }, "contentOffset": [0, 1] },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "button.key.on": {
+      "background": { "fill": "#804CC2FF", "corner": 6, "border": "#8ADBFF", "borderWidth": 2, "padding": [4, 7] },
+      "textColour": "#08131C",
+      "focused": { "background": { "fill": "#804CC2FF", "corner": 6, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    // --- more things that take a value ---
+
+    "radio": {
+      "background": { "fill": "#2000FFFF", "corner": 8, "border": "#4CC2FF", "padding": 3 },
+      "hovered": { "background": { "fill": "#3000FFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#2000FFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    "radio.dot": { "background": { "fill": "#4CC2FF", "corner": 5 } },
+
+    // A pan-and-zoom canvas is a window onto a world, so all it looks like is the dark behind that
+    // world and a ring when the pad has focus on the canvas itself.
+    "panzoom": {
+      "background": { "fill": "#080B10", "corner": 6 },
+      "focused": { "background": { "fill": "#080B10", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    // The bar between two panes. Quiet until the pointer finds it, so there is something to grab
+    // before the cursor says so.
+    "splitter": {
+      "background": { "fill": "#30FFFFFF", "corner": 2 },
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 2 } },
+      "pressed": { "background": { "fill": "#4CC2FF", "corner": 2 } },
+      "focused": { "background": { "fill": "#804CC2FF", "corner": 2, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    // Working, for an unknown length of time.
+    "spinner": { "textColour": "#4CC2FF" },
+    "spinner.track": { "textColour": "#28FFFFFF" },
+    // The padding is the room the track's own edge needs: the block is drawn inside it, so a track
+    // with an outline and no padding is a track whose outline the block paints over.
+    "indeterminatebar.track": {
+      "background": { "fill": "#40000000", "corner": 4, "border": "#304CC2FF", "padding": 2 }
+    },
+    "indeterminatebar.fill": { "background": { "fill": "#4CC2FF", "corner": 3 } },
+
+    // A colour picker: the panel, the frame round its square and strips, the ring that marks the
+    // colour, and the checkerboard behind a see-through one.
+    "colourpicker": {
+      "background": { "fill": "#F01B1F2A", "corner": 10, "border": "#304CC2FF", "padding": 12 }
+    },
+    "colourpicker.area": {
+      "background": { "fill": "#0B1119", "corner": 4, "border": "#304CC2FF" },
+      "hovered": { "background": { "fill": "#0B1119", "corner": 4, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#0B1119", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+    "colourpicker.marker": { "background": { "fill": "#0B1119" }, "textColour": "#FFFFFF" },
+    "colourpicker.checker": { "background": { "fill": "#C8CCD2" }, "textColour": "#8A9099" },
+    "colourswatch": {
+      "background": { "fill": "#0B1119", "corner": 4, "border": "#304CC2FF", "padding": 2 },
+      "hovered": { "background": { "fill": "#0B1119", "corner": 4, "border": "#4CC2FF", "padding": 2 } },
+      "focused": { "background": { "fill": "#0B1119", "corner": 4, "border": "#FFFFFF", "borderWidth": 2, "padding": 2 } },
+      "pressed": { "background": { "fill": "#0B1119", "corner": 4, "border": "#8ADBFF", "padding": 2 } }
+    },
+
+    // --- lists, dropdowns and folding sections ---
+    //
+    // A row of a list is flat until something happens to it. The three things that can happen —
+    // the pointer is over it, the pad is on it, it is the chosen one — have to look different from
+    // each other and from nothing at all, or a player cannot tell where they are.
+
+    "item": {
+      "background": "none",
+      "padding": [10, 6],
+      "hovered": { "background": { "fill": "#18FFFFFF", "corner": 6 } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 6, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#284CC2FF", "corner": 6 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "item.selected": {
+      "background": { "fill": "#604CC2FF", "corner": 6, "padding": [10, 6] },
+      "textColour": "#08131C",
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 6 } },
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 6, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "dropdown": {
+      "background": { "fill": "#600E1116", "corner": 6, "border": "#304CC2FF", "padding": [10, 7] },
+      "hovered": { "background": { "fill": "#600E1116", "corner": 6, "border": "#604CC2FF" } },
+      "focused": { "background": { "fill": "#600E1116", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#284CC2FF", "corner": 6, "border": "#4CC2FF" } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "dropdown.list": {
+      "background": { "fill": "#F21B1F2A", "corner": 8, "border": "#4CC2FF", "padding": 4 }
+    },
+
+    "collapsingheader": {
+      "background": { "fill": "#18FFFFFF", "corner": 6, "padding": [10, 7] },
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 6 } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 6, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#404CC2FF", "corner": 6 } }
+    },
+
+    "collapsingheader.open": {
+      "background": { "fill": "#404CC2FF", "corner": 6, "padding": [10, 7] },
+      "textColour": "#E6F4FF",
+      "hovered": { "background": { "fill": "#604CC2FF", "corner": 6 } },
+      "focused": { "background": { "fill": "#404CC2FF", "corner": 6, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#804CC2FF", "corner": 6 } }
+    },
+
+    "collapsingheader.glyph": {
+      "textColour": "#4CC2FF",
+      "hovered": { "textColour": "#8ADBFF" },
+      "focused": { "textColour": "#FFFFFF" },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "collapsingheader.body": { "padding": [14, 8] },
+
+    // --- trees ---
+
+    "tree.row": {
+      "background": "none",
+      "padding": [8, 4],
+      "hovered": { "background": { "fill": "#18FFFFFF", "corner": 5 } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 5, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#284CC2FF", "corner": 5 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "tree.row.selected": {
+      "background": { "fill": "#604CC2FF", "corner": 5, "padding": [8, 4] },
+      "textColour": "#08131C",
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 5 } },
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 5, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "tree.toggle": { "textColour": "#9AA4B2", "hovered": { "textColour": "#4CC2FF" } },
+    "tree.toggle.open": { "textColour": "#4CC2FF", "hovered": { "textColour": "#8ADBFF" } },
+    "tree.guide": { "background": { "fill": "#28FFFFFF" } },
+
+    // --- tables ---
+    //
+    // Rows and the header carry no padding of their own: the cells carry it, so the titles line up
+    // over the values.
+
+    "table": { "background": { "fill": "#600E1116", "corner": 8, "border": "#304CC2FF", "padding": 2 } },
+    "table.header": { "background": { "fill": "#18FFFFFF" } },
+
+    "table.header.cell": {
+      "background": "none",
+      "textColour": "#9AA4B2",
+      "padding": [10, 6],
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#284CC2FF" }, "textColour": "#E6EAF2" },
+      "focused": { "background": { "fill": "#284CC2FF", "border": "#FFFFFF", "borderWidth": 2 }, "textColour": "#E6EAF2" },
+      "pressed": { "background": { "fill": "#404CC2FF" } }
+    },
+
+    "table.header.cell.sorted": {
+      "background": "none",
+      "textColour": "#4CC2FF",
+      "padding": [10, 6],
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#284CC2FF" } },
+      "focused": { "background": { "fill": "#284CC2FF", "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#404CC2FF" } }
+    },
+
+    // The grab area is nine wide; the padding is what is left either side of the line drawn in it.
+    "table.divider": {
+      "background": { "fill": "#30FFFFFF" },
+      "padding": [4, 6],
+      "hovered": { "background": { "fill": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#8ADBFF" } }
+    },
+
+    "table.row": {
+      "background": "none",
+      "hovered": { "background": { "fill": "#18FFFFFF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#284CC2FF" } }
+    },
+
+    "table.row.alt": {
+      "background": { "fill": "#0CFFFFFF" },
+      "hovered": { "background": { "fill": "#18FFFFFF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#284CC2FF" } }
+    },
+
+    "table.row.selected": {
+      "background": { "fill": "#604CC2FF" },
+      "textColour": "#08131C",
+      "hovered": { "background": { "fill": "#804CC2FF" } },
+      "focused": { "background": { "fill": "#604CC2FF", "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "table.cell": { "padding": [10, 5] },
+    "table.empty": { "textColour": "#9AA4B2", "padding": 16 },
+
+    // --- menus ---
+
+    "menubar": { "background": { "fill": "#18FFFFFF", "border": "#30FFFFFF", "padding": [4, 2] } },
+
+    "menubar.title": {
+      "background": { "fill": "#00000000", "corner": 6, "padding": [10, 5] },
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 6 } },
+      "focused": { "background": { "fill": "#284CC2FF", "corner": 6, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#404CC2FF", "corner": 6 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "menubar.title.open": {
+      "background": { "fill": "#604CC2FF", "corner": 6, "padding": [10, 5] },
+      "textColour": "#08131C",
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 6, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "menu": {
+      "background": { "fill": "#F21B1F2A", "corner": 8, "border": "#4CC2FF", "padding": 4 }
+    },
+
+    "menu.item": {
+      "background": "none",
+      "padding": [10, 5],
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 5 } },
+      "focused": { "background": { "fill": "#284CC2FF", "corner": 5, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#404CC2FF", "corner": 5 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "menu.item.open": {
+      "background": { "fill": "#404CC2FF", "corner": 5, "padding": [10, 5] }
+    },
+
+    "menu.shortcut": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "menu.separator": { "background": { "fill": "#30FFFFFF" } },
+    "menu.check": { "background": { "fill": "#4CC2FF", "corner": 2 }, "disabled": { "tint": "#80FFFFFF" } },
+    "menu.radio": { "background": { "fill": "#4CC2FF", "corner": 7 }, "disabled": { "tint": "#80FFFFFF" } },
+
+    // --- selected text in a label ---
+
+    "selection": { "background": { "fill": "#504CC2FF" } },
+
+    // --- more of the HUD ---
+
+    "progress.track": { "background": { "fill": "#40000000", "corner": 4 } },
+    "progress.fill": { "background": { "fill": "#4CC2FF", "corner": 4 } },
+    "progress.fill.danger": { "background": { "fill": "#FF5C5C", "corner": 4 } },
+    "progress.fill.good": { "background": { "fill": "#7BE08A", "corner": 4 } },
+
+    "hitmarker": { "background": { "fill": "#FFFFFF" } },
+    "hitmarker.critical": { "background": { "fill": "#FFD16A" } },
+    "hitmarker.kill": { "background": { "fill": "#FF5A4F" } },
+
+    // Both of these are drawn over the game itself, so both carry their own opacity: an arc the
+    // player cannot see past is worse than no arc at all.
+    "damage.direction": { "background": { "fill": "#D8FF5C5C" } },
+    "vignette": { "background": { "fill": "#E8901620" } },
+
+    // The heading strip: the ruler, the names on it, the line down the middle saying which way the
+    // player is facing, and a pin with its distance under it.
+    "compass": {
+      "background": { "fill": "#151B26", "corner": 6, "border": "#5A6B86", "padding": [10, 5] }
+    },
+    "compass.tick": { "background": { "fill": "#6E8093" } },
+    "compass.label": { "textColour": "#E6EAF2", "text": { "size": 13 } },
+    "compass.marker": { "background": { "fill": "#4CC2FF" } },
+    "compass.pin": { "background": { "fill": "#F2C94C" }, "textColour": "#9AA4B2", "text": { "size": 12 } },
+    "compass.readout": { "textColour": "#4CC2FF", "text": { "size": 13 } },
+
+    // Subtitles and captions. The band is opaque and made see-through by the player's own opacity
+    // setting, so turning it down gives the colour written here rather than two of them multiplied.
+    "subtitle": {
+      "background": { "fill": "#0A0E14", "corner": 6, "padding": [16, 10] },
+      "textColour": "#F2F5FA",
+      "text": { "size": 16 }
+    },
+    "subtitle.speaker": { "textColour": "#4CC2FF", "text": { "size": 16 } },
+    "subtitle.caption": { "textColour": "#C7D0DC", "text": { "size": 16 } },
+
+    // The weapon wheel. The backdrop dims the world, because a wheel is modal; every other piece
+    // has to stand clear of that backdrop or the wheel is a hole in the screen.
+    "wheel.backdrop": { "background": { "fill": "#B00A0E14" } },
+    "wheel.slice": { "background": { "fill": "#E61B2230" } },
+    "wheel.slice.selected": { "background": { "fill": "#E62A3A52" } },
+    "wheel.slice.highlighted": { "background": { "fill": "#F24CC2FF" } },
+    "wheel.ring": { "background": { "fill": "#E6151B26" } },
+    "wheel.ring.highlighted": { "background": { "fill": "#F28ADBFF" } },
+    "wheel.hub": { "background": { "fill": "#F00A0E14" } },
+    "wheel.label": { "textColour": "#E8F4FF", "text": { "size": 18 } },
+
+    // --- the tools that sit over the game ---
+    //
+    // Smaller type than the game's own screens, because they are read up close. The window the keys
+    // are going to is the one with a lit edge and a lit title bar.
+
+    "debugwindow": { "background": { "fill": "#EE131820", "corner": 8, "border": "#2A3440", "padding": 1 } },
+    "debugwindow.active": { "background": { "fill": "#F2131820", "corner": 8, "border": "#4CC2FF", "padding": 1 } },
+    "debugwindow.title": {
+      "background": { "fill": "#18FFFFFF", "corner": 7, "padding": [8, 4] },
+      "textColour": "#9AA4B2",
+      "text": { "size": 13 }
+    },
+    "debugwindow.title.active": {
+      "background": { "fill": "#404CC2FF", "corner": 7, "padding": [8, 4] },
+      "textColour": "#E6F4FF",
+      "text": { "size": 13 }
+    },
+    "debugwindow.button": {
+      "background": { "fill": "#00000000", "corner": 4, "padding": 3 },
+      "textColour": "#9AA4B2",
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 4 }, "textColour": "#FFFFFF" },
+      "focused": { "background": { "fill": "#284CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 }, "textColour": "#FFFFFF" },
+      "pressed": { "background": { "fill": "#404CC2FF", "corner": 4 } }
+    },
+    "debugwindow.body": { "padding": [10, 8] },
+    "debugwindow.label": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "debugwindow.value": { "textColour": "#E6EAF2", "text": { "size": 13 } },
+    "debugwindow.grip": { "background": { "fill": "#40FFFFFF", "corner": 2 } },
+
+    // A live graph: a dark box with a bright trace on it, a wash underneath, and a dim rule across
+    // it wherever the caller asked to be able to see.
+
+    "plot": {
+      "background": { "fill": "#0B1119", "corner": 6, "border": "#2A3440", "padding": [6, 4] },
+      "textColour": "#C9D3E0"
+    },
+    "plot.label": { "textColour": "#6E8093", "text": { "size": 11 } },
+    "plot.value": { "textColour": "#E6EAF2", "text": { "size": 11 } },
+    "plot.line": { "textColour": "#4CC2FF" },
+    "plot.fill": { "textColour": "#404CC2FF" },
+    "plot.guide": { "textColour": "#3A4756" },
+    "plot.cursor": { "textColour": "#FFB454" },
+    "plot.bar": { "textColour": "#4CC2FF" },
+
+    // The drop-down console: a panel over the top of the game with a log in it, one colour a level
+    // so a warning is seen before it is read.
+
+    "console": {
+      "background": { "fill": "#F00B1119", "border": "#2A3440", "padding": 12 },
+      "textColour": "#C9D3E0"
+    },
+    "console.title": { "textColour": "#6E8093", "text": { "size": 13 } },
+    "console.prompt": { "textColour": "#4CC2FF" },
+
+    "console.line": { "textColour": "#C9D3E0", "text": { "size": 14 } },
+    "console.line.debug": { "textColour": "#7C8798", "text": { "size": 14 } },
+    "console.line.info": { "textColour": "#C9D3E0", "text": { "size": 14 } },
+    "console.line.warn": { "textColour": "#FFB454", "text": { "size": 14 } },
+    "console.line.error": { "textColour": "#FF8080", "text": { "size": 14 } },
+    "console.line.echo": { "textColour": "#8ADBFF", "text": { "size": 14 } },
+
+    "console.suggestion": { "textColour": "#9AA4B2", "padding": [6, 2], "text": { "size": 14 } },
+    "console.suggestion.selected": {
+      "background": { "fill": "#404CC2FF", "corner": 4 },
+      "textColour": "#E8F4FF",
+      "padding": [6, 2],
+      "text": { "size": 14 }
+    },
+
+    "console.field": {
+      "background": { "fill": "#00000000", "padding": [2, 3] },
+      "textColour": "#E8F4FF"
+    },
+    "console.field.placeholder": { "textColour": "#5A6675" },
+    "console.field.caret": { "background": { "fill": "#E6F0FF" } },
+    "console.field.selection": { "background": { "fill": "#504CC2FF" } },
+    "console.field.composition": { "background": { "fill": "#8ADBFF" } }
   }
 }

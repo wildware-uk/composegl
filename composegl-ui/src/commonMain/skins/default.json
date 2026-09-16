@@ -54,10 +54,14 @@
 
     // Working, for an unknown length of time. The spinner's arc is its text colour, turning over a
     // faint ring; the indeterminate bar's block slides along a track like a bar's.
+    //
+    // The track's padding is what keeps the block inside the groove rather than painted over its
+    // edge: an indeterminate bar draws its block within the track's padding, so a track with an
+    // outline and no padding is a track whose outline is rubbed out every time the block goes past.
 
     "spinner": { "textColour": "#5B8DEF" },
     "spinner.track": { "textColour": "#2C3545" },
-    "indeterminatebar.track": { "background": { "fill": "#10131A", "corner": 3, "border": "#2C3545" } },
+    "indeterminatebar.track": { "background": { "fill": "#10131A", "corner": 3, "border": "#2C3545", "padding": 2 } },
     "indeterminatebar.fill": { "background": { "fill": "#5B8DEF", "corner": 3 } },
 
     "tooltip": {
