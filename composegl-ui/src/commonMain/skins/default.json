@@ -854,24 +854,28 @@
     "debugwindow.value": { "textColour": "#E8ECF2", "text": { "size": 14 } },
     "debugwindow.grip": { "background": { "fill": "#39445A", "corner": 2 } },
 
-    // A docked pane wears tabs where a floating window wears a title. The one showing is the lit one,
-    // drawn like the lit title bar it stands in for; the others are as quiet as the unlit one.
+    // A docked pane wears tabs where a floating window wears a title, and the strip they sit on is
+    // that title bar: lit blue while the pane has the keys, quiet grey when it does not. So the tabs
+    // are pitched against the bar rather than copied from it. The one showing is a shade above the
+    // bar with a light edge, and stands proud on either one; the rest are a shade below it and sink
+    // into it. Matching the bar's own colours would leave the chosen tab invisible on a lit strip
+    // and the unchosen ones looking like the raised chips, which is the wrong way round.
 
     "debugwindow.tab": {
-      "background": { "fill": "#232A35", "corner": 3, "padding": [8, 2] },
+      "background": { "fill": "#1C2230", "corner": 3, "padding": [8, 2] },
       "textColour": "#9BA6B6",
       "text": { "size": 14 },
       "hovered": { "background": { "fill": "#2C3545", "corner": 3 }, "textColour": "#E8ECF2" },
       "focused": { "background": { "fill": "#2C3545", "corner": 3, "border": "#5B8DEF", "borderWidth": 2 } },
-      "pressed": { "background": { "fill": "#39445A", "corner": 3 } }
+      "pressed": { "background": { "fill": "#39445A", "corner": 3 }, "textColour": "#E8ECF2" }
     },
     "debugwindow.tab.selected": {
-      "background": { "fill": "#2F53A8", "corner": 3, "padding": [8, 2] },
+      "background": { "fill": "#3A66C8", "corner": 3, "border": "#6E9BEF", "padding": [8, 2] },
       "textColour": "#E8ECF2",
       "text": { "size": 14 },
-      "hovered": { "background": { "fill": "#3A66C8", "corner": 3 } },
-      "focused": { "background": { "fill": "#2F53A8", "corner": 3, "border": "#7BA5F5", "borderWidth": 2 } },
-      "pressed": { "background": { "fill": "#3A66C8", "corner": 3 } }
+      "hovered": { "background": { "fill": "#4573D2", "corner": 3, "border": "#6E9BEF" }, "textColour": "#FFFFFF" },
+      "focused": { "background": { "fill": "#3A66C8", "corner": 3, "border": "#7BA5F5", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#2F53A8", "corner": 3, "border": "#6E9BEF" } }
     },
 
     // Where a dragged window would land, and the squares it is dropped on: a wash the size of the

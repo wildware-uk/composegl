@@ -222,9 +222,9 @@ nearest first, so the two always end up together. `isDocked`, `tabsWith`, `docke
 positions, under one key, so it comes back the next time the game runs — panes and all, including
 ones for windows this run has not composed yet, which are left out until they appear.
 
-![a window docked along the bottom of the screen in the high-contrast skin on a screen that reads from the right: the Spawns tab at the right end of the strip, the close cross at the left, and each row's label on the right with its slider filling from that end](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-dock-rtl.png)
+![two windows tabbed into one pane along the bottom of the screen in the high-contrast skin on a screen that reads from the right: the Spawns and Physics tabs at the right end of the strip with Physics chosen, the close cross at the left, and each row's label on the right with its slider filling from that end](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-dock-rtl.png)
 
-The same drop, on a screen that reads from the right. An edge of the screen is the same edge
+The same two drops, on a screen that reads from the right. An edge of the screen is the same edge
 whichever way the words run, so the pane lands where it was dropped; it is the strip of tabs and the
 rows inside it that read from the other end. That is the high-contrast skin, and the line above the
 pane is the divider that was dragged up, still focused.
