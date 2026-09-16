@@ -26,6 +26,9 @@ import dev.wildware.composegl.ui.animation.wait
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.debug.DebugWindow
 import dev.wildware.composegl.debug.DebugWindowHost
+import dev.wildware.composegl.debug.DebugWindowsState
+import dev.wildware.composegl.debug.DockSide
+import dev.wildware.composegl.debug.rememberDebugWindowsState
 import dev.wildware.composegl.debug.DevConsole
 import dev.wildware.composegl.debug.NodeTree
 import dev.wildware.composegl.debug.FrameBudgetOverlay
@@ -175,9 +178,13 @@ fun ShowcaseUi(
             var interfaceRoot by remember { mutableStateOf<UiNode?>(null) }
             val placed = remember { PlacedHandler { interfaceRoot = it } }
 
+            // Held here rather than left to the host, so the Debug menu can dock the windows and
+            // float them again: what a drag does, the menu does too.
+            val windows = rememberDebugWindowsState()
+
             // The windows go over everything, and the host is a PopupHost too, so the menu bar's
             // menus and the target panel's context menu drop through it.
-            DebugWindowHost {
+            DebugWindowHost(state = windows) {
                 // One drag and drop host round the whole screen, which is what its own advice says:
                 // whatever is being carried is drawn over everything, so a crate on its way from the
                 // hold to the locker is never clipped by the panel it is leaving.
@@ -248,7 +255,7 @@ fun ShowcaseUi(
 
                             // Last, so it is over the scene's panels. Alt or F10 reaches it from the keyboard,
                             // the pad's View button from a pad.
-                            ShowcaseMenus(state, budget)
+                            ShowcaseMenus(state, budget, windows)
 
                             // And after even that, because a console goes over everything. ` opens it.
                             ShowcaseConsole(state)
@@ -430,7 +437,7 @@ private fun TuningWindow(state: ShowcaseState) {
  * changing it — the switches in the corner and the ticks in the Show menu always agree.
  */
 @Composable
-private fun ShowcaseMenus(state: ShowcaseState, budget: FrameBudget) {
+private fun ShowcaseMenus(state: ShowcaseState, budget: FrameBudget, windows: DebugWindowsState) {
     MenuBar(Modifier.align(Alignment.TopStart), padButton = GamepadButton.Back) {
         Menu("&Show") {
             Exhibit.entries.forEach { exhibit ->
@@ -458,6 +465,26 @@ private fun ShowcaseMenus(state: ShowcaseState, budget: FrameBudget) {
             Submenu("Set &heat") {
                 listOf("Cold" to 0f, "Warm" to 0.5f, "Overheating" to 0.95f).forEach { (name, heat) ->
                     Item(name) { state.heat = heat }
+                }
+            }
+            Separator()
+            // The same docking a drag does, from the keyboard: the windows are also draggable onto
+            // the squares that appear while one is being moved.
+            Submenu("&Windows") {
+                Item("Dock &Fight left", enabled = state.tuningOpen) {
+                    windows.dockToScreen("Fight", DockSide.Left)
+                }
+                Item("Dock &UI tree right", enabled = state.isOn(Exhibit.Nodes)) {
+                    windows.dockToScreen("UI tree", DockSide.Right)
+                }
+                // Neither has to be docked first: a window put in with one that is still floating
+                // takes it along, to the edge of the screen it was nearest.
+                Item("&Tab them together", enabled = state.tuningOpen && state.isOn(Exhibit.Nodes)) {
+                    windows.dockWith("UI tree", "Fight")
+                }
+                Separator()
+                Item("&Float them all", enabled = windows.dockedWindows.isNotEmpty()) {
+                    windows.dockedWindows.toList().forEach(windows::undock)
                 }
             }
         }

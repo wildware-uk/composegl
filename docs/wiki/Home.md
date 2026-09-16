@@ -58,7 +58,7 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
 | **[[Backends]]** | LibGDX, raw OpenGL, a browser tab, Android, and writing your own |
 | **[[KorGE]]** | a screen on a KorGE stage: fonts, skins, input, split-screen, in-world panels, testing, and the limits |
 | **[[Testing]]** | a whole interface tested with no window and no GPU, and `@Preview` composables drawn to PNGs |
-| **[[Debugging]]** | floating windows that tune your own values while the game runs, overlays for layout, focus, overdraw, draw calls, redraws and text, an inspector, a browsable tree of the whole screen, live plots, and a drop-down console for typing commands, from `composegl-debug` |
+| **[[Debugging]]** | floating windows that tune your own values while the game runs and dock to an edge or tab together when there are a few, overlays for layout, focus, overdraw, draw calls, redraws and text, an inspector, a browsable tree of the whole screen, live plots, and a drop-down console for typing commands, from `composegl-debug` |
 | **[[Custom layouts]]** | writing your own `MeasurePolicy` when the three are not enough |
 
 ---

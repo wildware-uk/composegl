@@ -854,6 +854,33 @@
     "debugwindow.value": { "textColour": "#E8ECF2", "text": { "size": 14 } },
     "debugwindow.grip": { "background": { "fill": "#39445A", "corner": 2 } },
 
+    // A docked pane wears tabs where a floating window wears a title. The one showing is the lit one,
+    // drawn like the lit title bar it stands in for; the others are as quiet as the unlit one.
+
+    "debugwindow.tab": {
+      "background": { "fill": "#232A35", "corner": 3, "padding": [8, 2] },
+      "textColour": "#9BA6B6",
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#2C3545", "corner": 3 }, "textColour": "#E8ECF2" },
+      "focused": { "background": { "fill": "#2C3545", "corner": 3, "border": "#5B8DEF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#39445A", "corner": 3 } }
+    },
+    "debugwindow.tab.selected": {
+      "background": { "fill": "#2F53A8", "corner": 3, "padding": [8, 2] },
+      "textColour": "#E8ECF2",
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#3A66C8", "corner": 3 } },
+      "focused": { "background": { "fill": "#2F53A8", "corner": 3, "border": "#7BA5F5", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#3A66C8", "corner": 3 } }
+    },
+
+    // Where a dragged window would land, and the squares it is dropped on: a wash the size of the
+    // pane, and small plates over the middle of a window and round the edges of the screen.
+
+    "debugwindow.dock": { "background": { "fill": "#4C5B8DEF", "corner": 4, "border": "#5B8DEF" } },
+    "debugwindow.dock.target": { "background": { "fill": "#D9232A35", "corner": 4, "border": "#5B8DEF" } },
+    "debugwindow.dock.target.active": { "background": { "fill": "#F25B8DEF", "corner": 4, "border": "#E8ECF2" } },
+
     // --- trees ---
     //
     // Rows as quiet as a list's until they are hovered or chosen. The arrow is dimmer than the words,

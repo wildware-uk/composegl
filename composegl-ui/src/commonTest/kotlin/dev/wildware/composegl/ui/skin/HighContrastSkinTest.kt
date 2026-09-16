@@ -99,6 +99,7 @@ class HighContrastSkinTest {
         "skilltree.rank" to "skilltree.plane",
         "damage" to null, "damage.critical" to null,
         "debugwindow.title" to null, "debugwindow.title.active" to null, "debugwindow.button" to "debugwindow",
+        "debugwindow.tab" to null, "debugwindow.tab.selected" to null,
         "debugwindow.label" to "debugwindow", "debugwindow.value" to "debugwindow",
         "console.title" to "console", "console.prompt" to "console",
         "console.line" to "console", "console.line.debug" to "console", "console.line.info" to "console",

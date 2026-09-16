@@ -37,6 +37,7 @@ It is the same targets as `composegl-ui`: the JVM, Linux, iOS and the browser.
 import dev.wildware.composegl.debug.DebugWindow
 import dev.wildware.composegl.debug.DebugWindowHost
 import dev.wildware.composegl.debug.DevConsole
+import dev.wildware.composegl.debug.DockSide
 import dev.wildware.composegl.debug.FocusOverlay
 import dev.wildware.composegl.debug.FrameBudgetOverlay
 import dev.wildware.composegl.debug.Histogram
@@ -45,6 +46,7 @@ import dev.wildware.composegl.debug.LayoutOverlay
 import dev.wildware.composegl.debug.NodeTree
 import dev.wildware.composegl.debug.Plot
 import dev.wildware.composegl.debug.arg
+import dev.wildware.composegl.debug.rememberDebugWindowsState
 import dev.wildware.composegl.debug.rememberDevConsole
 import dev.wildware.composegl.debug.rememberPlotBuffer
 ```
@@ -126,6 +128,7 @@ controls line up.
 | F6, or the pad's right stick click | focus moves to the next window, then back to the game |
 | the pad's right stick, with focus inside | the window moves, and stops as soon as focus leaves it |
 | both sticks clicked together | every window is put away, as F9 does |
+| right-click the title bar, or Shift+F10, or the pad's North | the window's own menu: where to dock it, and how to float it again |
 
 ![two debug windows over the same game, the Physics one caught mid-drag by its title bar, drawn in front of the Spawns one and the only one with a lit title bar](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-two.png)
 
@@ -152,10 +155,61 @@ A window can carry its own menus, and holds anything else you compose in it:
 DebugWindow("Physics", menuBar = { Menu("&Presets") { Item("&Moon") { gravity = 1.6f } } }) { … }
 ```
 
+### Docking them, once there are a few
+
+Five floating windows is five windows in the way. Drag one by its title bar and small squares
+appear: four round the edges of the screen, and a cross of five over whatever window is under
+the pointer. Let go on one and the window lands there — a pane down that edge of the screen, a
+pane taking half of that window's own, or, on the middle square of the cross, a tab beside it.
+A patch shows the space it would take before you let go.
+
+Dropping on a window that is still floating takes that one along: it docks against the edge of
+the screen it was nearest, and the two land there together. So the first drop of the run works
+like every other one, with nothing to set up first.
+
+| Do this | And you get |
+|---|---|
+| drag the title bar onto a square at the edge of the screen | a pane down that edge, a quarter of the screen wide |
+| drag it onto the middle square over another window | the two tabbed together, the one you dropped showing |
+| drag it onto a side square over another window | that window's pane split in two |
+| drop on a window that is still floating | it docks against the edge it was nearest, and the pair share that pane |
+| drag the title bar anywhere else | the window is only moved — it never docks by accident |
+| click a tab | that window comes forward, and the keyboard with it |
+| drag a tab out | that window floats again, under the pointer |
+| drag the divider between two panes | one pane gets more of the space; it stops before either is squashed |
+| double click a divider | the two panes share their space evenly |
+| Ctrl and Alt and an arrow, with focus inside | dock against that edge of the screen (Command on a Mac) |
+| Ctrl and Alt and F | float it again |
+| the divider focused, and an arrow or the pad | the divider moves a step the way it points |
+
+A docked window has no edges to drag and does not fold: its pane is its size, and the dividers
+are what change it. The game is never covered completely — whatever is docked, the space left
+over is a hole the game shows through, which is what the dividers move against.
+
+A right click on the title bar — Shift+F10 from the keyboard, North on a pad — opens the window's
+own menu, which docks it and floats it again without a drag. The same commands from code:
+
+```kotlin
+val windows = rememberDebugWindowsState()
+
+DebugWindowHost(state = windows) { Game(); DebugWindow("Physics") { … } }
+
+windows.dockToScreen("Physics", DockSide.Left)       // a pane down the left
+windows.dockWith("Spawns", "Physics")                // tabbed beside it
+windows.dockWith("Log", "Physics", DockSide.Bottom)  // half of its pane
+windows.undock("Spawns")                             // floating again, where it was before
+```
+
+`dockWith` does what the drop does: a window still floating is docked against the edge it is
+nearest first, so the two always end up together. `isDocked`, `tabsWith`, `dockedWindows` and
+`showTab` read and change the same layout, and `resetLayout()` floats the lot. The layout is kept by the same `DebugWindowStore` as the window
+positions, under one key, so it comes back the next time the game runs — panes and all, including
+ones for windows this run has not composed yet, which are left out until they appear.
+
 ### Where a window remembers being
 
-Position, size, whether it is folded and which sections in it are open are kept by a
-`DebugWindowStore` and come back the next time the game runs. On the desktop — the JVM and
+Position, size, whether it is folded, which sections in it are open and the dock layout the
+docked ones share are kept by a `DebugWindowStore` and come back the next time the game runs. On the desktop — the JVM and
 Linux native both — that is a file called `composegl-debug-windows.txt` beside the game, the
 way imgui keeps `imgui.ini`; on iOS and in the browser it lasts as long as the run, because
 neither has a place to write that the game has not chosen (on iOS, hand in a
@@ -174,16 +228,21 @@ DebugWindowHost(state = rememberDebugWindowsState(MyStore())) { Game() }
 `DebugWindowsState` is also how a game reads and changes the windows from elsewhere:
 `windows` names them from the back to the front, `hidden` puts them away, `bringToFront`
 (which takes the keyboard with it, as a click does), `position`, `size`, `isCollapsed`,
-`setCollapsed`, `focusNextWindow`, and `resetLayout()` to put every window back where the
-code puts it.
+`setCollapsed`, `focusNextWindow`, `dockToScreen`, `dockWith`, `undock`, `showTab`,
+`isDocked`, `tabsWith`, `dockedWindows`, and `resetLayout()` to put every window back where
+the code puts it, floating.
 
 Unlike the overlays below, a window is an ordinary part of the interface and takes the
 mouse, the keyboard and the pad. It is skinned like every other widget: `"debugwindow"`
 and `"debugwindow.active"` for the frame, `"debugwindow.title"` and
 `"debugwindow.title.active"` for the title bar — the `.active` pair being the window in
 front — then `"debugwindow.button"`, `"debugwindow.body"`,
-`"debugwindow.label"`, `"debugwindow.value"` and `"debugwindow.grip"`. The default and
-high-contrast skins name all of them, and a colour line wears the picker's own
+`"debugwindow.label"`, `"debugwindow.value"` and `"debugwindow.grip"`. Docking adds
+`"debugwindow.tab"` and `"debugwindow.tab.selected"` for the tabs a docked pane wears instead
+of a title, `"debugwindow.dock"` for the patch showing where a dragged window would land and
+`"debugwindow.dock.target"`, with `.active` for the one under the pointer, for the squares it
+is dropped on; the divider between two panes is the toolkit's own `"splitter"`. The default
+and high-contrast skins name all of them, and a colour line wears the picker's own
 `"colourswatch"` and `"colourpicker"`.
 
 ![the same two windows in the high-contrast skin, reading from the right, one of them folded to its title bar with its triangle pointing left](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-rtl.png)
@@ -191,7 +250,9 @@ high-contrast skins name all of them, and a colour line wears the picker's own
 That is the high-contrast skin, right to left, with the second window folded by a click on its
 triangle. The game under it is drawn where its own code puts it: it is the interface that mirrors.
 
-The showcase demo has one over its scene: `Fight`, in the Debug menu.
+The showcase demo has one over its scene: `Fight`, in the Debug menu. Its Debug ▸ Windows submenu
+docks that window and the `UI tree` one, tabs them together and floats them again, which is the
+same thing dragging them does.
 
 ---
 
