@@ -38,6 +38,9 @@ ProvideLocale(Locale("he"), strings) {
   nought in any language.
 - **File format** for `Strings.parse`: one `key = value` per line, `#` comments, `\n` for a
   line break.
+- **Keys the toolkit looks up itself:** only `compass.n`, `compass.ne` and the rest of the
+  compass points, for [[CompassBar|Game-widgets#compass-bar]]. A point you have not translated
+  keeps its English letter rather than showing the key.
 
 Changing the locale — a player picking a language on the options screen — recomposes the screen
 underneath, so every string and the layout direction change on the next frame.
@@ -69,6 +72,8 @@ What mirrors:
 What does **not** mirror, on purpose:
 
 - anything that names a side: `padding(left = …)`, `offset`, a picture;
+- `CompassBar` — east is to the right of north wherever the player is from, so a strip that
+  mirrored would slide the wrong way as they turned. Its words are still the language's own;
 - a custom `Layout` — it can read `layoutDirection` in its measure block if it cares;
 - the order of children, so **Tab still goes first to last**. The pad and arrow keys move to
   whatever is on that side of the screen, which is the mirrored neighbour.

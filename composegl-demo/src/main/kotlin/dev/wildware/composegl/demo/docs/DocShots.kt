@@ -49,6 +49,7 @@ import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.modifier.repeatingClickable
 import dev.wildware.composegl.game.Bar
 import dev.wildware.composegl.game.BarThreshold
+import dev.wildware.composegl.game.CompassBar
 import dev.wildware.composegl.game.Hotbar
 import dev.wildware.composegl.game.HotbarSlot
 import dev.wildware.composegl.game.MinimapFrame
@@ -1656,6 +1657,28 @@ private fun MutableList<DocShot>.game() {
                         MinimapMarker(35f, 45f, style = "minimap.objective"),
                     ),
                 )
+            }
+        }
+    })
+
+    // The toolkit's own skin, because the strip's look is one of the things the picture is of, and
+    // a quest thirty degrees off is what a player actually sees while they are walking towards it.
+    add(DocShot("game-compass", 520, 92, stock = true) {
+        Frame {
+            Box(Modifier.fillMaxSize()) {
+                CompassBar(
+                    heading = 24f,
+                    fieldOfView = 180f,
+                    Modifier.align(Alignment.Centre).width(480f),
+                    readout = { "${it.toInt()}°" },
+                    distanceText = { "${it.toInt()}m" },
+                    live = false,
+                ) {
+                    pin(bearing = 58f, distance = 140f)
+                    pin(bearing = 340f, distance = 62f, style = "label.danger")
+                    // Behind the player, so it is pinned to the end with an arrow on it.
+                    pin(bearing = 200f, distance = 410f, fadeWithDistance = true)
+                }
             }
         }
     })

@@ -104,4 +104,26 @@ class GameTextScaleTest {
         assertNear(plain.x - size * 0.6f / 2f, big.x, "centred on the same point at twice the width")
         assertTrue(big.y > plain.y, "and kept further in from the edge, because it is taller")
     }
+
+    @Test
+    fun `a compass bar's name is drawn at the scaled size and keeps its place on the strip`() {
+        val size = Skin.Default.resolve("compass.label").textStyle.size
+
+        fun north(scale: Float): Offset {
+            val ui = open {
+                ProvideTextScale(scale) {
+                    CompassBar(heading = 0f, modifier = Modifier.size(400f, 80f), live = false)
+                }
+            }
+            val canvas = (ui.backend as HeadlessBackend).canvas
+            canvas.clear()
+            ui.render()
+            return assertNotNull(canvas.calls.filterIsInstance<DrawCall.Text>().firstOrNull { it.text == "N" }).at
+        }
+
+        val plain = north(1f)
+        val big = north(2f)
+        assertNear(plain.x - size * 0.6f / 2f, big.x, "still centred on its bearing at twice the width")
+        assertTrue(big.y < plain.y, "and sitting higher, because the bottom row is taller")
+    }
 }

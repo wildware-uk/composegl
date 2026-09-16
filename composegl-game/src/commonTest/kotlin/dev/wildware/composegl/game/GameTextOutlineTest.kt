@@ -105,6 +105,15 @@ class GameTextOutlineTest {
         assertTrue(runsOf("N").take(8).all { it.colour.argb and 0xFFFFFF == Ring.colour.argb and 0xFFFFFF })
     }
 
+    @Test
+    fun `a compass bar's names are outlined`() {
+        show { CompassBar(heading = 0f, modifier = Modifier.size(400f, 80f), live = false) }
+        frames(2)
+
+        assertEquals(9, runsOf("N").size, "the strip sits over the game, so its names need the ring")
+        assertTrue(runsOf("N").take(8).all { it.colour.argb and 0xFFFFFF == Ring.colour.argb and 0xFFFFFF })
+    }
+
     private companion object {
         val Ring = TextOutline(Colour.Black, width = 2f)
     }

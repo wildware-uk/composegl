@@ -2,8 +2,8 @@
 
 The in-play widgets: health bars with a damage trail, a crosshair, damage numbers
 anchored in the world, nameplates and waypoints pinned to points in the world,
-cooldowns, a hotbar, a minimap frame, notifications and particles. These are the
-ones that made this toolkit worth building.
+cooldowns, a hotbar, a minimap frame, a compass bar, notifications and
+particles. These are the ones that made this toolkit worth building.
 
 ---
 
@@ -38,8 +38,9 @@ text that takes a [[ring|Widgets#outlined-text]] only when there is one,
 
 **Their look is in the skin.** The default and high-contrast [[skins|Skins]]
 already have every style these use (`bar.*`, `reticle.*`, `damage.*`,
-`marker.*`, `cooldown.*`, `hotbar.*`, `minimap.*`, `notification.*`), so they
-look right with no setup. Your own skin file styles them by the same names.
+`marker.*`, `cooldown.*`, `hotbar.*`, `minimap.*`, `compass.*`,
+`notification.*`), so they look right with no setup. Your own skin file styles
+them by the same names.
 
 `Typewriter`, `PromptGlyph` and `ProvidePrompts` stay in `composegl-ui`: they
 are not only for games. See [[Widgets]].
@@ -199,6 +200,73 @@ alerts.show("SHIELD DOWN")
 | ![a dark wedge over an ability icon, with the seconds left on it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-cooldown.png) | the wedge sweeps away as the ability comes back |
 | ![five hotbar slots, one selected, two holding charges](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-hotbar.png) | slots, charges, and which one is selected |
 | ![a minimap frame with a compass and three markers](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-minimap.png) | your own map in the middle, the chrome and the markers from the skin |
+
+## Compass bar
+
+The heading strip along the top of the screen, as Skyrim, Far Cry and Fortnite
+have it: a window onto a circle, with the names of the compass points sliding
+past as the player turns.
+
+```kotlin
+CompassBar(
+    heading = player.yaw,                    // degrees clockwise from north
+    fieldOfView = 180f,                      // how much of the circle is on show
+    Modifier.width(600f).height(48f),
+    readout = { "${it.roundToInt()}°" },     // optional; null for no number
+    distanceText = { "${it.roundToInt()}m" },
+) {
+    pin(bearing = bearingTo(quest), icon = "icons/quest", distance = rangeTo(quest))
+    pin(bearing = bearingTo(enemy), icon = "icons/enemy", fadeWithDistance = true)
+}
+```
+
+![a heading strip: NW, N, NE and E sliding past a blue centre line reading 24 degrees, with three pins over it and one pinned to the right hand end](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-compass.png)
+
+Four things it gets right, which are the four a hand-rolled one gets wrong:
+
+- **It wraps at 360 with no seam.** Every mark on it is drawn from its bearing,
+  so facing 350 puts north ten degrees to the right rather than 350 degrees to
+  the left. There is no wound-up position to unwind.
+- **A pin outside the field of view sticks to the end it left by**, with an
+  arrow saying which way to turn. `clamp = false` on a pin that should simply
+  not be there instead.
+- **The ends fade out**, so a name sliding off is not chopped in half — and a
+  pin never sits in the faint part, it stops just inside it.
+- **Only the strip redraws.** It is one leaf node, so a heading that changes
+  every frame lays nothing out again. Read the heading inside a composable of
+  its own and the recomposition stops there too:
+
+```kotlin
+@Composable
+private fun Heading(player: Player) = CompassBar(player.yaw, 180f, Modifier.width(600f))
+```
+
+The pins are named in the trailing lambda, which runs **while the strip is
+drawn** rather than while it is composed. So a pin is a little arithmetic and
+nothing else: no list to build, no object per quest marker per frame, and the
+bearings are the ones the game has this frame. Leave `live = false` on a paused
+screen and the strip is not redrawn at all.
+
+### The names are the player's language
+
+`N` is not north everywhere. The names come from your
+[[string table|Localisation]] by default, as `compass.n`, `compass.ne` and so
+on, and a point nobody has translated keeps its English letter:
+
+```
+compass.n = И
+compass.ne = СВ
+```
+
+```kotlin
+CompassBar(heading, labels = rememberCompassLabels(points = 16))  // or 4, or 8
+CompassBar(heading, labels = CompassLabels(listOf("N", "E", "S", "W")))
+```
+
+The strip itself **does not mirror** in a right-to-left language, unlike
+everything else on the screen. East is to the right of north for an Arabic
+player standing in the same field as an English one, and a strip that mirrored
+would slide the wrong way as they turned.
 
 ## Particles
 

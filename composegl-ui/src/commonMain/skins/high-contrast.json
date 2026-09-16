@@ -77,6 +77,16 @@
     "minimap.marker": { "background": { "fill": "#FFD600" } },
     "minimap.compass": { "textColour": "#FFFFFF", "text": { "size": 12 } },
 
+    // The heading strip. The same sizes as the default's, so switching skins does not move a name.
+    "compass": {
+      "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "padding": [10, 5], "borderWidth": 2 }
+    },
+    "compass.tick": { "background": { "fill": "#FFFFFF" } },
+    "compass.label": { "textColour": "#FFFFFF", "text": { "size": 13 } },
+    "compass.marker": { "background": { "fill": "#FFD600" } },
+    "compass.pin": { "background": { "fill": "#FFD600" }, "textColour": "#FFFFFF", "text": { "size": 12 } },
+    "compass.readout": { "textColour": "#FFD600", "text": { "size": 13 } },
+
     // --- text ---
 
     "label": {
