@@ -94,6 +94,10 @@ import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.tint
 import dev.wildware.composegl.ui.modifier.debugBounds
+import dev.wildware.composegl.debug.ConsoleLevel
+import dev.wildware.composegl.debug.DevConsole
+import dev.wildware.composegl.debug.arg
+import dev.wildware.composegl.debug.rememberDevConsole
 import dev.wildware.composegl.debug.Inspector
 import dev.wildware.composegl.debug.LayoutOverlay
 import dev.wildware.composegl.debug.OverdrawOverlay
@@ -216,6 +220,7 @@ internal fun docShots(): List<DocShot> = buildList {
     game()
     modifiers()
     animation()
+    console()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -2215,6 +2220,244 @@ private fun SteppedSpring() {
                 Box(Modifier.offset(x = at * 300f - 7f, y = 13f).size(14f, 14f).alpha(fade).background(Accent, corner = 7f)) {}
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------- the developer console
+
+private fun MutableList<DocShot>.console() {
+    // Down over a running game and typed at for real: ` opened it, `give sword 10` was typed and
+    // run — the pack in the HUD behind says so — and the next command is half written at the prompt.
+    add(
+        DocShot(
+            "console-down", ConsoleShotWidth, ConsoleShotHeight,
+            stock = true,
+            typed = listOf(
+                Typing.Press(Key.Grave),
+                Typing.Wait(ConsoleSlide),
+                Typing.Write("give sword 10"),
+                Typing.Press(Key.Enter),
+                Typing.Wait(4),
+                Typing.Write("nocl"),
+            ),
+        ) {
+            ConsoleScene()
+        },
+    )
+
+    // A typo run, and then Tab. The log has the echo of `gove sword` and what the console said back
+    // about it, and the list over the prompt is what Tab is offering for the item.
+    add(
+        DocShot(
+            "console-complete", ConsoleShotWidth, ConsoleShotHeight,
+            stock = true,
+            typed = listOf(
+                Typing.Press(Key.Grave),
+                Typing.Wait(ConsoleSlide),
+                Typing.Write("gove sword"),
+                Typing.Press(Key.Enter),
+                Typing.Wait(4),
+                Typing.Write("give s"),
+                Typing.Press(Key.Tab),
+                Typing.Wait(4),
+            ),
+        ) {
+            // Fewer lines behind it than the picture above, so the list Tab opens has room without
+            // pushing what the console said about `gove` out of sight.
+            ConsoleScene(loaded = 2)
+        },
+    )
+
+    // Right to left in the high-contrast skin: the title and the filter swap sides, the prompt's `>`
+    // is on the right, and the log reads from there. `timescale fast` was run and refused, and Up
+    // brought the line back to be fixed.
+    add(
+        DocShot(
+            "console-rtl", ConsoleShotWidth, ConsoleShotHeight,
+            typed = listOf(
+                Typing.Press(Key.Grave),
+                Typing.Wait(ConsoleSlide),
+                Typing.Write("timescale fast"),
+                Typing.Press(Key.Enter),
+                Typing.Wait(4),
+                Typing.Press(Key.Up),
+                Typing.Wait(4),
+            ),
+        ) {
+            ProvideSkin(Skin.HighContrast) {
+                ProvideLayoutDirection(LayoutDirection.Rtl) {
+                    ConsoleScene(loaded = 2)
+                }
+            }
+        },
+    )
+
+    // The same console coming down and being typed at, at evenly spaced moments, for the animated
+    // picture. Only when asked for, because they are frames to be joined into a GIF rather than
+    // pictures of their own: `COMPOSEGL_DOC_FRAMES=1`, then join `console-drop-frame-*.png` in
+    // order, 1/20 s each.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        val script = listOf(
+            Typing.Press(Key.Grave),
+            Typing.Wait(ConsoleSlide),
+            Typing.Write("give sword 10"),
+            Typing.Press(Key.Enter),
+            Typing.Wait(ConsoleSlide),
+        )
+        repeat(ConsoleDropFrames) { frame ->
+            val name = "console-drop-frame-${frame.toString().padStart(2, '0')}"
+            // Three frames of the interface between one picture and the next: twenty of them are a
+            // second of something drawn at sixty, which is what the GIF plays back.
+            add(
+                DocShot(name, ConsoleShotWidth, ConsoleShotHeight, stock = true, typed = firstFrames(script, frame * 3)) {
+                    ConsoleScene()
+                },
+            )
+        }
+    }
+}
+
+/** How wide and tall the console pictures are: a game's screen, small enough to read on a page. */
+private const val ConsoleShotWidth = 620
+private const val ConsoleShotHeight = 440
+
+/** Frames to let the console finish sliding down before anything is typed at it. */
+private const val ConsoleSlide = 14
+
+/** How many frames the animated picture of the console dropping down is made of. */
+private const val ConsoleDropFrames = 20
+
+/** How far under the middle of the screen the HUD's crosshair sits, clear of the console. */
+private const val ReticleBelowMiddle = 70f
+
+/**
+ * The first [frames] frames of a typing script, cutting a word off in the middle if that is where
+ * the count lands — which is what a picture of somebody halfway through typing is.
+ */
+private fun firstFrames(script: List<Typing>, frames: Int): List<Typing> {
+    var left = frames
+    val taken = mutableListOf<Typing>()
+    for (step in script) {
+        if (left <= 0) break
+        when (step) {
+            is Typing.Press -> {
+                taken += step
+                left -= 1
+            }
+            is Typing.Write -> {
+                val written = step.text.take(left)
+                taken += Typing.Write(written)
+                left -= written.length
+            }
+            is Typing.Wait -> {
+                taken += Typing.Wait(minOf(step.frames, left))
+                left -= step.frames
+            }
+        }
+    }
+    return taken
+}
+
+/** What the console's commands poke, so a line that is run really changes the game behind it. */
+private class DocGame {
+    var timescale by mutableStateOf(1f)
+    var noclip by mutableStateOf(false)
+    var pack by mutableStateOf("empty")
+}
+
+/** What the game said while it was loading, so the log has something in it before a word is typed. */
+private val DocLoadingLines = listOf(
+    "Loaded level 3 - Saltmere" to ConsoleLevel.Info,
+    "streamed 214 chunks in 812 ms" to ConsoleLevel.Debug,
+    "no spawn point; using the origin" to ConsoleLevel.Warn,
+    "torch.frag: undeclared identifier 'uTime'" to ConsoleLevel.Error,
+)
+
+/**
+ * A game with a console over it: the commands change the HUD behind, which is the whole point of
+ * having one.
+ *
+ * @param loaded how many of [DocLoadingLines] are already in the log when the picture starts.
+ */
+@Composable
+private fun ConsoleScene(loaded: Int = DocLoadingLines.size) {
+    val game = remember { DocGame() }
+    val console = rememberDevConsole {
+        command("noclip", help = "Walk through walls") { game.noclip = !game.noclip }
+        command("timescale", arg<Float>("scale"), help = "How fast the world runs") { game.timescale = it }
+        command(
+            "give",
+            arg<String>("item", suggest = { listOf("sword", "shield", "sapphire") }),
+            arg<Int>("count", default = 1),
+            help = "Put an item in the pack",
+        ) { item, count -> game.pack = "$item x$count" }
+    }
+
+    // Once, not every recomposition: a console with something in it is what one really looks like.
+    LaunchedEffect(console) {
+        DocLoadingLines.take(loaded).forEach { (text, level) -> console.log(text, level) }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        DocHud(game)
+        // Last, like the overlays: a console goes over everything the game drew. A little deeper
+        // than the default, so the picture has a log in it worth reading.
+        DevConsole(console, heightFraction = 0.52f)
+    }
+}
+
+/** The game under the console: a world, a reticle, bars, a hotbar, and what the commands changed. */
+@Composable
+private fun DocHud(game: DocGame) {
+    Box(Modifier.fillMaxSize().background(Colour.rgb(0x0C1017))) {
+        // A horizon: pale hills at the back, deeper ones in front, and the ground under them. Set
+        // against the bottom of the screen rather than the top, so the console has room above it.
+        Box(Modifier.fillMaxSize().drawBehind { bounds ->
+            val ground = bounds.bottom - bounds.height * 0.3f
+            repeat(8) { hill ->
+                rect(Rect.of(bounds.left - 40f + hill * 90f, ground - 150f, 120f, 150f), Steel, corner = 60f)
+            }
+            repeat(7) { hill ->
+                rect(Rect.of(bounds.left - 70f + hill * 96f, ground - 60f, 110f, 100f), Deep, corner = 44f)
+            }
+            rect(Rect.of(bounds.left, ground, bounds.width, bounds.bottom - ground), Ink)
+        }) {}
+
+        // Where the player is looking, down in the part of the screen the console leaves alone.
+        Reticle(
+            rememberReticleState(),
+            Modifier.align(Alignment.Centre).offset(y = ReticleBelowMiddle),
+            gap = 7f,
+            arm = 12f,
+            thickness = 2f,
+            dot = 2f,
+        )
+
+        // Low on the screen with the rest of the HUD: the console covers the top of it.
+        MinimapFrame(
+            Modifier.align(Alignment.BottomEnd).padding(14f).size(86f),
+            heading = 0.6f,
+            range = 100f,
+            markers = listOf(MinimapMarker(20f, -30f), MinimapMarker(-40f, 10f)),
+        )
+
+        Column(
+            Modifier.align(Alignment.BottomStart).padding(14f),
+            verticalArrangement = Arrangement.spacedBy(6f),
+        ) {
+            Bar(0.72f, length = 150f)
+            Bar(0.4f, length = 150f, thickness = 6f)
+            // What the console did, read straight off the game's own state.
+            Text("PACK ${game.pack}", style = "label.dim")
+            Text("TIME ${game.timescale}x   NOCLIP ${if (game.noclip) "ON" else "OFF"}", style = "label.dim")
+        }
+
+        Hotbar(
+            slots = listOf(HotbarSlot(charges = 3), HotbarSlot(), HotbarSlot(charges = 1), HotbarSlot()),
+            selected = 0,
+            modifier = Modifier.align(Alignment.BottomCentre).padding(14f),
+            slotSize = 40f,
+        )
     }
 }
 

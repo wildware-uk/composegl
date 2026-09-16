@@ -136,6 +136,13 @@ console.log("Loaded level 3")
 Put it last on the screen, like the overlays. It fills whatever it is given and draws over
 everything composed before it.
 
+![the console down over a game, its log holding a loading line, a debug line, an amber warning, a red shader error and the blue echo of give sword 10, the word noclip offered over a prompt reading noc, and the HUD below showing PACK sword x10](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/console-down.png)
+
+The picture is the real thing being typed at: `give sword 10` was run, which is why the pack in
+the HUD behind has a sword in it, and the next command is half written.
+
+![the console sliding down over a game, a command being typed at the prompt letter by letter, and the HUD behind changing when it is run](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/console-drop.gif)
+
 ### Writing commands
 
 `command` takes the name, up to three `arg`s and what to do, and the lambda is handed the types
@@ -179,6 +186,10 @@ player types with the button keyboard from `ProvideGamepadKeyboard`, if the game
 
 Selecting a line with the mouse takes the caret out of the prompt, the way selecting text
 anywhere in the toolkit does; clicking the prompt puts it back.
+
+![the console with the red line unknown command gove, did you mean give, and a list of sapphire, shield and sword over the prompt with sapphire picked out and filled in](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/console-complete.png)
+
+A typo says what it meant, and Tab over an argument offers what that argument suggests.
 
 The log holds `maxLines` lines (500 by default) and follows the newest, unless you have scrolled
 back to read something — then it holds still. The box at the top right filters it: only lines
@@ -228,6 +239,12 @@ skins name all of them, so a game that has written no skin still gets a console 
 ```kotlin
 DevConsole(console, style = "console", heightFraction = 0.4f)   // how much of the screen it covers
 ```
+
+![the same console in the high-contrast skin on a right-to-left screen: CONSOLE on the right, the filter box on the left, the log reading from the right with a red line saying fast is not a number for scale, and the prompt arrow on the right of a recalled timescale fast](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/console-rtl.png)
+
+Right to left, everything swaps sides: the title, the filter box, the prompt's `>` and the log
+itself. That picture is the high-contrast skin, and Up has just brought a refused line back to be
+fixed.
 
 The showcase has one: press `` ` `` and type `help`.
 

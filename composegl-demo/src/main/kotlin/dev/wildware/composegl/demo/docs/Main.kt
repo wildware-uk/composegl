@@ -21,6 +21,9 @@ import dev.wildware.composegl.ui.input.GamepadNavigator
 import dev.wildware.composegl.ui.input.InputRouter
 import dev.wildware.composegl.ui.input.InputSink
 import dev.wildware.composegl.ui.input.KeyEvent
+import dev.wildware.composegl.ui.input.KeyEventType
+import dev.wildware.composegl.ui.input.KeyNavigator
+import dev.wildware.composegl.ui.input.KeyRouter
 import dev.wildware.composegl.ui.input.PointerButton
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.TextEvent
@@ -246,8 +249,34 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
         // Focus is drawn only where a pad moved it: the split-screen picture is about whose focus
         // is where, and every other picture shows its widgets the way they look before anyone
         // reaches for a pad, except a picture that asks for focus to be kept, as a game's renderer does.
-        UiRenderer(hosts[player], canvas, shot.budget?.takeIf { player == 0 } ?: FrameBudget()).also { if (shot.players > 1 || shot.focus) it.focus = focuses[player] }
+        // A picture with typing in it keeps it too: typed characters go to whatever has focus, and
+        // nothing has any until the renderer has been given a focus manager to refresh.
+        val kept = shot.players > 1 || shot.focus || shot.typed.isNotEmpty()
+        UiRenderer(hosts[player], canvas, shot.budget?.takeIf { player == 0 } ?: FrameBudget()).also { if (kept) it.focus = focuses[player] }
     }
+    // The keyboard, wired the way a game wires it: whatever has focus first, the shortcut layer
+    // inside the router after it, and navigation for the keys nobody wanted. Player one's, since a
+    // picture of typing is a picture of one pair of hands.
+    val keys = KeyRouter(focuses[0], hosts[0].root)
+    val navigator = KeyNavigator(focuses[0])
+
+    // A key down and up, offered to the focused widget and then to navigation, as a backend does it.
+    val press: (KeyEvent) -> Unit = { event -> if (!keys.onKey(event)) navigator.onKey(event) }
+    val write: (Char) -> Unit = { character -> keys.onText(TextEvent(character.toString())) }
+
+    // The shot's script, flattened to one thing a frame: a key, a character, or nothing at all.
+    val typing: List<() -> Unit> = shot.typed.flatMap { step ->
+        when (step) {
+            is Typing.Press -> listOf({
+                press(KeyEvent(step.key, KeyEventType.Down, step.modifiers))
+                press(KeyEvent(step.key, KeyEventType.Up, step.modifiers))
+            })
+            is Typing.Write -> step.text.map { character -> { write(character) } }
+            is Typing.Wait -> List(step.frames) { {} }
+        }
+    }
+    var typed = 0
+
     // After layout, because a pointer lands on whatever is under it and nothing is anywhere until
     // the tree has been measured.
     var dragged = false
@@ -288,10 +317,15 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
                 if (!shot.hold) mouse.onPointer(PointerEvent.Release(PointerId.Mouse, to))
             }
         }
+        // One step of the typing a frame, so each one is composed and laid out before the next: a
+        // Tab has a word to finish, and an Enter has a line to run.
+        if (typed < typing.size) typing[typed++]()
     }
 
     try {
-        val frames = Settle + (shot.seconds * 60f).toInt()
+        // Long enough for the whole script and a few frames after it, so a picture never catches a
+        // shot in the middle of its own typing because somebody forgot to ask for the seconds.
+        val frames = maxOf(Settle + (shot.seconds * 60f).toInt(), typing.size + Settle)
         for (frame in 0..frames) {
             GL11.glClearColor(0f, 0f, 0f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)

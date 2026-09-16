@@ -6,6 +6,8 @@ import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.GamepadId
+import dev.wildware.composegl.ui.input.Key
+import dev.wildware.composegl.ui.input.Modifiers
 import dev.wildware.composegl.ui.input.PointerButton
 
 /**
@@ -49,6 +51,10 @@ import dev.wildware.composegl.ui.input.PointerButton
  *   budget overlay. Null gives the renderer its own.
  * @param focus whether focus is kept pointing at something, as a game's renderer does, so the
  *   picture opens with a widget focused. Off for every other picture, which wants no focus ring.
+ * @param typed what a hand does at the keyboard before the shutter, a step to a frame, starting on
+ *   the first frame that has been laid out. For a picture of something that only exists once it has
+ *   been typed at — a console with a command half written in it. The picture is always given enough
+ *   frames for the whole script and a few after it.
  */
 internal class DocShot(
     val name: String,
@@ -69,8 +75,27 @@ internal class DocShot(
     val padHold: List<Pair<GamepadId, GamepadButton>> = emptyList(),
     val budget: FrameBudget? = null,
     val focus: Boolean = false,
+    val typed: List<Typing> = emptyList(),
     val content: @Composable () -> Unit,
 )
+
+/**
+ * One thing a hand does at the keyboard while a picture is being taken. See [DocShot.typed].
+ *
+ * Real events through the real router, the same as the pointer in these pictures: a console with a
+ * half-written command in it is a console somebody really typed at, not a field handed a string.
+ */
+internal sealed interface Typing {
+
+    /** A key pressed and let go, on one frame. */
+    data class Press(val key: Key, val modifiers: Modifiers = Modifiers.None) : Typing
+
+    /** Characters into whatever has focus, one a frame, the way a keyboard sends them. */
+    data class Write(val text: String) : Typing
+
+    /** Frames with nobody typing, so that what the step before started can finish: a slide, a fade. */
+    data class Wait(val frames: Int) : Typing
+}
 
 /** Which player's interface is being composed, counting from zero, in a picture of several. */
 internal val LocalDocPlayer = staticCompositionLocalOf { 0 }
