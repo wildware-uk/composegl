@@ -130,6 +130,14 @@ WorldMarkerLayer(projection = camera, maxVisible = 12) {
 }
 ```
 
+![nine nameplates over a patrol at nine different distances, each a name and a health bar, the near ones full size and solid and the far ones smaller and fading out; at the left edge a gold waypoint icon held just inside the screen with a small triangle pointing off to the left and 24 m under it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-world-markers.png)
+
+That is one `WorldMarkerLayer` over a scene drawn by the same camera:
+the nameplates sit over the figures because the projection agrees with itself, not
+because anything was nudged into place. The far ones are smaller and fainter
+because they are further away, and the waypoint is at the edge because the thing it
+belongs to is off to the left.
+
 A marker is a real node, so what goes in one is any interface at all — a bar, a
 portrait, a button — and it is clicked, hovered and reached by a pad the same way
 anything else is.
@@ -165,14 +173,38 @@ which markers draw on top: nearer over further, always. The minus sign only says
 behind the player fades like one fifty metres in front, and never covers — or
 takes the place of — something they can actually see.
 
+![the camera turning left across the patrol and back again: every nameplate slides with the figure it belongs to, ones that reach the edge stop being drawn, and the waypoint stays pinned to the left edge with its triangle turning until the mast itself comes into view and the marker settles on it, the range counting down from 25 m to 21 m as the player walks](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-world-markers.gif)
+
+That is one camera really turning, a frame at a time. Nothing inside a marker is
+built again as it moves: the layer asks the camera where each point is and places
+the node there. The waypoint is held at the edge the whole time the mast is off
+screen — including while it is *behind* the player at the start — and lets go of
+the edge by itself when the mast comes into view.
+
 **When there are too many**, `maxVisible` keeps the best of them and `declutter =
 true` drops any that would sit on top of one already kept. Best means the highest
 `priority`, and among equal priorities the nearest — so the objective survives and
 the sixteenth nameplate does not. A marker that is not shown is drawn at nothing,
 which means it is not clickable and focus cannot land on it either.
 
+![the same moment of the same scene twice, one above the other: on top all nine nameplates including the small faint ones along the horizon, and underneath only five — the waypoint, and the four nameplates that neither sat on top of another nor ran out of room](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-world-markers-declutter.png)
+
+The same frame twice. Underneath, the layer was told `maxVisible = 5` and
+`declutter = true`: the objective survives because it asked for the highest
+priority, and what goes is the crowd along the horizon and anything that landed on
+top of a plate already kept — which is why the one tucked behind the nearest
+figure is gone even though it is close.
+
 **The skin** supplies `marker.arrow`, the colour of those off-screen triangles.
 Everything else about a marker is whatever you put inside it.
+
+![the same layer in the high-contrast skin on a screen that reads right to left: the top strip has swapped ends, the health bars are green and white, the waypoint is still held at the left edge beside its triangle, and three of the patrol have no nameplate at all because their points have gone off the right-hand side](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-world-markers-rtl.png)
+
+The high-contrast skin, reading from the right. The writing turns round and the
+world does not: a marker lands where its point is whichever way the screen reads,
+because a world is a picture rather than a line of text. Three of the patrol have
+no plate here — their points went off the right-hand side, and `OffScreen.Hide` is
+the default.
 
 `scaleDistance` is the one thing to be careful with: scaling draws through an
 offscreen picture, so it is crisp shrinking and soft growing — see
