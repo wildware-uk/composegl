@@ -360,5 +360,5 @@ fun Hud(player: Player) {
 - **[[Layout]]** — Column, Row, Box, weights, and how measuring actually works
 - **[[Skins]]** — making it look like your game instead of like the default
 - **[[Input]]** — keyboard, gamepad, focus, and giving the world what the interface did not want
-- **[[Widgets]]** — health bars, crosshairs, damage numbers, world-anchored markers
+- **[[Game widgets]]** — health bars, crosshairs, damage numbers, world-anchored markers
 - **[[Shaders]]** — blur, outline, dissolve, and binding your own GLSL to a widget

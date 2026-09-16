@@ -41,6 +41,8 @@ import dev.wildware.composegl.game.MinimapFrame
 import dev.wildware.composegl.game.ParticleLayer
 import dev.wildware.composegl.game.MinimapMarker
 import dev.wildware.composegl.game.Reticle
+import dev.wildware.composegl.game.OffScreen
+import dev.wildware.composegl.game.WorldMarkerLayer
 import dev.wildware.composegl.game.WorldProjection
 import dev.wildware.composegl.game.rememberCooldown
 import dev.wildware.composegl.game.rememberReticleState
@@ -61,7 +63,6 @@ import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
-import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onKeyEvent
 import dev.wildware.composegl.ui.modifier.onPlaced
 import dev.wildware.composegl.ui.modifier.padding
@@ -134,7 +135,7 @@ fun ShowcaseUi(
                         Abilities(state, hotbar)
                     }
 
-                    if (state.isOn(Exhibit.Tracking)) TargetTags(state)
+                    if (state.isOn(Exhibit.Tracking)) TargetTags(state, projection)
 
                     if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
 
@@ -607,23 +608,36 @@ private fun use(cooldown: Cooldown, state: ShowcaseState) {
     state.heat = (state.heat + 0.18f).coerceAtMost(1f)
 }
 
-/** A small readout pinned to each drone, which is what "world tracking" means. */
+/**
+ * A small readout pinned to each drone, which is what "world tracking" means.
+ *
+ * The game says where each drone is **in the world**, not where it is on the screen: the layer
+ * does the projecting, the fading with distance and the arrows for the ones that have drifted off
+ * the edge. A drone moving moves its tag with nothing recomposed — only the bar inside the tag
+ * recomposes, and only because the drone's hull is actually changing.
+ */
 @Composable
-private fun TargetTags(state: ShowcaseState) {
-    state.targets.forEach { target ->
-        if (!target.onScreen) return@forEach
-        // Further away is fainter, which is most of what sells a tag as being in the world.
-        val fade = (1f - (target.distance - 4f) / 16f).coerceIn(0.25f, 1f)
-        Box(
-            Modifier
-                .align(Alignment.TopStart)
-                .offset(target.screenX - 52f, target.screenY - 46f)
-                .alpha(fade)
-                .styled("tag"),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4f)) {
-                Text(target.callsign, style = "label.tag")
-                Bar(target.integrity, Modifier.width(84f), thickness = 4f, trail = false)
+private fun TargetTags(state: ShowcaseState, projection: WorldProjection) {
+    WorldMarkerLayer(projection = projection) {
+        state.targets.forEach { target ->
+            marker(
+                key = target.callsign,
+                // Read once a frame, so the tag follows a drone that never stops moving.
+                position = { it.set(target.worldX, target.worldY + 0.55f, target.worldZ) },
+                // A drone that has drifted off the side is held at the edge with an arrow on it,
+                // which is the whole reason a game wants this rather than an offset.
+                offScreen = OffScreen.ClampToEdge(arrow = true, inset = 14f),
+                // Further away is fainter, which is most of what sells a tag as being in the world.
+                fadeDistance = 6f..24f,
+                // The tag hangs above the drone, so the bottom of it is what sits on the point.
+                anchor = Alignment.BottomCentre,
+            ) {
+                Box(Modifier.styled("tag")) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4f)) {
+                        Text(target.callsign, style = "label.tag")
+                        Bar(target.integrity, Modifier.width(84f), thickness = 4f, trail = false)
+                    }
+                }
             }
         }
     }

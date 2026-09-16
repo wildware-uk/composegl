@@ -65,11 +65,22 @@ fun interface WorldProjection {
 
     /**
      * @param view how big the layer is, in interface pixels. A camera needs it: the last step of
-     *   every projection is turning a number between -1 and 1 into a pixel.
-     * @param onto filled in with where [point] is on the layer, in the interface's coordinates
-     *   measured from its top left.
-     * @return false if it is not on screen at all — behind the camera, past the far plane, off the
-     *   edge — and then nothing is drawn for it.
+     *   every projection is turning a number between -1 and 1 into a pixel. It is the layer's own
+     *   box rather than the window, so in split-screen each player's layer projects into their
+     *   own quarter with nothing told about the split.
+     * @param onto filled in with where [point] is on the layer: `x` and `y` in the interface's
+     *   coordinates measured from its top left, and `z` how far away it is.
+     *
+     *   How far away is in whatever units the game measures distance in — metres, tiles, anything
+     *   — because the only things that read it compare it with numbers the game itself gave them:
+     *   a [WorldMarkerLayer]'s fade and scale distances, and the order it stacks markers in.
+     *   **Negative means behind the camera**, and a marker clamped to an edge is turned round
+     *   through the middle of the view when it is, so its arrow points the way the player has to
+     *   turn. Leaving it at zero is right for a game with no depth at all; [DamageNumberLayer]
+     *   never looks.
+     * @return false if there is nothing sensible to say about it at all, and then nothing is drawn
+     *   — not even an off-screen arrow. A camera that wants a marker arrowed from behind the
+     *   player answers true with a negative `z` rather than false.
      */
     fun project(point: WorldPoint, view: Size, onto: WorldPoint): Boolean
 

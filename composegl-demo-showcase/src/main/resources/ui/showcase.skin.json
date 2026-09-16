@@ -155,6 +155,10 @@
     "damage": { "textColour": "#FFE9A8", "text": { "size": 16 } },
     "damage.critical": { "textColour": "#FF7A45", "text": { "size": 20 } },
 
+    // The triangle beside a drone tag being held at the edge of the screen, pointing at the drone.
+
+    "marker.arrow": { "background": { "fill": "#4CC2FF" } },
+
     // --- the middle of the screen, and the radar ---
 
     "reticle": { "textColour": "#4CC2FF", "background": { "fill": "#E8ECF2" } },

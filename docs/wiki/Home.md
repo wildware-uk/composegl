@@ -42,7 +42,7 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
 | **[[Layout]]** | `Column`, `Row`, `Box`, `FlowRow`, `Grid`, lazy lists and grids, `weight`, and what differs from Compose |
 | **[[Modifiers]]** | the full list, and the three rules that are ours |
 | **[[Widgets]]** | everything that ships in the toolkit: text, buttons, fields, collapsing headers, splitters, spinners, colour pickers, lists, tables, tooltips |
-| **[[Game widgets]]** | the game tier, in `composegl-game`: bars, reticle, damage numbers, cooldowns, hotbar, minimap, particles |
+| **[[Game widgets]]** | the game tier, in `composegl-game`: bars, reticle, damage numbers, world markers, cooldowns, hotbar, minimap, particles |
 | **[[Animation]]** | clocks, springs, panels that animate in and out, screens that crossfade or slide, and pausing it all to look |
 
 ## Then
@@ -75,7 +75,7 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
 ## What it is for
 
 Games. A HUD that costs nothing while it is standing still, bars with a damage
-trail, a crosshair with spread and hit markers, damage numbers anchored in the
-world, pad navigation that works without being wired up, prompts that change
-the moment somebody picks up a controller, and a text size setting that makes
-the words bigger without making the whole interface bigger.
+trail, a crosshair with spread and hit markers, damage numbers and nameplates
+anchored in the world, pad navigation that works without being wired up, prompts
+that change the moment somebody picks up a controller, and a text size setting
+that makes the words bigger without making the whole interface bigger.

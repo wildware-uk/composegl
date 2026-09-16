@@ -44,6 +44,17 @@ class TargetReadout(val callsign: String) {
     var distance by mutableFloatStateOf(0f)
     var onScreen by mutableStateOf(true)
 
+    /**
+     * Where it is in the world, for the marker layer that pins a tag to it.
+     *
+     * Plain numbers rather than state on purpose: they are written by the game once a frame and
+     * read by the layer once a frame, outside the composition. As state they would recompose three
+     * tags sixty times a second to say what the layer works out for itself anyway.
+     */
+    var worldX = 0f
+    var worldY = 0f
+    var worldZ = 0f
+
     /** Where it is on the radar, in the radar's own units. */
     var mapX by mutableFloatStateOf(0f)
     var mapY by mutableFloatStateOf(0f)
