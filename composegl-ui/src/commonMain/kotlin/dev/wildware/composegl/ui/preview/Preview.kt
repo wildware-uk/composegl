@@ -16,6 +16,9 @@ package dev.wildware.composegl.ui.preview
  * in the wiki that was taken of the widget, not drawn of it, and taken again by one command when
  * the widget changes.
  *
+ * `./gradlew :your-module:previewLive`, from `composegl-preview`, shows the same functions in a
+ * window and redraws them each time a source file is saved.
+ *
  * The function takes no arguments, because nothing would be there to pass them. It may be a
  * top-level function or a member of an `object` or a `companion object`, and private is fine.
  *

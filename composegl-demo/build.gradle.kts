@@ -86,6 +86,81 @@ tasks.register<JavaExec>("renderPreviews") {
 }
 
 /**
+ * The live preview window's own classpath: composegl-preview, which the example never runs on.
+ *
+ * A configuration of its own rather than a dependency of the example, so the window and Gradle's
+ * client never end up in what the game ships. Resolved for the JVM, like the runtime classpath.
+ */
+val previewLive: Configuration by configurations.creating {
+    isCanBeConsumed = false
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+    }
+}
+
+dependencies {
+    previewLive(project(":composegl-preview"))
+}
+
+/**
+ * What the window asks Gradle for after a save: the example's classes, and every library jar it runs
+ * on, so a change in another module rebuilds that jar and the window can see it has to restart.
+ */
+val previewClasses = tasks.register("previewClasses") {
+    group = "documentation"
+    description = "Compiles what the live preview window reloads."
+    dependsOn(sourceSets["main"].output, sourceSets["main"].runtimeClasspath)
+}
+
+/**
+ * Every `@Preview` in the example, live, in a window: `./gradlew :composegl-demo:previewLive`.
+ *
+ * Saving a source file compiles the example through Gradle and redraws the previews from the new
+ * classes. The example's own classes are left off the classpath on purpose: the window loads them
+ * itself, and loads them again after every compile. Everything else — composegl, the Compose runtime,
+ * LibGDX — is loaded once. See the wiki's Live previews page.
+ */
+tasks.register<JavaExec>("previewLive") {
+    group = "documentation"
+    description = "Opens a window showing every @Preview, redrawn when a source file is saved."
+    mainClass.set("dev.wildware.composegl.preview.PreviewLiveKt")
+    dependsOn(previewClasses)
+
+    val main = sourceSets["main"]
+    classpath = previewLive + (main.runtimeClasspath - main.output)
+
+    val classes = main.output.classesDirs
+    val resources = files(main.output.resourcesDir)
+    val sources = files(main.allSource.srcDirs)
+    val root = rootDir
+    val gradleHome = gradle.gradleHomeDir
+    val task = "${project.path}:previewClasses"
+    val buildFiles = files(
+        "build.gradle.kts",
+        rootProject.file("build.gradle.kts"),
+        rootProject.file("settings.gradle.kts"),
+        rootProject.file("gradle/libs.versions.toml"),
+        rootProject.file("gradle.properties"),
+        rootProject.file("buildSrc/src"),
+        rootProject.file("buildSrc/build.gradle.kts"),
+    )
+    val font = layout.projectDirectory.file("src/main/resources/fonts/DejaVuSans.ttf")
+    argumentProviders.add(
+        CommandLineArgumentProvider {
+            listOf(
+                "--classes", classes.asPath,
+                "--resources", resources.asPath,
+                "--sources", sources.asPath,
+                "--project-dir", root.path,
+                "--task", task,
+                "--gradle-home", gradleHome?.path.orEmpty(),
+                "--build-file", buildFiles.asPath,
+            ) + listOf("default", "body").flatMap { listOf("--font", "$it=${font.asFile.path}") }
+        },
+    )
+}
+
+/**
  * No tarball. The example is run with `./gradlew :composegl-demo:run`, never shipped.
  *
  * The application plugin's distribution copies every dependency into one directory by file name,

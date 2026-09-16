@@ -128,6 +128,9 @@ val published = setOf(
     "composegl-android",
     "composegl-robovm",
     "composegl-testing",
+    // Development only: the live @Preview window. A game's build runs it through `previewLive` and
+    // never ships it.
+    "composegl-preview",
 )
 
 configure(subprojects.filter { it.name in published }) {
