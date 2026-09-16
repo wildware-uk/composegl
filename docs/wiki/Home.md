@@ -1,6 +1,6 @@
 # ComposeGL
 
-These docs are for **ComposeGL 0.5.0**. New since 0.4.0: **[[What's new in 0.5.0|Whats-new-0.5.0]]**.
+These docs are for **ComposeGL 0.6.0**. New since 0.5.0: **[[What's new in 0.6.0|Whats-new-0.6.0]]**.
 
 A UI toolkit for games, built on `androidx.compose.runtime` and nothing else.
 

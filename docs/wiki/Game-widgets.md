@@ -16,7 +16,7 @@ They live in `composegl-game`, a separate module on top of `composegl-ui`, so a
 tool or a menu-only project carries none of them.
 
 ```kotlin
-implementation("dev.wildware.composegl:composegl-game:0.6.0-SNAPSHOT")
+implementation("dev.wildware.composegl:composegl-game:0.6.0")
 ```
 
 ```kotlin

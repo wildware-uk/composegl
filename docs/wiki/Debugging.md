@@ -21,9 +21,9 @@ carry it:
 
 ```kotlin
 dependencies {
-    implementation("dev.wildware.composegl:composegl-ui:0.5.0")
-    // Only in a development build. Not in 0.5.0: until the next release it is on the snapshot.
-    debugImplementation("dev.wildware.composegl:composegl-debug:0.6.0-SNAPSHOT")
+    implementation("dev.wildware.composegl:composegl-ui:0.6.0")
+    // Only in a development build.
+    debugImplementation("dev.wildware.composegl:composegl-debug:0.6.0")
 }
 ```
 
