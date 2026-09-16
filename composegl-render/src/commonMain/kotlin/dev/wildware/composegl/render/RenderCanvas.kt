@@ -1064,6 +1064,9 @@ open class RenderCanvas protected constructor(
 
     override val drawsScenes: Boolean get() = offscreen
 
+    /** The device's biggest texture, which is where a [RenderTarget] would cut a picture down anyway. */
+    override val maxSceneSize: Int get() = device.limits.maxTextureSize.coerceAtLeast(1)
+
     /**
      * Renders a game's scene into a picture with a depth buffer, outside any frame.
      *

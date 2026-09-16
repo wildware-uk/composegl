@@ -27,6 +27,10 @@ import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.testing.UiTest
 import dev.wildware.composegl.ui.testing.uiTest
 import dev.wildware.composegl.ui.widget.Button
+import dev.wildware.composegl.ui.widget.SceneView
+import dev.wildware.composegl.ui.widget.SceneViewState
+import dev.wildware.composegl.ui.layout.Alignment
+import dev.wildware.composegl.ui.modifier.align
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -131,6 +135,44 @@ class FrameBudgetOverlayTest {
         assertTrue(isDebugOverlay(game.ui.node("budget")), "the overlay's box is known for debug tooling")
         assertEquals(emptyList(), budget.reading.busiest, "but are not what anybody is looking for")
         assertTrue("busiest" !in game.ui.texts("budget"), "so the overlay lists nothing")
+    }
+
+    @Test
+    fun `a live scene view started with a click shows as a scene render in the overlay`() {
+        val budget = budget()
+        val preview = SceneViewState()
+        var live by mutableStateOf(false)
+        val game = open(budget) {
+            Box(Modifier.fillMaxSize()) {
+                Column {
+                    Button("play", onClick = { live = true }, modifier = Modifier.testTag("play"), initialFocus = true)
+                    SceneView(preview, Modifier.size(80f, 60f).testTag("preview")) { }
+                }
+                FrameBudgetOverlay(budget, Modifier.align(Alignment.TopEnd).testTag("budget"))
+            }
+        }
+        game.renderer.onLaidOut = { if (live) preview.invalidate() }
+        // More frames than the budget's window of four, so the first render has gone from the average.
+        repeat(6) {
+            game.frame()
+            game.ui.settle()
+        }
+        assertTrue("scene renders" !in game.ui.texts("budget"), "a still preview says nothing: ${game.ui.texts("budget")}")
+
+        game.ui.click("play")
+        repeat(3) {
+            game.frame()
+            game.ui.settle()
+        }
+
+        val shown = game.ui.texts("budget")
+        val at = shown.indexOf("scene renders")
+        assertTrue(at >= 0, "the overlay counts the scene: $shown")
+        assertEquals("1", shown[at + 1])
+        assertTrue("  scenes" in shown, "and times it: $shown")
+        val blamed = shown.indexOf("  scene view#preview")
+        assertTrue(blamed >= 0, "and names the node that rendered: $shown")
+        assertEquals("scene 1", shown[blamed + 1])
     }
 
     /**

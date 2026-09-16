@@ -40,7 +40,8 @@ holds it, and the interface hangs the frame on the wall.
 1. **The state owns a picture.** `SceneViewState` holds an offscreen picture with a
    depth buffer, sized to the panel's real pixels.
 2. **Your block fills it, only when asked.** The block runs the first time the panel
-   has a size, after each `invalidate()`, and when the panel's pixel size changes.
+   has a size on the screen, after each `invalidate()`, and when the panel's new pixel
+   size has held for a frame.
    Otherwise it does not run at all. A shelf of eight still previews costs no GPU work.
 3. **It runs before the interface is drawn.** `UiRenderer.render` lays the tree out,
    then renders every dirty scene view, then draws the interface. So the size is always
@@ -86,13 +87,13 @@ val scene = rememberSceneViewState(resolutionScale = 0.5f)
 | `resolutionScale` | how many of the panel's pixels to render. `1` is all of them, `0.5` is half each way, stretched to fit. Good for a heavy scene. |
 | `dirty` | true until the next render |
 | `width`, `height` | the size last rendered, in pixels. `0` before the first. |
+| `clamped` | true when the last render was cut down to fit the GPU's biggest texture |
 | `draws` | how many times it has rendered |
 | `texture` | the picture, or `null` before the first render |
 | `release()` | give the picture back to the GPU now. The next frame makes a new one if the panel is still showing. |
 
 `rememberSceneViewState` keeps the state across recompositions, so a recomposition
-does not throw the picture away. When the state leaves the composition, it releases
-the picture. Use one state per `SceneView`.
+does not throw the picture away. Use one state per `SceneView`.
 
 Pixel size is the panel's content box (inside its padding) times the viewport's scale,
 times any `Modifier.scale` above it, times `resolutionScale`, rounded up. A GPU's
@@ -223,9 +224,71 @@ helper: what a drag or a key means is up to you.
 A panel squeezed to nothing renders nothing and does not throw. It stays dirty, so it
 renders the moment it has room again.
 
-When the panel's size changes, the old picture is given back and a new one is made at
-the new size, straight away. Right to left moves the panel to the other side like any
-other widget. It does not mirror the picture: a scene is not text.
+When the panel's size changes, see [what it costs](#what-it-costs): the picture is
+stretched while the size is still moving, and remade once it stops. Right to left moves
+the panel to the other side like any other widget. It does not mirror the picture: a
+scene is not text.
+
+---
+
+## What it costs
+
+A picture on the GPU is memory, and making one is slow. The scene view spends both
+carefully. Think of a photo frame again: you do not print a new photo every time
+someone nudges the frame, and you take the photo out when you throw the frame away.
+
+**Made on first render.** The picture is made the first time the panel is laid out with
+some room and is on the screen, at the panel's pixels times `resolutionScale`. A scene
+view that is never seen makes nothing. One laid out off the screen, or scrolled out of a
+`ScrollArea` or a lazy list — anything that clips, even well inside the window — does not
+render, even when it is dirty; it renders when it comes back.
+
+**Stretched while resizing.** While the panel's size is still changing, as it does every
+frame of a splitter drag, the picture it already has is kept and stretched over the
+panel. Once the size holds for one frame, a picture of exactly the new size is made and
+rendered. The drag stays smooth and a little soft, and lands sharp. A live scene that
+calls `invalidate()` every frame keeps moving during the drag, drawn into the old
+picture at its old size. A new `resolutionScale` on a panel that is not moving is
+remade straight away.
+
+**Given back when it leaves.** When a `SceneView` leaves the composition, its picture
+is given back to the GPU, whoever holds the state. So a `LazyColumn` of previews frees
+each one as its row scrolls away, and makes a new one if the row comes back:
+
+```kotlin
+LazyColumn(count = items.size, key = { items[it].id }) { index ->
+    val preview = rememberSceneViewState()
+    SceneView(preview, Modifier.fillMaxWidth().height(96f)) {
+        clear(Colour.Black)
+        raw { frame -> models.draw(items[index], frame as GlFrame, width, height) }
+    }
+}
+```
+
+**Capped at the GPU's biggest texture.** Neither side goes past
+`UiCanvas.maxSceneSize`, which is the device's biggest texture. A panel that would, at
+its `resolutionScale`, is rendered at a smaller scale that fits, keeping its shape,
+rather than failing in the middle of a frame. `clamped` turns true, and the prepass
+warns once for that state. The warning goes to `ScenePass.warn`, which prints by
+default; point it at your own log:
+
+```kotlin
+ui.scenes.warn = { message -> log.warn(message) }
+```
+
+**Counted in the frame budget.** Each render is timed and counted in the `FrameBudget`
+and listed in its draw-call trace under the scene view's node, with the reason `scene`.
+`FrameBudgetOverlay` shows a `scenes` time and a `scene renders` count, and the frame
+time graph includes them. An editor with four viewports redrawing every frame shows
+`scene renders 4`, not a slow frame with no reason. See [[Debugging]].
+
+```kotlin
+val budget = FrameBudget(publishEveryMillis = 0)
+val ui = UiRenderer(host, canvas, budget)
+ui.render(viewport, nanos)
+budget.reading.scenes        // how many rendered this frame
+budget.reading.sceneMillis   // what they cost, averaged
+```
 
 ---
 
@@ -250,8 +313,8 @@ Call it **outside the canvas's frame**, because a scene binds its own picture. I
 `onLaidOut` meets both. Called after `render` instead, every new picture shows a frame
 late.
 
-`ScenePass(tree, canvas)` is the same pass on its own, for a game that does not use
-`UiRenderer` at all.
+`ScenePass(tree, canvas, budget)` is the same pass on its own, for a game that does not
+use `UiRenderer` at all. Leave out `budget` and nothing is counted.
 
 ---
 

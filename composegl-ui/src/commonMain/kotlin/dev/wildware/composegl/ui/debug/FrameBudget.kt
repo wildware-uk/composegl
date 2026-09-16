@@ -143,6 +143,7 @@ class FrameBudget(
     private val recomposeNanos = LongArray(window)
     private val layoutNanos = LongArray(window)
     private val drawNanos = LongArray(window)
+    private val sceneNanos = LongArray(window)
     private val totalNanos = LongArray(window)
     private var at = 0
     private var filled = 0
@@ -150,6 +151,8 @@ class FrameBudget(
     private var frameRecompose = 0L
     private var frameLayout = 0L
     private var frameDraw = 0L
+    private var frameScene = 0L
+    private var frameScenes = 0
 
     private var frames = 0L
     private var redraws = 0L
@@ -169,6 +172,25 @@ class FrameBudget(
 
     fun toggle() {
         isOn = !measuring
+    }
+
+    /**
+     * Times one `SceneView` rendering its scene, and counts it.
+     *
+     * The prepass, [dev.wildware.composegl.ui.draw.ScenePass], wraps each render in this, so a game
+     * handing the pass this budget has nothing to add. The time goes into [FrameReading.sceneMillis]
+     * and the frame's total, and the count into [FrameReading.scenes] and the draw calls: an editor
+     * with four viewports redrawing every frame shows as four, not as a frame that is slow for no
+     * reason anybody can see.
+     */
+    inline fun <T> scene(block: () -> T): T {
+        if (!measuring) return block()
+        val start = nanoTime()
+        try {
+            return block()
+        } finally {
+            addScene(nanoTime() - start)
+        }
     }
 
     /** Times the Compose runtime's own work: everything [dev.wildware.composegl.ui.host.UiHost.frame] does. */
@@ -219,11 +241,18 @@ class FrameBudget(
         frameDraw += nanos
     }
 
+    @PublishedApi
+    internal fun addScene(nanos: Long) {
+        frameScene += nanos
+        frameScenes++
+    }
+
     /**
      * Closes the frame off and, every so often, publishes what the overlay shows.
      *
      * @param drawCalls what the canvas says the frame cost, or -1 when the backend does not count.
-     *   [dev.wildware.composegl.ui.graphics.UiCanvas.drawCalls] is where it comes from.
+     *   [dev.wildware.composegl.ui.graphics.UiCanvas.drawCalls] is where it comes from. Each scene
+     *   counted by [scene] this frame is added to it as one more.
      * @param redrew whether the tree actually changed, which is what `UiHost.frame` returned. The
      *   ratio of those to frames is the number that says whether building on the Compose runtime
      *   is earning its keep in this game.
@@ -234,13 +263,17 @@ class FrameBudget(
         recomposeNanos[at] = frameRecompose
         layoutNanos[at] = frameLayout
         drawNanos[at] = frameDraw
-        totalNanos[at] = frameRecompose + frameLayout + frameDraw
+        sceneNanos[at] = frameScene
+        totalNanos[at] = frameRecompose + frameLayout + frameDraw + frameScene
         at = (at + 1) % window
         if (filled < window) filled++
 
         frameRecompose = 0L
         frameLayout = 0L
         frameDraw = 0L
+        frameScene = 0L
+        val scenes = frameScenes
+        frameScenes = 0
 
         frames++
         if (redrew) redraws++
@@ -257,13 +290,15 @@ class FrameBudget(
             drawMillis = mean(drawNanos),
             totalMillis = mean(totalNanos),
             worstMillis = worst(totalNanos),
-            drawCalls = drawCalls,
+            drawCalls = if (drawCalls >= 0) drawCalls + scenes else drawCalls,
             redraws = redraws,
             frames = frames,
             // The published frame's, like the draw call count beside it: a still screen cuts its
             // batch in the same places every frame, and an average of whole calls reads worse.
             culprits = trace.culprits(),
             busiest = watching?.let { busiestIn(it.root, busiest) } ?: emptyList(),
+            sceneMillis = mean(sceneNanos),
+            scenes = scenes,
         )
         trace.clear()
     }
@@ -328,12 +363,15 @@ class FrameBudget(
         recomposeNanos.fill(0L)
         layoutNanos.fill(0L)
         drawNanos.fill(0L)
+        sceneNanos.fill(0L)
         totalNanos.fill(0L)
         at = 0
         filled = 0
         frameRecompose = 0L
         frameLayout = 0L
         frameDraw = 0L
+        frameScene = 0L
+        frameScenes = 0
         frames = 0L
         redraws = 0L
         lastPublishNanos = nanoTime() - publishEveryMillis * 1_000_000
@@ -410,6 +448,13 @@ data class FrameReading(
     val culprits: List<DrawCallCulprit> = emptyList(),
     /** The nodes the most frames changed, most first. Empty unless [FrameBudget.busiest] asks. */
     val busiest: List<BusyNode> = emptyList(),
+    /**
+     * What rendering `SceneView`s into their pictures cost, before the frame, averaged like the
+     * rest. Part of [totalMillis] and not of [drawMillis], which is the interface's own drawing.
+     */
+    val sceneMillis: Float = 0f,
+    /** How many `SceneView`s rendered in the published frame. Zero on a still screen. */
+    val scenes: Int = 0,
 ) {
     companion object {
         val Nothing = FrameReading(0f, 0f, 0f, 0f, 0f, -1, 0L, 0L)

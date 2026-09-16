@@ -640,7 +640,14 @@ needs something the queue does not share:
 | `layer` | an offscreen picture: a scale, a turn, a shaped clip, an effect |
 | `shader` | a picture drawn through an effect's shader |
 | `raw` | your own drawing inside `raw { }` |
+| `scene` | a `SceneView` rendering your 3D scene, before the frame. Counted as one call, the least it costs. |
 | `full` | nothing changed; the queue was full |
+
+A screen with scene views at work gets two more lines: `scenes`, the milliseconds they took
+(part of the frame's total, not of `draw`), and `scene renders`, how many rendered in the
+frame. Four editor viewports redrawing every frame show as `4`. The same numbers are
+`FrameReading.sceneMillis` and `FrameReading.scenes`. `UiRenderer` counts them for you; a
+`ScenePass(tree, canvas, budget)` you drive yourself does too. See [[Scene view]].
 
 The blame goes to the node that asked for the change. A glowing icon is blamed twice, for
 the batch it cut going in and for its own glow coming out. A picture from its own texture

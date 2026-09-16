@@ -839,6 +839,15 @@ interface UiCanvas {
      */
     val drawsScenes: Boolean get() = false
 
+    /**
+     * The widest or tallest picture [scene] can make, in pixels: the device's biggest texture.
+     *
+     * The prepass never asks for more. A panel whose pixels times its resolution scale would pass
+     * it is rendered at a smaller scale that fits, the same shape, rather than failing an
+     * allocation in the middle of a frame. No limit by default.
+     */
+    val maxSceneSize: Int get() = Int.MAX_VALUE
+
     private companion object {
 
         const val PI_OVER_180 = 0.017453292f

@@ -29,6 +29,13 @@ enum class BatchBreak {
     /** The game's own drawing, through `raw { }`. */
     Raw,
 
+    /**
+     * A `SceneView` rendering the game's own scene into its picture, before the frame. Counted as
+     * one call, the least it costs: the draws the game makes inside it are its own, and are not
+     * counted one by one.
+     */
+    Scene,
+
     /** Nothing changed; the queue was simply full. */
     Full,
 
