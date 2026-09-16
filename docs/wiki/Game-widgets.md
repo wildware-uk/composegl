@@ -1176,6 +1176,15 @@ hold comes from the mouse, from Enter and from the pad's South button. Pass
 
 ![the same board with the mouse held down on the shield node: a pale wedge has swept about two thirds of the way round it, clockwise from the top](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-skill-tree-hold.png)
 
+The whole thing, run rather than posed — one real hold on the shield, from the
+first frame to the last:
+
+![the shield node held down: the wedge sweeps all the way round, the counter drops from three points to two, the shield starts reading 1 / 2, the line from the reactor to it fills bright and settles green, and the cloak behind it turns from grey to blue](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-skill-tree-unlock.gif)
+
+Nothing in that is staged: the picture is one press held down, `onActivate`
+spending the point, and the tree working the rest out from the ranks it is handed
+next frame.
+
 ### The pad follows the lines
 
 A direction from a node goes along whichever line leaves it nearest that way.
@@ -1187,6 +1196,8 @@ game can fly it anywhere itself:
 ```kotlin
 camera.animateTo(centre = Offset(skill.x, skill.y), zoom = 1.5f)
 ```
+
+![the same board after down, right and right on the d-pad: the focus ring has walked three lines, from the reactor to the shield to the cloak to the overdrive at the far right, which is ringed while still grey and shut](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-skill-tree-pad.png)
 
 ### The lines are one pass, not a node each
 
@@ -1204,6 +1215,8 @@ with more than one, `skilltree.plane` the backdrop, and `skilltree.edge.locked`,
 [[Tooltip|Widgets#tooltips-and-prompts]], so the screen needs a `TooltipHost` round it — which
 is also what makes it work from a pad, where nothing is ever hovered. Nodes with
 no tooltip need no host.
+
+![the mouse resting on the grey cloak node, with a tooltip under it reading "Cloak - needs Shield"](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-skill-tree-tooltip.png)
 
 **Drawing a node yourself.** The default draws the node's icon or its label inside
 the skin's frame. Pass `content` for your own art, and use `SkillNodeIcon` for the
