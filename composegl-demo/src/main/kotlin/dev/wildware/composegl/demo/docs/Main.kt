@@ -92,9 +92,9 @@ fun main() {
         everySize,
     )
     // DejaVu has the Hebrew alphabet; the families above were baked with Latin only, so the Hebrew
-    // in the localisation picture comes from the same file registered again as a fallback, holding
-    // only the letters that picture says.
-    fonts.register("hebrew", typeface, everySize, StbFonts.codepointsOf("אפשרויותמוזיקהשםברוךשובךעדה"))
+    // in the localisation and compass pictures comes from the same file registered again as a
+    // fallback, holding only the letters those pictures say.
+    fonts.register("hebrew", typeface, everySize, StbFonts.codepointsOf("אפשרויותמוזיקהשםברוךשובךעדהצחנ"))
     fonts.fallBackTo(listOf("cjk", "korean", "hebrew", "emoji"))
 
     val art = GlTexture.decode(resource("ui/ui.png"))

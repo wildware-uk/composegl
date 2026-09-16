@@ -254,6 +254,14 @@ CompassBar(
 
 ![a heading strip: NW, N, NE and E sliding past a blue centre line reading 24 degrees, with three pins over it and one pinned to the right hand end](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-compass.png)
 
+On a screen, over a game. Nothing here was placed by hand: the hut, the two
+raiders and the ridge behind them are put on screen from their own bearings,
+through the same arithmetic the strip uses, so each pin sits over the thing it
+is a pin for. The third pin is the pickup, behind the player, stuck to the
+left-hand end with an arrow on it.
+
+![a first-person view of a ridge at dusk with a compass strip across the top: a red pin over two raiders on the left, a yellow pin over a hut on the right, and a faint pin with an arrow stuck to the left-hand end](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-compass-hud.png)
+
 Four things it gets right, which are the four a hand-rolled one gets wrong:
 
 - **It wraps at 360 with no seam.** Every mark on it is drawn from its bearing,
@@ -272,6 +280,18 @@ Four things it gets right, which are the four a hand-rolled one gets wrong:
 @Composable
 private fun Heading(player: Player) = CompassBar(player.yaw, 180f, Modifier.width(600f))
 ```
+
+Here is the same player turning on the spot, a frame at a time. West goes by,
+north comes round with no seam, the raiders slide off the left-hand end and the
+pickup's pin swaps ends as it passes behind:
+
+![the same view animated as the player turns right: the ridge and the names slide left, north passes the centre line, and the pins follow the things they point at until they stick to one end or the other](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-compass-turn.gif)
+
+The same three things out there, from three headings — so you can see what a pin
+does when it runs out of strip. It stops at the end it left by with an arrow on
+it, rather than disappearing and leaving the player to guess which way to turn:
+
+![three heading strips one above another, showing the pickup pin clamped to the right end, then to the left end, and then the camp and raider pins clamped one at each end, each with a small arrow](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-compass-clamped.png)
 
 The pins are named in the trailing lambda, which runs **while the strip is
 drawn** rather than while it is composed. So a pin is a little arithmetic and
@@ -299,6 +319,13 @@ The strip itself **does not mirror** in a right-to-left language, unlike
 everything else on the screen. East is to the right of north for an Arabic
 player standing in the same field as an English one, and a strip that mirrored
 would slide the wrong way as they turned.
+
+The same strip twice, through the [[high-contrast skin|Skins]]: once in English
+and once in Hebrew, at the same heading. The names change and the ordinary row
+under the strip swaps to the other side, but the strip does not — north is in
+the same place in both:
+
+![two heading strips in the black and white high-contrast skin, one with N and E and a line of English under it on the left, one with the Hebrew names and a line of Hebrew under it on the right, both reading 42 degrees](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-compass-rtl.png)
 
 ## Particles
 
