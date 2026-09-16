@@ -66,6 +66,9 @@ class DrawCallTraceGlTest {
     /**
      * A red square with a green one inside it that starts adding its light once the button beside
      * it is clicked; the budget overlay in the bottom-right corner.
+     *
+     * No graph: this test reads the overlay's bottom rows to find the culprit line it just grew by,
+     * and the frame-time graph would sit under those lines and be what those rows hold instead.
      */
     private fun screen(backend: GdxBackend, budget: FrameBudget): UiTest =
         uiTest(Size(Gl.size.toFloat(), Gl.size.toFloat()), backend, budget = budget) {
@@ -83,7 +86,11 @@ class DrawCallTraceGlTest {
                     Modifier.offset(140f, 20f).size(60f, 30f).background(Colour.rgb(0x3050FF))
                         .clickable { glowing = !glowing }.testTag("toggle"),
                 )
-                FrameBudgetOverlay(budget, Modifier.align(Alignment.BottomEnd).testTag("budget"))
+                FrameBudgetOverlay(
+                    budget,
+                    Modifier.align(Alignment.BottomEnd).testTag("budget"),
+                    graph = false,
+                )
             }
         }
 
