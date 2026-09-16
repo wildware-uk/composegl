@@ -116,8 +116,15 @@ class GdxFonts private constructor(
 
     internal companion object {
 
-        /** The punctuation real text has in it that ASCII does not. */
-        const val Typography = "—–…‘’“”·«»×÷°≤≥←→↑↓○△□✕✓●☰"
+        /**
+         * The punctuation real text has in it that ASCII does not, and every shape a widget draws
+         * when the game has named none of its own.
+         *
+         * **A default the toolkit ships has to be in here**, or a game that changed nothing gets an
+         * empty box where the widget meant to say something — `DefaultGlyphsTest` asks every shipped
+         * default what it draws and fails if this string is missing it.
+         */
+        const val Typography = "—–…‘’“”·«»×÷°≤≥←→↑↓■□●○▲△▼▽✕✓☰£€−"
 
         private val owners: MutableMap<GlyphAtlas, WeakReference<GdxFonts>> = Collections.synchronizedMap(WeakHashMap())
 

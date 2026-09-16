@@ -1037,7 +1037,7 @@ private val Drops = listOf(
 /**
  * Three drops on a bench, and the card a player actually decides with.
  *
- * The thing to watch is the **arrows**, not the numbers: hold Shift, or the pad's left bumper, and
+ * The thing to watch is the **arrows**, not the numbers: hold Ctrl, or the pad's left bumper, and
  * every stat says whether taking this would be an improvement. The heaviest gun here hits hardest
  * and is worse in both of the other columns, which is exactly the decision a looter is for.
  *
@@ -1065,7 +1065,7 @@ private fun SalvageBench() {
         compareWith = Carried,
         anchor = bench.anchor,
         rarity = { it.rarity },
-        compareHint = "Hold Shift or LB to compare",
+        compareHint = "Hold Ctrl or LB to compare",
     ) {
         title(it.name)
         subtitle("${it.tier} · Main hand")
@@ -1159,7 +1159,10 @@ private fun SalvageSlot(drop: Salvage, bench: Bench) {
     Box(
         Modifier.size(56f)
             .interaction(interaction)
-            .focusable()
+            // The state has to be handed to `focusable` as well: `interaction` on its own is told
+            // about the pointer, and focus is only ever reported to the state focus itself was
+            // given. Without it `isFocused` is false forever and the pad never puts a card up.
+            .focusable(interaction)
             .onPlaced(placed)
             .styled("hotbar.slot", states),
         contentAlignment = Alignment.Centre,
