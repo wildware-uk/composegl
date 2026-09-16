@@ -3,8 +3,8 @@
 The in-play widgets: health bars with a damage trail, a crosshair, hit markers and
 damage direction arcs, a low-health vignette, damage numbers anchored in the world,
 nameplates and waypoints pinned to points in the world, cooldowns, a hotbar, a
-weapon wheel, a minimap frame, a compass bar, notifications and particles. These
-are the ones that made this toolkit worth building.
+weapon wheel, a minimap frame, a compass bar, notifications, timed subtitles and
+particles. These are the ones that made this toolkit worth building.
 
 ---
 
@@ -40,8 +40,8 @@ text that takes a [[ring|Widgets#outlined-text]] only when there is one,
 **Their look is in the skin.** The default and high-contrast [[skins|Skins]]
 already have every style these use (`bar.*`, `reticle.*`, `hitmarker.*`,
 `damage.*`, `vignette`, `marker.*`, `cooldown.*`, `hotbar.*`, `wheel.*`,
-`minimap.*`, `compass.*`,
-`notification.*`), so they look right with no setup. Your own skin file styles
+`minimap.*`, `compass.*`, `notification.*`, `subtitle.*`), so they look right with
+no setup. Your own skin file styles
 them by the same names.
 
 `Typewriter`, `PromptGlyph` and `ProvidePrompts` stay in `composegl-ui`: they
@@ -523,6 +523,110 @@ A ring never goes the whole way round, however many children a category has: it
 stops at seven eighths of a turn so that there is always an angle outside it to
 sweep back out through. Past eight children, put them on a second wheel rather
 than a ring.
+
+## Subtitles and captions
+
+Timed lines with a speaker over them, captions for the sounds between them, and
+the three settings a player is allowed to change.
+
+```kotlin
+val subs = rememberSubtitleQueue(clock = Clock.World)
+
+Subtitles(
+    subs,
+    Modifier.align(Alignment.BottomCentre).padding(bottom = 64f),
+    settings = settings.subtitles,                 // the player's own, saved with the rest
+    speakerColours = mapOf("Mira" to Colour.rgb(0x5B8DEF)),
+)
+
+// as the scene plays:
+subs.show("We are through the gate.", speaker = "Mira", durationMillis = 3_200)
+subs.caption("[a door slams somewhere below]")
+```
+
+![a subtitle band over a scene: Mira in blue over two centred lines, with a caption under them](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-subtitles.png)
+
+A queue, not a list. A cutscene hands over its whole script at once and only
+`capacity` lines are up at a time — two by default, so a caption for a sound can
+sit under the sentence somebody is speaking, which is the case captions exist
+for. The rest wait their turn, `waiting` says how many, and `dismiss` skips one
+and lets the next in straight away.
+
+**You do not have to time a line.** `durationMillis = 0` works it out from how
+long the line is, at `charactersPerSecond` and never under `minimumMillis` —
+which is what a game with no recorded timings gets for free.
+
+### The three player settings
+
+```kotlin
+var subtitles by remember { mutableStateOf(SubtitleSettings()) }
+
+Stepper(SubtitleSize.entries, subtitles.size, { subtitles = subtitles.copy(size = it) })
+Slider(subtitles.backgroundOpacity, { subtitles = subtitles.copy(backgroundOpacity = it) })
+Toggle(subtitles.speakerNames, { subtitles = subtitles.copy(speakerNames = it) }, label = "Speaker names")
+```
+
+| | |
+|---|---|
+| `size` | `Small`, `Medium`, `Large`, `Huge`. **Its own setting, not the interface's [[text scale\|Widgets#text-size-separate-from-the-interface-scale]]**: a player who set the interface to 150% and their subtitles to Medium asked for Medium subtitles. |
+| `backgroundOpacity` | how solid the band is, 0 to 1. The words stay at full strength whatever it is — text faded to match its own background is text nobody can read. |
+| `speakerNames` | whether who is speaking is written above the line. |
+| `maxLines`, `widthFraction` | where the words wrap and where they stop. The width is a fraction of the room the band was given, so the setting means the same on a handheld and on a television. |
+
+**Register the font sizes the presets can reach**, or the first player to pick
+Large gets a crash rather than bigger words:
+
+```kotlin
+fonts.registerTrueType("body", file, scaledTextSizes(listOf(16), SubtitleSize.scales))
+```
+
+### Timed by a clock, or by the audio
+
+By default the queue counts down on its `clock`, so a queue on `Clock.World`
+holds behind a pause menu and one on `Clock.Ui` runs out over it.
+
+A voiced game wants neither: the words have to leave when the actor stops
+speaking, however long the frame took. Pass `clock = null` and hand over the
+sound system's playback position every frame:
+
+```kotlin
+val subs = rememberSubtitleQueue(clock = null)
+Subtitles(subs)
+
+// …and from the game's own loop, once a frame:
+subs.playTo(audio.positionMillis)
+```
+
+The first call only takes the mark; after that each one moves the queue by
+exactly the distance the audio travelled. A position that goes **backwards**
+clears the queue, because the only way audio goes backwards is a seek, a restart
+or a skip — and the words on screen belong to a moment that is no longer
+happening.
+
+### What it gets right
+
+- **The words wrap and stop.** A long line breaks inside `widthFraction` of the
+  width and is cut off with an ellipsis at `maxLines`.
+- **Each line is centred, not just the block.** Subtitles go through the
+  toolkit's own line breaking, so a three-line subtitle is three centred lines
+  rather than a centred block of ragged ones.
+- **Right-to-left works with nothing set.** Arabic and Hebrew are laid out by
+  the same [[bidi|Localisation#mixed-direction-text]] stack as any other text,
+  and the band stays in the middle either way.
+- **It is not a control.** It takes no focus, swallows no click and has no state
+  a player can get stuck in — a subtitle over a fight must never be the thing
+  that eats the button press. Its words are not selectable either, so a screen
+  wrapped in a [[SelectionContainer|Widgets#selectable-text]] still gets the shot
+  fired through the band.
+- **An idle queue costs nothing**: nothing composed, nothing drawn, and no frame
+  asked for.
+
+Skin: `subtitle` is the band and the words on it, `subtitle.speaker` is the name
+above a line, `subtitle.caption` is a sound written down. A line may name a style
+of its own for a shout or a radio voice, and the name over it follows: give the
+skin a `radio.speaker` beside `radio` and a radio line gets a radio-voice name
+too. A line style with no `.speaker` of its own leaves the name as the band
+draws it.
 
 ## Particles
 

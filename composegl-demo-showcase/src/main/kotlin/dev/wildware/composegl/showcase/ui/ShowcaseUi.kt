@@ -17,8 +17,8 @@ import dev.wildware.composegl.showcase.Exhibit
 import dev.wildware.composegl.showcase.Pace
 import dev.wildware.composegl.showcase.ShowcaseState
 import dev.wildware.composegl.showcase.TargetReadout
-import dev.wildware.composegl.ui.animation.Easings
 import dev.wildware.composegl.ui.animation.Clock
+import dev.wildware.composegl.ui.animation.Easings
 import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.animateFloatAsState
@@ -49,11 +49,15 @@ import dev.wildware.composegl.game.ParticleLayer
 import dev.wildware.composegl.game.RadialMenu
 import dev.wildware.composegl.game.MinimapMarker
 import dev.wildware.composegl.game.Reticle
+import dev.wildware.composegl.game.SubtitleSettings
+import dev.wildware.composegl.game.SubtitleSize
+import dev.wildware.composegl.game.Subtitles
 import dev.wildware.composegl.game.OffScreen
 import dev.wildware.composegl.game.WorldMarkerLayer
 import dev.wildware.composegl.game.WorldProjection
 import dev.wildware.composegl.game.rememberCooldown
 import dev.wildware.composegl.game.rememberReticleState
+import dev.wildware.composegl.game.rememberSubtitleQueue
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
@@ -152,6 +156,8 @@ fun ShowcaseUi(
                         Compass(state)
                         Abilities(state, hotbar)
                     }
+
+                    if (state.isOn(Exhibit.Comms)) Comms(state)
 
                     if (state.isOn(Exhibit.Tracking)) TargetTags(state, projection)
 
@@ -348,6 +354,14 @@ private fun TuningWindow(state: ShowcaseState) {
         CollapsingHeader("Sparks", initiallyExpanded = true) {
             tweak("Per hit", state::sparkBurst, 0..80)
             colour("Tint", state::sparkTint, alpha = false)
+        }
+        // The accessibility menu a game would have, standing in a debug window so that changing a
+        // setting and seeing the answer is one click apart.
+        CollapsingHeader("Subtitles") {
+            choice("Size", state::subtitleSize, SubtitleSize.entries)
+            tweak("Background", state::subtitleBackground, 0f..1f, step = 0.05f)
+            toggle("Speaker names", state::subtitleSpeakers)
+            button("Say something now") { state.sayNow = true }
         }
         text("Panel redraws", state.holoDraws.toString())
     }
@@ -638,6 +652,68 @@ private fun Compass(state: ShowcaseState) {
 
 /** A point on the radar as a bearing: north is up and east is right, which is not how a screen is. */
 private fun bearingOf(x: Float, y: Float): Float = atan2(x, y) * 180f / PI.toFloat()
+
+/**
+ * The comms chatter, as timed subtitles with captions for the sounds between them.
+ *
+ * On the world clock, so the words hold behind a pause rather than running out while nobody is
+ * looking at them. Nothing here says how long a line stays up: the queue works that out from how
+ * long the line is, which is what a game with no recorded timings gets for free.
+ *
+ * The three settings come from the tuning window, which stands in for the accessibility menu a
+ * real game would have. Turn the background down or the size up while the fight is running and the
+ * band answers on the next frame.
+ */
+@Composable
+private fun Comms(state: ShowcaseState) {
+    val subs = rememberSubtitleQueue(capacity = 2, clock = Clock.World)
+    val settings = SubtitleSettings(
+        size = state.subtitleSize,
+        backgroundOpacity = state.subtitleBackground,
+        speakerNames = state.subtitleSpeakers,
+        maxLines = 2,
+        widthFraction = 0.55f,
+    )
+
+    // The script plays itself, a line at a time, which is what a drill loop would do. A real game
+    // calls show() as its own events happen.
+    LaunchedEffect(subs) {
+        var index = 0
+        while (true) {
+            withFrameNanos { }
+            if (state.sayNow) {
+                state.sayNow = false
+                subs.caption("[static bursts across the channel]")
+            }
+            if (!subs.isIdle) continue
+            val (speaker, line) = CommsScript[index % CommsScript.size]
+            index++
+            if (speaker == null) subs.caption(line) else subs.show(line, speaker = speaker)
+        }
+    }
+
+    Subtitles(
+        subs,
+        Modifier.align(Alignment.BottomCentre).padding(bottom = 168f),
+        settings,
+        speakerColours = CommsCast,
+    )
+}
+
+/** The drill's chatter, on a loop. A null speaker is a sound rather than a voice. */
+private val CommsScript = listOf(
+    "Mira" to "Contact, bearing zero four zero. Two of them, closing.",
+    null to "[hull plating groans]",
+    "Control" to "Copy that. Weapons free, watch your heat.",
+    "Mira" to "Shield's holding. Stay on the lock and I'll take the wing.",
+    null to "[a distant explosion]",
+)
+
+/** Who is on the channel, and the colour their name is written in. */
+private val CommsCast = mapOf(
+    "Mira" to Colour.rgb(0x4CC2FF),
+    "Control" to Colour.rgb(0xFFD166),
+)
 
 /** Four abilities on cooldown rings, pressed with the number keys or the pointer. */
 @Composable

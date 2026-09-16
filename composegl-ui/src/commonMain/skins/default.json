@@ -92,6 +92,18 @@
     "compass.pin": { "background": { "fill": "#F2C94C" }, "textColour": "#9AA4B2", "text": { "size": 12 } },
     "compass.readout": { "textColour": "#5B8DEF", "text": { "size": 13 } },
 
+    // Subtitles and captions: the band the words sit on, the speaker's name above them, and a
+    // sound written down rather than spoken. The band is opaque here and made see-through by the
+    // player's own opacity setting, so turning it down gives the colour this file chose rather
+    // than two translucencies multiplied together.
+    "subtitle": {
+      "background": { "fill": "#0B0E14", "corner": 4, "padding": [16, 10] },
+      "textColour": "#F2F5FA",
+      "text": { "size": 16 }
+    },
+    "subtitle.speaker": { "textColour": "#5B8DEF", "text": { "size": 16 } },
+    "subtitle.caption": { "textColour": "#C7D0DC", "text": { "size": 16 } },
+
     // --- text ---
 
     "label": {

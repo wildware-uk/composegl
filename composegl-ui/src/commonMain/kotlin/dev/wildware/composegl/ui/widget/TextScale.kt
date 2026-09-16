@@ -28,6 +28,10 @@ import dev.wildware.composegl.ui.text.TextStyle
  * its own is scaled too: the setting is the player's, and a label that ignored it would be the one
  * they cannot read.
  *
+ * **The one exception is `Subtitles`**, which replaces this with its own size preset rather than
+ * multiplying by it. Subtitle size is its own row in its own accessibility menu, and a player who
+ * set the interface to 150% and their subtitles to Medium asked for Medium subtitles.
+ *
  * Static: a text size changes when a player moves a slider in a settings menu, not every frame,
  * and every piece of text inside has to be measured again when it does.
  */

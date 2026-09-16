@@ -126,6 +126,10 @@ text in it wraps sooner. Icons, bars and padding do not move.
 - **Every text widget follows it**: `Text`, `Typewriter`, `TextField`,
   `Tooltip`, `PromptGlyph`, and from [[Game widgets]] `DamageNumberLayer` and `MinimapFrame`'s compass, and so
   everything built from them, like `Button` and `Stepper`. A `textStyle` you pass by hand is scaled too.
+- **The one exception is `Subtitles`**, which uses its own size preset instead.
+  Subtitle size is its own row in its own menu, so a player who set the
+  interface to 150% and subtitles to Medium gets Medium subtitles. See
+  [[Subtitles and captions|Game-widgets#subtitles-and-captions]].
 - **Nested, they multiply.** A dense panel that asks for `0.85f` inside a
   player's `1.5f` draws at 1.275, so it still honours the setting.
 - **Changing it re-measures.** It is meant to move when a slider in a settings
@@ -221,7 +225,8 @@ ProvideTextOutline(Colour.Black, width = 2f) {
 ```
 
 `ProvideTextOutline` reaches `Text`, `Typewriter`, `Tooltip`,
-and from [[Game widgets]] `DamageNumberLayer` and `MinimapFrame`'s compass letters. Not `TextField` or
+and from [[Game widgets]] `DamageNumberLayer`, `CompassBar`'s names, `Subtitles` and
+`MinimapFrame`'s compass letters. Not `TextField` or
 `PromptGlyph`, which have backgrounds of their own; give those an explicit
 outline if you ever want one.
 
@@ -1301,14 +1306,14 @@ the whole string up front, so the box does not grow as the words appear.
 # Game widgets
 
 Bars, the reticle, damage numbers, world markers, cooldowns, the hotbar, the
-minimap frame, the compass bar, notifications and particles live in their own
-module, `composegl-game`. They have **[[their own page|Game-widgets]]**.
+minimap frame, the compass bar, notifications, subtitles and particles live in
+their own module, `composegl-game`. They have **[[their own page|Game-widgets]]**.
 
 ---
 
 ## What next
 
-- **[[Game widgets]]** — bars, reticle, damage numbers, world markers, cooldowns, hotbar, minimap, compass bar, particles
+- **[[Game widgets]]** — bars, reticle, damage numbers, world markers, cooldowns, hotbar, minimap, compass bar, subtitles, particles
 - **[[Skins]]** — how all of these get their look
 - **[[Input]]** — focus, pads, and keyboard
 - **[[Shaders]]** — blurring, outlining or dissolving any of the above

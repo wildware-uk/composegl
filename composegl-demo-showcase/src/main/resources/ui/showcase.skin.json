@@ -192,6 +192,16 @@
     "compass.pin.locked": { "background": { "fill": "#FF5A4F" }, "textColour": "#FF5A4F", "text": { "size": 13 } },
     "compass.readout": { "textColour": "#4CC2FF", "text": { "size": 13 } },
 
+    // The comms chatter. The band is opaque here and turned down by the player's own opacity
+    // setting, so what the setting changes is this colour rather than two translucencies stacked.
+    "subtitle": {
+      "background": { "fill": "#0A1018", "corner": 4, "padding": [16, 10] },
+      "textColour": "#E6F4FF",
+      "text": { "size": 16 }
+    },
+    "subtitle.speaker": { "textColour": "#4CC2FF", "text": { "size": 16 } },
+    "subtitle.caption": { "textColour": "#7E8DA3", "text": { "size": 16 } },
+
     "focusRing": {
       "background": { "fill": "#00000000", "corner": 5, "border": "#FFFFFF", "padding": 3 }
     },

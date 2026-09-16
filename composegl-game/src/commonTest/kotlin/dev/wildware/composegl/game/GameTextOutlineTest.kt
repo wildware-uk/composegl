@@ -114,6 +114,17 @@ class GameTextOutlineTest {
         assertTrue(runsOf("N").take(8).all { it.colour.argb and 0xFFFFFF == Ring.colour.argb and 0xFFFFFF })
     }
 
+    @Test
+    fun `a subtitle is outlined`() {
+        val subs = SubtitleQueue(capacity = 1, clock = Clock.Ui)
+        show { Subtitles(subs) }
+        subs.show("Go.")
+        frames(2)
+
+        assertEquals(9, runsOf("Go.").size, "subtitles are read over whatever the scene is doing")
+        assertTrue(runsOf("Go.").take(8).all { it.colour.argb and 0xFFFFFF == Ring.colour.argb and 0xFFFFFF })
+    }
+
     private companion object {
         val Ring = TextOutline(Colour.Black, width = 2f)
     }
