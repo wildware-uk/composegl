@@ -2,6 +2,7 @@ package dev.wildware.composegl.demo.docs
 
 import androidx.compose.runtime.CompositionLocalProvider
 import dev.wildware.composegl.demo.demoSkin
+import dev.wildware.composegl.game.SubtitleSize
 import dev.wildware.composegl.lwjgl3.GlCanvas
 import dev.wildware.composegl.lwjgl3.GlTexture
 import dev.wildware.composegl.lwjgl3.GlfwWindow
@@ -67,8 +68,14 @@ fun main() {
     // Every size again at 125% and 150%, for the picture of the text size setting.
     fonts.register("body", typeface, scaledTextSizes(listOf(12, 13, 16, 20), listOf(1f, 1.25f, 1.5f)))
     fonts.register("display", typeface, listOf(34))
-    // What the toolkit's own skin asks for, for the pictures taken without the example's skin.
-    fonts.register("default", typeface, listOf(11, 12, 13, 14, 16, 18, 22, 26))
+    // What the toolkit's own skin asks for, for the pictures taken without the example's skin, plus
+    // sixteen at each subtitle size preset, for the picture of the subtitle size setting: a preset
+    // is a font baked at that size rather than one stretched to it.
+    fonts.register(
+        "default",
+        typeface,
+        (listOf(11, 12, 13, 14, 16, 18, 22, 26) + scaledTextSizes(listOf(16), SubtitleSize.scales)).distinct().sorted(),
+    )
     // Where characters DejaVu does not have come from, for the chat picture. Small cuts of Noto
     // Sans CJK holding only what that picture says, and Noto's emoji as pictures, at every size any
     // family above is asked for.
@@ -97,7 +104,12 @@ fun main() {
     // again as a fallback, holding only the letters those pictures say. A letter at the end of a
     // Hebrew word is a different letter from the same one in the middle, so the wheel's final nun
     // has to be asked for by name however many plain nuns are already here.
-    fonts.register("hebrew", typeface, everySize, StbFonts.codepointsOf("אפשרויותמוזיקהשםברוךשובךעדהצחנן"))
+    fonts.register(
+        "hebrew",
+        typeface,
+        everySize,
+        StbFonts.codepointsOf("אפשרויותמוזיקהשםברוךשובךעדהצחנן" + HebrewSubtitles),
+    )
     fonts.fallBackTo(listOf("cjk", "korean", "hebrew", "emoji"))
 
     val art = GlTexture.decode(resource("ui/ui.png"))
@@ -180,6 +192,18 @@ private fun coinSheet(): GlTexture {
 private fun resource(path: String): ByteArray =
     checkNotNull(object {}.javaClass.classLoader.getResourceAsStream(path)) { "no $path on the classpath" }
         .use { it.readBytes() }
+
+/**
+ * Every letter the Hebrew subtitles say, so the fallback carries them.
+ *
+ * The whole sentences rather than the letters picked out of them, because a letter missed here is a
+ * blank box in the picture and nobody notices which one it was.
+ */
+private const val HebrewSubtitles =
+    "עברנו את השער. הישארו צמודים לקיר ושמרו על שקט." +
+        "דלת נטרקת למטה" +
+        "אז הם יודעים שאנחנו כאן. שניים במדרגות, אחד על המשטח." +
+        "מירה אנדר"
 
 /** The window every picture is drawn inside. Bigger than the biggest of them. */
 private const val Window = 640
