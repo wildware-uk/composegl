@@ -54,6 +54,10 @@ class KorgeDrawCallTraceTest {
         KorgeFonts().also { it.registerTrueType("default", TestFonts.dejaVu(), listOf(12, 13, 14, 16)) },
     )
 
+    /**
+     * No graph: this test reads the overlay's bottom rows to find the culprit line it just grew by,
+     * and the frame-time graph would sit under those lines and be what those rows hold instead.
+     */
     private fun screen(backend: KorgeBackend, budget: FrameBudget): UiTest =
         uiTest(Size(size, size), backend, budget = budget) {
             var glowing by remember { mutableStateOf(false) }
@@ -70,7 +74,11 @@ class KorgeDrawCallTraceTest {
                     Modifier.offset(140f, 20f).size(60f, 30f).background(Colour.rgb(0x3050FF))
                         .clickable { glowing = !glowing }.testTag("toggle"),
                 )
-                FrameBudgetOverlay(budget, Modifier.align(Alignment.BottomEnd).testTag("budget"))
+                FrameBudgetOverlay(
+                    budget,
+                    Modifier.align(Alignment.BottomEnd).testTag("budget"),
+                    graph = false,
+                )
             }
         }
 
