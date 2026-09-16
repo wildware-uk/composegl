@@ -1,0 +1,33 @@
+{
+  // Styles the tour's pages invent, which no skin the toolkit ships has.
+  //
+  // Laid under the showcase's look and the standard skin alike, in the standard skin's colours; the
+  // look overrides the few it wants in blue. high-contrast-extras.json answers the same names.
+
+  "styles": {
+
+    // The box each section of a page sits in.
+    "card": { "background": { "fill": "#1A1F28", "corner": 10, "border": "#2C3545", "padding": 16 } },
+
+    // The code samples, and the frame-time readout.
+    "code": { "textColour": "#8ADBFF", "text": { "size": 13 } },
+
+    // The HUD page's two extra bars: whole sets of their own, which is what a game writes when it
+    // wants a bar that is not the toolkit's one.
+    "bar.shield.track": { "background": { "fill": "#40000000", "corner": 5 } },
+    "bar.shield.fill": { "background": { "fill": "#4CC2FF", "corner": 5 } },
+    "bar.shield.trail": { "background": { "fill": "#704CC2FF", "corner": 5 } },
+    "bar.shield.segment": { "background": { "fill": "#0A1018" } },
+
+    "bar.stamina.track": { "background": { "fill": "#40000000", "corner": 5 } },
+    "bar.stamina.fill": { "background": { "fill": "#7BE08A", "corner": 5 } },
+    "bar.stamina.trail": { "background": { "fill": "#707BE08A", "corner": 5 } },
+    "bar.stamina.segment": { "background": { "fill": "#0A1018" } },
+
+    // The quest the minimap points at.
+    "minimap.objective": { "background": { "fill": "#F2C94C" } },
+
+    // The chat's guild channel: its name, and the lines said in it.
+    "chat.squad": { "textColour": "#7BE08A", "text": { "size": 14 } }
+  }
+}

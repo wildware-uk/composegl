@@ -1,0 +1,1006 @@
+{
+  // The web demo's own look: its sky blue on blue-black, laid over the toolkit's standard skin.
+  //
+  // Every style name a widget asks for is answered here, so no page draws in the standard skin's
+  // colours; ShowcaseSkinsTest holds it to the toolkit's list. It began as a copy of the standard
+  // skin with the palette swapped, so sizes and spacing match it and switching skins moves nothing
+  // but the handful of pieces the demo made its own (buttons, panels, list items, fields).
+  //
+  //   #0B0E13  the screen behind everything    #E6EAF2  text
+  //   #141A22  a card, a panel                 #9AA4B2  text that is secondary
+  //   #1B2230  something raised off it         #5A6675  text that is unavailable
+  //   #223040  a line, a border, a groove      #4CC2FF  the accent: focus, selection, progress
+  //   #2A3A4E  a raised thing, hovered         #1A75AB  the accent, deep enough for words on it
+  //
+  // Red, yellow and green keep the standard skin's values: danger and good news should not change
+  // meaning when the skin does.
+
+  "name": "Showcase",
+
+  "defaults": {
+    "textColour": "#E6EAF2",
+    "text": { "font": "default", "size": 16 }
+  },
+
+  "styles": {
+
+    // --- surfaces ---
+
+    "screen": { "background": { "fill": "#0B0E13" } },
+
+    // The box each section of a page sits in.
+    "card": { "background": { "fill": "#141A22", "corner": 12, "border": "#223040", "padding": 18 } },
+
+    "panel": { "background": { "fill": "#1B2230", "corner": 10, "border": "#2A3A4E", "padding": 16 } },
+
+    "panel.raised": {
+      "background": { "fill": "#1B2230", "corner": 6, "border": "#2A3A4E", "padding": 12 }
+    },
+
+    // A dialogue and the dimming behind it. The scrim is most of the effect: a panel that is
+    // simply on top reads as another panel, and a panel over a darkened screen reads as a question.
+    "dialog": { "background": { "fill": "#F21B1F2A", "corner": 12, "border": "#4CC2FF", "padding": 22 } },
+
+    "scrim": { "background": { "fill": "#B0050810" } },
+
+    "separator": { "background": { "fill": "#223040" } },
+
+    // The line Divider() draws between two sections. The widget decides how thick; this decides
+    // what it looks like.
+    "divider": { "background": { "fill": "#223040" } },
+
+    // Working, for an unknown length of time. The spinner's arc is its text colour, turning over a
+    // faint ring; the indeterminate bar's block slides along a track like a bar's.
+    //
+    // The track's padding is what keeps the block inside the groove rather than painted over its
+    // edge: an indeterminate bar draws its block within the track's padding, so a track with an
+    // outline and no padding is a track whose outline is rubbed out every time the block goes past.
+
+    "spinner": { "textColour": "#4CC2FF" },
+    "spinner.track": { "textColour": "#223040" },
+    "indeterminatebar.track": { "background": { "fill": "#0B0E13", "corner": 3, "border": "#223040", "padding": 2 } },
+    "indeterminatebar.fill": { "background": { "fill": "#4CC2FF", "corner": 3 } },
+
+    "tooltip": {
+      "background": { "fill": "#F0151B26", "corner": 4, "border": "#4CC2FF", "padding": [8, 5] },
+      "textColour": "#E8ECF2", "text": { "size": 13 }
+    },
+
+    // What the game is telling the player: the card, its second line, and the count of the ones
+    // still waiting behind it.
+    "notification": {
+      "background": { "fill": "#1B2230", "corner": 5, "border": "#3A4A60", "padding": [12, 9] },
+      "textColour": "#E6EAF2"
+    },
+    "notification.detail": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "notification.more": { "textColour": "#7C8798", "text": { "size": 13 } },
+
+    // The chrome round a minimap. The frame's padding is the hole the game draws its map into.
+    "minimap": {
+      "background": { "fill": "#10151C", "corner": 6, "border": "#3A4A60", "padding": [6, 6] }
+    },
+    "minimap.marker": { "background": { "fill": "#F2C94C" } },
+    "minimap.compass": { "textColour": "#9AA4B2", "text": { "size": 12 } },
+
+    // The heading strip: the ruler it is drawn on, the names of the points, the line down the
+    // middle saying which way the player is facing, and a pin with its distance under it.
+    "compass": {
+      "background": { "fill": "#10151C", "corner": 4, "border": "#3A4A60", "padding": [10, 5] }
+    },
+    "compass.tick": { "background": { "fill": "#5E6B7C" } },
+    "compass.label": { "textColour": "#E6EAF2", "text": { "size": 13 } },
+    "compass.marker": { "background": { "fill": "#4CC2FF" } },
+    "compass.pin": { "background": { "fill": "#F2C94C" }, "textColour": "#9AA4B2", "text": { "size": 12 } },
+    "compass.readout": { "textColour": "#4CC2FF", "text": { "size": 13 } },
+
+    // Subtitles and captions: the band the words sit on, the speaker's name above them, and a
+    // sound written down rather than spoken. The band is opaque here and made see-through by the
+    // player's own opacity setting, so turning it down gives the colour this file chose rather
+    // than two translucencies multiplied together.
+    "subtitle": {
+      "background": { "fill": "#080B10", "corner": 4, "padding": [16, 10] },
+      "textColour": "#F0F6FC",
+      "text": { "size": 16 }
+    },
+    "subtitle.speaker": { "textColour": "#4CC2FF", "text": { "size": 16 } },
+    "subtitle.caption": { "textColour": "#C7D0DC", "text": { "size": 16 } },
+
+    // A conversation: the box, the name over the line, the line itself, the answers to it, the bar
+    // that runs out while the player thinks, the small Auto / Skip / Log buttons and the arrow that
+    // says the line has finished. The box is slightly see-through, because a conversation happens
+    // somewhere and the somewhere should still be there.
+    "dialogue": {
+      "background": { "fill": "#E6141A22", "corner": 8, "border": "#2A3A4E", "padding": [16, 14] }
+    },
+    "dialogue.speaker": { "textColour": "#F2C94C", "text": { "size": 18 } },
+    "dialogue.text": { "textColour": "#E6EAF2" },
+
+    "dialogue.choice": {
+      "background": { "fill": "#1B2230", "corner": 5, "border": "#223040", "padding": [12, 8] },
+      "hovered": { "background": { "fill": "#2A3A4E", "corner": 5, "border": "#3A5068" } },
+      "focused": { "background": { "fill": "#1F2A3A", "corner": 5, "border": "#4CC2FF" } },
+      "pressed": {
+        "background": { "fill": "#141A22", "corner": 5, "border": "#223040" },
+        "contentOffset": [0, 1]
+      },
+      "disabled": { "textColour": "#5A6675", "tint": "#A0FFFFFF" }
+    },
+    "dialogue.choice.reason": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+
+    "dialogue.timer.track": { "background": { "fill": "#0B0E13", "corner": 2, "border": "#223040" } },
+    "dialogue.timer.fill": { "background": { "fill": "#F2C94C", "corner": 2 } },
+
+    "dialogue.control": {
+      "background": { "fill": "#141A22", "corner": 4, "border": "#223040", "padding": [10, 4] },
+      "textColour": "#9AA4B2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#223040", "corner": 4, "border": "#3A5068" } },
+      "focused": { "background": { "fill": "#1F2A3A", "corner": 4, "border": "#4CC2FF" } },
+      "pressed": {
+        "background": { "fill": "#0B0E13", "corner": 4, "border": "#223040" },
+        "contentOffset": [0, 1]
+      }
+    },
+    "dialogue.control.on": {
+      "background": { "fill": "#1A75AB", "corner": 4, "border": "#4CC2FF", "padding": [10, 4] },
+      "textColour": "#E6EAF2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#1E7EB5", "corner": 4, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#1A75AB", "corner": 4, "border": "#8ADBFF" } },
+      "pressed": {
+        "background": { "fill": "#135A85", "corner": 4, "border": "#1A75AB" },
+        "contentOffset": [0, 1]
+      }
+    },
+    "dialogue.advance": { "textColour": "#4CC2FF" },
+
+    // The log a player opens when they were not paying attention.
+    "dialogue.history.speaker": { "textColour": "#F2C94C", "text": { "size": 14 } },
+    "dialogue.history.line": { "textColour": "#E6EAF2", "text": { "size": 14 } },
+    "dialogue.history.answer": { "textColour": "#4CC2FF", "text": { "size": 14 } },
+
+    // The pinned list of what the player is meant to be doing. The panel is see-through, because a
+    // HUD corner is somewhere the game is still happening; a finished step is dimmed and has a line
+    // struck through it in its own colour, and the little box beside each step is where the tick
+    // is drawn.
+    "objective": {
+      "background": { "fill": "#B310151C", "corner": 5, "border": "#2A3A4E", "padding": [12, 10] }
+    },
+    "objective.title": { "textColour": "#F2C94C", "text": { "size": 15 } },
+    "objective.step": { "textColour": "#E6EAF2", "text": { "size": 14 } },
+    "objective.step.done": { "textColour": "#8A94A6", "text": { "size": 14 } },
+    "objective.bullet": { "background": { "fill": "#0B0E13", "corner": 3, "border": "#3A4A60" } },
+    "objective.tick": { "background": { "fill": "#46A758" } },
+    "objective.count": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "objective.more": {
+      "background": { "fill": "#00000000", "corner": 4, "padding": [4, 2] },
+      "textColour": "#7C8798",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#1B2230", "corner": 4 }, "textColour": "#C7D0DC" },
+      "focused": { "background": { "fill": "#1F2A3A", "corner": 4, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#0B0E13", "corner": 4 }, "contentOffset": [0, 1] }
+    },
+
+    // In-game chat: the panel it scrolls in when it is open, a line, a line nobody said, the name
+    // in front of one, the channel it came in on, and the tabs. The panel is see-through, because
+    // chat sits over a game that is still being played. A game's own channels name a style of their
+    // own — "chat.team" — which is where a channel's colour comes from.
+    "chat": {
+      "background": { "fill": "#CC0A0D12", "corner": 6, "border": "#223040", "padding": [10, 8] },
+      "textColour": "#C9D3E0"
+    },
+    "chat.message": { "textColour": "#E6EAF2", "text": { "size": 14 } },
+    "chat.system": { "textColour": "#E8A33D", "text": { "size": 14 } },
+    "chat.name": { "textColour": "#8ADBFF", "text": { "size": 14 } },
+    "chat.channel": { "textColour": "#9AA4B2", "text": { "size": 14 } },
+
+    "chat.tab": {
+      "background": { "fill": "#141A22", "corner": 4, "border": "#223040", "padding": [10, 4] },
+      "textColour": "#9AA4B2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#223040", "corner": 4, "border": "#3A5068" } },
+      "focused": { "background": { "fill": "#1F2A3A", "corner": 4, "border": "#4CC2FF" } },
+      "pressed": {
+        "background": { "fill": "#0B0E13", "corner": 4, "border": "#223040" },
+        "contentOffset": [0, 1]
+      }
+    },
+    "chat.tab.selected": {
+      "background": { "fill": "#1A75AB", "corner": 4, "border": "#4CC2FF", "padding": [10, 4] },
+      "textColour": "#E6EAF2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#1E7EB5", "corner": 4, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#1A75AB", "corner": 4, "border": "#8ADBFF" } },
+      "pressed": {
+        "background": { "fill": "#135A85", "corner": 4, "border": "#1A75AB" },
+        "contentOffset": [0, 1]
+      }
+    },
+
+    "chat.field": {
+      "background": { "fill": "#00000000", "padding": [2, 3] },
+      "textColour": "#E6EAF2"
+    },
+    "chat.field.placeholder": { "textColour": "#5A6675" },
+    "chat.field.caret": { "background": { "fill": "#E6EAF2" } },
+    "chat.field.selection": { "background": { "fill": "#1A75AB" } },
+    "chat.field.composition": { "background": { "fill": "#9AA4B2" } },
+
+    // --- text ---
+
+    "label": {
+      "disabled": { "textColour": "#5A6675" }
+    },
+    "label.title": { "textColour": "#4CC2FF", "text": { "font": "default", "size": 26 } },
+    "label.heading": { "textColour": "#E6F4FF", "text": { "font": "default", "size": 18 } },
+    "label.dim": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "label.danger": { "textColour": "#E5484D" },
+    "label.good": { "textColour": "#46A758" },
+
+    // --- buttons ---
+    //
+    // Four states, and the pressed one moves its contents a pixel: the cheapest convincing thing
+    // in a game interface, and it belongs here rather than in a widget.
+
+    "button": {
+      "background": { "fill": "#404CC2FF", "corner": 8, "border": "#4CC2FF", "padding": [16, 9] },
+      "textColour": "#E6F4FF",
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#FF4CC2FF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 }, "textColour": "#0B1119" },
+      "focused": { "background": { "fill": "#404CC2FF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } },
+      "disabled": { "background": { "fill": "#141A22", "corner": 8, "border": "#2A3440" }, "textColour": "#5A6675" }
+    },
+
+    // A KeyBindButton waiting for a press. Amber rather than the focus blue, because "the next key
+    // you press goes here" has to be impossible to miss on a list of twenty of them.
+    "button.listening": {
+      "background": { "fill": "#4A3A12", "corner": 5, "border": "#F0B429", "padding": [14, 8] },
+      "textColour": "#F0B429"
+    },
+
+    "button.primary": {
+      "background": { "fill": "#1A75AB", "corner": 5, "border": "#4CC2FF", "padding": [14, 8] },
+      "hovered": { "background": { "fill": "#1E7EB5", "corner": 5, "border": "#8ADBFF" } },
+      "pressed": { "background": { "fill": "#15628F", "corner": 5, "border": "#1A75AB" } }
+    },
+
+    "button.danger": {
+      "background": { "fill": "#8E2B2E", "corner": 5, "border": "#E5484D", "padding": [14, 8] },
+      "hovered": { "background": { "fill": "#B23539", "corner": 5, "border": "#F06066" } },
+      "pressed": { "background": { "fill": "#6E2124", "corner": 5, "border": "#E5484D" } }
+    },
+
+    "button.quiet": {
+      "background": { "fill": "#18FFFFFF", "corner": 8, "border": "#30FFFFFF", "padding": [16, 9] },
+      "textColour": "#B8C2D0",
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 8, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#484CC2FF", "corner": 8, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "button.icon": {
+      "background": { "fill": "#1B2230", "corner": 5, "border": "#223040", "padding": 6 },
+      "hovered": { "background": { "fill": "#2A3A4E", "corner": 5, "border": "#3A5068" } },
+      "pressed": { "contentOffset": [0, 1] }
+    },
+
+    // --- things that take a value ---
+
+    "checkbox": {
+      "background": { "fill": "#0B0E13", "corner": 3, "border": "#2A3A4E", "padding": 3 },
+      "hovered": { "background": { "fill": "#141A22", "corner": 3, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#0B0E13", "corner": 3, "border": "#4CC2FF" } }
+    },
+
+    "checkbox.tick": { "background": { "fill": "#4CC2FF", "corner": 2 } },
+
+    "radio": {
+      "background": { "fill": "#0B0E13", "corner": 8, "border": "#2A3A4E", "padding": 3 },
+      "hovered": { "background": { "fill": "#141A22", "corner": 8, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#0B0E13", "corner": 8, "border": "#4CC2FF" } }
+    },
+
+    "radio.dot": { "background": { "fill": "#4CC2FF", "corner": 5 } },
+
+    // A switch says which way it is by where its knob is, so the track only has to say on or off.
+    // The knob is as tall as the track's padding leaves it: fatten the track here and the knob
+    // follows without anybody editing a widget.
+
+    "toggle": {
+      "background": { "fill": "#0B0E13", "corner": 11, "border": "#2A3A4E", "padding": 3 },
+      "hovered": { "background": { "fill": "#141A22", "corner": 11, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#0B0E13", "corner": 11, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "tint": "#A0FFFFFF" }
+    },
+
+    "toggle.on": {
+      "background": { "fill": "#604CC2FF", "corner": 11, "border": "#8ADBFF", "padding": 3 },
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 11, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "toggle.knob": { "background": { "fill": "#E6EAF2", "corner": 8 } },
+
+    "slider.track": { "background": { "fill": "#223040", "corner": 3 } },
+    "slider.fill": { "background": { "fill": "#4CC2FF", "corner": 3 } },
+    "slider.knob": {
+      "background": { "fill": "#E6EAF2", "corner": 8 },
+      "hovered": { "background": { "fill": "#FFFFFF", "corner": 8 } },
+      "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+
+    // A pan-and-zoom canvas is a window onto a world, so its own look is only the backdrop behind
+    // that world and a ring when the pad has focus on the canvas itself.
+
+    "panzoom": {
+      "background": { "fill": "#080B10" },
+      "focused": { "background": { "fill": "#080B10", "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+
+    // A scene view is the game's own picture, so the skin draws nothing over it but a ring while it
+    // has focus: see-through inside, so the scene still shows.
+
+    "sceneview": {
+      "background": "none",
+      "focused": { "background": { "fill": "#00000000", "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+
+    // A splitter's divider is a quiet bar between two panes that lights up when the pointer finds it,
+    // so a player can see there is something to grab before the cursor tells them.
+
+    "splitter": {
+      "background": { "fill": "#141A22", "corner": 2 },
+      "hovered": { "background": { "fill": "#2A3A4E", "corner": 2 } },
+      "pressed": { "background": { "fill": "#4CC2FF", "corner": 2 } },
+      "focused": { "background": { "fill": "#2A3A4E", "corner": 2, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "tint": "#A0FFFFFF" }
+    },
+
+    // A colour picker: the panel round it, the frame round its square and strips (lit where focus
+    // is), the ring and bars that mark the colour, and the checkerboard behind a see-through colour.
+    // A swatch is a small framed square of colour that lights up like a button when it is one.
+
+    "colourpicker": {
+      "background": { "fill": "#141A22", "corner": 6, "border": "#223040", "padding": 10 }
+    },
+    "colourpicker.area": {
+      "background": { "fill": "#0B0E13", "corner": 2, "border": "#223040" },
+      "hovered": { "background": { "fill": "#0B0E13", "corner": 2, "border": "#3A5068" } },
+      "focused": { "background": { "fill": "#0B0E13", "corner": 2, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "tint": "#A0FFFFFF" }
+    },
+    "colourpicker.marker": { "background": { "fill": "#0B0E13" }, "textColour": "#FFFFFF" },
+    "colourpicker.checker": { "background": { "fill": "#C8CCD2" }, "textColour": "#8A9099" },
+    "colourswatch": {
+      "background": { "fill": "#0B0E13", "corner": 3, "border": "#2A3A4E", "padding": 2 },
+      "hovered": { "background": { "fill": "#0B0E13", "corner": 3, "border": "#3A5068", "padding": 2 } },
+      "focused": { "background": { "fill": "#0B0E13", "corner": 3, "border": "#4CC2FF", "borderWidth": 2, "padding": 2 } },
+      "pressed": { "background": { "fill": "#0B0E13", "corner": 3, "border": "#4CC2FF", "padding": 2 } },
+      "disabled": { "tint": "#A0FFFFFF" }
+    },
+
+    // A stepper is picked with left and right, so its arrows are what say it is one. An arrow at an
+    // end it cannot pass is dimmed rather than hidden, so the value does not jump sideways.
+
+    "stepper": {
+      "background": { "fill": "#0B0E13", "corner": 5, "border": "#2A3A4E", "padding": [2, 4] },
+      "hovered": { "background": { "fill": "#141A22", "corner": 5, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#0B0E13", "corner": 5, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "tint": "#A0FFFFFF" }
+    },
+
+    "stepper.arrow": {
+      "textColour": "#9AA4B2",
+      "padding": [10, 2],
+      "hovered": { "textColour": "#E6EAF2" },
+      "focused": { "textColour": "#4CC2FF" },
+      "pressed": { "textColour": "#FFFFFF", "contentOffset": [0, 1] },
+      "disabled": { "textColour": "#2A3A4E" }
+    },
+
+    "stepper.value": { "textColour": "#E6EAF2", "padding": [8, 2] },
+
+    // A game's bar, which is a progress bar with a memory: the trail is the ghost of what was
+    // there a moment ago, drawn behind the fill, and the segment is the notch between two blocks.
+
+    "bar.track": { "background": { "fill": "#0B0E13", "corner": 3, "border": "#223040" } },
+    "bar.fill": { "background": { "fill": "#46A758", "corner": 3 } },
+    "bar.fill.low": { "background": { "fill": "#E8A33D", "corner": 3 } },
+    "bar.fill.critical": { "background": { "fill": "#E5484D", "corner": 3 } },
+    "bar.trail": { "background": { "fill": "#8E2B2E", "corner": 3 } },
+    "bar.segment": { "background": { "fill": "#0B0E13" } },
+
+    // A number flying off something that was hit. A critical is bigger as well as brighter: a
+    // player reads the size before the colour.
+
+    "damage": { "textColour": "#FFE9A8", "text": { "size": 18 } },
+    "damage.critical": { "textColour": "#FF7A45", "text": { "size": 26 } },
+
+    // The arc that says which way a hit came from, and the ring that closes in when the player is
+    // nearly dead. Both carry their own opacity, because both are drawn over the game itself: an
+    // arc a player cannot see past is worse than no arc at all.
+
+    "damage.direction": { "background": { "fill": "#D8E5484D" } },
+    "vignette": { "background": { "fill": "#E88B1519" } },
+
+    // A marker pinned to a point in the world: a nameplate, a health bar over an enemy, a
+    // waypoint. What is inside one is the game's own interface, so the only thing the layer draws
+    // itself is the little triangle beside a marker it is holding at the edge of the screen,
+    // turned to point at where the thing really is.
+
+    "marker.arrow": { "background": { "fill": "#E6EAF2" } },
+
+    // --- the hotbar ---
+    //
+    // An empty slot is a hole in the bar: no fill, a dashed-looking groove, nothing in it. A slot
+    // with something in it that cannot be used right now is a full slot, dimmed. A player has to
+    // be able to tell those two apart at a glance, so they are two different styles rather than
+    // one style at two opacities.
+
+    "hotbar.slot": {
+      "background": { "fill": "#141A22", "corner": 6, "border": "#223040" },
+      "hovered": { "background": { "fill": "#1B2230", "corner": 6, "border": "#2A3A4E" } },
+      "focused": { "background": { "fill": "#1B2230", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5A6675", "tint": "#90FFFFFF" }
+    },
+
+    "hotbar.slot.selected": {
+      "background": { "fill": "#1F2A3A", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 },
+      "hovered": { "background": { "fill": "#2A3A4E", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    "hotbar.slot.empty": {
+      "background": { "fill": "#090C11", "corner": 6, "border": "#18202C" }
+    },
+
+    "hotbar.prompt": { "textColour": "#9AA4B2", "text": { "size": 12 } },
+    "hotbar.charges": { "textColour": "#E6EAF2", "text": { "size": 12 } },
+
+    // --- the inventory grid ---
+    //
+    // An empty square is a hole to put something in, and a square with something in it is a tile
+    // over that hole, so the two read as different things at a glance rather than as one thing
+    // with and without a picture. The two footprints are the answer to "will it go here?", given
+    // before the player lets go: they are drawn over the squares, so both are see-through.
+
+    "inventory.cell": {
+      "background": { "fill": "#090C11", "corner": 4, "border": "#18202C" },
+      "hovered": { "background": { "fill": "#10151C", "corner": 4, "border": "#2A3A4E" } },
+      "focused": { "background": { "fill": "#10151C", "corner": 4, "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+
+    "inventory.item": {
+      "background": { "fill": "#141A22", "corner": 4, "border": "#223040" },
+      "hovered": { "background": { "fill": "#1B2230", "corner": 4, "border": "#2A3A4E" } },
+      "focused": { "background": { "fill": "#1B2230", "corner": 4, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5A6675", "tint": "#90FFFFFF" }
+    },
+
+    "inventory.count": { "textColour": "#E6EAF2", "text": { "size": 12 } },
+    "inventory.footprint": { "background": { "fill": "#5946A758", "corner": 4, "border": "#46A758" } },
+    "inventory.footprint.invalid": { "background": { "fill": "#59E5484D", "corner": 4, "border": "#E5484D" } },
+
+    "inventory.split": {
+      "background": { "fill": "#10151C", "corner": 6, "border": "#2A3A4E" }
+    },
+
+    // An ability on cooldown. The wedge is a dark sheet over the icon rather than a colour of its
+    // own, so it works over whatever art a game puts underneath it.
+
+    "cooldown.sweep": { "background": { "fill": "#B00B0E13" } },
+    "cooldown.flash": { "background": { "fill": "#70FFFFFF" } },
+    "cooldown.seconds": { "textColour": "#E6EAF2", "text": { "size": 18 } },
+
+    // The weapon wheel. The backdrop dims the world behind it, because a wheel is modal and a
+    // player choosing a gun is not also aiming. The slice being pointed at is the accent: on a
+    // wheel there is only ever one, so it can afford to be the loudest thing on screen.
+
+    "wheel.backdrop": { "background": { "fill": "#9905070B" } },
+    "wheel.slice": { "background": { "fill": "#D9141A22" } },
+    "wheel.slice.selected": { "background": { "fill": "#D91F2A3A" } },
+    "wheel.slice.highlighted": { "background": { "fill": "#F24CC2FF" } },
+    "wheel.ring": { "background": { "fill": "#D91B2230" } },
+    "wheel.ring.highlighted": { "background": { "fill": "#F28ADBFF" } },
+    "wheel.hub": { "background": { "fill": "#E60B0E13" } },
+    "wheel.label": { "textColour": "#E6EAF2", "text": { "size": 18 } },
+
+    // The item card a looter reads on every pickup, and the equipped one beside it. The frame has
+    // an edge because the edge is where the rarity colour goes; the card the new item is being
+    // weighed against is the same box, sunk a shade, so the eye knows which of the two is the new
+    // one without reading either.
+    //
+    // Green and red are the answer players expect, and the widget also draws an arrow and a sign,
+    // so the colours here are reinforcement rather than the only thing carrying the meaning.
+
+    "itemtip": {
+      "background": { "fill": "#141A22", "corner": 5, "border": "#2A3A4E", "borderWidth": 2, "padding": [10, 8] },
+      "textColour": "#C7D0DC",
+      "text": { "size": 13 }
+    },
+    "itemtip.compare": {
+      "background": { "fill": "#0B0E13", "corner": 5, "border": "#223040", "borderWidth": 2, "padding": [10, 8] }
+    },
+    "itemtip.rarity": { "background": { "fill": "#4CC2FF" } },
+    "itemtip.title": { "textColour": "#E6EAF2", "text": { "size": 16 } },
+    "itemtip.subtitle": { "textColour": "#9AA4B2", "text": { "size": 12 } },
+    "itemtip.label": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "itemtip.value": { "textColour": "#E6EAF2", "text": { "size": 13 } },
+    "itemtip.better": { "textColour": "#5ED17A", "text": { "size": 13 } },
+    "itemtip.worse": { "textColour": "#F0787C", "text": { "size": 13 } },
+    "itemtip.same": { "textColour": "#8E9AAB", "text": { "size": 13 } },
+    "itemtip.flavour": { "textColour": "#8E9AAB", "text": { "size": 12 } },
+    "itemtip.hint": { "textColour": "#7C8798", "text": { "size": 12 } },
+
+    // A skill tree. Four frames, one per state, because the whole point of the screen is telling
+    // them apart at a glance: locked recedes into the backdrop, available is the accent asking to
+    // be pressed, owned is settled and lit, and maxed is the warm colour nothing else uses. The
+    // hold is a bright sweep over whichever node is being leaned on, and the lines are the same
+    // three steps as the frames so a branch reads as open or shut from across the tree.
+
+    "skilltree.plane": {
+      "background": { "fill": "#080B10" },
+      "focused": { "background": { "fill": "#080B10", "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+
+    "skilltree.node.locked": {
+      "background": { "fill": "#0E131A", "corner": 8, "border": "#223040" },
+      "textColour": "#6A7A96",
+      "hovered": { "background": { "fill": "#141A22", "corner": 8, "border": "#2A3A4E" } },
+      "focused": { "background": { "fill": "#141A22", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#3A5068", "tint": "#90FFFFFF" }
+    },
+
+    "skilltree.node.available": {
+      "background": { "fill": "#16202E", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 },
+      "textColour": "#E6EAF2",
+      "hovered": { "background": { "fill": "#1C3246", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#22405A", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#1C3246", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5A6675", "tint": "#90FFFFFF" }
+    },
+
+    "skilltree.node.owned": {
+      "background": { "fill": "#20402F", "corner": 8, "border": "#4FBF7A", "borderWidth": 2 },
+      "textColour": "#E6EAF2",
+      "hovered": { "background": { "fill": "#295138", "corner": 8, "border": "#72D79A", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#2F5C41", "corner": 8, "border": "#72D79A", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#295138", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5A6675", "tint": "#90FFFFFF" }
+    },
+
+    "skilltree.node.maxed": {
+      "background": { "fill": "#4A3A18", "corner": 8, "border": "#FFC864", "borderWidth": 2 },
+      "textColour": "#FFF2D6",
+      "hovered": { "background": { "fill": "#5A4720", "corner": 8, "border": "#FFD98F", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#5A4720", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#9A8560", "tint": "#90FFFFFF" }
+    },
+
+    "skilltree.hold": { "background": { "fill": "#804CC2FF" } },
+    "skilltree.rank": { "textColour": "#9AA4B2", "text": { "size": 12 } },
+
+    "skilltree.edge.locked": { "background": { "fill": "#66223040" } },
+    "skilltree.edge.available": { "background": { "fill": "#CC4CC2FF" } },
+    "skilltree.edge.owned": { "background": { "fill": "#CC4FBF7A" } },
+    "skilltree.edge.fill": { "background": { "fill": "#FFB9F5CE" } },
+
+    // The crosshair. Off-white rather than white, because a pure white crosshair disappears over
+    // a bright sky; the hostile colour is the one thing on screen allowed to be that red.
+
+    // The button a player is being asked to press. A skin with a button atlas overrides this per
+    // button — "prompt.pad.south", "prompt.key.e" — and gets real art; this is what everything
+    // else falls back to.
+
+    "prompt": {
+      "background": { "fill": "#2A3A4E", "corner": 4, "border": "#6A7A96", "padding": [6, 0] },
+      "textColour": "#E6EAF2",
+      "text": { "size": 14 }
+    },
+
+    "reticle": { "background": { "fill": "#E6EAF2" } },
+    "reticle.hostile": { "background": { "fill": "#FF5A4F" } },
+    "reticle.hit": { "background": { "fill": "#FFFFFF" } },
+    "reticle.kill": { "background": { "fill": "#FF5A4F" } },
+
+    // The ticks that flash when a shot lands. A critical is warm and a kill is the same red the
+    // crosshair uses for something hostile, so the two colours on this screen mean one thing each.
+
+    "hitmarker": { "background": { "fill": "#FFFFFF" } },
+    "hitmarker.critical": { "background": { "fill": "#FFD16A" } },
+    "hitmarker.kill": { "background": { "fill": "#FF5A4F" } },
+
+    "progress.track": { "background": { "fill": "#223040", "corner": 4 } },
+    "progress.fill": { "background": { "fill": "#4CC2FF", "corner": 4 } },
+    "progress.fill.danger": { "background": { "fill": "#E5484D", "corner": 4 } },
+    "progress.fill.good": { "background": { "fill": "#46A758", "corner": 4 } },
+
+    // --- typing ---
+
+    "field": {
+      "background": { "fill": "#600E1116", "corner": 6, "border": "#304CC2FF", "padding": [10, 7] },
+      "hovered": { "background": { "fill": "#600E1116", "corner": 6, "border": "#604CC2FF" } },
+      "focused": { "background": { "fill": "#600E1116", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    "field.placeholder": { "textColour": "#5A6675" },
+    "field.caret": { "background": { "fill": "#E6EAF2" } },
+    "field.selection": { "background": { "fill": "#1A75AB" } },
+    "field.composition": { "background": { "fill": "#9AA4B2" } },
+
+    // Selected text in a label, inside a SelectionContainer. The same blue as a field's.
+    "selection": { "background": { "fill": "#1A75AB" } },
+
+    // The keyboard a pad player types with. A panel of buttons, tighter than a menu's, with Shift
+    // lit in the accent while the next letter is a capital.
+
+    "panel.keyboard": {
+      "background": { "fill": "#141A22", "corner": 8, "border": "#2A3A4E", "padding": 10 }
+    },
+
+    "button.key": {
+      "background": { "fill": "#1B2230", "corner": 4, "border": "#223040", "padding": [4, 7] },
+      "hovered": { "background": { "fill": "#2A3A4E", "corner": 4, "border": "#3A5068" } },
+      "focused": { "background": { "fill": "#15628F", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": {
+        "background": { "fill": "#141A22", "corner": 4, "border": "#223040" },
+        "contentOffset": [0, 1]
+      },
+      "disabled": { "textColour": "#5A6675", "tint": "#A0FFFFFF" }
+    },
+
+    "button.key.on": {
+      "background": { "fill": "#1A75AB", "corner": 4, "border": "#4CC2FF", "padding": [4, 7] },
+      "focused": { "background": { "fill": "#1E7EB5", "corner": 4, "border": "#E6EAF2", "borderWidth": 2 } }
+    },
+
+    // --- lists and menus ---
+
+    "item": {
+      "background": { "fill": "#00000000", "corner": 8, "padding": [12, 8] },
+      "textColour": "#9AA4B2",
+      "hovered": { "background": { "fill": "#184CC2FF", "corner": 8 }, "textColour": "#E6F4FF" },
+      "focused": { "background": { "fill": "#184CC2FF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 }, "textColour": "#E6F4FF" },
+      "pressed": { "background": { "fill": "#404CC2FF", "corner": 8 } }
+    },
+
+    "item.selected": {
+      "background": { "fill": "#304CC2FF", "corner": 8, "border": "#4CC2FF", "padding": [12, 8] },
+      "textColour": "#4CC2FF",
+      "hovered": { "background": { "fill": "#404CC2FF", "corner": 8, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#404CC2FF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    // A dropdown is a field that opens a list. Closed, it looks like something you can type into
+    // rather than a button, because it holds a value; its list is a raised panel of "item"s.
+
+    "dropdown": {
+      "background": { "fill": "#0B0E13", "corner": 4, "border": "#2A3A4E", "padding": [10, 7] },
+      "hovered": { "background": { "fill": "#141A22", "corner": 4, "border": "#3A5068" } },
+      "focused": { "background": { "fill": "#0B0E13", "corner": 4, "border": "#4CC2FF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#141A22", "corner": 4, "border": "#4CC2FF" } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "dropdown.list": {
+      "background": { "fill": "#1B2230", "corner": 4, "border": "#2A3A4E", "padding": 4 }
+    },
+
+    // A collapsing header is a section's title bar that folds the section away. Lit a step while
+    // open, so a column of them says which are open before anybody reads the triangles; the body's
+    // padding is how far the contents sit in under it.
+
+    "collapsingheader": {
+      "background": { "fill": "#141A22", "corner": 4, "padding": [8, 6] },
+      "hovered": { "background": { "fill": "#1B2230", "corner": 4 } },
+      "focused": { "background": { "fill": "#141A22", "corner": 4, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#223040", "corner": 4 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "collapsingheader.open": {
+      "background": { "fill": "#1B2230", "corner": 4, "padding": [8, 6] },
+      "hovered": { "background": { "fill": "#223040", "corner": 4 } },
+      "focused": { "background": { "fill": "#1B2230", "corner": 4, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#2A3A4E", "corner": 4 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "collapsingheader.glyph": {
+      "textColour": "#9AA4B2",
+      "hovered": { "textColour": "#E6EAF2" },
+      "focused": { "textColour": "#4CC2FF" },
+      "disabled": { "textColour": "#2A3A4E" }
+    },
+
+    "collapsingheader.body": { "padding": [12, 6] },
+
+    // --- tables ---
+    //
+    // A table is a panel with a strip of titles across the top. Every other row is a shade lighter
+    // so a long line of numbers can be followed across, the chosen row is the accent, and the
+    // divider between two titles is a hairline that lights up when the pointer finds it. Rows and
+    // the header have no padding of their own: the cells carry it, so titles and values line up.
+
+    "table": { "background": { "fill": "#141A22", "corner": 4, "border": "#223040", "padding": 2 } },
+    "table.header": { "background": { "fill": "#1B2230" } },
+
+    "table.header.cell": {
+      "background": "none",
+      "textColour": "#9AA4B2",
+      "padding": [8, 6],
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#223040" }, "textColour": "#E6EAF2" },
+      "focused": { "background": { "fill": "#223040", "border": "#4CC2FF" }, "textColour": "#E6EAF2" },
+      "pressed": { "background": { "fill": "#2A3A4E" } }
+    },
+
+    "table.header.cell.sorted": {
+      "background": "none",
+      "textColour": "#E6EAF2",
+      "padding": [8, 6],
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#223040" } },
+      "focused": { "background": { "fill": "#223040", "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#2A3A4E" } }
+    },
+
+    // The grab area is nine wide; the padding is what is left either side of the line drawn in it.
+    "table.divider": {
+      "background": { "fill": "#2A3A4E" },
+      "padding": [4, 6],
+      "hovered": { "background": { "fill": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#8ADBFF" } }
+    },
+
+    "table.row": {
+      "background": "none",
+      "hovered": { "background": { "fill": "#1B2230" } },
+      "focused": { "background": { "fill": "#1B2230", "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#223040" } }
+    },
+
+    "table.row.alt": {
+      "background": { "fill": "#172030" },
+      "hovered": { "background": { "fill": "#1B2230" } },
+      "focused": { "background": { "fill": "#1B2230", "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#223040" } }
+    },
+
+    "table.row.selected": {
+      "background": { "fill": "#15628F" },
+      "hovered": { "background": { "fill": "#1A75AB" } },
+      "focused": { "background": { "fill": "#15628F", "border": "#8ADBFF" } }
+    },
+
+    "table.cell": { "padding": [8, 5] },
+    "table.empty": { "textColour": "#9AA4B2", "padding": 16 },
+
+    // --- menus ---
+    //
+    // A menu bar is a strip of quiet titles, and the one whose menu is open is lit so the menu hanging
+    // under it is plainly its own. The menu is a raised panel of rows; the shortcut column is dimmer
+    // than the label, because it is a reminder and not the thing being chosen.
+
+    "menubar": { "background": { "fill": "#141A22", "border": "#223040", "padding": [4, 2] } },
+
+    "menubar.title": {
+      "background": { "fill": "#00000000", "corner": 4, "padding": [10, 5] },
+      "hovered": { "background": { "fill": "#1B2230", "corner": 4 } },
+      "focused": { "background": { "fill": "#1B2230", "corner": 4, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#223040", "corner": 4 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "menubar.title.open": {
+      "background": { "fill": "#15628F", "corner": 4, "padding": [10, 5] },
+      "focused": { "background": { "fill": "#15628F", "corner": 4, "border": "#8ADBFF" } }
+    },
+
+    "menu": {
+      "background": { "fill": "#1B2230", "corner": 4, "border": "#2A3A4E", "padding": 4 }
+    },
+
+    "menu.item": {
+      "background": "none",
+      "padding": [10, 5],
+      "hovered": { "background": { "fill": "#223040", "corner": 3 } },
+      "focused": { "background": { "fill": "#223040", "corner": 3, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#2A3A4E", "corner": 3 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "menu.item.open": {
+      "background": { "fill": "#223040", "corner": 3, "padding": [10, 5] }
+    },
+
+    "menu.shortcut": { "textColour": "#9AA4B2", "text": { "size": 14 } },
+    "menu.separator": { "background": { "fill": "#2A3A4E" } },
+    "menu.check": {
+      "background": { "fill": "#4CC2FF", "corner": 2 },
+      "disabled": { "tint": "#80FFFFFF" }
+    },
+    "menu.radio": {
+      "background": { "fill": "#4CC2FF", "corner": 7 },
+      "disabled": { "tint": "#80FFFFFF" }
+    },
+
+    // --- debug windows ---
+    //
+    // The floating tool windows from composegl-debug. Smaller type than a game's screens, because they
+    // sit over the game and are read up close. The window focus is in lights its edge and its title bar,
+    // so a player with three open can see which one the keys are going to.
+
+    "debugwindow": { "background": { "fill": "#EE141A22", "corner": 5, "border": "#2A3A4E", "padding": 1 } },
+    "debugwindow.active": { "background": { "fill": "#F2141A22", "corner": 5, "border": "#4CC2FF", "padding": 1 } },
+    "debugwindow.title": {
+      "background": { "fill": "#1B2230", "corner": 4, "padding": [6, 4] },
+      "textColour": "#9AA4B2",
+      "text": { "size": 14 }
+    },
+    "debugwindow.title.active": {
+      "background": { "fill": "#15628F", "corner": 4, "padding": [6, 4] },
+      "textColour": "#E6EAF2",
+      "text": { "size": 14 }
+    },
+    "debugwindow.button": {
+      "background": { "fill": "#00000000", "corner": 3, "padding": 3 },
+      "textColour": "#C5CDD8",
+      "hovered": { "background": { "fill": "#2A3A4E", "corner": 3 }, "textColour": "#FFFFFF" },
+      "focused": { "background": { "fill": "#2A3A4E", "corner": 3, "border": "#4CC2FF" }, "textColour": "#FFFFFF" },
+      "pressed": { "background": { "fill": "#3A5068", "corner": 3 } }
+    },
+    "debugwindow.body": { "padding": [8, 6] },
+    "debugwindow.label": { "textColour": "#9AA4B2", "text": { "size": 14 } },
+    "debugwindow.value": { "textColour": "#E6EAF2", "text": { "size": 14 } },
+    "debugwindow.grip": { "background": { "fill": "#2A3A4E", "corner": 2 } },
+
+    // A docked pane wears tabs where a floating window wears a title, and the strip they sit on is
+    // that title bar: lit blue while the pane has the keys, quiet grey when it does not. So the tabs
+    // are pitched against the bar rather than copied from it. The one showing is a shade above the
+    // bar with a light edge, and stands proud on either one; the rest are a shade below it and sink
+    // into it. Matching the bar's own colours would leave the chosen tab invisible on a lit strip
+    // and the unchosen ones looking like the raised chips, which is the wrong way round.
+
+    "debugwindow.tab": {
+      "background": { "fill": "#151D2A", "corner": 3, "padding": [8, 2] },
+      "textColour": "#9AA4B2",
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#223040", "corner": 3 }, "textColour": "#E6EAF2" },
+      "focused": { "background": { "fill": "#223040", "corner": 3, "border": "#4CC2FF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#2A3A4E", "corner": 3 }, "textColour": "#E6EAF2" }
+    },
+    "debugwindow.tab.selected": {
+      "background": { "fill": "#1B6FA2", "corner": 3, "border": "#6ACFFF", "padding": [8, 2] },
+      "textColour": "#E6EAF2",
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#1E7EB5", "corner": 3, "border": "#6ACFFF" }, "textColour": "#FFFFFF" },
+      "focused": { "background": { "fill": "#1B6FA2", "corner": 3, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#15628F", "corner": 3, "border": "#6ACFFF" } }
+    },
+
+    // Where a dragged window would land, and the squares it is dropped on: a wash the size of the
+    // pane, and small plates over the middle of a window and round the edges of the screen.
+
+    "debugwindow.dock": { "background": { "fill": "#4C4CC2FF", "corner": 4, "border": "#4CC2FF" } },
+    "debugwindow.dock.target": { "background": { "fill": "#D91B2230", "corner": 4, "border": "#4CC2FF" } },
+    "debugwindow.dock.target.active": { "background": { "fill": "#F24CC2FF", "corner": 4, "border": "#E6EAF2" } },
+
+    // --- trees ---
+    //
+    // Rows as quiet as a list's until they are hovered or chosen. The arrow is dimmer than the words,
+    // and the indent guides dimmer still: they are there to be followed, not read.
+
+    "tree.row": {
+      "background": "none",
+      "padding": [6, 3],
+      "hovered": { "background": { "fill": "#1B2230", "corner": 3 } },
+      "focused": { "background": { "fill": "#1B2230", "corner": 3, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#223040", "corner": 3 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "tree.row.selected": {
+      "background": { "fill": "#15628F", "corner": 3, "padding": [6, 3] },
+      "hovered": { "background": { "fill": "#1A75AB", "corner": 3 } },
+      "focused": { "background": { "fill": "#15628F", "corner": 3, "border": "#8ADBFF" } }
+    },
+
+    "tree.toggle": { "textColour": "#9AA4B2", "hovered": { "textColour": "#FFFFFF" } },
+    "tree.toggle.open": { "textColour": "#9AA4B2", "hovered": { "textColour": "#FFFFFF" } },
+    "tree.guide": { "background": { "fill": "#2A3A4E" } },
+
+    // --- tabs ---
+    //
+    // A heading rather than a button: flat until it is the chosen one, which is the one thing a
+    // player reads off a row of tabs at a glance.
+
+    "tab": {
+      "background": { "fill": "#00000000", "corner": 4, "padding": [12, 6] },
+      "textColour": "#9AA4B2",
+      "hovered": { "background": { "fill": "#141A22", "corner": 4 }, "textColour": "#E6EAF2" },
+      "focused": { "background": { "fill": "#141A22", "corner": 4, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5A6675" }
+    },
+
+    "tab.selected": {
+      "background": { "fill": "#1B2230", "corner": 4, "border": "#4CC2FF", "padding": [12, 6] },
+      "textColour": "#E6EAF2",
+      "hovered": { "background": { "fill": "#223040", "corner": 4, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#1B2230", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    "scrollbar.track": { "background": { "fill": "#141A22", "corner": 4 } },
+    "scrollbar.thumb": {
+      "background": { "fill": "#2A3A4E", "corner": 4 },
+      "hovered": { "background": { "fill": "#3A5068", "corner": 4 } }
+    },
+
+    // --- the pad's cursor ---
+    //
+    // On a console this ring is not decoration, it is the only thing telling a player where they
+    // are, so it is bright and it is its own style for a game to make brighter.
+
+    "focusRing": {
+      "background": { "fill": "#00000000", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 }
+    },
+
+    // --- live plots ---
+    //
+    // The graphs in composegl-debug: a frame time, a ping, a count per bucket. A dark box with a
+    // bright trace on it, a translucent wash underneath and a dim rule across it at whatever value
+    // the caller asked to be able to see. The box is padded because the readout is written in its
+    // corners, over the graph.
+
+    "plot": {
+      "background": { "fill": "#0A0D12", "border": "#223040", "padding": [6, 4] },
+      "textColour": "#C9D3E0"
+    },
+
+    "plot.label": { "textColour": "#7C8798", "text": { "size": 11 } },
+    "plot.value": { "textColour": "#E6EAF2", "text": { "size": 11 } },
+
+    "plot.line": { "textColour": "#8ADBFF" },
+    "plot.fill": { "textColour": "#402BB0FF" },
+    "plot.guide": { "textColour": "#3A4A60" },
+    "plot.cursor": { "textColour": "#E8A33D" },
+    "plot.bar": { "textColour": "#8ADBFF" },
+
+    // --- the developer console ---
+    //
+    // The drop-down console in composegl-debug: a panel over the top of the game with a log in it,
+    // one colour a level so a warning is seen before it is read. Its prompt has a field style of
+    // its own rather than the plain one, because a console's prompt is a line with a caret on it
+    // rather than a box on a form.
+
+    "console": {
+      "background": { "fill": "#0A0D12", "border": "#223040", "padding": 10 },
+      "textColour": "#C9D3E0"
+    },
+
+    "console.title": { "textColour": "#7C8798", "text": { "size": 13 } },
+    "console.prompt": { "textColour": "#4CC2FF" },
+
+    "console.line": { "textColour": "#C9D3E0", "text": { "size": 14 } },
+    "console.line.debug": { "textColour": "#8A93A3", "text": { "size": 14 } },
+    "console.line.info": { "textColour": "#C9D3E0", "text": { "size": 14 } },
+    "console.line.warn": { "textColour": "#E8A33D", "text": { "size": 14 } },
+    "console.line.error": { "textColour": "#FF7B7E", "text": { "size": 14 } },
+    "console.line.echo": { "textColour": "#8ADBFF", "text": { "size": 14 } },
+
+    "console.suggestion": { "textColour": "#9AA4B2", "padding": [6, 2], "text": { "size": 14 } },
+    "console.suggestion.selected": {
+      "background": { "fill": "#1A3044", "corner": 3 },
+      "textColour": "#E6EAF2",
+      "padding": [6, 2],
+      "text": { "size": 14 }
+    },
+
+    "console.field": {
+      "background": { "fill": "#00000000", "padding": [2, 3] },
+      "textColour": "#E6EAF2"
+    },
+    "console.field.placeholder": { "textColour": "#5A6675" },
+    "console.field.caret": { "background": { "fill": "#E6EAF2" } },
+    "console.field.selection": { "background": { "fill": "#1A75AB" } },
+    "console.field.composition": { "background": { "fill": "#9AA4B2" } }
+  }
+}

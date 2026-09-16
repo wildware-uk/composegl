@@ -18,6 +18,37 @@ description = "The showcase in a browser tab: WebAssembly, drawn with WebGL. Wha
  * `:composegl-demo-web:wasmJsBrowserDistribution` writes the folder the Pages workflow publishes —
  * an `index.html`, the `.wasm`, the script that loads it and the fonts.
  */
+/**
+ * The toolkit's list of every style name a widget asks for, copied out of composegl-ui's tests.
+ *
+ * `ShowcaseSkinsTest` holds the demo's look to it. Copied rather than depended on: it is test code
+ * in another module, and a copy made by the build cannot drift from the original.
+ */
+val toolkitStyleNames = tasks.register<Sync>("toolkitStyleNames") {
+    description = "Copies composegl-ui's list of style names for the demo's skin test."
+    from(rootProject.layout.projectDirectory.dir("composegl-ui/src/commonTest/kotlin")) {
+        include("dev/wildware/composegl/ui/skin/StyleNames.kt")
+    }
+    into(layout.buildDirectory.dir("generated/style-names"))
+}
+
+/** The demo's skin files, embedded as Kotlin source so the browser needs nothing loaded to wear them. */
+val embeddedSkins = listOf(
+    Triple("embedShowcaseLook", "showcase.json", "SHOWCASE_LOOK_JSON"),
+    Triple("embedTourExtras", "extras.json", "TOUR_EXTRAS_JSON"),
+    Triple("embedHighContrastTourExtras", "high-contrast-extras.json", "HIGH_CONTRAST_TOUR_EXTRAS_JSON"),
+).map { (task, file, property) ->
+    tasks.register<EmbedTextAsSource>(task) {
+        description = "Turns the demo's $file into a Kotlin source file."
+        group = "build"
+        source.set(layout.projectDirectory.file("src/commonMain/skins/$file"))
+        packageName.set("dev.wildware.composegl.demo.web")
+        propertyName.set(property)
+        // A directory each: two tasks writing into one would each count the other's file as stale.
+        outputDirectory.set(layout.buildDirectory.dir("generated/skins/$task"))
+    }
+}
+
 kotlin {
     jvm()
 
@@ -33,11 +64,19 @@ kotlin {
         // Talking to the page is wasm only; the marker does not exist on the JVM.
         matching { it.name.startsWith("wasmJs") }.configureEach { languageSettings.optIn("kotlin.js.ExperimentalWasmJsInterop") }
 
+        commonMain {
+            embeddedSkins.forEach { kotlin.srcDir(it) }
+        }
+
         commonMain.dependencies {
             implementation(project(":composegl-ui"))
             implementation(project(":composegl-effects"))
             implementation(project(":composegl-game"))
             implementation(project(":composegl-debug"))
+        }
+
+        jvmTest {
+            kotlin.srcDir(toolkitStyleNames)
         }
 
         jvmTest.dependencies {

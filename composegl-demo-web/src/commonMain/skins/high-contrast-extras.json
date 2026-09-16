@@ -1,0 +1,27 @@
+{
+  // The tour's own styles again, loud, laid over the toolkit's high-contrast skin.
+  //
+  // The same names as extras.json. Black behind, pure colour in front, and every edge at least two
+  // pixels, the same bar the high-contrast skin holds itself to.
+
+  "styles": {
+
+    "card": { "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "borderWidth": 2, "padding": 16 } },
+
+    "code": { "textColour": "#FFFF00", "text": { "size": 13 } },
+
+    "bar.shield.track": { "background": { "fill": "#000000", "border": "#FFFFFF", "borderWidth": 2 } },
+    "bar.shield.fill": { "background": { "fill": "#00E5FF" } },
+    "bar.shield.trail": { "background": { "fill": "#FFFFFF" } },
+    "bar.shield.segment": { "background": { "fill": "#000000" } },
+
+    "bar.stamina.track": { "background": { "fill": "#000000", "border": "#FFFFFF", "borderWidth": 2 } },
+    "bar.stamina.fill": { "background": { "fill": "#00FF66" } },
+    "bar.stamina.trail": { "background": { "fill": "#FFFFFF" } },
+    "bar.stamina.segment": { "background": { "fill": "#000000" } },
+
+    "minimap.objective": { "background": { "fill": "#FFFF00" } },
+
+    "chat.squad": { "textColour": "#00FF66", "text": { "size": 14 } }
+  }
+}
