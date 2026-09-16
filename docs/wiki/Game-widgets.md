@@ -567,13 +567,19 @@ subs.show("We are through the gate.", speaker = "Mira", durationMillis = 3_200)
 subs.caption("[a door slams somewhere below]")
 ```
 
-![a subtitle band over a scene: Mira in blue over two centred lines, with a caption under them](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-subtitles.png)
+![a subtitle band over a scene at dusk: Mira's line in blue, and under it Ander's in amber, both up at once](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-subtitles-scene.png)
 
 A queue, not a list. A cutscene hands over its whole script at once and only
 `capacity` lines are up at a time — two by default, so a caption for a sound can
 sit under the sentence somebody is speaking, which is the case captions exist
 for. The rest wait their turn, `waiting` says how many, and `dismiss` skips one
 and lets the next in straight away.
+
+Five lines handed over in one go, playing out on the clock: each one leaves when
+its time is up, the one behind it takes the place, and when there is nothing left
+to say there is no band at all.
+
+![a subtitle band playing a five-line scene: lines leave as their time runs out and the ones waiting take their place, and at the end the band disappears](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-subtitles-run.gif)
 
 **You do not have to time a line.** `durationMillis = 0` works it out from how
 long the line is, at `charactersPerSecond` and never under `minimumMillis` —
@@ -595,6 +601,12 @@ Toggle(subtitles.speakerNames, { subtitles = subtitles.copy(speakerNames = it) }
 | `backgroundOpacity` | how solid the band is, 0 to 1. The words stay at full strength whatever it is — text faded to match its own background is text nobody can read. |
 | `speakerNames` | whether who is speaking is written above the line. |
 | `maxLines`, `widthFraction` | where the words wrap and where they stop. The width is a fraction of the room the band was given, so the setting means the same on a handheld and on a television. |
+
+The same line with one setting changed each time. The sizes are drawn at fonts
+baked at that size rather than stretched to it, and at `0.25` the band lets the
+sunset through:
+
+![the same subtitle five times: Small, Medium and Huge, then one with the background turned down to a quarter, then one with speaker names off](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-subtitles-options.png)
 
 **Register the font sizes the presets can reach**, or the first player to pick
 Large gets a crash rather than bigger words:
@@ -643,6 +655,18 @@ happening.
   fired through the band.
 - **An idle queue costs nothing**: nothing composed, nothing drawn, and no frame
   asked for.
+
+One long sentence, three settings: wrapped to the three-line limit, cut off with
+an ellipsis at two, and wrapped sooner in a narrower band.
+
+![the same long line three times: over three lines, cut off with an ellipsis at two lines, and in a narrower band](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-subtitles-wrapping.png)
+
+The same moment of the same scene in English and in Hebrew, through the
+high-contrast skin. Nothing is set on the widget for the second one: the words
+run right to left because the text stack lays them out that way, and the band
+stays in the middle, which is the same place in both.
+
+![the same two-speaker moment twice through the high-contrast skin, in English left to right and in Hebrew right to left, names in yellow](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-subtitles-rtl.png)
 
 Skin: `subtitle` is the band and the words on it, `subtitle.speaker` is the name
 above a line, `subtitle.caption` is a sound written down. A line may name a style

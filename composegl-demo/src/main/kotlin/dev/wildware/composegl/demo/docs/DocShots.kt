@@ -76,6 +76,8 @@ import dev.wildware.composegl.game.RadialCooldown
 import dev.wildware.composegl.game.RadialMenu
 import dev.wildware.composegl.game.Reticle
 import dev.wildware.composegl.game.SubtitleQueue
+import dev.wildware.composegl.game.SubtitleSettings
+import dev.wildware.composegl.game.SubtitleSize
 import dev.wildware.composegl.game.Subtitles
 import dev.wildware.composegl.game.rememberCompassLabels
 import dev.wildware.composegl.game.rememberCooldown
@@ -271,6 +273,7 @@ internal fun docShots(): List<DocShot> = buildList {
     compasses()
     wheels()
     firefight()
+    subtitleScenes()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -1708,28 +1711,6 @@ private fun MutableList<DocShot>.game() {
                     // Behind the player, so it is pinned to the end with an arrow on it.
                     pin(bearing = 200f, distance = 410f, fadeWithDistance = true)
                 }
-            }
-        }
-    })
-
-    // The toolkit's own skin again: the band, the speaker's colour and the caption under it are
-    // what the picture is of. The queue has no clock, so it says the same thing every time.
-    add(DocShot("game-subtitles", 520, 150, stock = true) {
-        Frame {
-            // A stand-in for the scene, because the band is the thing that has to stay readable
-            // over one — on a flat dark page it would be invisible and the picture would be a lie.
-            Box(Modifier.fillMaxSize().background(Brush.vertical(Steel, Ink))) {
-                val subs = remember {
-                    SubtitleQueue(capacity = 2, clock = null).apply {
-                        show("We are through the gate. Keep to the wall and stay quiet.", speaker = "Mira")
-                        caption("[a door slams somewhere below]")
-                    }
-                }
-                Subtitles(
-                    subs,
-                    Modifier.align(Alignment.Centre),
-                    speakerColours = mapOf("Mira" to Colour.rgb(0x5B8DEF)),
-                )
             }
         }
     })
@@ -5580,3 +5561,272 @@ private val HebrewFight = Strings(
         Locale("he") to mapOf("health" to "בריאות"),
     ),
 )
+
+// ---------------------------------------------------------------- subtitles and captions
+
+/**
+ * The band, over a scene, running.
+ *
+ * Nothing here is posed. Every picture starts one queue, hands it the whole conversation at once
+ * the way a cutscene does, and photographs it however many real seconds later the shot asks for —
+ * so the lines that are up are the lines the queue decided were up at that moment, in the order it
+ * decided, with the rest really waiting their turn behind them.
+ */
+private fun MutableList<DocShot>.subtitleScenes() {
+    // Two seconds in: Mira's line has nearly run out and Ander's has already taken the place the
+    // caption left, so both speakers are up at once, each name in their own colour.
+    add(
+        DocShot("game-subtitles-scene", SceneWidth, SceneHeight, stock = true, seconds = SceneStill) {
+            Frame { SubtitleGround { PlayingScene() } }
+        },
+    )
+
+    // A long line has to wrap, and a line limit has to cut. Three queues, three settings, the same
+    // sentence: the words break where the text stack breaks them, and the band is only ever as wide
+    // as its longest line.
+    add(
+        DocShot("game-subtitles-wrapping", 620, 470, stock = true) {
+            Frame {
+                SubtitleGround {
+                    Column(
+                        Modifier.align(Alignment.Centre),
+                        verticalArrangement = Arrangement.spacedBy(12f),
+                        horizontalAlignment = HorizontalAlignment.Centre,
+                    ) {
+                        SubtitleSample("wrapped to three lines, which is the line limit", SubtitleSettings())
+                        SubtitleSample("maxLines = 2: the rest is cut off", SubtitleSettings(maxLines = 2))
+                        SubtitleSample(
+                            "widthFraction = 0.45: narrower, so it wraps sooner",
+                            SubtitleSettings(widthFraction = 0.45f),
+                        )
+                    }
+                }
+            }
+        },
+    )
+
+    // The player's own settings, over a lit scene so that the band's opacity is something you can
+    // see rather than a number. The sizes are the presets, each drawn at its own baked font size
+    // rather than stretched, and none of them touches the interface's own text scale.
+    add(
+        DocShot("game-subtitles-options", 620, 540, stock = true) {
+            Frame {
+                SubtitleGround {
+                    Column(
+                        Modifier.align(Alignment.Centre),
+                        verticalArrangement = Arrangement.spacedBy(9f),
+                        horizontalAlignment = HorizontalAlignment.Centre,
+                    ) {
+                        SubtitleSample("size = Small", SubtitleSettings(size = SubtitleSize.Small), Spoken)
+                        SubtitleSample("size = Medium, the default", SubtitleSettings(), Spoken)
+                        SubtitleSample("size = Huge", SubtitleSettings(size = SubtitleSize.Huge), Spoken)
+                        SubtitleSample(
+                            "backgroundOpacity = 0.25: the scene shows through",
+                            SubtitleSettings(backgroundOpacity = 0.25f),
+                            Spoken,
+                        )
+                        SubtitleSample(
+                            "speakerNames = off: the same line with nobody's name over it",
+                            SubtitleSettings(speakerNames = false),
+                            Spoken,
+                        )
+                    }
+                }
+            }
+        },
+    )
+
+    // The high-contrast skin, and the same scene in two languages. The band is centred either way —
+    // centre is the same place in both — and the Hebrew is laid out right to left by the text stack
+    // with nothing set on the widget.
+    add(
+        DocShot("game-subtitles-rtl", 620, 410, seconds = SceneStill) {
+            ProvideSkin(Skin.HighContrast) {
+                Frame {
+                    SubtitleGround {
+                        Column(
+                            Modifier.align(Alignment.Centre),
+                            verticalArrangement = Arrangement.spacedBy(16f),
+                            horizontalAlignment = HorizontalAlignment.Centre,
+                        ) {
+                            LocalisedSubtitles("English, read left to right", LayoutDirection.Ltr, SubtitleScript)
+                            LocalisedSubtitles("Hebrew, read right to left", LayoutDirection.Rtl, HebrewScript)
+                        }
+                    }
+                }
+            }
+        },
+    )
+
+    // The whole conversation as a moving picture, each frame the same queue photographed a little
+    // later: a line runs out, the one waiting behind it takes its place, and at the end there is
+    // nothing left to say and no band at all. Only when asked for, because they are frames to be
+    // joined into a GIF rather than pictures of their own: `COMPOSEGL_DOC_FRAMES=1`, then join
+    // `game-subtitles-run-frame-*.png` in order, 0.15 s each, which is the speed it really ran.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(RunFrames) { i ->
+            val name = "game-subtitles-run-frame-${i.toString().padStart(2, '0')}"
+            add(
+                DocShot(name, SceneWidth, SceneHeight, stock = true, seconds = i * RunStep) {
+                    Frame { SubtitleGround { PlayingScene() } }
+                },
+            )
+        }
+    }
+}
+
+/** How wide and tall the pictures of the scene are. */
+private const val SceneWidth = 580
+private const val SceneHeight = 210
+
+/** Where the still of the conversation is taken: both speakers up, Mira's line nearly out. */
+private const val SceneStill = 1.9f
+
+/** One frame of the GIF every this long, for as many as the conversation lasts. */
+private const val RunStep = 0.15f
+private const val RunFrames = 39
+
+/** How much of the stand-in scene is ground rather than sky. */
+private const val GroundHeight = 92f
+
+/** Long enough that a line said at the start of a picture is still being said when it is taken. */
+private const val ShotLong = 60_000
+
+/** One thing said in the scene every picture here is taken from. */
+private data class Said(
+    val text: String,
+    val speaker: String? = null,
+    val millis: Int = 0,
+    val caption: Boolean = false,
+)
+
+/**
+ * Two people through a gate they should not be through, and the sounds around them.
+ *
+ * Handed over in one go, the way a cutscene hands its script over. Two are up at a time, so a
+ * caption for a sound can sit under the sentence somebody is speaking and the rest wait.
+ */
+private val SubtitleScript = listOf(
+    Said("We are through the gate. Keep to the wall and stay quiet.", speaker = "Mira", millis = 2_000),
+    Said("[a door slams somewhere below]", caption = true, millis = 1_500),
+    Said("Then they know we are here. Two on the stairs, one on the landing.", speaker = "Ander", millis = 2_200),
+    Said("[boots on stone, getting closer]", caption = true, millis = 1_500),
+    Said("Hold. Let them pass, and we take the landing behind them.", speaker = "Mira", millis = 2_200),
+)
+
+/** The same scene in the player's own language, for the picture of a right-to-left one. */
+private val HebrewScript = listOf(
+    Said("עברנו את השער. הישארו צמודים לקיר ושמרו על שקט.", speaker = "מירה", millis = 2_000),
+    Said("[דלת נטרקת למטה]", caption = true, millis = 1_500),
+    Said("אז הם יודעים שאנחנו כאן. שניים במדרגות, אחד על המשטח.", speaker = "אנדר", millis = 2_200),
+)
+
+/** One short line, said once and still being said when the shutter goes. */
+private val Spoken = listOf(
+    Said("Keep to the wall and stay quiet.", speaker = "Mira", millis = ShotLong),
+)
+
+/** One line far too long for the band, for the pictures of wrapping and of a line limit. */
+private val LongSpoken = listOf(
+    Said(
+        "They came up through the old service tunnels while we were still arguing about the gate, " +
+            "and now they are between us and the boat.",
+        speaker = "Mira",
+        millis = ShotLong,
+    ),
+)
+
+/** Who is speaking, and the colour their name is written in: a cast fixed at the start of a scene. */
+private val SpeakerColours = mapOf(
+    "Mira" to Colour.rgb(0x5B8DEF),
+    "Ander" to Colour.rgb(0xE0A34E),
+)
+
+/** A queue with [script] already said into it, timed on the ordinary interface clock. */
+@Composable
+private fun rememberScript(script: List<Said>): SubtitleQueue = remember(script) {
+    SubtitleQueue().apply {
+        script.forEach { line ->
+            if (line.caption) caption(line.text, line.millis) else show(line.text, line.speaker, line.millis)
+        }
+    }
+}
+
+/**
+ * A stand-in for the game the band is read over.
+ *
+ * Lit towards the bottom on purpose: a band only ever photographed over black is a band nobody has
+ * checked, and the background opacity setting is about what happens over a bright scene.
+ */
+@Composable
+private fun SubtitleGround(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            // A sky going from night at the top to a low sun at the horizon, and pale ground under
+            // it — which is where the band hangs, and the hardest thing to read white words over.
+            Box(
+                Modifier.weight(1f).fillMaxWidth()
+                    .background(Brush.vertical(Colour.rgb(0x15202F), Colour.rgb(0xE7C79B))),
+            )
+            Box(
+                Modifier.fillMaxWidth().height(GroundHeight)
+                    .background(Brush.vertical(Colour.rgb(0xB49A74), Colour.rgb(0x6E6250))),
+            )
+        }
+        content()
+    }
+}
+
+/** The conversation playing, where a game would put it: bottom centre, up out of the edge. */
+@Composable
+private fun PlayingScene() {
+    Subtitles(
+        rememberScript(SubtitleScript),
+        Modifier.align(Alignment.BottomCentre).padding(bottom = 16f).fillMaxWidth(),
+        speakerColours = SpeakerColours,
+    )
+}
+
+/** One band with one setting changed, under a caption saying which. */
+@Composable
+private fun SubtitleSample(
+    caption: String,
+    settings: SubtitleSettings,
+    script: List<Said> = LongSpoken,
+) {
+    Column(horizontalAlignment = HorizontalAlignment.Centre, verticalArrangement = Arrangement.spacedBy(4f)) {
+        SampleCaption(caption)
+        Subtitles(rememberScript(script), Modifier.width(520f), settings = settings, speakerColours = SpeakerColours)
+    }
+}
+
+/**
+ * What a picture's caption is written on.
+ *
+ * On a chip of its own, because these sit over a sky that runs from night to sunset and pale words
+ * are only readable over one half of that. The bands underneath need no such help: a subtitle band
+ * carrying its own background is the whole point of it.
+ */
+@Composable
+private fun SampleCaption(text: String) {
+    Text(
+        text,
+        Modifier.background(Colour.rgb(0x0B0E13).scaleAlpha(0.82f), corner = 3f).padding(horizontal = 6f, vertical = 2f),
+        style = "label.dim",
+    )
+}
+
+/**
+ * The same moment of the same scene, in one language, laid out the way that language runs.
+ *
+ * No speaker colours of its own: the high-contrast skin has an opinion about what a name is
+ * written in, and a picture of that skin that painted over it would be a picture of nothing.
+ */
+@Composable
+private fun LocalisedSubtitles(caption: String, direction: LayoutDirection, script: List<Said>) {
+    Column(horizontalAlignment = HorizontalAlignment.Centre, verticalArrangement = Arrangement.spacedBy(5f)) {
+        // English either way: a caption on the picture rather than anything the scene says.
+        ProvideLayoutDirection(LayoutDirection.Ltr) { SampleCaption(caption) }
+        ProvideLayoutDirection(direction) { Subtitles(rememberScript(script), Modifier.width(560f)) }
+    }
+}
