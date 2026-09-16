@@ -290,6 +290,13 @@
     "damage": { "textColour": "#FFE9A8", "text": { "size": 16 } },
     "damage.critical": { "textColour": "#FF7A45", "text": { "size": 20 } },
 
+    // --- a marker held at the edge of the screen ---
+    //
+    // What is inside a world marker is the game's own interface, so the only thing the layer draws
+    // itself is the little triangle beside a marker it is holding at the edge, turned to point at
+    // where the thing really is. Pale, because it is read against whatever the game draws behind it.
+    "marker.arrow": { "background": { "fill": "#E8ECF2" } },
+
     // --- where the player is ---
     //
     // A ring outside the thing it marks, with its padding there whether the ring is drawn or not,

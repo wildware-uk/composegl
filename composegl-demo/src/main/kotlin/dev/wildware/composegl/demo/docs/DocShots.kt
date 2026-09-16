@@ -15,7 +15,11 @@ import dev.wildware.composegl.debug.rememberDebugWindowsState
 import dev.wildware.composegl.ui.debug.FrameBudget
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.math.sqrt
+import kotlin.math.tan
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
@@ -54,6 +58,10 @@ import dev.wildware.composegl.game.Hotbar
 import dev.wildware.composegl.game.HotbarSlot
 import dev.wildware.composegl.game.MinimapFrame
 import dev.wildware.composegl.game.MinimapMarker
+import dev.wildware.composegl.game.OffScreen
+import dev.wildware.composegl.game.WorldMarkerLayer
+import dev.wildware.composegl.game.WorldPoint
+import dev.wildware.composegl.game.WorldProjection
 import dev.wildware.composegl.game.RadialCooldown
 import dev.wildware.composegl.game.Reticle
 import dev.wildware.composegl.game.rememberCooldown
@@ -242,6 +250,7 @@ internal fun docShots(): List<DocShot> = buildList {
     debugWindows()
     plots()
     nodeTree()
+    worldMarkers()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -4095,3 +4104,492 @@ private class DocSalvage {
 private fun Salvage(state: DocSalvage, modifier: Modifier) {
     Text("SALVAGE ${state.amount}", modifier, style = "label.heading")
 }
+
+// ---------------------------------------------------------------- world markers
+
+/**
+ * Interface pinned to points in the world, over a patrol seen through a camera that really turns.
+ *
+ * Every picture here is the same walk: the camera starts facing away from the objective, turns
+ * left and steps forward, and each shot is that one camera a different number of seconds in. The
+ * perspective divide is a real one — the same projection draws the figures on the ground and
+ * places the markers over them — so a nameplate sits over its enemy because the sums agree, not
+ * because anything was nudged into place.
+ */
+private fun MutableList<DocShot>.worldMarkers() {
+    // Three quarters of a second in, where the camera has swung round far enough for the patrol to
+    // spread out in front of it. Nameplates over nine of them at nine different ranges, shrinking
+    // and thinning with distance; the objective is still off to the left, held at the edge with a
+    // triangle turned towards it and the metres left under it.
+    add(DocShot("game-world-markers", MarkerWidth, MarkerHeight, seconds = MarkerStillSecond) {
+        MarkerScene(Size(MarkerWidth.toFloat(), MarkerHeight.toFloat()))
+    })
+
+    // The same moment twice, one above the other: every marker on top, and underneath the same
+    // layer told to keep five and to drop anything sitting on top of something it has already
+    // kept. What survives is the objective, which asked for the highest priority, and the nearest
+    // four of the patrol; the far ones along the horizon are the ones that go.
+    add(DocShot("game-world-markers-declutter", MarkerStackWidth, MarkerStackHeight, seconds = MarkerStillSecond) {
+        Frame {
+            Column(verticalArrangement = Arrangement.spacedBy(MarkerGap)) {
+                MarkerPanel("every marker") { size -> MarkerScene(size, hud = false) }
+                MarkerPanel("maxVisible = 5, declutter = true") { size ->
+                    MarkerScene(size, maxVisible = 5, declutter = true, hud = false)
+                }
+            }
+        }
+    })
+
+    // The high-contrast skin reading from the right. The world is not mirrored — a game draws its
+    // scene where its own code puts it — and neither is where a marker lands, because a world is a
+    // picture rather than a line of text. What does turn round is the writing: the strip along the
+    // top, and the range under the waypoint.
+    add(DocShot("game-world-markers-rtl", MarkerWidth, MarkerHeight, seconds = MarkerRtlSecond) {
+        ProvideSkin(Skin.HighContrast) {
+            ProvideLayoutDirection(LayoutDirection.Rtl) {
+                MarkerScene(Size(MarkerWidth.toFloat(), MarkerHeight.toFloat()), mirrored = true)
+            }
+        }
+    })
+
+    // The same camera a little later each time, for the animated one. Only when asked for, because
+    // they are frames to be joined into a GIF rather than pictures of their own:
+    // `COMPOSEGL_DOC_FRAMES=1`, then join `game-world-markers-frame-*.png` in order, 0.12 s each,
+    // which is the real time between them and so the speed the camera really turned at.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(MarkerFrames) { i ->
+            val name = "game-world-markers-frame-${i.toString().padStart(2, '0')}"
+            add(DocShot(name, MarkerWidth, MarkerHeight, seconds = MarkerFirstSecond + i * MarkerFrameStep) {
+                MarkerScene(Size(MarkerWidth.toFloat(), MarkerHeight.toFloat()))
+            })
+        }
+    }
+}
+
+/** How big every world-marker picture is. */
+private const val MarkerWidth = 560
+private const val MarkerHeight = 300
+
+/** The decluttering picture: the same scene twice, with a line of writing over each. */
+private const val MarkerStackWidth = 588
+private const val MarkerStackHeight = 640
+
+/** The gap between the two halves of the decluttering picture. */
+private const val MarkerGap = 8f
+
+/** When the still pictures are taken, in seconds into the camera's turn. */
+private const val MarkerStillSecond = 0.75f
+private const val MarkerRtlSecond = 1.35f
+
+/** The animated picture: how many frames, when the first is taken, and how far apart they are. */
+private const val MarkerFrames = 20
+private const val MarkerFirstSecond = 0.05f
+private const val MarkerFrameStep = 0.12f
+
+/**
+ * One half of the decluttering picture: a caption, and a scene in a box of its own.
+ *
+ * The scene is given the size of that box rather than the size of the window, because a
+ * `WorldMarkerLayer` projects into its own box: this is the split-screen case with the split drawn
+ * by hand, and neither half is told the other one exists.
+ */
+@Composable
+private fun MarkerPanel(caption: String, content: @Composable (Size) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(5f)) {
+        Text(caption, style = "label.dim")
+        Box(Modifier.width(MarkerWidth.toFloat()).height(MarkerPanelHeight).clip(6f)) {
+            content(Size(MarkerWidth.toFloat(), MarkerPanelHeight))
+        }
+    }
+}
+
+/** How tall each half of the decluttering picture is, once its caption has had its line. */
+private const val MarkerPanelHeight = 278f
+
+/**
+ * The patrol, the camera, and the markers over it.
+ *
+ * The camera's turn is driven from a frame callback rather than from the composition, and it is
+ * started before the layer is composed so that the layer's own frame callback reads the angle this
+ * one has already written: a nameplate a frame behind its enemy is a nameplate that visibly slides
+ * about.
+ *
+ * @param view how big the layer's box is. The projection needs it — the last step of a perspective
+ *   divide is turning a number between -1 and 1 into a pixel — and so does the scene under it, so
+ *   that both are drawing the same world.
+ * @param maxVisible how many markers may be on screen at once.
+ * @param declutter whether a marker landing on one already kept is dropped.
+ * @param hud whether the strip along the top is drawn.
+ * @param mirrored whether the scene under the markers is put back the right way round, for the
+ *   right-to-left picture.
+ */
+@Composable
+private fun MarkerScene(
+    view: Size,
+    maxVisible: Int = Int.MAX_VALUE,
+    declutter: Boolean = false,
+    hud: Boolean = true,
+    mirrored: Boolean = false,
+) {
+    val world = remember { MarkerWorld() }
+    LaunchedEffect(world) {
+        val start = withFrameNanos { it }
+        while (true) {
+            val now = withFrameNanos { it }
+            // Written here rather than in the composition: writing state a layer is reading while
+            // that layer is being composed is a screen that never settles.
+            world.turnTo((now - start) / NanosPerSecond)
+        }
+    }
+
+    val camera = remember(world) { world.camera() }
+
+    Box(Modifier.fillMaxSize().background(Brush.vertical(Colour.rgb(0x111A2E), Colour.rgb(0x2C1F3C)))) {
+        if (mirrored) {
+            ProvideLayoutDirection(LayoutDirection.Ltr) { MarkerGround(world, view) }
+        } else {
+            MarkerGround(world, view)
+        }
+
+        WorldMarkerLayer(projection = camera, maxVisible = maxVisible, declutter = declutter) {
+            for (foe in MarkerPatrol) {
+                marker(
+                    key = foe.name,
+                    x = foe.x,
+                    y = MarkerPlateHeight,
+                    z = foe.z,
+                    // Solid up close, gone by the far end, so the ones at the back of the field
+                    // thin out instead of piling up along the horizon.
+                    fadeDistance = FadeNear..FadeFar,
+                    // And smaller with it, so the depth in the picture is the depth in the world.
+                    scaleDistance = ScaleNear..ScaleFar,
+                    farScale = FarScale,
+                    anchor = Alignment.BottomCentre,
+                    priority = foe.priority,
+                ) {
+                    Nameplate(foe)
+                }
+            }
+
+            // The one that is not on the screen. Held just inside the edge with a triangle turned
+            // towards where it really is — including while it is behind the camera, which is where
+            // it starts — and first in the queue when there is only room for a few.
+            marker(
+                key = "objective",
+                x = ObjectiveX,
+                y = ObjectiveY,
+                z = ObjectiveZ,
+                offScreen = OffScreen.ClampToEdge(arrow = true, inset = 6f),
+                priority = ObjectivePriority,
+            ) {
+                Waypoint(world.objectiveMetres)
+            }
+        }
+
+        if (hud) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12f, vertical = 10f),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("PATROL — 9 CONTACTS", style = "label.dim")
+                Text("RELAY MAST ${world.objectiveMetres} m", style = "label")
+            }
+        }
+    }
+}
+
+/** A name and what is left of the thing wearing it. Anything at all goes in a marker; this is a column. */
+@Composable
+private fun Nameplate(foe: MarkerFoe) {
+    Column(horizontalAlignment = HorizontalAlignment.Centre, verticalArrangement = Arrangement.spacedBy(3f)) {
+        Text(foe.name, style = "label")
+        Bar(foe.health, length = 56f, thickness = 4f, trail = false)
+    }
+}
+
+/** Where the player is being sent, and how far away it is, counted down as they walk towards it. */
+@Composable
+private fun Waypoint(metres: Int) {
+    Column(horizontalAlignment = HorizontalAlignment.Centre, verticalArrangement = Arrangement.spacedBy(3f)) {
+        Box(
+            Modifier.size(20f).background(Colour.rgb(0xF2C94C), corner = 5f)
+                .border(Colour.rgb(0x0B0E13), width = 2f, corner = 5f),
+        ) {
+            Box(Modifier.align(Alignment.Centre).size(6f).background(Colour.rgb(0x0B0E13), corner = 3f))
+        }
+        Box(Modifier.background(Colour.argb(0xB00B0E13), corner = 4f).padding(horizontal = 5f, vertical = 1f)) {
+            Text("$metres m", style = "label.dim")
+        }
+    }
+}
+
+/**
+ * The ground the patrol is standing on, drawn through the same camera the markers are placed by.
+ *
+ * That is the whole point of the picture: if the scene were drawn one way and the markers placed
+ * another, a nameplate sitting over an enemy would be a coincidence that the first turn of the
+ * camera undoes.
+ */
+@Composable
+private fun MarkerGround(world: MarkerWorld, view: Size) {
+    val horizon = view.height / 2f
+    // Its own box, so that the scene is measured from its own left-hand corner. Everything in here
+    // is placed by an offset from the corner its parent started it at, and in a right-to-left
+    // screen that corner is the other one — a world drawn from the far side comes out mirrored.
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier.offset(0f, horizon).fillMaxWidth().height(view.height - horizon)
+                .background(Colour.rgb(0x0C1019)),
+        )
+        Box(Modifier.offset(0f, horizon).fillMaxWidth().height(1.5f).background(Colour.rgb(0x3C4C6A)))
+
+        for (ridge in MarkerRidge) {
+            Slab(world, view, ridge.x, ridge.z, ridge.width, ridge.height, Colour.rgb(0x1A2340), ridge.width / 2f)
+        }
+        // Patches of the ground itself, biggest at the player's feet, so the bottom of the picture
+        // is somewhere to stand rather than a blank. Each one is a circle lying on the ground, and
+        // it flattens into the distance because its near and far edges are projected separately.
+        for (patch in MarkerPatches) {
+            Decal(world, view, patch.x, patch.z, patch.width, if (patch.height > 0f) GroundPale else GroundDark)
+        }
+        for (post in MarkerPosts) {
+            Slab(world, view, post.x, post.z, post.width, post.height, Colour.rgb(0x222C46), post.width / 3f)
+        }
+        // Furthest first, so that a figure nearer the camera is drawn over one behind it — the same
+        // order the layer puts their nameplates in.
+        for (foe in MarkerPatrol.sortedByDescending { it.z }) {
+            Figure(world, view, foe)
+        }
+        // The mast the waypoint belongs to, so that when the camera comes round to it there is
+        // something really standing there.
+        Slab(world, view, ObjectiveX, ObjectiveZ, 0.7f, ObjectiveY, Colour.rgb(0xF2C94C), 0.35f)
+    }
+}
+
+/** One upright thing in the world: a ridge, a post, a mast. Nothing is drawn behind the camera. */
+@Composable
+private fun Slab(
+    world: MarkerWorld,
+    view: Size,
+    x: Float,
+    z: Float,
+    width: Float,
+    height: Float,
+    colour: Colour,
+    corner: Float,
+) {
+    val left = world.screen(x - width / 2f, 0f, z, view) ?: return
+    val right = world.screen(x + width / 2f, 0f, z, view) ?: return
+    val top = world.screen(x, height, z, view) ?: return
+    val across = (right.x - left.x).coerceAtLeast(1f)
+    val tall = (left.y - top.y).coerceAtLeast(1f)
+    Box(Modifier.offset(left.x, top.y).size(across, tall).background(colour, corner = across * corner / width))
+}
+
+/** A circle lying flat on the ground, projected edge by edge so that distance flattens it. */
+@Composable
+private fun Decal(world: MarkerWorld, view: Size, x: Float, z: Float, radius: Float, colour: Colour) {
+    val left = world.screen(x - radius, 0f, z, view) ?: return
+    val right = world.screen(x + radius, 0f, z, view) ?: return
+    val back = world.screen(x, 0f, z + radius, view) ?: return
+    val front = world.screen(x, 0f, z - radius, view) ?: return
+    val across = (right.x - left.x).coerceAtLeast(1f)
+    val tall = (front.y - back.y).coerceAtLeast(1f)
+    Box(Modifier.offset(left.x, back.y).size(across, tall).background(colour, corner = tall / 2f))
+}
+
+/** The two colours the ground is patched with: a little lighter than it, and a little darker. */
+private val GroundPale = Colour.rgb(0x141C2C)
+private val GroundDark = Colour.rgb(0x080B12)
+
+/** One of the patrol: a shadow on the ground, a body, and a head. */
+@Composable
+private fun Figure(world: MarkerWorld, view: Size, foe: MarkerFoe) {
+    val left = world.screen(foe.x - FigureWidth / 2f, 0f, foe.z, view) ?: return
+    val right = world.screen(foe.x + FigureWidth / 2f, 0f, foe.z, view) ?: return
+    val top = world.screen(foe.x, FigureHeight, foe.z, view) ?: return
+    val across = (right.x - left.x).coerceAtLeast(2f)
+    val tall = (left.y - top.y).coerceAtLeast(3f)
+    val head = across * 0.62f
+
+    Box(
+        Modifier.offset(left.x - across * 0.3f, left.y - across * 0.22f).size(across * 1.6f, across * 0.44f)
+            .background(Colour.argb(0x55000000), corner = across),
+    )
+    Box(
+        Modifier.offset(left.x, top.y + head * 0.7f).size(across, (tall - head * 0.7f).coerceAtLeast(2f))
+            .background(foe.colour, corner = across * 0.36f),
+    )
+    Box(
+        Modifier.offset(left.x + (across - head) / 2f, top.y).size(head)
+            .background(Colour.rgb(0xE8ECF2), corner = head / 2f),
+    )
+}
+
+/** How wide and how tall one of the patrol is, in metres. */
+private const val FigureWidth = 0.62f
+private const val FigureHeight = 1.8f
+
+/** How high above the ground a nameplate stands: over the head, not through it. */
+private const val MarkerPlateHeight = 2.15f
+
+/** Where the objective is, how high its beacon sits, and how hard it fights for a place. */
+private const val ObjectiveX = -24f
+private const val ObjectiveY = 2.6f
+private const val ObjectiveZ = 8f
+private const val ObjectivePriority = 3f
+
+/** The distances a marker fades between, and the ones it shrinks between. */
+private const val FadeNear = 28f
+private const val FadeFar = 46f
+private const val ScaleNear = 8f
+private const val ScaleFar = 40f
+private const val FarScale = 0.45f
+
+/** The camera's turn: from, to, and how long it takes. */
+private const val TurnFrom = 0.45f
+private const val TurnTo = -0.95f
+private const val TurnSeconds = 2.4f
+
+/** How far the player walks while turning, so the range on the waypoint really counts down. */
+private const val WalkX = -4f
+private const val WalkZ = 1.5f
+
+/** How wide the lens is, and how close a point may get before the divide is held off. */
+private const val Fov = 1.05f
+private const val NearPlane = 0.35f
+
+/** How high the camera is off the ground: somebody's eyes. */
+private const val EyeHeight = 1.7f
+
+private const val NanosPerSecond = 1_000_000_000f
+
+/**
+ * Where the camera is and which way it is looking, and the sums that turn that into pixels.
+ *
+ * An ordinary game camera, and the toolkit knows nothing about it: what the layer is handed is one
+ * function that answers where on the screen a point in the world is, and how far away.
+ */
+private class MarkerWorld {
+    var yaw by mutableStateOf(TurnFrom)
+    var x by mutableStateOf(0f)
+    var z by mutableStateOf(0f)
+
+    /** Rounded to whole metres, so the waypoint's label is rebuilt when it changes and not before. */
+    var objectiveMetres by mutableStateOf(0)
+
+    /** Where the camera has got to [seconds] into the turn. It stops when the turn is done. */
+    fun turnTo(seconds: Float) {
+        val along = (seconds / TurnSeconds).coerceIn(0f, 1f)
+        yaw = TurnFrom + (TurnTo - TurnFrom) * along
+        x = WalkX * along
+        z = WalkZ * along
+        val dx = ObjectiveX - x
+        val dz = ObjectiveZ - z
+        objectiveMetres = sqrt(dx * dx + dz * dz).roundToInt()
+    }
+
+    /** The one function the layer is given. Behind the camera answers true with a negative depth. */
+    fun camera(): WorldProjection = WorldProjection { point, view, onto ->
+        project(point.x, point.y, point.z, view, onto)
+        true
+    }
+
+    /** Where a point lands, for the scene to draw itself by. Null when it is behind the camera. */
+    fun screen(x: Float, y: Float, z: Float, view: Size): Offset? {
+        val onto = WorldPoint()
+        if (!project(x, y, z, view, onto)) return null
+        return Offset(onto.x, onto.y)
+    }
+
+    /** True when the point is in front of the camera. Fills [onto] either way. */
+    private fun project(px: Float, py: Float, pz: Float, view: Size, onto: WorldPoint): Boolean {
+        val dx = px - x
+        val dy = py - EyeHeight
+        val dz = pz - z
+        val turn = cos(yaw)
+        val swing = sin(yaw)
+        val forward = dx * swing + dz * turn
+        val across = dx * turn - dz * swing
+        val focal = view.height / (2f * tan(Fov / 2f))
+        // Held off the lens, so a point on the camera plane is a big number rather than an
+        // infinite one. A point behind it keeps its sign and so comes back mirrored, which is
+        // exactly what the layer expects to be told about something behind the player.
+        val depth = if (forward >= 0f) forward.coerceAtLeast(NearPlane) else forward.coerceAtMost(-NearPlane)
+        val range = sqrt(dx * dx + dz * dz)
+        onto.set(
+            view.width / 2f + focal * across / depth,
+            view.height / 2f - focal * dy / depth,
+            if (forward < 0f) -range else range,
+        )
+        return forward >= NearPlane
+    }
+}
+
+/** One of the patrol: where it is standing, what is left of it, and what colour it is. */
+private class MarkerFoe(
+    val name: String,
+    val x: Float,
+    val z: Float,
+    val health: Float,
+    val colour: Colour,
+    val priority: Float = 0f,
+)
+
+/**
+ * Nine of them, at nine ranges, with two lined up one behind the other so that the picture shows
+ * the nearer plate drawn over the further one.
+ */
+private val MarkerPatrol = listOf(
+    MarkerFoe("VEX", -4.3f, 6.5f, 0.78f, Colour.rgb(0xE05A4F), priority = 1f),
+    MarkerFoe("HOLLOW", 2.9f, 9.5f, 0.35f, Colour.rgb(0xE08A3C)),
+    MarkerFoe("SCRAP-7", -6.2f, 14f, 0.62f, Colour.rgb(0x5B8DEF)),
+    MarkerFoe("TALLOW", 0.2f, 19f, 0.9f, Colour.rgb(0x46A758)),
+    MarkerFoe("DRIFTER", 17.5f, 26f, 0.5f, Colour.rgb(0x9B6BE0)),
+    MarkerFoe("GRIST", -18.7f, 27f, 0.25f, Colour.rgb(0x3FB6C4)),
+    MarkerFoe("REMNANT", 24.8f, 30f, 0.4f, Colour.rgb(0x7C8798)),
+    MarkerFoe("CINDER", 7.8f, 34f, 0.7f, Colour.rgb(0xD4B24C)),
+    MarkerFoe("ASH", -6.5f, 39f, 0.55f, Colour.rgb(0xC46BA0)),
+)
+
+/** Something standing in the world, for the turn of the camera to sweep past. */
+private class MarkerSolid(val x: Float, val z: Float, val width: Float, val height: Float)
+
+/** The hills along the back, far enough away that they barely move. */
+private val MarkerRidge = listOf(
+    MarkerSolid(-70f, 150f, 130f, 11f),
+    MarkerSolid(30f, 175f, 160f, 15f),
+    MarkerSolid(140f, 140f, 120f, 9f),
+    MarkerSolid(-180f, 190f, 150f, 13f),
+)
+
+/** Posts across the field, which is what makes the camera's turn read as a turn. */
+private val MarkerPosts = listOf(
+    MarkerSolid(-11f, 9f, 0.5f, 2.6f),
+    MarkerSolid(9.5f, 15f, 0.5f, 3.1f),
+    MarkerSolid(-16f, 21f, 0.5f, 2.8f),
+    MarkerSolid(21f, 30f, 0.5f, 3.4f),
+    MarkerSolid(-27f, 36f, 0.5f, 3f),
+    MarkerSolid(31f, 48f, 0.5f, 3.6f),
+    MarkerSolid(-38f, 55f, 0.5f, 3.2f),
+)
+
+/**
+ * Patches of ground, near ones big enough to fill the bottom of the picture.
+ *
+ * `height` is only which of the two colours it is: above zero is the paler one.
+ */
+private val MarkerPatches = listOf(
+    MarkerSolid(1.2f, 5f, 1.3f, 1f),
+    MarkerSolid(-4.5f, 6.5f, 1.8f, 0f),
+    MarkerSolid(5.5f, 8f, 2f, 0f),
+    MarkerSolid(-8f, 10.5f, 2.3f, 1f),
+    MarkerSolid(9f, 13f, 2.6f, 1f),
+    MarkerSolid(-12f, 16f, 2.8f, 0f),
+    MarkerSolid(13f, 19f, 3f, 0f),
+    MarkerSolid(-4f, 22f, 2.6f, 1f),
+    MarkerSolid(17f, 26f, 3.6f, 1f),
+    MarkerSolid(-19f, 30f, 3.8f, 0f),
+    MarkerSolid(4f, 36f, 4.6f, 0f),
+    MarkerSolid(-28f, 44f, 5f, 1f),
+)
