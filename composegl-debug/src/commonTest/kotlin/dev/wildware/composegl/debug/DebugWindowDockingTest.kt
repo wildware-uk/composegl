@@ -451,6 +451,42 @@ class DebugWindowDockingTest {
         assertEquals(600f, pane.height)
     }
 
+    /**
+     * The window behind a tab is measured at nothing at all, and on a mirrored screen a slider
+     * squeezed to nothing used to ask layout for a fill of a negative length and bring the whole
+     * screen down. Two windows with a slider each, tabbed together, is the smallest thing that did
+     * it — and it is what a person tidying a screen full of debug windows does first.
+     */
+    @Test
+    fun `tabbing two windows with sliders together on a mirrored screen does not throw`() {
+        val state = DebugWindowsState(store)
+        val ui = open {
+            ProvideLayoutDirection(LayoutDirection.Rtl) { TwoTweaks(state) }
+        }
+
+        ui.drag(ui.title("One").boundsInRoot.centre, screenSquare(DockSide.Left))
+        val pane = ui.window("One").layoutBoundsInRoot
+        ui.drag(ui.title("Two").boundsInRoot.centre, windowSquare(pane, null))
+
+        assertEquals(listOf("One", "Two"), state.tabsWith("One"))
+        assertEquals(0f, ui.window("One").width, "the window behind the tab takes no room at all")
+        assertEquals(listOf("One", "Two"), ui.tabs(), "one strip with both tabs on it")
+        ui.render()
+    }
+
+    /** The same pair of windows, each with a slider on it. */
+    @Composable
+    private fun TwoTweaks(state: DebugWindowsState) {
+        DebugWindowHost(state = state) {
+            DebugWindow("One", initialPosition = Offset(40f, 40f)) {
+                tweak("Gravity", 9.8f, {}, 0f..20f)
+            }
+            DebugWindow("Two", initialPosition = Offset(360f, 300f)) {
+                tweak("Drag", 0.5f, {}, 0f..1f)
+            }
+        }
+    }
+
     @Test
     fun `a tab pulled out on a mirrored screen lands under the pointer`() {
         val state = DebugWindowsState(store)

@@ -173,7 +173,11 @@ private class SliderPolicy(
         // A vertical slider's maximum is at the top, because that is where a player reaches for
         // "more". So its knob runs the other way down the screen, as a mirrored one does across it.
         val knobAt = if (horizontal && !mirrored) fraction * travel else (1f - fraction) * travel
-        val middle = knobAt + knob / 2f
+        // Kept on the track. A slider squeezed shorter than its own knob — a docked pane behind
+        // another tab is measured at nothing at all — would otherwise put the knob's middle past the
+        // end, and the part of the track left over would be a negative length. Clamping only bites
+        // when there is less track than knob, which is the case nobody can see anyway.
+        val middle = (knobAt + knob / 2f).coerceIn(0f, span)
 
         val track = measurables[0].measure(fixed(span, thickness))
         val fill = measurables[1].measure(

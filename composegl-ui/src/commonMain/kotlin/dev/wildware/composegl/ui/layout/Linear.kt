@@ -65,8 +65,12 @@ internal data class LinearPolicy(
                 // The last weighted child takes exactly what is left rather than its own share.
                 // Shares are floats, and a row of three thirds that adds up to a sliver under the
                 // full width leaves a seam down the screen that nobody can find.
+                // Never below nothing: the shares add up to the space on paper, but they are floats,
+                // and a long row whose last weight is a sliver can hand out a hair more than there
+                // was. A child asked for a negative width is a crash rather than a rounding error.
                 val share =
-                    if (index == lastWeighted) spare - handedOut else spare * (weight / totalWeight)
+                    if (index == lastWeighted) (spare - handedOut).coerceAtLeast(0f)
+                    else spare * (weight / totalWeight)
                 handedOut += share
                 val placeable = measurable.measure(
                     childConstraints(share, crossMax, offers[index], tight = true),

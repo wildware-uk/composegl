@@ -3803,15 +3803,11 @@ private val DockAndTab = listOf(
 )
 
 /**
- * The same thing on a screen that reads from the right: one window carried out of the way, one
- * docked against the bottom edge, and the divider pulled up to fit it. A position is measured from
- * the start edge, which is the right one, so both windows start over there; the squares and the
- * divider are places on the screen and do not move.
- *
- * Without the tabbing the picture above shows, because a window tabbed behind another is measured
- * at no size at all and a `Slider` measured to no width throws on a mirrored screen —
- * `SliderPolicy` asks its fill for `span - middle` there, which goes negative. Reported rather than
- * worked around: this picture says what docking looks like mirrored either way.
+ * The same three drags on a screen that reads from the right: one window carried out of the way,
+ * one docked against the bottom edge, the second dropped on the middle square of its cross so the
+ * two share the pane as tabs, and the divider pulled up to give them room. A position is measured
+ * from the start edge, which is the right one, so both windows start over there; the squares and
+ * the divider are places on the screen and do not move.
  */
 private val DockRtl = listOf(
     // A position is measured from the start edge, so Physics opens over the HUD on this screen
@@ -3820,7 +3816,9 @@ private val DockRtl = listOf(
     Dragging.Wait(3),
     Dragging.Drag(Offset(540f, 132f), DockDrop),
     Dragging.Wait(3),
-    Dragging.Drag(DockDivider, Offset(200f, 230f)),
+    Dragging.Drag(Offset(242f, 21f), DockTabDrop),
+    Dragging.Wait(3),
+    Dragging.Drag(DockDivider, DockDividerTo),
     Dragging.Wait(3),
 )
 
