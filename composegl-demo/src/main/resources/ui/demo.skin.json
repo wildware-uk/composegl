@@ -460,6 +460,54 @@
       "pressed": { "background": { "fill": "#080B10", "corner": 4 }, "contentOffset": [0, 1] }
     },
 
+    // In-game chat: the panel it scrolls in when it is open, a line, a line nobody said, the name
+    // in front of one, the channel it came in on, the tabs, and the box the player types in. See-
+    // through like the objective list, because chat sits over a game that is still being played.
+    // A game's own channels can name a style of their own — "chat.team" — which is where a
+    // channel's colour comes from, and is the game's to invent rather than the toolkit's.
+
+    "chat": {
+      "background": { "fill": "#CC0B1119", "corner": 6, "border": "#2A3440", "padding": [10, 8] },
+      "textColour": "#C9D3E0"
+    },
+    "chat.message": { "textColour": "#E6EAF2", "text": { "size": 14 } },
+    "chat.system": { "textColour": "#F2C94C", "text": { "size": 14 } },
+    "chat.name": { "textColour": "#4CC2FF", "text": { "size": 14 } },
+    "chat.channel": { "textColour": "#9AA4B2", "text": { "size": 14 } },
+
+    "chat.tab": {
+      "background": { "fill": "#18FFFFFF", "corner": 4, "border": "#30FFFFFF", "padding": [10, 4] },
+      "textColour": "#9AA4B2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 4, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": {
+        "background": { "fill": "#080B10", "corner": 4, "border": "#30FFFFFF" },
+        "contentOffset": [0, 1]
+      }
+    },
+    "chat.tab.selected": {
+      "background": { "fill": "#404CC2FF", "corner": 4, "border": "#4CC2FF", "borderWidth": 2, "padding": [10, 4] },
+      "textColour": "#E6EAF2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#504CC2FF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": {
+        "background": { "fill": "#284CC2FF", "corner": 4, "border": "#4CC2FF", "borderWidth": 2 },
+        "contentOffset": [0, 1]
+      }
+    },
+
+    // No box of its own round the input: the panel is the box, and a second border inside it is
+    // one line of chrome too many on a HUD.
+    "chat.field": {
+      "background": { "fill": "#00000000", "padding": [2, 3] },
+      "textColour": "#E6EAF2"
+    },
+    "chat.field.placeholder": { "textColour": "#5A6675" },
+    "chat.field.caret": { "background": { "fill": "#E6F0FF" } },
+    "chat.field.selection": { "background": { "fill": "#504CC2FF" } },
+    "chat.field.composition": { "background": { "fill": "#8ADBFF" } },
+
     // The chrome round the minimap. The padding is the hole the game draws its own map into.
     "minimap": {
       "background": { "fill": "#151B26", "corner": 6, "border": "#5A6B86", "padding": [7, 7] }

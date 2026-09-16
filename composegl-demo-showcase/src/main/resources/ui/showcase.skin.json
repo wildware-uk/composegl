@@ -275,6 +275,46 @@
     "dialogue.history.line": { "textColour": "#DCE6F2", "text": { "size": 14 } },
     "dialogue.history.answer": { "textColour": "#8AFFD8", "text": { "size": 14 } },
 
+    // --- squad chat ---
+    //
+    // Open, it is a panel like the rest of the HUD; closed, the last few lines sit straight on the
+    // scene. The two channel colours are the showcase's own names, handed to ChatChannel: the
+    // toolkit knows "chat.message" and nothing about a squad.
+
+    "chat": {
+      "background": { "fill": "#C00A1018", "corner": 4, "border": "#404CC2FF", "padding": [12, 10] }
+    },
+    "chat.message": { "textColour": "#DCE6F2", "text": { "size": 14 } },
+    "chat.system": { "textColour": "#FFC24C", "text": { "size": 14 } },
+    "chat.name": { "textColour": "#4CC2FF", "text": { "size": 14 } },
+    "chat.channel": { "textColour": "#8A9AAB", "text": { "size": 13 } },
+    "chat.squad": { "textColour": "#8AFFD8", "text": { "size": 14 } },
+    "chat.whisper": { "textColour": "#FF9AD8", "text": { "size": 14 } },
+
+    "chat.tab": {
+      "background": { "fill": "#300A1018", "corner": 3, "border": "#404CC2FF", "padding": [10, 4] },
+      "textColour": "#8A9AAB",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#404CC2FF", "corner": 3, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#300A1018", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+    "chat.tab.selected": {
+      "background": { "fill": "#604CC2FF", "corner": 3, "border": "#4CC2FF", "padding": [10, 4] },
+      "textColour": "#E6F4FF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 3, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "chat.field": {
+      "background": { "fill": "#00000000", "padding": [2, 3] },
+      "textColour": "#E6F4FF"
+    },
+    "chat.field.placeholder": { "textColour": "#58697C" },
+    "chat.field.caret": { "background": { "fill": "#E6F4FF" } },
+    "chat.field.selection": { "background": { "fill": "#604CC2FF" } },
+    "chat.field.composition": { "background": { "fill": "#8A9AAB" } },
+
     "focusRing": {
       "background": { "fill": "#00000000", "corner": 5, "border": "#FFFFFF", "padding": 3 }
     },

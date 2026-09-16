@@ -184,6 +184,51 @@
       "pressed": { "background": { "fill": "#10131A", "corner": 4 }, "contentOffset": [0, 1] }
     },
 
+    // In-game chat: the panel it scrolls in when it is open, a line, a line nobody said, the name
+    // in front of one, the channel it came in on, and the tabs. The panel is see-through, because
+    // chat sits over a game that is still being played. A game's own channels name a style of their
+    // own — "chat.team" — which is where a channel's colour comes from.
+    "chat": {
+      "background": { "fill": "#CC0E1117", "corner": 6, "border": "#2C3545", "padding": [10, 8] },
+      "textColour": "#C9D3E0"
+    },
+    "chat.message": { "textColour": "#E8ECF2", "text": { "size": 14 } },
+    "chat.system": { "textColour": "#E8A33D", "text": { "size": 14 } },
+    "chat.name": { "textColour": "#7FB0FF", "text": { "size": 14 } },
+    "chat.channel": { "textColour": "#9AA4B2", "text": { "size": 14 } },
+
+    "chat.tab": {
+      "background": { "fill": "#1A1F28", "corner": 4, "border": "#2C3545", "padding": [10, 4] },
+      "textColour": "#9BA6B6",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#2C3545", "corner": 4, "border": "#4A5670" } },
+      "focused": { "background": { "fill": "#2A3342", "corner": 4, "border": "#5B8DEF" } },
+      "pressed": {
+        "background": { "fill": "#10131A", "corner": 4, "border": "#2C3545" },
+        "contentOffset": [0, 1]
+      }
+    },
+    "chat.tab.selected": {
+      "background": { "fill": "#3F6BD6", "corner": 4, "border": "#5B8DEF", "padding": [10, 4] },
+      "textColour": "#E8ECF2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#5B8DEF", "corner": 4, "border": "#7BA5F5" } },
+      "focused": { "background": { "fill": "#3F6BD6", "corner": 4, "border": "#7BA5F5" } },
+      "pressed": {
+        "background": { "fill": "#2C4C99", "corner": 4, "border": "#3F6BD6" },
+        "contentOffset": [0, 1]
+      }
+    },
+
+    "chat.field": {
+      "background": { "fill": "#00000000", "padding": [2, 3] },
+      "textColour": "#E8ECF2"
+    },
+    "chat.field.placeholder": { "textColour": "#5E6B7E" },
+    "chat.field.caret": { "background": { "fill": "#E8ECF2" } },
+    "chat.field.selection": { "background": { "fill": "#3F6BD6" } },
+    "chat.field.composition": { "background": { "fill": "#9BA6B6" } },
+
     // --- text ---
 
     "label": {

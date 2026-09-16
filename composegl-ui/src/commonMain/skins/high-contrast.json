@@ -174,6 +174,49 @@
       "pressed": { "background": { "fill": "#000000", "corner": 4 }, "contentOffset": [0, 1] }
     },
 
+    // In-game chat. The panel is solid here rather than see-through: words over a game that is
+    // still moving are the hardest thing on the screen to read, which is the whole point of this skin.
+    "chat": {
+      "background": { "fill": "#000000", "corner": 6, "border": "#FFFFFF", "padding": [10, 8], "borderWidth": 2 },
+      "textColour": "#FFFFFF"
+    },
+    "chat.message": { "textColour": "#FFFFFF", "text": { "size": 14 } },
+    "chat.system": { "textColour": "#FFD600", "text": { "size": 14 } },
+    "chat.name": { "textColour": "#00E5FF", "text": { "size": 14 } },
+    "chat.channel": { "textColour": "#B0B0B0", "text": { "size": 14 } },
+
+    "chat.tab": {
+      "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "padding": [10, 4], "borderWidth": 2 },
+      "textColour": "#FFFFFF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#333333", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#000000", "corner": 4, "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": {
+        "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 },
+        "contentOffset": [0, 1]
+      }
+    },
+    "chat.tab.selected": {
+      "background": { "fill": "#0033AA", "corner": 4, "border": "#FFD600", "padding": [10, 4], "borderWidth": 2 },
+      "textColour": "#FFFFFF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#0044CC", "corner": 4, "border": "#FFE866", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#0033AA", "corner": 4, "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": {
+        "background": { "fill": "#002277", "corner": 4, "border": "#FFD600", "borderWidth": 2 },
+        "contentOffset": [0, 1]
+      }
+    },
+
+    "chat.field": {
+      "background": { "fill": "#00000000", "padding": [2, 3] },
+      "textColour": "#FFFFFF"
+    },
+    "chat.field.placeholder": { "textColour": "#B0B0B0" },
+    "chat.field.caret": { "background": { "fill": "#FFFFFF" } },
+    "chat.field.selection": { "background": { "fill": "#2C6BD6" } },
+    "chat.field.composition": { "background": { "fill": "#FFFFFF" } },
+
     // --- text ---
 
     "label": {
