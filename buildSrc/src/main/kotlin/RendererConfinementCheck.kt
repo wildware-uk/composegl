@@ -5,6 +5,7 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -46,9 +47,17 @@ abstract class RendererConfinementCheck : DefaultTask() {
     @get:Input
     abstract val maxBindingLines: Property<Int>
 
+    /**
+     * The module's name, for the messages. Read here rather than from `project` at execution time,
+     * which the configuration cache forbids.
+     */
+    @get:Internal
+    abstract val moduleName: Property<String>
+
     init {
         alsoAllowed.convention(emptyList())
         maxBindingLines.convention(400)
+        moduleName.convention(project.name)
     }
 
     @TaskAction
@@ -91,7 +100,7 @@ abstract class RendererConfinementCheck : DefaultTask() {
         if (offences.isNotEmpty()) {
             throw IllegalStateException(
                 buildString {
-                    appendLine("${offences.size} renderer offence(s) in ${project.name}:")
+                    appendLine("${offences.size} renderer offence(s) in ${moduleName.get()}:")
                     offences.forEach { appendLine(it) }
                     appendLine()
                     append(
@@ -101,7 +110,7 @@ abstract class RendererConfinementCheck : DefaultTask() {
                 },
             )
         }
-        logger.lifecycle("${project.name}: renderer confined to composegl-render (${files.size} files checked)")
+        logger.lifecycle("${moduleName.get()}: renderer confined to composegl-render (${files.size} files checked)")
     }
 
     private companion object {
