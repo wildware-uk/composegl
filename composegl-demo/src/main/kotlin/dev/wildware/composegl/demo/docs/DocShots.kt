@@ -60,6 +60,10 @@ import dev.wildware.composegl.game.CompassBar
 import dev.wildware.composegl.game.DamageDirectionLayer
 import dev.wildware.composegl.game.DamageDirections
 import dev.wildware.composegl.game.DialogueBox
+import dev.wildware.composegl.game.Notifications
+import dev.wildware.composegl.game.ObjectiveProgress
+import dev.wildware.composegl.game.ObjectiveTracker
+import dev.wildware.composegl.game.rememberNotifications
 import dev.wildware.composegl.game.DialogueChoice
 import dev.wildware.composegl.game.DialogueHistory
 import dev.wildware.composegl.game.DialogueLine
@@ -294,6 +298,7 @@ internal fun docShots(): List<DocShot> = buildList {
     compasses()
     wheels()
     skillTrees()
+    objectives()
     firefight()
     subtitleScenes()
     dialogueScenes()
@@ -6879,3 +6884,267 @@ internal const val HebrewWarningText =
         "אז תחשוב טוב לפני שאתה שם רגל על הגשר שלי."
 internal const val HebrewAnswerOne = "לשאול למה הוא מתכוון"
 internal const val HebrewAnswerTwo = "לחזור ולעבור במעבר הרדוד"
+
+// ---------------------------------------------------------------- what the player is meant to do
+
+/**
+ * The objective tracker, driven by a raid that really happens.
+ *
+ * Nothing here is posed. One little game runs on the interface clock — a watchman falls, the alarm
+ * rope is cut, the tower is taken, the ferryman turns up and the finished quest is dropped — and
+ * every picture below is that same raid photographed at a different moment. The counter climbs
+ * because the number behind it changed, the tick is drawn because `done` turned true, and the toasts
+ * are the ones the tracker raised on its own.
+ */
+private fun MutableList<DocShot>.objectives() {
+    // The list at rest, a second in: the rope still to cut, and the watchmen counter reading 3 / 5
+    // because the third one really fell at [RaidCount]. This is what sits in the corner of the HUD
+    // between one thing happening and the next.
+    add(
+        DocShot("game-objective-tracker", 262, 116, seconds = 0.95f) {
+            Frame { Watchtower(toasts = false) }
+        },
+    )
+
+    // Four quests on a tracker that shows two, folded and opened. The left one is not wired to a
+    // key, so it stays as a HUD has it: two quests and a "+2 more" row saying what is behind it. The
+    // right one takes J, and a real press on a real keyboard opened it — every quest on the list and
+    // a row to fold them back. Nothing in either is focusable, so neither has taken the focus ring.
+    add(
+        DocShot(
+            "game-objective-fold", 560, 340,
+            typed = listOf(Typing.Wait(4), Typing.Press(Key.J), Typing.Wait(24)),
+        ) {
+            Frame {
+                Row(horizontalArrangement = Arrangement.spacedBy(36f)) {
+                    Labelled("folded") { FoldableTracker(key = null) }
+                    Labelled("opened, by a press on J") { FoldableTracker(key = Key.J) }
+                }
+            }
+        },
+    )
+
+    // The high-contrast skin, the same quest twice, read each way. Nothing is set on the tracker to
+    // mirror it: in the Hebrew one the layout puts the little box on the right of the words, strikes
+    // the finished line through from the right, and stands the counter at the left-hand end.
+    // `keepCompleted` is what leaves the cut rope on the list at all — a HUD slides it away.
+    add(
+        DocShot("game-objective-contrast", 560, 200) {
+            ProvideSkin(Skin.HighContrast) {
+                Frame {
+                    Row(horizontalArrangement = Arrangement.spacedBy(36f)) {
+                        LocalisedObjectives("English, read left to right", LayoutDirection.Ltr, EnglishRaid)
+                        LocalisedObjectives("Hebrew, read right to left", LayoutDirection.Rtl, HebrewRaid)
+                    }
+                }
+            }
+        },
+    )
+
+    // The whole raid as a moving picture, each frame the same raid photographed a little later: the
+    // counter jumping to 3 / 5, the rope ticking itself off and having a line struck through it
+    // before it slides away with the list closing up, the watchmen counter running out to 5 / 5 and
+    // taking the tower with it, "Objective complete" and "New objective" one after the other as the
+    // ferryman arrives and slides in, and the finished quest leaving the list for good. Only when
+    // asked for, because they are frames to be joined into a GIF rather than pictures of their own:
+    // `COMPOSEGL_DOC_FRAMES=1`, then join `game-objective-run-frame-*.png` in order, 0.12 s each,
+    // which is the speed it really ran.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(RaidFrames) { i ->
+            val name = "game-objective-run-frame-${i.toString().padStart(2, '0')}"
+            add(DocShot(name, 270, 244, seconds = i * RaidStep) { Frame { Watchtower() } })
+        }
+    }
+}
+
+/** One frame of the GIF every this long, for as long as the raid takes. */
+private const val RaidStep = 0.12f
+private const val RaidFrames = 44
+
+/** When each thing in the raid happens, in milliseconds from the first frame. */
+private const val RaidCount = 450
+private const val RaidRope = 1_250
+private const val RaidTower = 2_750
+private const val RaidFerry = 3_150
+private const val RaidDrop = 4_500
+
+/** How wide every tracker in these pictures is, so the counters stand in a column down the end. */
+private const val ObjectiveWidth = 230f
+
+/**
+ * The raid itself: the numbers a game would be keeping, and nothing about how they are drawn.
+ *
+ * The tracker is handed these and works the rest out. That is the point of the pictures — a counter
+ * that says 3 / 5 says it because a third watchman fell, not because a picture wanted it to.
+ */
+private class Raid {
+    var watchmen by mutableStateOf(2)
+    var ropeCut by mutableStateOf(false)
+    var towerTaken by mutableStateOf(false)
+    var ferrymanKnown by mutableStateOf(false)
+    var towerTracked by mutableStateOf(true)
+}
+
+/** The raid, played out on the interface clock, so a picture taken later is a picture of later. */
+@Composable
+private fun rememberRaid(): Raid {
+    val clocks = LocalClocks.current
+    val raid = remember { Raid() }
+    LaunchedEffect(Unit) {
+        clocks.wait(Clock.Ui, RaidCount)
+        raid.watchmen = 3
+        clocks.wait(Clock.Ui, RaidRope - RaidCount)
+        raid.ropeCut = true
+        clocks.wait(Clock.Ui, RaidTower - RaidRope)
+        raid.watchmen = 5
+        raid.towerTaken = true
+        clocks.wait(Clock.Ui, RaidFerry - RaidTower)
+        raid.ferrymanKnown = true
+        clocks.wait(Clock.Ui, RaidDrop - RaidFerry)
+        raid.towerTracked = false
+    }
+    return raid
+}
+
+/**
+ * The corner of the HUD: the tracker, and the toasts it raises, where a game would put them.
+ *
+ * @param toasts whether the notification column is drawn, for the still that is only about the list.
+ */
+@Composable
+private fun Watchtower(toasts: Boolean = true) {
+    val raid = rememberRaid()
+    val notices = rememberNotifications(capacity = 2, holdMillis = 1_600)
+
+    val quests = buildList {
+        if (raid.towerTracked) {
+            add(
+                TrackedQuest(
+                    "tower",
+                    "TAKE THE WATCHTOWER",
+                    listOf(
+                        TrackedStep("Cut the alarm rope", done = raid.ropeCut),
+                        TrackedStep(
+                            "Silence the watchmen",
+                            done = raid.towerTaken,
+                            progress = ObjectiveProgress(raid.watchmen, 5),
+                        ),
+                    ),
+                ),
+            )
+        }
+        if (raid.ferrymanKnown) {
+            add(TrackedQuest("ferry", "FIND THE FERRYMAN", listOf(TrackedStep("Ask at the ford"))))
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        ObjectiveTracker(
+            quests = quests,
+            modifier = Modifier.align(Alignment.TopEnd),
+            keyOf = { it.id },
+            notify = if (toasts) notices else null,
+            width = ObjectiveWidth,
+        ) { quest ->
+            title(quest.name)
+            quest.steps.forEach { step(it.text, done = it.done, progress = it.progress) }
+        }
+        if (toasts) {
+            Notifications(notices, Modifier.align(Alignment.BottomEnd), width = ObjectiveWidth)
+        }
+    }
+}
+
+/**
+ * A tracker with more quests than it shows, so there is a fold row on it.
+ *
+ * @param key the key that opens the fold, or null for a tracker nothing is wired to. Both are real
+ *   trackers with the same four quests; only one of them is listening.
+ */
+@Composable
+private fun FoldableTracker(key: Key?) {
+    ObjectiveTracker(
+        quests = FoldQuests,
+        keyOf = { it.id },
+        maxVisible = 2,
+        expandKey = key,
+        width = ObjectiveWidth,
+    ) { quest ->
+        title(quest.name)
+        quest.steps.forEach { step(it.text, done = it.done, progress = it.progress) }
+    }
+}
+
+/**
+ * The same quest in one language, laid out the way that language runs.
+ *
+ * `keepCompleted` because a picture wants the finished line still on the list: a HUD ticks it,
+ * strikes it through and slides it away, and there is nothing left to photograph a second later.
+ */
+@Composable
+private fun LocalisedObjectives(caption: String, direction: LayoutDirection, quest: TrackedQuest) {
+    Column(verticalArrangement = Arrangement.spacedBy(6f)) {
+        // English either way: a caption on the picture rather than anything the game says.
+        ProvideLayoutDirection(LayoutDirection.Ltr) { Text(caption, style = "label.dim") }
+        ProvideLayoutDirection(direction) {
+            ObjectiveTracker(
+                quests = listOf(quest),
+                keyOf = { it.id },
+                keepCompleted = true,
+                width = ObjectiveWidth,
+            ) { each ->
+                title(each.name)
+                each.steps.forEach { step(it.text, done = it.done, progress = it.progress) }
+            }
+        }
+    }
+}
+
+/** One quest as a game holds it: a name, and the things still to do. */
+private class TrackedQuest(val id: String, val name: String, val steps: List<TrackedStep>)
+
+private class TrackedStep(
+    val text: String,
+    val done: Boolean = false,
+    val progress: ObjectiveProgress? = null,
+)
+
+/** Four quests for a tracker that shows two, so there is always something behind the fold. */
+private val FoldQuests = listOf(
+    TrackedQuest(
+        "tower",
+        "TAKE THE WATCHTOWER",
+        listOf(
+            TrackedStep("Cut the alarm rope"),
+            TrackedStep("Silence the watchmen", progress = ObjectiveProgress(3, 5)),
+        ),
+    ),
+    TrackedQuest("ferry", "FIND THE FERRYMAN", listOf(TrackedStep("Ask at the ford"))),
+    TrackedQuest("root", "GATHER MARSHROOT", listOf(TrackedStep("Pick marshroot", progress = ObjectiveProgress(1, 4)))),
+    TrackedQuest("mill", "THE MILLER'S DOG", listOf(TrackedStep("Look behind the mill"))),
+)
+
+/** The tower quest part way through, for the picture of a finished line and a counter. */
+private val EnglishRaid = TrackedQuest(
+    "tower",
+    "TAKE THE WATCHTOWER",
+    listOf(
+        TrackedStep("Cut the alarm rope", done = true),
+        TrackedStep("Silence the watchmen", progress = ObjectiveProgress(3, 5)),
+    ),
+)
+
+/** The same quest in the player's own language, for the picture of a tracker read from the right. */
+private val HebrewRaid = TrackedQuest(
+    "tower",
+    HebrewQuestName,
+    listOf(
+        TrackedStep(HebrewQuestRope, done = true),
+        TrackedStep(HebrewQuestWatch, progress = ObjectiveProgress(3, 5)),
+    ),
+)
+
+/** What the Hebrew picture says, so [dev.wildware.composegl.demo.docs.main] can bake those letters. */
+internal const val HebrewQuestName = "כבוש את המגדל"
+internal const val HebrewQuestRope = "חתוך את חבל האזעקה"
+internal const val HebrewQuestWatch = "השתק את השומרים"

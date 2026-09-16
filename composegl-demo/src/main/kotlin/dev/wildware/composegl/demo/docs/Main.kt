@@ -66,7 +66,9 @@ fun main() {
     val fonts = StbFonts(pageSize = 1024)
     val typeface = resource("fonts/DejaVuSans.ttf")
     // Every size again at 125% and 150%, for the picture of the text size setting.
-    fonts.register("body", typeface, scaledTextSizes(listOf(12, 13, 16, 20), listOf(1f, 1.25f, 1.5f)))
+    // 14 and 15 are the objective tracker's step and title in the example's skin; the rest are what
+    // every other picture through that skin asks for.
+    fonts.register("body", typeface, scaledTextSizes(listOf(12, 13, 14, 15, 16, 20), listOf(1f, 1.25f, 1.5f)))
     fonts.register("display", typeface, listOf(34))
     // What the toolkit's own skin asks for, for the pictures taken without the example's skin, plus
     // sixteen at each subtitle size preset, for the picture of the subtitle size setting: a preset
@@ -74,7 +76,9 @@ fun main() {
     fonts.register(
         "default",
         typeface,
-        (listOf(11, 12, 13, 14, 16, 18, 22, 26) + scaledTextSizes(listOf(16), SubtitleSize.scales)).distinct().sorted(),
+        (listOf(11, 12, 13, 14, 15, 16, 18, 22, 26) + scaledTextSizes(listOf(16), SubtitleSize.scales))
+            .distinct()
+            .sorted(),
     )
     // Where characters DejaVu does not have come from, for the chat picture. Small cuts of Noto
     // Sans CJK holding only what that picture says, and Noto's emoji as pictures, at every size any
@@ -108,7 +112,9 @@ fun main() {
         "hebrew",
         typeface,
         everySize,
-        StbFonts.codepointsOf("אפשרויותמוזיקהשםברוךשובךעדהצחנן" + HebrewSubtitles + HebrewDialogue),
+        StbFonts.codepointsOf(
+            "אפשרויותמוזיקהשםברוךשובךעדהצחנן" + HebrewSubtitles + HebrewDialogue + HebrewObjectives,
+        ),
     )
     fonts.fallBackTo(listOf("cjk", "korean", "hebrew", "emoji"))
 
@@ -213,6 +219,14 @@ private const val HebrewSubtitles =
  */
 private val HebrewDialogue =
     HebrewWarden + HebrewWarningText + HebrewAnswerOne + HebrewAnswerTwo + "אוטומטידלגיומן"
+
+/**
+ * Every letter the Hebrew objective tracker says, taken from where the picture says it.
+ *
+ * The same rule as the dialogue above: the sentences themselves, so that changing what the quest
+ * asks for in Hebrew cannot leave a row of blank boxes behind on the wiki.
+ */
+private val HebrewObjectives = HebrewQuestName + HebrewQuestRope + HebrewQuestWatch
 
 /** The window every picture is drawn inside. Bigger than the biggest of them. */
 private const val Window = 640

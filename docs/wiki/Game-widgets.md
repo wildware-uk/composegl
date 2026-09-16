@@ -1008,6 +1008,11 @@ What the player is meant to be doing, pinned in a corner of the HUD. A step that
 gets finished is ticked, has a line struck through it and slides away; a quest
 that arrives slides in and can raise a toast.
 
+![an objective panel pinned in the corner: the quest name in blue, a step to cut the alarm rope, and a step to silence the watchmen reading 3 / 5](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-objective-tracker.png)
+
+That is the real widget a second into a real fight — the counter says 3 / 5
+because a third watchman really fell a moment before the picture was taken.
+
 ```kotlin
 val notices = rememberNotifications()
 
@@ -1045,6 +1050,13 @@ Turning a step's `done` from false to true plays the whole thing: the tick is
 drawn stroke by stroke, a line is struck through the words, it stays up long
 enough to read, and then it slides away with the list closing up over it.
 
+![the tracker running: the counter jumps to 3 / 5, the rope step ticks itself and is struck through before sliding away, the last step runs out to 5 / 5, an Objective complete toast and a New objective toast come up, the ferryman quest slides in and the finished one leaves](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-objective-run.gif)
+
+One little raid, photographed a frame at a time as it really ran. Nothing in it
+is posed: the numbers change on the interface clock, and the tick, the line, the
+slide, the two toasts and the quest that arrives are all the tracker's answer to
+them.
+
 A step that is **already** `done` the first time it is declared is history, and
 is not drawn at all — so loading a save does not replay its own quest log.
 `keepCompleted = true` keeps finished steps on the list instead, struck through,
@@ -1054,6 +1066,12 @@ which is what a quest log rather than a HUD wants.
 behind the "+2 more" row, or a whole tracker hidden for a cutscene, is not drawn
 at all, so its step waits: it comes up un-ticked and plays the tick, the line and
 the slide the moment the player opens the fold or the cutscene ends.
+
+![the same four quests on two trackers that show two: the left one stops after the ferryman with a plus two more row, the right one lists all four and ends with Show fewer](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-objective-fold.png)
+
+Two real trackers with the same four quests and `maxVisible = 2`. Only the right
+one was given `expandKey = Key.J`, and a real press on a real keyboard is what
+opened it.
 
 `step(style = ...)` gives one line a look of its own, and it keeps it when it is
 finished: a step styled `"main"` takes `"main.done"` where the skin has one, and
@@ -1098,6 +1116,15 @@ Its own words read `objective.progress` (`{0} / {1}`), `objective.more`,
 `objective.fewer`, `objective.added` and `objective.completed` from your
 [[strings|Localisation]], and keep their English where a key has not been
 translated.
+
+![the same quest twice in the high-contrast skin: in English the tick boxes are on the left and the counter on the right, in Hebrew the whole row mirrors, with the boxes on the right, the strike-through running from the right and the counter on the left](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-objective-contrast.png)
+
+Nothing is set on the tracker to mirror it. The Hebrew one is the same call under
+a right-to-left layout: the little box moves to the side the words start on, the
+line is struck through from there, and the counter stands at the other end. Both
+are the high-contrast skin, whose `objective.*` styles it picks up on its own.
+Only `keepCompleted = true` is different here — on a HUD the cut rope would have
+slid away long before the shutter.
 
 **Nothing on it is a control except the fold row.** The list takes no turn in the
 focus order and swallows no click, so a tracker over a fight can never be the
