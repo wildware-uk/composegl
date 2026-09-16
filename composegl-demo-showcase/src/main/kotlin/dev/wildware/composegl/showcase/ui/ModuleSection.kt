@@ -6,6 +6,7 @@ import dev.wildware.composegl.debug.DevConsoleState
 import dev.wildware.composegl.showcase.Exhibit
 import dev.wildware.composegl.showcase.Module
 import dev.wildware.composegl.showcase.ShowcaseState
+import dev.wildware.composegl.showcase.WorldViews
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
@@ -68,6 +69,9 @@ internal const val GroupTagPrefix = "showcase.group."
  * Nothing here is a picture of a widget. Every control on every section writes to [ShowcaseState] —
  * the same state the fight behind it reads — so turning the heat up here spreads the reticle out
  * there, and picking a drone here moves the lock the HUD is drawing.
+ *
+ * @param world how a scene view in a section asks the game to draw its world. [WorldViews.None]
+ *   draws nothing, for a screen with no world behind it.
  */
 @Composable
 fun ModuleSections(
@@ -76,6 +80,7 @@ fun ModuleSections(
     windows: DebugWindowsState,
     console: DevConsoleState,
     interfaceRoot: UiNode?,
+    world: WorldViews = WorldViews.None,
 ) {
     val module = state.section ?: return
 
@@ -115,7 +120,7 @@ fun ModuleSections(
                     verticalArrangement = Arrangement.spacedBy(8f),
                 ) {
                     when (module) {
-                        Module.Ui -> UiSection(state)
+                        Module.Ui -> UiSection(state, windows, world)
                         Module.Debug -> DebugSection(state, budget, windows, console, interfaceRoot)
                         Module.Game -> GameSection(state)
                     }

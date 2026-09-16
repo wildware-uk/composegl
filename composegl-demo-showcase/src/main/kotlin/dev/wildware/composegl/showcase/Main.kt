@@ -48,6 +48,7 @@ import kotlin.random.Random
  * `COMPOSEGL_SHOWCASE_POINTER=x,y[,press]` puts the pointer somewhere, which is the only way to
  * photograph the ray hitting the terminal. `COMPOSEGL_SHOWCASE_SECTION=ui|debug|game` opens that
  * module's section at startup, which is how the three section screenshots are taken.
+ * `COMPOSEGL_SHOWCASE_VIEWS=1` opens the scene view window and the picture in picture as well.
  */
 class Showcase : ApplicationAdapter() {
 
@@ -82,6 +83,9 @@ class Showcase : ApplicationAdapter() {
     private val scriptedPointer: String? = System.getenv("COMPOSEGL_SHOWCASE_POINTER")
 
     /** Which module's section to open on the first frame, by its short name. Null is the fight. */
+    /** Whether to open the scene view window and the picture in picture on the first frame. */
+    private val openViews: Boolean = System.getenv("COMPOSEGL_SHOWCASE_VIEWS") == "1"
+
     private val openSection: Module? = System.getenv("COMPOSEGL_SHOWCASE_SECTION")
         ?.let { name -> Module.entries.firstOrNull { it.tab.equals(name, ignoreCase = true) } }
 
@@ -101,6 +105,22 @@ class Showcase : ApplicationAdapter() {
             scene.camera.position.dst(point.x, point.y, point.z),
         )
         projected.z <= 1f
+    }
+
+    /**
+     * The world, as the interface's scene views ask for it. Each call runs inside a `SceneView`'s
+     * draw block on LibGDX, where the frame handed over is the canvas's `SpriteBatch`, open on the
+     * picture; the scene draws with its own `ModelBatch` and needs nothing from it.
+     */
+    private val world = object : WorldViews {
+        override fun orbit(frame: Any, width: Int, height: Int, yaw: Float, pitch: Float, distance: Float) =
+            scene.renderOrbit(width, height, yaw, pitch, distance)
+
+        override fun model(frame: Any, width: Int, height: Int, drone: Int, turn: Float) =
+            scene.renderModel(width, height, drone, turn)
+
+        override fun chase(frame: Any, width: Int, height: Int, drone: Int) =
+            scene.renderChase(width, height, drone)
     }
 
     override fun create() {
@@ -126,6 +146,10 @@ class Showcase : ApplicationAdapter() {
         scene.drones.forEach { state.targets.add(TargetReadout(it.callsign)) }
 
         state.section = openSection
+        if (openViews) {
+            state.views.editorOpen = true
+            state.views.pipOpen = true
+        }
         // A photograph of a section is a picture of that page, so the two floating windows and the
         // target panel, which a player would drag out of the way or close, are put away for it.
         // Only while a shot is being taken: running the showcase by hand leaves them where they are.
@@ -135,7 +159,7 @@ class Showcase : ApplicationAdapter() {
         }
 
         host = UiHost()
-        host.setContent { ShowcaseUi(state, fonts, skin.skin, projection, budget) }
+        host.setContent { ShowcaseUi(state, fonts, skin.skin, projection, budget, world) }
         holo.panel.setContent { HoloScreen(state, fonts, skin.skin) }
 
         input = ShowcaseInput(
@@ -174,6 +198,8 @@ class Showcase : ApplicationAdapter() {
         if (state.isOn(Exhibit.Particles)) particles.update(delta)
         readScene()
         fireAtSomething(delta)
+        // The scene views: the game says which of them have to be drawn again this frame.
+        state.views.frame(delta)
 
         skin.reloadIfChanged()
         viewport = Viewport.oneToOne(
@@ -192,8 +218,8 @@ class Showcase : ApplicationAdapter() {
             holo.render(scene.camera)
         }
 
-        // The whole interface: recompose, lay out, hand input the positions, draw, and time all
-        // three. See UiRenderer. The scene above is drawn straight to GL rather than through the
+        // The whole interface: recompose, lay out, hand input the positions, render every dirty scene
+        // view into its own picture, draw, and time it all. See UiRenderer. The scene above is drawn straight to GL rather than through the
         // canvas, so it does not need to be inside the canvas's own frame.
         ui.render(viewport, System.nanoTime())
 

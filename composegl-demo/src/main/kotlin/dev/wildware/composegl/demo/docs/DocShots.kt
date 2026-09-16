@@ -317,6 +317,7 @@ internal fun docShots(): List<DocShot> = buildList {
     subtitleScenes()
     dialogueScenes()
     chatBoxes()
+    sceneViews()
 }
 
 // ---------------------------------------------------------------- whole screens

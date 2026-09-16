@@ -65,6 +65,9 @@ import dev.wildware.composegl.ui.input.PointerButton
  * @param drags several drags one after another, a drag to a frame, for a picture that takes more
  *   than one gesture to reach — a window docked against an edge and then a second one dropped on it.
  *   [dragTo] is the one-drag form of the same thing; a shot uses one or the other.
+ * @param still how many frames are drawn after the last step of a script before the shutter, so
+ *   that what the script started has settled. Zero for a picture of something still moving, such as
+ *   a [Dragging.Carry] that is still being carried.
  */
 internal class DocShot(
     val name: String,
@@ -89,6 +92,7 @@ internal class DocShot(
     val typed: List<Typing> = emptyList(),
     val padded: List<Padding> = emptyList(),
     val drags: List<Dragging> = emptyList(),
+    val still: Int = Settle,
     val content: @Composable () -> Unit,
 )
 
@@ -106,6 +110,14 @@ internal sealed interface Dragging {
      * something still being carried, which is where the drop squares and the landing patch are.
      */
     data class Drag(val from: Offset, val to: Offset, val hold: Boolean = false) : Dragging
+
+    /**
+     * The button still held from a [Drag] with `hold`, carried on to [to] in one move this frame.
+     * A run of these is a hand still moving when the shutter goes, for a picture of something
+     * caught in the middle of a drag — a panel mid-resize. Give the shot `still = 0` as well, or
+     * the settling frames after the script let it come to rest.
+     */
+    data class Carry(val to: Offset) : Dragging
 
     /**
      * Frames with the mouse still, so what the drag before it started can finish and be laid out.

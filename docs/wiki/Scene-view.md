@@ -6,6 +6,8 @@ of the world.
 
 It lays out like any other widget. Inside, it draws whatever your renderer draws.
 
+![a panel titled MODEL VIEWER with a grey cube drawn by raw OpenGL inside a rounded, focused scene view, and RESET and EXPORT buttons under it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/scene-view-panel.png)
+
 ```kotlin
 @Composable
 fun WeaponPreview(renderer: MyRenderer) {
@@ -28,7 +30,9 @@ fun WeaponPreview(renderer: MyRenderer) {
 
 `SceneView`, `SceneViewState`, `rememberSceneViewState` and `SceneDrawScope` are in
 `dev.wildware.composegl.ui.widget`. `ScenePass` is in `dev.wildware.composegl.ui.draw`.
-To orbit, drag or pick inside it, see [Input](#input).
+To orbit, drag or pick inside it, see [Input](#input). For a whole example with a real
+renderer in it, see [A worked example](#a-worked-example). To see all three uses running,
+see [In the showcase](#in-the-showcase).
 
 ---
 
@@ -253,6 +257,12 @@ calls `invalidate()` every frame keeps moving during the drag, drawn into the ol
 picture at its old size. A new `resolutionScale` on a panel that is not moving is
 remade straight away.
 
+![a scene view in the left pane of a splitter, caught while the bar is still being dragged to the right: the cube is stretched wide and its edges are stepped, because the old, narrower picture is being stretched over the new pane](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/scene-view-resize.png)
+
+That picture was taken with the bar still moving. The cube is stretched and its edges
+are stepped: it is the old, narrower picture pulled over the wider pane. One frame after
+the bar stops, it is drawn again at the new size and is sharp.
+
 **Given back when it leaves.** When a `SceneView` leaves the composition, its picture
 is given back to the GPU, whoever holds the state. So a `LazyColumn` of previews frees
 each one as its row scrolls away, and makes a new one if the row comes back:
@@ -266,6 +276,11 @@ LazyColumn(count = items.size, key = { items[it].id }) { index ->
     }
 }
 ```
+
+![a list of four items, each with a small cube preview beside its name: a tan supply crate, a blue shield cell marked equipped, a red med kit and a green fuel block](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/scene-view-previews.png)
+
+Four previews, four pictures. Each was drawn once; until something marks one dirty, the
+list costs no more GPU work than four images.
 
 **Capped at the GPU's biggest texture.** Neither side goes past
 `UiCanvas.maxSceneSize`, which is the device's biggest texture. A panel that would, at
@@ -414,6 +429,152 @@ clears and how often `raw` was asked for, so a test asserts on redraws with no G
 ```kotlin
 ui.render()
 assertEquals(1, (ui.backend.canvas as RecordingCanvas).scenes.size)
+```
+
+---
+
+## A worked example
+
+The examples above call a renderer they do not show. This one is whole: a model you turn
+by dragging or with the arrow keys, drawn by plain OpenGL on the LWJGL3 frontend. It is
+the code the pictures on this page were taken of, in
+[`composegl-demo/.../demo/scene/ModelViewer.kt`](https://github.com/wildware-uk/composegl/blob/master/composegl-demo/src/main/kotlin/dev/wildware/composegl/demo/scene/ModelViewer.kt).
+
+The widget half:
+
+```kotlin
+@Composable
+fun ModelViewer(
+    cube: Cube,
+    modifier: Modifier = Modifier,
+    state: SceneViewState = rememberSceneViewState(),
+    tint: Colour = Colour.White,
+) {
+    // Not Compose state: only the draw block reads it, and only when the view is dirty.
+    val turn = remember { Turn() }
+
+    SceneView(
+        state,
+        modifier,
+        onPointer = { e ->
+            when (e) {
+                is PointerEvent.Press -> {
+                    turn.grab = e.position
+                    true
+                }
+                is PointerEvent.Move -> if (e.pressed.isEmpty()) false else {
+                    // Positions are in the picture's pixels, so half its width is half a turn.
+                    turn.yaw += (e.position.x - turn.grab.x) / state.width.coerceAtLeast(1) * 180f
+                    turn.pitch += (e.position.y - turn.grab.y) / state.height.coerceAtLeast(1) * 90f
+                    turn.grab = e.position
+                    state.invalidate()
+                    true
+                }
+                else -> false
+            }
+        },
+        onKey = { e ->
+            val by = when (e.key) {
+                Key.Left -> -15f
+                Key.Right -> 15f
+                else -> 0f
+            }
+            if (by != 0f && e.type == KeyEventType.Down) {
+                turn.yaw += by
+                state.invalidate()
+            }
+            by != 0f
+        },
+    ) {
+        clear(Colour.rgb(0x10141C))
+        raw { cube.draw(width, height, turn.yaw, turn.pitch, tint) }
+    }
+}
+
+private class Turn {
+    var yaw = 35f
+    var pitch = 25f
+    var grab = Offset.Zero
+}
+```
+
+The renderer half is the game's, not the toolkit's. `Cube` is one shader and one vertex
+buffer; the part that matters is how little it has to do to live in a panel:
+
+```kotlin
+class Cube : AutoCloseable {
+    fun draw(width: Int, height: Int, yaw: Float, pitch: Float, tint: Colour = Colour.White) {
+        if (program == 0) create()             // made on the GL thread, the first time
+
+        GL11.glEnable(GL11.GL_DEPTH_TEST)      // the picture has a depth buffer; turn it on
+        GL20.glUseProgram(program)
+        // ... a perspective matrix for width / height, the buffer bound, glDrawArrays ...
+        GL20.glUseProgram(0)
+    }
+}
+```
+
+Three things it does not do: bind a framebuffer, set a viewport, or clear. The block is
+handed the picture already bound with the viewport over all of it, and `clear` wipes the
+colour and the depth. It does not put the toolkit's state back either; the toolkit does
+that after the block.
+
+And using it:
+
+```kotlin
+val cube = rememberCube()
+
+Panel(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
+        Text("MODEL VIEWER", style = "label.dim")
+        ModelViewer(cube, Modifier.fillMaxWidth().weight(1f).clip(8f))
+        Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
+            Button("RESET", onClick = {})
+            Button("EXPORT", onClick = {})
+        }
+    }
+}
+```
+
+`rememberCube()` makes the `Cube` once and closes it when the composition lets it go.
+The list of previews above is the same `ModelViewer`, four times, each with a `tint` and
+`Modifier.size(52f)`.
+
+---
+
+## In the showcase
+
+`./gradlew :composegl-demo-showcase:run`, then **Modules ▸ composegl-ui** (Control and 1,
+or the pad's Start) and open **Scene views**. It has all three uses, each looking at the
+showcase's own 3D fight:
+
+![the showcase with the composegl-ui section open on Scene views: a turning drone preview in the section's list, a Scene view debug window over the fight showing the whole world from an orbiting camera, and a picture in picture at the top titled Behind VESPER, following one drone](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/showcase-scene-views.png)
+
+| | what it shows | how to drive it |
+|---|---|---|
+| **Editor window** | the whole world, in a debug window you can move, resize, dock and tab. *Follow the fight* redraws it every frame; switched off, it redraws only when the camera moves. *Half resolution* sets `resolutionScale` to `0.5`. | drag to orbit, the wheel to zoom. Focused: the arrows orbit, `=` and `-` zoom, `F` resets. On a pad: either stick orbits, the bumpers zoom, West resets, the d-pad moves focus on. |
+| **Previews** | a drone beside each row of a list. Only the one that is turning is drawn again each frame; the others were drawn once. | click a row, or Tab to it and press Enter, or South on a pad, to set it turning. |
+| **Picture in picture** | a live feed from behind one drone, at `resolutionScale = 0.5`, over the fight. | click it, or focus it and press Enter or South, for the next drone. |
+
+The editor window and the picture in picture stay open when the section closes. With the
+frame budget on (F3), `scene renders` counts how many were drawn that frame.
+`COMPOSEGL_SHOWCASE_VIEWS=1` opens both at startup.
+
+The showcase's interface never touches the scene. It asks for a camera through a small
+interface of its own, `WorldViews`, and the game answers inside the draw block:
+
+```kotlin
+SceneView(views.editor, Modifier.fillMaxWidth().aspectRatio(16f / 10f), onPointer = input::pointer, onKey = input::key, onPad = input::pad) {
+    clear(SkyColour)
+    raw { frame -> world.orbit(frame, width, height, views.yaw, views.pitch, views.distance) }
+}
+```
+
+And the game's loop says, once a frame, which views must be drawn again:
+
+```kotlin
+if (editorOpen && editorLive) editor.invalidate()
+if (pipOpen) pip.invalidate()
 ```
 
 ---

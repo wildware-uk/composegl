@@ -271,7 +271,7 @@ private val HebrewBlock = 0x0590..0x05FF
 private const val Window = 640
 
 /** Frames drawn before the shutter, so that anything with a first-frame animation has settled. */
-private const val Settle = 3
+internal const val Settle = 3
 
 /** The frames after a click on which the pointer moves on to a shot's `then`. */
 private val ThenFrames = 2..3
@@ -395,6 +395,9 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
     val gestures: List<() -> Unit> = shot.drags.flatMap { step ->
         when (step) {
             is Dragging.Drag -> listOf({ drag(mouse, step.from, step.to, step.hold) })
+            is Dragging.Carry -> listOf({
+                mouse.onPointer(PointerEvent.Move(PointerId.Mouse, step.to, setOf(PointerButton.Primary)))
+            })
             is Dragging.Wait -> List(step.frames) { {} }
         }
     }
@@ -457,10 +460,10 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
         // Long enough for the whole script and a few frames after it, so a picture never catches a
         // shot in the middle of its own typing because somebody forgot to ask for the seconds.
         val frames = maxOf(
-            Settle + (shot.seconds * 60f).toInt(),
-            typing.size + Settle,
-            pushes.size + Settle,
-            gestures.size + Settle,
+            shot.still + (shot.seconds * 60f).toInt(),
+            typing.size + shot.still,
+            pushes.size + shot.still,
+            gestures.size + shot.still,
         )
         for (frame in 0..frames) {
             GL11.glClearColor(0f, 0f, 0f, 1f)
