@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.PixmapIO
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.math.Vector3
 import dev.wildware.composegl.game.HitKind
+import dev.wildware.composegl.game.SubtitleSize
 import dev.wildware.composegl.game.WorldAnchor
 import dev.wildware.composegl.game.WorldProjection
 import dev.wildware.composegl.gdx.GdxCanvas
@@ -33,6 +34,7 @@ import dev.wildware.composegl.ui.layout.MeasurePass
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.layout.run
 import dev.wildware.composegl.ui.skin.ReloadingSkin
+import dev.wildware.composegl.ui.text.scaledTextSizes
 import kotlin.random.Random
 
 /**
@@ -99,9 +101,13 @@ class Showcase : ApplicationAdapter() {
     override fun create() {
         fonts = GdxFonts()
         val file = Gdx.files.internal("fonts/DejaVuSans.ttf")
-        // Every size the skin file asks for. A size nobody registered is not a smaller word, it is
-        // a showcase that will not start, so the list has to follow the skin.
-        fonts.registerTrueType("body", file, listOf(13, 16, 18, 20))
+        // Every size the skin file asks for, and every size the subtitle presets can turn 16 into.
+        // A size nobody registered is not a smaller word, it is a showcase that will not start, so
+        // the list has to follow the skin and the settings both.
+        val sizes = (listOf(13, 16, 18, 20) + scaledTextSizes(listOf(16), SubtitleSize.scales))
+            .distinct()
+            .sorted()
+        fonts.registerTrueType("body", file, sizes)
         fonts.registerTrueType("display", file, listOf(34))
 
         skin = showcaseSkin(fonts)

@@ -68,6 +68,8 @@ import dev.wildware.composegl.game.Cooldown
 import dev.wildware.composegl.game.RadialCooldown
 import dev.wildware.composegl.game.RadialMenu
 import dev.wildware.composegl.game.Reticle
+import dev.wildware.composegl.game.SubtitleQueue
+import dev.wildware.composegl.game.Subtitles
 import dev.wildware.composegl.game.rememberCompassLabels
 import dev.wildware.composegl.game.rememberCooldown
 import dev.wildware.composegl.game.rememberReticleState
@@ -1698,6 +1700,28 @@ private fun MutableList<DocShot>.game() {
                     // Behind the player, so it is pinned to the end with an arrow on it.
                     pin(bearing = 200f, distance = 410f, fadeWithDistance = true)
                 }
+            }
+        }
+    })
+
+    // The toolkit's own skin again: the band, the speaker's colour and the caption under it are
+    // what the picture is of. The queue has no clock, so it says the same thing every time.
+    add(DocShot("game-subtitles", 520, 150, stock = true) {
+        Frame {
+            // A stand-in for the scene, because the band is the thing that has to stay readable
+            // over one — on a flat dark page it would be invisible and the picture would be a lie.
+            Box(Modifier.fillMaxSize().background(Brush.vertical(Steel, Ink))) {
+                val subs = remember {
+                    SubtitleQueue(capacity = 2, clock = null).apply {
+                        show("We are through the gate. Keep to the wall and stay quiet.", speaker = "Mira")
+                        caption("[a door slams somewhere below]")
+                    }
+                }
+                Subtitles(
+                    subs,
+                    Modifier.align(Alignment.Centre),
+                    speakerColours = mapOf("Mira" to Colour.rgb(0x5B8DEF)),
+                )
             }
         }
     })

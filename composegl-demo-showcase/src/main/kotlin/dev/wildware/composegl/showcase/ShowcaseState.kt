@@ -11,6 +11,7 @@ import dev.wildware.composegl.game.DamageNumbers
 import dev.wildware.composegl.game.HitMarkerState
 import dev.wildware.composegl.game.ParticleEmitter
 import dev.wildware.composegl.game.ParticleStyle
+import dev.wildware.composegl.game.SubtitleSize
 import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.graphics.Colour
 
@@ -29,6 +30,7 @@ enum class Exhibit(val title: String, val blurb: String) {
     Nodes("UI tree", "The live interface, and what keeps changing"),
     Telemetry("Live plots", "Heat and frame time as graphs"),
     Wheel("Weapon wheel", "Hold Q or LB and flick a stick"),
+    Comms("Subtitles", "Timed lines, captions and the player's settings"),
 }
 
 /** How often the fight fires, as a debug window offers it. */
@@ -162,6 +164,23 @@ class ShowcaseState {
 
     /** What colour those sparks start. */
     var sparkTint by mutableStateOf(Colour.rgb(0xFFD48A))
+
+    // --- what a player sets in an accessibility menu ---------------------------------------------
+    //
+    // A real game saves these three with the rest of its settings. Here the tuning window is the
+    // options screen, so that what changing them does is visible while the fight is running.
+
+    /** How big the subtitles are, on its own rather than on top of the interface scale. */
+    var subtitleSize by mutableStateOf(SubtitleSize.Medium)
+
+    /** How solid the band behind the words is. */
+    var subtitleBackground by mutableFloatStateOf(0.8f)
+
+    /** Whether who is speaking is written above the line. */
+    var subtitleSpeakers by mutableStateOf(true)
+
+    /** Say something on the next frame, whatever the script was going to do. */
+    var sayNow by mutableStateOf(false)
 
     /**
      * The sparks that come off a hit.

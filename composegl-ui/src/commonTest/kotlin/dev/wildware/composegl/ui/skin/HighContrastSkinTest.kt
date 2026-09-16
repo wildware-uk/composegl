@@ -52,6 +52,7 @@ class HighContrastSkinTest {
         "tooltip" to null, "notification" to null, "notification.detail" to "notification",
         "notification.more" to "notification", "minimap.compass" to "minimap", "prompt" to null,
         "compass.label" to "compass", "compass.readout" to "compass",
+        "subtitle" to null, "subtitle.speaker" to "subtitle", "subtitle.caption" to "subtitle",
         "stepper.arrow" to "stepper", "stepper.value" to "stepper",
         "field" to null, "field.placeholder" to "field",
         "item" to null, "item.selected" to null, "tab" to null, "tab.selected" to null,

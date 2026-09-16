@@ -87,6 +87,16 @@
     "compass.pin": { "background": { "fill": "#FFD600" }, "textColour": "#FFFFFF", "text": { "size": 12 } },
     "compass.readout": { "textColour": "#FFD600", "text": { "size": 13 } },
 
+    // Subtitles. The same sizes and padding as the default's, so switching skins does not rewrap a
+    // line in the middle of a conversation.
+    "subtitle": {
+      "background": { "fill": "#000000", "corner": 4, "padding": [16, 10] },
+      "textColour": "#FFFFFF",
+      "text": { "size": 16 }
+    },
+    "subtitle.speaker": { "textColour": "#FFD600", "text": { "size": 16 } },
+    "subtitle.caption": { "textColour": "#FFFFFF", "text": { "size": 16 } },
+
     // --- text ---
 
     "label": {

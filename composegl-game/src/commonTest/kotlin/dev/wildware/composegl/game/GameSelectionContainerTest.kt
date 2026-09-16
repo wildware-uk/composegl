@@ -1,12 +1,18 @@
 package dev.wildware.composegl.game
 
 import androidx.compose.runtime.Composable
+import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.backend.HeadlessBackend
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.layout.Alignment
+import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.align
+import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.testTag
 import dev.wildware.composegl.ui.testing.UiTest
 import dev.wildware.composegl.ui.testing.uiTest
+import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.SelectionContainer
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -17,8 +23,9 @@ import kotlin.test.assertTrue
  * Game widgets inside a [SelectionContainer]: a click on their letters is still a click on them.
  *
  * A game that wraps a whole screen in a container, so a seed or a player name can be copied, must
- * not lose its hotbar or its notifications to text selection. Driven through the real pointer
- * router, as composegl-ui's `SelectionContainerUiTest` drives the toolkit's own widgets.
+ * not lose its hotbar, its notifications or the shot fired through a subtitle band to text
+ * selection. Driven through the real pointer router, as composegl-ui's `SelectionContainerUiTest`
+ * drives the toolkit's own widgets.
  */
 class GameSelectionContainerTest {
 
@@ -58,5 +65,26 @@ class GameSelectionContainerTest {
         ui.advanceBy(500)
 
         assertTrue(queue.shown.isEmpty(), "the click reached the card rather than selecting its text")
+    }
+
+    @Test
+    fun `a click on a subtitle inside a container still reaches the game underneath`() {
+        val subs = SubtitleQueue(capacity = 1, clock = Clock.Ui)
+        var hits = 0
+        val ui = open {
+            SelectionContainer {
+                Box(Modifier.fillMaxSize()) {
+                    Button("SHOOT", { hits++ }, Modifier.fillMaxSize())
+                    Subtitles(subs, Modifier.align(Alignment.BottomCentre).testTag("band"))
+                }
+            }
+        }
+        subs.show("Stay behind me.", speaker = "Mira", durationMillis = 60_000)
+        ui.advanceBy(100)
+
+        ui.click(ui.node("band").boundsInRoot.centre)
+        ui.advanceBy(100)
+
+        assertEquals(1, hits, "the band gave the shot to text selection instead of the game")
     }
 }

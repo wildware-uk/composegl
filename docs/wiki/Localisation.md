@@ -68,6 +68,7 @@ What mirrors:
 | `LazyVerticalGrid` | the first column is on the right |
 | `LazyColumn`, up-and-down `ScrollArea`, `LazyVerticalGrid`, `Table` | the up-and-down scrollbar hangs on the **left** edge, where the lines end, so it never lies over the first letter of a line; a row narrower than the list starts against the right, and a table keeps the bar's gutter on the left so its columns still line up with its titles |
 | `Slider` | the minimum is on the right; the Left arrow and the pad's left raise the value |
+| `Subtitles` | the band stays in the middle either way, and the words in it read right to left |
 
 What does **not** mirror, on purpose:
 
