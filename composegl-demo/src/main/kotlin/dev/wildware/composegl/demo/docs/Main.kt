@@ -113,7 +113,8 @@ fun main() {
         typeface,
         everySize,
         StbFonts.codepointsOf(
-            "אפשרויותמוזיקהשםברוךשובךעדהצחנן" + HebrewSubtitles + HebrewDialogue + HebrewObjectives,
+            "אפשרויותמוזיקהשםברוךשובךעדהצחנן" +
+                HebrewSubtitles + HebrewDialogue + HebrewObjectives + HebrewChat,
         ),
     )
     fonts.fallBackTo(listOf("cjk", "korean", "hebrew", "emoji"))
@@ -227,6 +228,16 @@ private val HebrewDialogue =
  * asks for in Hebrew cannot leave a row of blank boxes behind on the wiki.
  */
 private val HebrewObjectives = HebrewQuestName + HebrewQuestRope + HebrewQuestWatch
+
+/**
+ * Every letter the Hebrew chat picture says: the channel tabs, who is talking, what they say and
+ * the hint in the empty input. The same rule again — the words themselves, from where the picture
+ * says them, so that changing what the raid says cannot leave a blank box behind on the wiki.
+ */
+private val HebrewChat =
+    HebrewChatSay + HebrewChatParty + HebrewChatGuild + HebrewChatMira + HebrewChatAnder +
+        HebrewChatSorrel + HebrewChatWren + HebrewChatHint + HebrewChatJoined + HebrewChatRope +
+        HebrewChatGate + HebrewChatIron + HebrewChatVault + HebrewChatMixed
 
 /** The window every picture is drawn inside. Bigger than the biggest of them. */
 private const val Window = 640

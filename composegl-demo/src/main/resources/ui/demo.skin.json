@@ -475,6 +475,11 @@
     "chat.name": { "textColour": "#4CC2FF", "text": { "size": 14 } },
     "chat.channel": { "textColour": "#9AA4B2", "text": { "size": 14 } },
 
+    // Two channels the example invents, to show what a channel's own colour is for. Names like
+    // these are a game's, not the toolkit's, which is why they are here and not in StyleNames.
+    "chat.party": { "textColour": "#7EE0A3", "text": { "size": 14 } },
+    "chat.guild": { "textColour": "#C9A0F0", "text": { "size": 14 } },
+
     "chat.tab": {
       "background": { "fill": "#18FFFFFF", "corner": 4, "border": "#30FFFFFF", "padding": [10, 4] },
       "textColour": "#9AA4B2",

@@ -1135,6 +1135,14 @@ the press while there is really something folded away.
 
 A message history over the HUD and an input line when it is open.
 
+![an open chat box over a night scene: tabs for Say, Party and Guild, a log where each channel's lines are in its own colour, and the player's own line at the bottom](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-chat-typed.png)
+
+That is the real box with a real hand on the keyboard. The raid's lines arrive on
+the clock one at a time; Enter opens the box, `/p on my way` is **typed** into it
+and Enter sends it. The prefix put that one line in the party without moving the
+player, which is why the label by the input still reads Say — and the line is in
+the log at all because `onSend` put it there, the way your game will.
+
 ```kotlin
 val All = ChatChannel("all", "All", prefix = "/a")
 val Team = ChatChannel("team", "Team", prefix = "/t", style = "chat.team")
@@ -1159,11 +1167,25 @@ chat.system("Mira has joined")
 `idleMillis`, fades, and goes. With nothing up it draws nothing and asks for no
 frames, so leaving it on screen for a whole match costs a game nothing.
 
+![lines arriving in the corner of the screen one by one, the oldest dropping off the top, then each fading out on its own until the corner is empty](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-chat-idle.gif)
+
+The closed box, a frame at a time, on the real clock: five lines arrive, only the
+newest `idleLines` stay up, and then each one holds its own few seconds and fades
+on its own timer. By the last frame there is nothing on screen and nothing being
+composed.
+
 **Open**, it is a panel: the channel tabs, the whole history scrolled to the
 newest line, and an input with the caret already in it. The history follows the
 newest line **unless the player has scrolled back to read something** — then it
 holds still and lets the new lines pile up below, and follows again once they
 scroll back to the end.
+
+![the open box scrolled back a few lines, with a half-typed question still in the input](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-chat-scrollback.png)
+
+Two PageUps, and then the raid carried on talking for another two seconds. The
+window stayed where the player left it — the scrollbar is short of the bottom and
+three newer lines are waiting below it — and the half-typed question is still
+there, because scrolling is not typing.
 
 ### One key in and one key out
 
@@ -1225,6 +1247,12 @@ pad all open it, and it is written in the same scope a menu bar's menus are. A
 line fading over the HUD is not clickable and is not somewhere focus can go — it
 is half gone, and aiming at it is not a thing a player can do.
 
+![the open chat box with a menu hanging under a player's name, offering Whisper Sorrel, Mute and Report](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-chat-name.png)
+
+No mouse in that one. Enter opened the box, three Shift+Tabs walked focus back off
+the input on to Sorrel's name — you can see the ring on it — and Shift+F10, the
+keyboard's right-click, opened the game's own menu under it.
+
 ```kotlin
 ChatBox(
     state = chat,
@@ -1249,6 +1277,15 @@ name in front of a line. A line that mixes Hebrew and English reads by its **own
 first letter rather than by the screen's, so the same line reads the same way on
 either — every label in the box is an ordinary `Text`, and that is the `Text`'s
 doing rather than the chat box's.
+
+![the same chat box in the high-contrast skin and in Hebrew: the tabs start on the right, the names sit to the right of what was said, and the hint in the empty input is in Hebrew too](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-chat-rtl.png)
+
+The same widget, the shipped [[high-contrast skin|Skins#if-you-ship-a-high-contrast-skin]],
+and a player reading Hebrew. Nothing is set on the box to get any of that: the tabs
+start on the right because the layout does, the caret sits at the right-hand end of
+the input, the hint in it is `chat.say` looked up in the player's own
+[[strings|Localisation]], and the last line — Hebrew with one English word in it —
+reads correctly both ways round.
 
 The skin names every part: `chat` for the open panel, `chat.message`,
 `chat.system`, `chat.name`, `chat.channel`, `chat.tab` and `chat.tab.selected`,

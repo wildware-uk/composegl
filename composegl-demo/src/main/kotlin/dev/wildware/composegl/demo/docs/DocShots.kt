@@ -56,6 +56,10 @@ import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.modifier.repeatingClickable
 import dev.wildware.composegl.game.Bar
 import dev.wildware.composegl.game.BarThreshold
+import dev.wildware.composegl.game.ChatBox
+import dev.wildware.composegl.game.ChatChannel
+import dev.wildware.composegl.game.ChatMessage
+import dev.wildware.composegl.game.rememberChatState
 import dev.wildware.composegl.game.CompassBar
 import dev.wildware.composegl.game.DamageDirectionLayer
 import dev.wildware.composegl.game.DamageDirections
@@ -226,6 +230,7 @@ import dev.wildware.composegl.ui.widget.ColourSwatch
 import dev.wildware.composegl.ui.widget.Dropdown
 import dev.wildware.composegl.ui.widget.PopupHost
 import dev.wildware.composegl.ui.widget.MenuBar
+import dev.wildware.composegl.ui.widget.MenuScope
 import dev.wildware.composegl.ui.widget.contextMenu
 import dev.wildware.composegl.ui.input.Modifiers
 import dev.wildware.composegl.ui.input.plus
@@ -302,6 +307,7 @@ internal fun docShots(): List<DocShot> = buildList {
     firefight()
     subtitleScenes()
     dialogueScenes()
+    chatBoxes()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -7148,3 +7154,314 @@ private val HebrewRaid = TrackedQuest(
 internal const val HebrewQuestName = "כבוש את המגדל"
 internal const val HebrewQuestRope = "חתוך את חבל האזעקה"
 internal const val HebrewQuestWatch = "השתק את השומרים"
+
+// ---------------------------------------------------------------- in-game chat
+
+/**
+ * A raid's chat, driven rather than posed.
+ *
+ * Nothing here is a box handed the state it should look like. Every picture starts an empty chat,
+ * lets the game's own traffic arrive on the real clock one line at a time, and then puts a hand on
+ * the keyboard: Enter to open it, letters into the input, Enter to send. Where the box has got to
+ * by the frame the shutter goes is where the widget put itself.
+ *
+ * The player's own line is written into the log by the *game*, in `onSend`, exactly as the wiki
+ * says to do it — the box never writes it down itself, which is why a sent line in these pictures
+ * is proof the callback really ran.
+ */
+private fun MutableList<DocShot>.chatBoxes() {
+    // A line really typed and really sent. The traffic lands first, each channel in its own colour;
+    // then Enter opens the box, `/p on my way` is typed into it and Enter sends it. The prefix put
+    // that one line in the party without moving the player, which is why the label by the input
+    // still reads Say and the newest line in the log is a party line from You.
+    add(
+        DocShot(
+            "game-chat-typed", ChatWidth, 300,
+            typed = listOf(
+                Typing.Wait(ChatTrafficFrames),
+                Typing.Press(Key.Enter),
+                Typing.Wait(6),
+                Typing.Write("/p on my way"),
+                Typing.Wait(4),
+                Typing.Press(Key.Enter),
+                Typing.Wait(12),
+            ),
+        ) {
+            Frame { ChatGround { RaidChat(Modifier.align(Alignment.BottomStart)) } }
+        },
+    )
+
+    // The log held still while it is being read. A dozen lines arrive, two PageUps walk back up
+    // through them, and the rest of the raid keeps talking underneath — the window stays where the
+    // player left it instead of snatching itself back to the newest line. The half-typed question
+    // in the input is still there, because scrolling is not typing.
+    add(
+        DocShot(
+            "game-chat-scrollback", ChatWidth, 300,
+            typed = listOf(
+                Typing.Wait(ChatBusyFrames),
+                Typing.Press(Key.Enter),
+                Typing.Wait(8),
+                Typing.Press(Key.PageUp),
+                Typing.Wait(6),
+                Typing.Press(Key.PageUp),
+                Typing.Wait(6),
+                Typing.Write("did we clear the west wall?"),
+                Typing.Wait(90),
+            ),
+        ) {
+            Frame { ChatGround { RaidChat(Modifier.align(Alignment.BottomStart), traffic = ChatBusy) } }
+        },
+    )
+
+    // A name with the game's own menu on it. Enter opens the box, Shift+Tab steps focus back off the
+    // input on to a name in the log, and Shift+F10 — the keyboard's right-click — opens the menu
+    // under it. The same menu a mouse's right-click, a long press and the pad open.
+    add(
+        DocShot(
+            "game-chat-name", ChatWidth, 370,
+            typed = listOf(
+                Typing.Wait(ChatTrafficFrames),
+                Typing.Press(Key.Enter),
+                Typing.Wait(8),
+                Typing.Press(Key.Tab, Modifiers.Shift),
+                Typing.Press(Key.Tab, Modifiers.Shift),
+                Typing.Press(Key.Tab, Modifiers.Shift),
+                Typing.Wait(6),
+                Typing.Press(Key.F10, Modifiers.Shift),
+                Typing.Wait(12),
+            ),
+        ) {
+            Frame {
+                PopupHost {
+                    ChatGround { RaidChat(Modifier.align(Alignment.BottomStart), nameMenu = true) }
+                }
+            }
+        },
+    )
+
+    // The high-contrast skin, and a player whose language is not written in this alphabet and does
+    // not run this way. Nothing is set on the box: the tabs start on the right because the layout
+    // does, the name sits to the right of the words it is in front of, and the hint in the empty
+    // input is `chat.say` looked up in the player's own strings. The last line mixes Hebrew with an
+    // English word and reads by its own first letter rather than by the screen's.
+    add(
+        DocShot(
+            "game-chat-rtl", ChatWidth, 300,
+            typed = listOf(Typing.Wait(ChatHebrewFrames), Typing.Press(Key.Enter), Typing.Wait(12)),
+        ) {
+            ProvideSkin(Skin.HighContrast) {
+                ProvideLocale(Locale("he"), HebrewChatWords) {
+                    ProvideLayoutDirection(LayoutDirection.Rtl) {
+                        Frame {
+                            ChatGround {
+                                RaidChat(
+                                    Modifier.align(Alignment.BottomStart),
+                                    traffic = HebrewChatTraffic,
+                                    channels = HebrewChatChannels,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    )
+
+    // The closed box, which is where a chat spends a match: the newest few lines drawn straight on
+    // the game, each holding for its own few seconds and then fading out on its own. By the end the
+    // corner is empty and the widget is composing nothing at all. Only when asked for, because they
+    // are frames to be joined into a GIF rather than pictures of their own: `COMPOSEGL_DOC_FRAMES=1`,
+    // then join `game-chat-idle-frame-*.png` in order, 0.18 s each, which is the speed it really ran.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(ChatIdleFrames) { i ->
+            val name = "game-chat-idle-frame-${i.toString().padStart(2, '0')}"
+            add(
+                DocShot(name, ChatWidth, 160, seconds = i * ChatIdleStep) {
+                    Frame { ChatGround { RaidChat(Modifier.align(Alignment.BottomStart), idle = true) } }
+                },
+            )
+        }
+    }
+}
+
+/** How wide every picture of the chat is. */
+private const val ChatWidth = 470
+
+/** How wide the box itself is, and how tall its history is when it is open. */
+private const val ChatBoxWidth = 424f
+private const val ChatHistoryHeight = 148f
+
+/** Frames enough for all of [ChatTraffic] to have arrived. */
+private const val ChatTrafficFrames = 180
+
+/** Frames enough for the first dozen lines of [ChatBusy]; the rest land while the log is held still. */
+private const val ChatBusyFrames = 190
+
+/** Frames enough for all of [HebrewChatTraffic] to have arrived. */
+private const val ChatHebrewFrames = 140
+
+/** One frame of the GIF every this long, for as long as the lines take to arrive and go. */
+private const val ChatIdleStep = 0.18f
+private const val ChatIdleFrames = 40
+
+/** How long a line lingers over the HUD in the moving picture, and how long it takes to go. */
+private const val ChatIdleMillis = 2_600
+private const val ChatFadeMillis = 500
+
+/** The channels the raid talks in. The colours are the example skin's `chat.party` and `chat.guild`. */
+private val ChatSay = ChatChannel("say", "Say", prefix = "/s")
+private val ChatParty = ChatChannel("party", "Party", prefix = "/p", style = "chat.party")
+private val ChatGuild = ChatChannel("guild", "Guild", prefix = "/g", style = "chat.guild")
+private val ChatChannels = listOf(ChatSay, ChatParty, ChatGuild)
+
+/** One thing said in the raid: how long after the line before it, and who said it where. */
+private class ChatBeat(
+    val after: Int,
+    val text: String,
+    val from: String? = null,
+    val channel: ChatChannel? = null,
+)
+
+/** The traffic most of the pictures are taken over: three channels, and a line nobody said. */
+private val ChatTraffic = listOf(
+    ChatBeat(120, "Mira has joined the party"),
+    ChatBeat(420, "rope is down, west wall", "Mira", ChatParty),
+    ChatBeat(520, "two on the gate, hold here", "Ander", ChatParty),
+    ChatBeat(520, "anyone selling iron?", "Sorrel", ChatSay),
+    ChatBeat(520, "vault run at eight, shout if you want in", "Wren", ChatGuild),
+    ChatBeat(520, "watch the lanterns", "Ander", ChatParty),
+)
+
+/**
+ * A busier night, for the picture of a log being read while it is still filling.
+ *
+ * The last four land after the player has already scrolled back, which is the whole point: they
+ * pile up below the window instead of dragging it down to them.
+ */
+private val ChatBusy = ChatTraffic + listOf(
+    ChatBeat(300, "got the ledger", "Mira", ChatParty),
+    ChatBeat(300, "someone take the east stair", "Ander", ChatParty),
+    ChatBeat(300, "60g for iron, no less", "Sorrel", ChatSay),
+    ChatBeat(300, "count me in for the vault", "Tam", ChatGuild),
+    ChatBeat(300, "Tam has joined the party"),
+    ChatBeat(700, "lanterns are out", "Mira", ChatParty),
+    ChatBeat(600, "moving on three", "Ander", ChatParty),
+    ChatBeat(600, "two more on the landing", "Mira", ChatParty),
+    ChatBeat(600, "hold, hold", "Ander", ChatParty),
+)
+
+/** The menu the game puts on a name — the wiki's own three, with a line above the last of them. */
+private val ChatNameMenu: MenuScope.(ChatMessage) -> Unit = { message ->
+    Item("Whisper ${message.from}") {}
+    Item("Mute") {}
+    Separator()
+    Item("Report") {}
+}
+
+/**
+ * The raid's chat, wired the way a game wires it.
+ *
+ * The traffic is the server's and arrives on the clock; `onSend` is the game writing its own line
+ * down once it has gone out, which is the only reason a sent line ever appears in these pictures.
+ */
+@Composable
+private fun RaidChat(
+    modifier: Modifier = Modifier,
+    traffic: List<ChatBeat> = ChatTraffic,
+    channels: List<ChatChannel> = ChatChannels,
+    nameMenu: Boolean = false,
+    idle: Boolean = false,
+) {
+    val chat = rememberChatState(
+        idleLines = 4,
+        idleMillis = if (idle) ChatIdleMillis else 60_000,
+        fadeMillis = ChatFadeMillis,
+    )
+    val clocks = LocalClocks.current
+    LaunchedEffect(traffic) {
+        traffic.forEach { beat ->
+            clocks.wait(Clock.Ui, beat.after)
+            if (beat.from == null) chat.system(beat.text) else chat.receive(beat.text, beat.from, beat.channel)
+        }
+    }
+    ChatBox(
+        state = chat,
+        modifier = modifier,
+        channels = channels,
+        onSend = { channel, text -> chat.receive(text, from = "You", channel = channel) },
+        width = ChatBoxWidth,
+        historyHeight = ChatHistoryHeight,
+        closeOnSend = false,
+        nameMenu = if (nameMenu) ChatNameMenu else null,
+    )
+}
+
+/**
+ * A stand-in for the game the chat sits on top of.
+ *
+ * Chat only ever photographed over black is chat nobody has checked: the lines over the HUD have no
+ * background of their own on purpose, and this is what they have to stay readable over.
+ */
+@Composable
+private fun ChatGround(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier.fillMaxSize()
+                .background(Brush.vertical(Colour.rgb(0x16202F), Colour.rgb(0x3A3226))),
+        )
+        Box(Modifier.fillMaxSize().padding(10f)) { content() }
+    }
+}
+
+/**
+ * The channels in the player's own language: a game hands the box names it has already translated.
+ *
+ * No style of their own, because this picture is taken through the toolkit's own high-contrast
+ * skin, and `chat.party` and `chat.guild` are names the *example* invents. A shipped skin answers
+ * the toolkit's vocabulary and nothing else, so these lines are drawn in `chat.message`.
+ */
+private val HebrewChatChannels = listOf(
+    ChatChannel("say", HebrewChatSay, prefix = "/s"),
+    ChatChannel("party", HebrewChatParty, prefix = "/p"),
+    ChatChannel("guild", HebrewChatGuild, prefix = "/g"),
+)
+
+/** The same few minutes of the same raid, said in Hebrew. */
+private val HebrewChatTraffic = listOf(
+    ChatBeat(120, HebrewChatJoined),
+    ChatBeat(480, HebrewChatRope, HebrewChatMira, HebrewChatChannels[1]),
+    ChatBeat(520, HebrewChatGate, HebrewChatAnder, HebrewChatChannels[1]),
+    ChatBeat(520, HebrewChatIron, HebrewChatSorrel, HebrewChatChannels[0]),
+    ChatBeat(520, HebrewChatVault, HebrewChatWren, HebrewChatChannels[2]),
+    ChatBeat(520, HebrewChatMixed, HebrewChatAnder, HebrewChatChannels[1]),
+)
+
+/**
+ * The box's own one word in Hebrew, so the hint in the empty input is looked up rather than fallen
+ * back to English. Everything else on the box is the game's text, already translated before it
+ * reaches the widget.
+ */
+private val HebrewChatWords = Strings(
+    mapOf(Locale("he") to mapOf("chat.say" to HebrewChatHint)),
+)
+
+/**
+ * What the Hebrew picture of the chat says, so [dev.wildware.composegl.demo.docs.main] can bake
+ * exactly those letters. Whole words rather than the letters picked out of them: a letter missed
+ * here is a blank box in the picture and nobody notices which one it was.
+ */
+internal const val HebrewChatSay = "דיבור"
+internal const val HebrewChatParty = "חבורה"
+internal const val HebrewChatGuild = "גילדה"
+internal const val HebrewChatMira = "מירה"
+internal const val HebrewChatAnder = "אנדר"
+internal const val HebrewChatSorrel = "סורל"
+internal const val HebrewChatWren = "רן"
+internal const val HebrewChatVault = "יוצאים לכספת בשמונה"
+internal const val HebrewChatHint = "אמור משהו"
+internal const val HebrewChatJoined = "מירה הצטרפה לחבורה"
+internal const val HebrewChatRope = "החבל למטה, ליד הקיר המערבי"
+internal const val HebrewChatGate = "שניים בשער, חכו כאן"
+internal const val HebrewChatIron = "מישהו מוכר ברזל?"
+internal const val HebrewChatMixed = "שומר הגשר נקרא Warden"
