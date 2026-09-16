@@ -15,6 +15,13 @@ dependencyResolutionManagement {
         mavenCentral()
         google()
 
+        // The Gradle Tooling API, which composegl-preview asks for a compile through. Gradle publishes
+        // it here and not on Central, so this repository answers for that one module and nothing else.
+        maven("https://repo.gradle.org/gradle/libs-releases") {
+            name = "Gradle"
+            content { includeModule("org.gradle", "gradle-tooling-api") }
+        }
+
         // What the browser build runs on: Node.js, Yarn and Binaryen, fetched as plain downloads.
         // Declared here because project repositories are refused above, and the Kotlin plugin would
         // otherwise add these three itself — see `downloadBaseUrl` in the root build file. Each is
@@ -54,6 +61,7 @@ include(
     "composegl-android",
     "composegl-robovm",
     "composegl-testing",
+    "composegl-preview",
     "composegl-demo",
     "composegl-demo-snake",
     "composegl-demo-snake-core",

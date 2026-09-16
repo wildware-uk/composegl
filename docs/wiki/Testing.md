@@ -561,6 +561,9 @@ val preview = Previews.of(Class.forName("com.game.MenusKt")).single { it.name ==
 uiTest(preview).use { ui -> ui.click("resume") }
 ```
 
+**Live, in a window.** `./gradlew :your-module:previewLive` shows the same previews in a
+window and redraws them each time you save a file. See [[Live previews]] for the task.
+
 `PreviewsTest` in `composegl-ui`, `PreviewRendererTest` in `composegl-lwjgl3` and
 `PreviewGlTest` in `composegl-gdx` are the worked examples.
 

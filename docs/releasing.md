@@ -25,6 +25,7 @@ Thirteen modules, under `dev.wildware.composegl`:
 | `composegl-android` | the Android half of a backend. An `.aar` |
 | `composegl-robovm` | the iOS half of a backend. JVM |
 | `composegl-testing` | the shared scenes and golden comparison. JVM and WebAssembly (`wasmJs`) |
+| `composegl-preview` | the live `@Preview` window, for development builds only. JVM |
 
 The demos and the spikes are not published, and the list that decides is in the
 root `build.gradle.kts`. It is opt-in: a new module stays unpublished, silently,
