@@ -6,10 +6,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import dev.wildware.composegl.ui.animation.Clock
+import dev.wildware.composegl.game.DamageDirections
 import dev.wildware.composegl.game.DamageNumbers
+import dev.wildware.composegl.game.HitMarkerState
 import dev.wildware.composegl.game.ParticleEmitter
 import dev.wildware.composegl.game.ParticleStyle
+import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.graphics.Colour
 
 /** One thing on show, and whether it is currently on. */
@@ -121,6 +123,19 @@ class ShowcaseState {
      * `damage.show(...)` from its own loop, and the interface only draws what is in the pool.
      */
     val damage = DamageNumbers(capacity = 96, clock = Clock.World)
+
+    /**
+     * The player's own end of a fight: what is shooting back, and what the player just hit.
+     *
+     * Here for the same reason the numbers are: the game is what gets hit and what lands a shot,
+     * so the game writes to these and the interface only draws them.
+     */
+    val incoming = DamageDirections(capacity = 6, clock = Clock.World)
+
+    val hitMarker = HitMarkerState(Clock.World)
+
+    /** How many hit markers have sounded. A game would play a tick here; this one counts them. */
+    var hitsMarked by mutableIntStateOf(0)
 
     // --- what the tuning window changes ---------------------------------------------------------
     //

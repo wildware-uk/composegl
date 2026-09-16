@@ -42,7 +42,7 @@ Every picture on this wiki is a photograph of the real toolkit, taken by
 | **[[Layout]]** | `Column`, `Row`, `Box`, `FlowRow`, `Grid`, lazy lists and grids, `weight`, and what differs from Compose |
 | **[[Modifiers]]** | the full list, and the three rules that are ours |
 | **[[Widgets]]** | everything that ships in the toolkit: text, buttons, fields, collapsing headers, splitters, spinners, colour pickers, lists, tables, tooltips |
-| **[[Game widgets]]** | the game tier, in `composegl-game`: bars, reticle, damage numbers, world markers, cooldowns, hotbar, weapon wheel, minimap, compass bar, particles |
+| **[[Game widgets]]** | the game tier, in `composegl-game`: bars, reticle, hit markers, damage direction arcs, a low-health vignette, damage numbers, world markers, cooldowns, hotbar, weapon wheel, minimap, compass bar, particles |
 | **[[Animation]]** | clocks, springs, panels that animate in and out, screens that crossfade or slide, and pausing it all to look |
 
 ## Then

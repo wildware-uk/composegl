@@ -37,10 +37,13 @@ import dev.wildware.composegl.game.Bar
 import dev.wildware.composegl.game.BarThreshold
 import dev.wildware.composegl.game.CompassBar
 import dev.wildware.composegl.game.Cooldown
+import dev.wildware.composegl.game.DamageDirectionLayer
 import dev.wildware.composegl.game.DamageNumberLayer
+import dev.wildware.composegl.game.HitMarker
 import dev.wildware.composegl.game.Hotbar
 import dev.wildware.composegl.game.HotbarSlot
 import dev.wildware.composegl.game.HotbarState
+import dev.wildware.composegl.game.LowHealthVignette
 import dev.wildware.composegl.game.MinimapFrame
 import dev.wildware.composegl.game.ParticleLayer
 import dev.wildware.composegl.game.RadialMenu
@@ -461,6 +464,15 @@ private fun CombatHud(state: ShowcaseState) {
 
     // Tinted with whatever the player picked in the hull panel's colour swatch.
     Reticle(reticle, Modifier.align(Alignment.Centre).tint(state.reticleTint))
+
+    // The other half of a fight, both of them fed by the game's own loop: the ticks that say a
+    // shot landed, and the arcs that say something is shooting back. A game plays its own sound
+    // from the hook; this one has none, so it counts them for the tuning window instead.
+    HitMarker(state.hitMarker, onHit = { state.hitsMarked++ })
+    DamageDirectionLayer(state.incoming)
+
+    // The ring that closes in as the hull goes. Nothing at all while the hull is healthy.
+    LowHealthVignette(state.hull, threshold = 0.3f)
 
     Panel(Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 28f).width(280f)) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
@@ -892,6 +904,12 @@ private fun ExhibitPanel(state: ShowcaseState) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("panel in the scene, redraws", style = "label.dim")
                 Text("${state.holoDraws}", style = "label")
+            }
+            // Counted in the hit marker's sound hook: where a game would play the tick, this says
+            // how many times it would have.
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("hit markers sounded", style = "label.dim")
+                Text("${state.hitsMarked}", style = "label")
             }
         }
     }
