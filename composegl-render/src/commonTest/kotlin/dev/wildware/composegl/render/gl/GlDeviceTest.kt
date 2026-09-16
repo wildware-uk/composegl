@@ -236,12 +236,18 @@ class GlDeviceTest {
         assertEquals(
             listOf(
                 "disable(${GlConst.SCISSOR_TEST})",
+                // Said again at the end rather than assumed from the start: the same state is what
+                // a game's drawing inside a frame or a scene is handed.
+                "disable(${GlConst.DEPTH_TEST})",
+                "disable(${GlConst.CULL_FACE})",
+                "disable(${GlConst.STENCIL_TEST})",
                 "enable(${GlConst.BLEND})",
                 "blendFuncSeparate(${GlConst.SRC_ALPHA}, ${GlConst.ONE_MINUS_SRC_ALPHA}, ${GlConst.SRC_ALPHA}, ${GlConst.ONE_MINUS_SRC_ALPHA})",
                 "useProgram(0)",
                 "bindVertexArray(0)",
                 "bindBuffer(${GlConst.ARRAY_BUFFER}, 0)",
                 "bindBuffer(${GlConst.ELEMENT_ARRAY_BUFFER}, 0)",
+                "activeTexture(${GlConst.TEXTURE0})",
                 "bindTexture(0)",
             ),
             end,

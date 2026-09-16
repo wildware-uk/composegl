@@ -128,6 +128,70 @@ class HostStateTest {
         assertTrue(back.at("enable(${GlConst.SCISSOR_TEST})") < back.at("scissor(1, 2, 3, 4)"), "our scissor again")
     }
 
+    /** A scene's picture, bound, with the device's own state taken, as a scene's block finds it. */
+    private fun inScene(gl: RecordingGl, device: GlDevice): GlDeviceTarget {
+        val target = device.offscreen(8, 8, depth = true) as GlDeviceTarget
+        device.begin(target)
+        device.target(target, 0, 0, 8, 8)
+        device.noScissor()
+        return target
+    }
+
+    @Test
+    fun `a game's drawing inside a scene gets the engine's state with the picture still bound`() {
+        val gl = engine()
+        val device = GlDevice(gl, HostState.Restore)
+        inScene(gl, device)
+
+        val from = gl.calls.size
+        device.suspendInScene()
+        val lent = gl.calls.subList(from, gl.calls.size)
+
+        listOf("useProgram(5)", "enable(${GlConst.DEPTH_TEST})", "enable(${GlConst.CULL_FACE})", "colorMask(true, true, true, false)")
+            .forEach { assertTrue(it in lent, "the engine believes $it: missing in $lent") }
+        assertEquals(emptyList(), lent.filter { it.startsWith("bindFramebuffer") || it.startsWith("viewport") || it.startsWith("scissor") })
+        assertTrue("enable(${GlConst.SCISSOR_TEST})" !in lent, "the scissor stays off")
+    }
+
+    @Test
+    fun `what the engine sets inside a scene is what it gets back when the scene ends`() {
+        val gl = engine()
+        val device = GlDevice(gl, HostState.Restore)
+        val target = inScene(gl, device)
+        device.suspendInScene()
+
+        // The engine draws: its own program, no depth test, and a viewport of its own.
+        gl.integers[GlConst.CURRENT_PROGRAM] = 12
+        gl.enabled -= GlConst.DEPTH_TEST
+        gl.quads[GlConst.VIEWPORT] = intArrayOf(0, 0, 1, 1)
+        val resumed = gl.calls.size
+        device.resumeInScene()
+        val back = gl.calls.subList(resumed, gl.calls.size)
+        assertTrue("bindFramebuffer(${target.framebuffer})" in back, "the picture again for a clear after the block")
+        assertTrue("disable(${GlConst.DEPTH_TEST})" in back, "and our own state")
+
+        val ended = gl.calls.size
+        device.end()
+        val end = gl.calls.subList(ended, gl.calls.size)
+        listOf("useProgram(12)", "disable(${GlConst.DEPTH_TEST})", "bindFramebuffer(11)", "viewport(0, 0, 640, 480)")
+            .forEach { assertTrue(it in end, "missing $it in $end") }
+    }
+
+    @Test
+    fun `leaving hands a scene's block the documented state with the picture still bound`() {
+        val gl = engine()
+        val device = GlDevice(gl)
+        inScene(gl, device)
+
+        val from = gl.calls.size
+        device.suspendInScene()
+        val lent = gl.calls.subList(from, gl.calls.size)
+
+        assertTrue("useProgram(0)" in lent)
+        assertTrue("disable(${GlConst.DEPTH_TEST})" in lent)
+        assertEquals(emptyList(), lent.filter { it.startsWith("bindFramebuffer") || it.startsWith("viewport") })
+    }
+
     @Test
     fun `leaving asks the driver for one value when the frame is the window`() {
         val gl = engine()

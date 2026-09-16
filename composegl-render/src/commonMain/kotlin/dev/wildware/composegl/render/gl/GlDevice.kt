@@ -243,6 +243,26 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
 
     override fun resume() {
         if (handOver == HostState.Restore) snapshot.capture(gl, caps().vertexArrays)
+        retake()
+    }
+
+    /**
+     * An engine that remembers the GL state it set — KorGE, three.js — has to find what it believes
+     * while it draws, and keep what it set afterwards: otherwise it skips setting something it thinks
+     * is already set, and draws wrongly later in the same frame. So the engine's own state goes back
+     * round the block, as round a frame's `raw`, with the picture left bound.
+     */
+    override fun suspendInScene() {
+        if (handOver == HostState.Restore) snapshot.restore(gl, caps().vertexArrays, target = false) else leave()
+    }
+
+    override fun resumeInScene() {
+        if (handOver == HostState.Restore) snapshot.capture(gl, caps().vertexArrays, target = false)
+        retake()
+    }
+
+    /** Ours again after a game's drawing: what we rely on, the target, viewport and scissor. */
+    private fun retake() {
         take()
         applyTarget()
         if (scissorOn) {
@@ -266,12 +286,18 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
 
     /** [HostState.Leave]'s documented state, short of the framebuffer, viewport and scissor. */
     private fun leave() {
+        // Said again rather than assumed from take(): this is also what a game's drawing inside a
+        // frame or a scene is handed, and it ends with a state of its own.
+        gl.disable(GlConst.DEPTH_TEST)
+        gl.disable(GlConst.CULL_FACE)
+        gl.disable(GlConst.STENCIL_TEST)
         gl.enable(GlConst.BLEND)
         gl.blendFuncSeparate(GlConst.SRC_ALPHA, GlConst.ONE_MINUS_SRC_ALPHA, GlConst.SRC_ALPHA, GlConst.ONE_MINUS_SRC_ALPHA)
         gl.useProgram(0)
         if (caps().vertexArrays) gl.bindVertexArray(0)
         gl.bindBuffer(GlConst.ARRAY_BUFFER, 0)
         gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, 0)
+        gl.activeTexture(GlConst.TEXTURE0)
         gl.bindTexture(GlConst.TEXTURE_2D, 0)
     }
 

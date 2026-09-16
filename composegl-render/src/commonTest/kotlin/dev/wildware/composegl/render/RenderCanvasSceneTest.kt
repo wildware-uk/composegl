@@ -3,6 +3,7 @@ package dev.wildware.composegl.render
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.graphics.SceneTarget
 import dev.wildware.composegl.ui.layout.Viewport
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -88,16 +89,18 @@ class RenderCanvasSceneTest {
     }
 
     @Test
-    fun `raw hands over the frame with no suspend and the viewport over the picture`() {
+    fun `raw hands over the frame with the engine's state round it and the viewport over the picture`() {
         var lent: Any? = null
-        canvas.scene(null, 80, 40) { target -> target.raw { lent = it } }
+        var during = emptyList<String>()
+        canvas.scene(null, 80, 40) { target -> target.raw { lent = it; during = device.calls.toList() } }
 
         val frame = assertIs<RenderFrame>(lent)
         assertEquals(Size(80f, 40f), frame.viewport.physical)
         assertEquals(2f / 80f, frame.projection[0])
         assertEquals(2f / 40f, frame.projection[5])
+        assertEquals("suspendInScene", during.last(), "the engine's state while it draws")
         assertFalse("suspend" in device.calls, "the picture has to stay bound while the game draws")
-        assertEquals("end", device.calls.last())
+        assertEquals(listOf("resumeInScene", "end"), device.calls.takeLast(2))
     }
 
     @Test
@@ -144,5 +147,54 @@ class RenderCanvasSceneTest {
         assertEquals(1, device.deleted.size)
         made.close()
         assertEquals(1, device.deleted.size, "twice is once")
+    }
+
+    /** A frontend whose engine has to own the framebuffer, as KorGE's does, and hands one in. */
+    private class OwnTargetCanvas(device: GpuDevice) : RenderCanvas(device) {
+        fun fill(into: DeviceTarget, draw: (SceneTarget) -> Unit) = renderScene(into, draw)
+
+        override fun handOver(projection: FloatArray, viewport: Viewport): Any = "engine frame ${viewport.physical}"
+    }
+
+    @Test
+    fun `a frontend's own target is rendered the same way as the device's`() {
+        val own = OwnTargetCanvas(device)
+        val target = RecordingDevice.FakeTarget(90, RecordingDevice.FakeTexture(91, 48, 24), depth = true)
+        var size = 0 to 0
+        var lent: Any? = null
+
+        own.fill(target) { scene ->
+            size = scene.width to scene.height
+            scene.clear(Colour.Black)
+            scene.raw { lent = it }
+        }
+
+        assertEquals(48 to 24, size)
+        assertEquals("engine frame ${Size(48f, 24f)}", lent, "raw hands over what the frontend hands over")
+        assertEquals(
+            listOf(
+                "begin(target90)",
+                "target(target90, 0, 0, 48, 24)",
+                "noScissor",
+                "target(target90, 0, 0, 48, 24)",
+                "noScissor",
+                "clear(0.0, 0.0, 0.0, 1.0)",
+                "suspendInScene",
+                "resumeInScene",
+                "end",
+            ),
+            device.calls,
+        )
+        assertTrue(device.deleted.isEmpty(), "the frontend's target is its own to give back")
+    }
+
+    @Test
+    fun `a frontend's own target inside a frame is refused`() {
+        val own = OwnTargetCanvas(device)
+        own.begin(design)
+        assertFailsWith<IllegalStateException> {
+            own.fill(RecordingDevice.FakeTarget(90, RecordingDevice.FakeTexture(91, 8, 8))) { }
+        }
+        own.end()
     }
 }

@@ -49,6 +49,14 @@ class RecordingDevice(offscreen: Boolean = true, maxTextureSize: Int = 4096) : G
         calls += "resume"
     }
 
+    override fun suspendInScene() {
+        calls += "suspendInScene"
+    }
+
+    override fun resumeInScene() {
+        calls += "resumeInScene"
+    }
+
     /** Whether each texture made was asked to be sampled smoothly, in order. */
     val smoothness = ArrayList<Boolean>()
 

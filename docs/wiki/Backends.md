@@ -296,8 +296,18 @@ KorGE's pieces are `KorgeKmlGl.kt`, `KorgeRasteriser` in `KorgeFonts.kt`,
 `KorgeCanvas`. A render texture KorGE reads back top row first is drawn with
 `begin(viewport, target, clear, topRowFirst = true)`.
 
+A `SceneView` needs nothing more from most backends: `RenderCanvas.scene` renders into
+the device's own picture and hands over what `handOver` makes. An engine whose own
+drawing only lands in a framebuffer it made itself — KorGE's batch, for one — makes
+that framebuffer with depth, adopts it with `GlDeviceTarget.adopt(framebuffer, texture,
+width, height, depth = true)`, and passes it to the protected `renderScene(into, draw)`,
+which does the rest. `KorgeCanvas.scene` is the example.
+
 Pick `HostState.Leave` when your engine sets the GL state it needs before it draws;
-`Restore` when it caches GL state and believes the cache (KorGE, three.js). If your
+`Restore` when it caches GL state and believes the cache (KorGE, three.js). Inside a
+scene the picture's framebuffer, viewport and scissor are not the ones the engine
+remembers, so an engine you can tell to forget should be told to, round a scene's
+`raw` block. `KorgeCanvas` is the example. If your
 context can be lost (Android, the browser), call `canvas.contextLost()` when it is.
 
 Then implement `UiBackend` round them — `canvas`, `fonts`, `clipboard`,

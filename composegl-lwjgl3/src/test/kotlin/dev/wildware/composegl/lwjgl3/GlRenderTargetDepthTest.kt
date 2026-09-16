@@ -131,7 +131,7 @@ class GlRenderTargetDepthTest {
  * Written against the toolkit's `Gl` binding rather than LWJGL's, so the same scene runs on desktop
  * GL, on OpenGL ES 2 and on ES 3, which is what the suite's three test tasks give it.
  */
-private class DepthScene(private val gl: GlBinding) : AutoCloseable {
+internal class DepthScene(private val gl: GlBinding) : AutoCloseable {
 
     private val dialect = GlslDialect.of(gl.profile)
     private val arrays = GlDevice(gl).usesVertexArrays

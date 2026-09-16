@@ -293,6 +293,26 @@ drawing can go into it too — see [[Render targets]].
 
 ---
 
+## A scene inside a panel
+
+The other way round: your KorGE drawing inside a panel of the interface, with
+`SceneView`. The block's `raw` hands over the frame's `RenderContext`, with the scene
+view's picture on top of its framebuffer stack, so KorGE's batch and a container's
+`render(ctx)` draw into the panel:
+
+```kotlin
+SceneView(scene, Modifier.size(200f, 200f).clip(8f)) {
+    clear(Colour.Black)
+    raw { ctx -> world.render(ctx as RenderContext) }
+}
+```
+
+KorGE remembers the GL state it last set. So round your block the frontend makes KorGE
+forget it, and KorGE sets everything it needs the next time it draws: your sprites and
+the interface after the scene draw as they would with no scene. See [[Scene view]].
+
+---
+
 ## Shader effects
 
 Everything on [[Shaders]] works here. The shared renderer compiles the shaders on
