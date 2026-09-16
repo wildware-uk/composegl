@@ -5859,6 +5859,125 @@ private fun MutableList<DocShot>.skillTrees() {
             Frame { SkillTreeScene() }
         },
     )
+
+    // Resting on a node the player cannot have yet: the tooltip says what it is waiting for, which
+    // is the answer to the only question a grey node raises.
+    add(
+        DocShot(
+            "game-skill-tree-tooltip", 460, 280,
+            pointer = Offset(275f, 209f),
+            stock = true,
+            seconds = 1.2f,
+        ) {
+            Frame { TippedBoard() }
+        },
+    )
+
+    // Down then right then right on the d-pad, and the ring has walked three lines to the overdrive
+    // at the far end: down the line to the shield, right the one to the cloak, right the one to the
+    // overdrive. None of them is a nearest-thing-that-way guess — every step is a line in the graph.
+    add(
+        DocShot(
+            "game-skill-tree-pad", 460, 280,
+            focus = true,
+            stock = true,
+            seconds = 0.6f,
+            pads = listOf(
+                GamepadId(0) to GamepadButton.DpadDown,
+                GamepadId(0) to GamepadButton.DpadRight,
+                GamepadId(0) to GamepadButton.DpadRight,
+            ),
+        ) {
+            Frame { UpgradeBoard() }
+        },
+    )
+
+    // The shield really being bought, a frame at a time: the hold sweeps round, the point comes off
+    // the counter at half a second, the line the reactor opened it with fills, and the cloak behind
+    // it turns from shut to open. Only when asked for, because they are frames to be joined into a
+    // GIF rather than pictures of their own: `COMPOSEGL_DOC_FRAMES=1`, then join
+    // `game-skill-tree-unlock-frame-*.png` in order, 0.08 s each, which is the speed it really ran.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(UnlockFrames) { i ->
+            add(
+                DocShot(
+                    "game-skill-tree-unlock-frame-${i.toString().padStart(2, '0')}", 460, 280,
+                    pointer = Offset(186f, 208f),
+                    press = true,
+                    stock = true,
+                    seconds = UnlockFirst + i * UnlockStep,
+                ) {
+                    Frame { UpgradeBoard() }
+                },
+            )
+        }
+    }
+}
+
+/** The frames the moving picture of a node being bought is made of, and when each one is taken. */
+private const val UnlockFrames = 19
+private const val UnlockFirst = 0.06f
+private const val UnlockStep = 0.08f
+
+/**
+ * The board with its tooltips switched on, under the host they need.
+ *
+ * The host fills whatever it is given and lays its content out from the top left, so the board is
+ * centred inside it rather than by [Frame], which is the same shape every other tooltip picture has.
+ */
+@Composable
+private fun TippedBoard() {
+    TooltipHost {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Centre) { UpgradeBoard(tooltips = true) }
+    }
+}
+
+/** What each upgrade says when the player rests on it: what it is, and what it is waiting for. */
+private val TreeTips = mapOf<Any, String>(
+    "core" to "Reactor - maxed",
+    "guns" to "Autocannon - 1 point",
+    "shield" to "Shield - 1 point",
+    "burst" to "Burst fire - 1 point",
+    "cloak" to "Cloak - needs Shield",
+    "drive" to "Overdrive - needs Burst",
+)
+
+/**
+ * The same upgrade board, with the game really keeping the points.
+ *
+ * [SkillTreeScene] is a board nobody has touched; this one is the board wired up the way a game
+ * wires it. `onActivate` takes the point off the counter and puts the rank on the node, and the
+ * tree works the rest out for itself — which is why the picture of an unlock is a real hold that
+ * really spends, rather than two boards posed either side of one.
+ */
+@Composable
+private fun UpgradeBoard(tooltips: Boolean = false) {
+    var spent by remember { mutableStateOf(TreeSkills.associate { it.id to it.rank }) }
+    var points by remember { mutableStateOf(3) }
+    val nodes = TreeSkills.map { node ->
+        node.copy(rank = spent.getValue(node.id), tooltip = if (tooltips) TreeTips[node.id] else null)
+    }
+    val camera = rememberPanZoomState(
+        zoom = 0.8f,
+        minZoom = 0.5f,
+        maxZoom = 1.8f,
+        bounds = remember { skillTreeBounds(TreeSkills, margin = 60f) },
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+        Text("Points to spend: $points", style = "label.dim")
+        SkillTree(
+            nodes = nodes,
+            edges = TreeLinks,
+            modifier = Modifier.size(400f, 224f),
+            state = camera,
+            onActivate = { node ->
+                if (points > 0) {
+                    points--
+                    spent = spent + (node.id to spent.getValue(node.id) + 1)
+                }
+            },
+        )
+    }
 }
 
 // ---------------------------------------------------------------- being shot at, and landing shots
