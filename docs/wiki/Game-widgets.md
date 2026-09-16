@@ -4,9 +4,9 @@ The in-play widgets: health bars with a damage trail, a crosshair, hit markers a
 damage direction arcs, a low-health vignette, damage numbers anchored in the world,
 nameplates and waypoints pinned to points in the world, cooldowns, a hotbar, a
 weapon wheel, an inventory grid, a minimap frame, a compass bar, a dialogue box
-with answers and a log, a skill tree, an objective tracker, notifications, timed
-subtitles, item cards that compare a drop against what is equipped, and
-particles. These are the ones that made this toolkit worth building.
+with answers and a log, an in-game chat box, a skill tree, an objective tracker,
+notifications, timed subtitles, item cards that compare a drop against what is
+equipped, and particles. These are the ones that made this toolkit worth building.
 
 ---
 
@@ -42,7 +42,7 @@ text that takes a [[ring|Widgets#outlined-text]] only when there is one,
 **Their look is in the skin.** The default and high-contrast [[skins|Skins]]
 already have every style these use (`bar.*`, `reticle.*`, `hitmarker.*`,
 `damage.*`, `vignette`, `marker.*`, `cooldown.*`, `hotbar.*`, `wheel.*`,
-`inventory.*`, `minimap.*`, `compass.*`, `dialogue.*`, `skilltree.*`,
+`inventory.*`, `minimap.*`, `compass.*`, `dialogue.*`, `chat.*`, `skilltree.*`,
 `objective.*`, `notification.*`, `subtitle.*`, `itemtip.*`), so they look right
 with no setup. Your own skin file styles them by the same names.
 
@@ -1103,6 +1103,131 @@ translated.
 focus order and swallows no click, so a tracker over a fight can never be the
 thing that ate the button press. Even `expandKey` and `expandButton` only take
 the press while there is really something folded away.
+
+## Chat
+
+A message history over the HUD and an input line when it is open.
+
+```kotlin
+val All = ChatChannel("all", "All", prefix = "/a")
+val Team = ChatChannel("team", "Team", prefix = "/t", style = "chat.team")
+
+val chat = rememberChatState(maxMessages = 200)
+
+ChatBox(
+    state = chat,
+    modifier = Modifier.align(Alignment.BottomStart).padding(16f),
+    channels = listOf(All, Team),
+    onSend = { channel, text -> net.send(channel, text) },
+    openKey = Key.Enter,
+    width = 420f,
+)
+
+// when the server says something arrived:
+chat.receive(ChatMessage("on my way", from = "Mira", channel = Team))
+chat.system("Mira has joined")
+```
+
+**Closed**, it is the newest few lines drawn straight on the game. Each holds for
+`idleMillis`, fades, and goes. With nothing up it draws nothing and asks for no
+frames, so leaving it on screen for a whole match costs a game nothing.
+
+**Open**, it is a panel: the channel tabs, the whole history scrolled to the
+newest line, and an input with the caret already in it. The history follows the
+newest line **unless the player has scrolled back to read something** — then it
+holds still and lets the new lines pile up below, and follows again once they
+scroll back to the end.
+
+### One key in and one key out
+
+`openKey` opens it from wherever focus happens to be. It is a shortcut rather
+than an ordinary key, so a field of your own still gets its keys and a dialogue
+that traps focus still keeps them.
+
+| Key | What it does |
+|---|---|
+| `openKey` (Enter) | opens it, with the input focused |
+| Enter | sends the line and closes it (`closeOnSend = false` to leave it open). Enter on an empty box just closes it; Enter on a line that is only a channel's prefix moves to that channel and leaves the box open |
+| Up / Down | walk back through what you have sent |
+| PageUp / PageDown | scroll the history |
+| Escape, Back | close it |
+| Tab | moves focus between the tabs and the input; from the tabs the arrows do too |
+| anything else | **eaten while it is open**, so typing `wait` does not also walk the player forward |
+
+On a pad, `openButton` opens it and the bumpers walk the channels; East closes it
+through your `BackStack`. A pad player types with the button keyboard from
+`ProvideGamepadKeyboard` if you provide one, and on a phone the on-screen
+keyboard and the input method come up with it — what is typed into is an ordinary
+[[TextField|Widgets#fields-and-settings]], so none of that is the chat box's own code.
+
+### Channels
+
+Pick one by clicking its tab, or by typing its prefix: `/t` on its own **moves**
+to the team channel — the box stays open, with an empty input in the channel you
+just picked — and `/t on my way` sends **one line** there without leaving the
+channel you were in. The longest prefix wins, so `/te` and `/t` can both
+exist. Each channel's messages are drawn in its own `style`, which is where a
+channel's colour comes from, and a message with no `from` is a system line drawn
+in `chat.system`.
+
+Your line is **not** put in the log by the box. Write it down when your server
+says it went out — that is what stops a message appearing twice, and what makes
+one that was refused not appear at all.
+
+`show` says which messages the box draws, for a game whose tabs pick a channel to
+read rather than only a channel to talk in:
+
+```kotlin
+ChatBox(
+    state = chat,
+    channels = listOf(All, Team),
+    onSend = ::send,
+    show = { it.channel == null || it.channel == chat.channel },
+)
+```
+
+It filters the **whole** box — the open log and the lines fading over the HUD —
+so a box narrowed to Team is narrowed to Team whether it is open or shut. Leave
+it null for one log with a colour per channel, which is what most games want.
+
+### Names
+
+Hand in `nameMenu` and every name in the open box becomes a
+[[context menu|Widgets#context-menus]]: right-click, long press, Shift+F10 or the
+pad all open it, and it is written in the same scope a menu bar's menus are. A
+line fading over the HUD is not clickable and is not somewhere focus can go — it
+is half gone, and aiming at it is not a thing a player can do.
+
+```kotlin
+ChatBox(
+    state = chat,
+    // Whisper is on the list, because `chat.open(...)` only holds for a channel the box was given:
+    // the box puts the channel back to one of these on the next frame.
+    channels = listOf(All, Team, Whisper),
+    onSend = ::send,
+    nameMenu = { message ->
+        Item("Whisper") { chat.open(Whisper) }
+        Item("Mute") { mute(message.tag) }
+        Separator()
+        Item("Report") { report(message.tag) }
+    },
+)
+```
+
+`ChatMessage.tag` is whatever your game wants back — an account id, a handle, the
+player object — because the name on screen is rarely what you send a whisper to.
+
+In Arabic the whole box is mirrored: the tabs start on the right, and so does the
+name in front of a line. A line that mixes Hebrew and English reads by its **own**
+first letter rather than by the screen's, so the same line reads the same way on
+either — every label in the box is an ordinary `Text`, and that is the `Text`'s
+doing rather than the chat box's.
+
+The skin names every part: `chat` for the open panel, `chat.message`,
+`chat.system`, `chat.name`, `chat.channel`, `chat.tab` and `chat.tab.selected`,
+and `chat.field` with `.placeholder`, `.caret`, `.selection` and `.composition`
+under it. The hint in the empty box is `chat.say` in your
+[[strings|Localisation]], falling back to English.
 
 ## The inventory grid
 

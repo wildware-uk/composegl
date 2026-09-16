@@ -30,6 +30,10 @@ val StyleNames = listOf(
     "dialogue.timer.track", "dialogue.timer.fill",
     "dialogue.control", "dialogue.control.on",
     "dialogue.history.speaker", "dialogue.history.line", "dialogue.history.answer",
+    // in-game chat: the lines, who said them, the channels and the box they are typed in
+    "chat", "chat.message", "chat.system", "chat.name", "chat.channel", "chat.tab", "chat.tab.selected",
+    "chat.field", "chat.field.placeholder", "chat.field.caret",
+    "chat.field.selection", "chat.field.composition",
     // the item card, and the one beside it saying what is on now
     "itemtip", "itemtip.compare", "itemtip.rarity", "itemtip.title", "itemtip.subtitle",
     "itemtip.label", "itemtip.value", "itemtip.better", "itemtip.worse", "itemtip.same",

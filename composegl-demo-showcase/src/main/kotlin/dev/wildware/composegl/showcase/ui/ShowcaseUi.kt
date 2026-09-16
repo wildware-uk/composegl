@@ -22,6 +22,7 @@ import dev.wildware.composegl.ui.animation.Easings
 import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.animateFloatAsState
+import dev.wildware.composegl.ui.animation.wait
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.debug.DebugWindow
 import dev.wildware.composegl.debug.DebugWindowHost
@@ -35,6 +36,9 @@ import dev.wildware.composegl.debug.arg
 import dev.wildware.composegl.debug.rememberDevConsole
 import dev.wildware.composegl.game.Bar
 import dev.wildware.composegl.game.BarThreshold
+import dev.wildware.composegl.game.ChatBox
+import dev.wildware.composegl.game.ChatChannel
+import dev.wildware.composegl.game.ChatMessage
 import dev.wildware.composegl.game.CompassBar
 import dev.wildware.composegl.game.Cooldown
 import dev.wildware.composegl.game.DamageDirectionLayer
@@ -65,6 +69,7 @@ import dev.wildware.composegl.game.Subtitles
 import dev.wildware.composegl.game.OffScreen
 import dev.wildware.composegl.game.WorldMarkerLayer
 import dev.wildware.composegl.game.WorldProjection
+import dev.wildware.composegl.game.rememberChatState
 import dev.wildware.composegl.game.rememberCooldown
 import dev.wildware.composegl.game.rememberNotifications
 import dev.wildware.composegl.game.rememberReticleState
@@ -217,6 +222,9 @@ fun ShowcaseUi(
                             // Along the bottom, where a conversation goes, and over the HUD it covers a
                             // little of: somebody talking is the thing to read.
                             if (state.isOn(Exhibit.Dialogue)) CommsChannel(state)
+
+                            // Up the left-hand side, clear of the HUD panel: Enter opens it, Enter sends.
+                            if (state.isOn(Exhibit.Chat)) SquadChat()
 
                             // Over the HUD and under the menus, because a wheel covers the fight but not
                             // the things that are not part of it.
@@ -1042,6 +1050,78 @@ private fun CommsChannel(state: ShowcaseState) {
         }
     }
 }
+
+/**
+ * Squad chat: the wing talking while the fight goes on, and somewhere to answer them.
+ *
+ * Closed, it is the last few lines sitting straight on the scene, each fading out in its own time.
+ * **Enter** opens it with the caret already in the box, **Enter** sends and puts it away again, and
+ * while it is open a letter typed here does not also fly the ship. `/s` sends one line to the squad
+ * without leaving the channel, and `/s` on its own moves to it; the tabs do the same with a mouse,
+ * and a pad's bumpers walk them.
+ *
+ * **Right-click a name** — or long press it, or press the pad's North button on it — and the menu is
+ * the game's: whisper, mute, report. Every channel's colour is a skin name the showcase invented and
+ * handed to [ChatChannel]; the toolkit itself knows nothing about a squad.
+ *
+ * There is no server here, so a line the player sends is echoed straight back. A real game writes it
+ * down when its server says it went out, which is what stops a refused message appearing anyway.
+ */
+@Composable
+private fun SquadChat() {
+    val chat = rememberChatState(idleLines = 5, idleMillis = 6_000)
+    val clocks = LocalClocks.current
+
+    // The wing talking among itself, so the lines arrive and fade without anybody typing.
+    LaunchedEffect(chat) {
+        chat.system("WING CHANNEL OPEN")
+        var at = 0
+        while (true) {
+            clocks.wait(Clock.Ui, ChatterMillis)
+            val said = Chatter[at % Chatter.size]
+            chat.receive(ChatMessage(said.line, from = said.who, channel = said.channel, tag = "${said.who}-7"))
+            at++
+        }
+    }
+
+    ChatBox(
+        state = chat,
+        modifier = Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 340f),
+        channels = SquadChannels,
+        onSend = { channel, text -> chat.receive(ChatMessage(text, from = "YOU", channel = channel)) },
+        width = 380f,
+        historyHeight = 140f,
+        maxLength = 120,
+        nameMenu = { message ->
+            Item("Whisper") { chat.open(Whisper) }
+            Item("Mute") { chat.system("${message.from} muted") }
+            Separator()
+            Item("Report") { chat.system("${message.from} reported (${message.tag})") }
+        },
+    )
+}
+
+/** One line of the wing's chatter: who says it, what they say, and where it lands. */
+private class Chatterer(val who: String, val line: String, val channel: ChatChannel)
+
+private val Wing = ChatChannel("wing", "Wing", prefix = "/w")
+
+private val Squad = ChatChannel("squad", "Squad", prefix = "/s", style = "chat.squad")
+
+private val Whisper = ChatChannel("whisper", "Whisper", prefix = "/t", style = "chat.whisper")
+
+private val SquadChannels = listOf(Wing, Squad, Whisper)
+
+/** What the wing says while nobody is typing. It goes round, so the exhibit never runs dry. */
+private val Chatter = listOf(
+    Chatterer("MIRA", "two contacts on my nine", Wing),
+    Chatterer("VEGA", "on my way", Squad),
+    Chatterer("RAVEN", "watch the debris field", Wing),
+    Chatterer("MIRA", "nice shot", Whisper),
+)
+
+/** How long between two lines of chatter. Long enough to watch one fade before the next arrives. */
+private const val ChatterMillis = 5_000
 
 /**
  * A gun that has dropped, as a game would model one. The toolkit knows nothing about this class.

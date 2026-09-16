@@ -38,6 +38,7 @@ enum class Exhibit(val title: String, val blurb: String) {
     Wheel("Weapon wheel", "Hold Q or LB and flick a stick"),
     Comms("Subtitles", "Timed lines, captions and the player's settings"),
     Dialogue("Comms channel", "A conversation with answers and a log"),
+    Chat("Squad chat", "Channels, clickable names and an input line"),
     Cargo("Cargo grid", "Stacks, splits and long items"),
     Salvage("Loot cards", "Hover a drop and hold Shift to compare"),
 }
