@@ -9,6 +9,7 @@ import dev.wildware.composegl.lwjgl3.StbFonts
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.graphics.ArtAtlas
+import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.host.UiHost
 import dev.wildware.composegl.ui.host.UiRenderer
@@ -281,6 +282,7 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
     // the tree has been measured.
     var dragged = false
     var clicked = false
+    var wheeled = false
     var sinceClick = 0
     renderers[0].onLaidOut = { nanos ->
         shot.padCursor?.let { at ->
@@ -289,6 +291,14 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
         }
         val to = shot.dragTo
         shot.pointer?.let { at ->
+            // The wheel first, once, so a picture of a zoomed camera is one a real wheel zoomed:
+            // the toolkit takes a notch towards the screen as a negative delta.
+            if (shot.wheel != 0 && !wheeled) {
+                wheeled = true
+                mouse.onPointer(PointerEvent.Move(PointerId.Mouse, at))
+                val notch = Offset(0f, if (shot.wheel > 0) -1f else 1f)
+                repeat(kotlin.math.abs(shot.wheel)) { mouse.onPointer(PointerEvent.Scroll(PointerId.Mouse, at, notch)) }
+            }
             val then = shot.then
             if (to == null && clicked && then != null) {
                 // A few frames after the click, so what it opened is laid out to land on, and then left

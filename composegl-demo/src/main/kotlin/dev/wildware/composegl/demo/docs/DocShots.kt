@@ -179,6 +179,11 @@ import dev.wildware.composegl.ui.widget.LazyColumn
 import dev.wildware.composegl.ui.widget.LazyGridState
 import dev.wildware.composegl.ui.widget.LazyListState
 import dev.wildware.composegl.ui.widget.LazyVerticalGrid
+import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.widget.PanZoomCanvas
+import dev.wildware.composegl.ui.widget.PanZoomReset
+import dev.wildware.composegl.ui.widget.rememberPanZoomState
+import dev.wildware.composegl.ui.widget.worldPosition
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.Spinner
 import dev.wildware.composegl.ui.widget.IndeterminateBar
@@ -1446,6 +1451,58 @@ private fun MutableList<DocShot>.widgets() {
             }
         }
     })
+
+    // A world map really zoomed and really dragged: three notches of the wheel at the pointer, and
+    // then a drag down and left that brings Castle Vey in from off the right. Half again the size,
+    // and the names and the pin edges are as sharp as at their own — they are drawn at that size
+    // rather than magnified from a picture of themselves.
+    add(
+        DocShot(
+            "widget-panzoom-map", 460, 280,
+            pointer = Offset(300f, 150f),
+            wheel = 3,
+            dragTo = Offset(218f, 187f),
+            stock = true,
+            seconds = 0.5f,
+        ) {
+            Frame { WorldMapScene() }
+        },
+    )
+
+    // The same map, the same wheel, turned the other way: five notches back is the overview, the
+    // whole coast in the window at half size — except the "you are here" pin, which keeps its own
+    // size at every zoom because that is what a pin is for.
+    add(
+        DocShot(
+            "widget-panzoom-overview", 460, 280,
+            pointer = Offset(230f, 150f),
+            wheel = -5,
+            stock = true,
+            seconds = 0.5f,
+        ) {
+            Frame { WorldMapScene() }
+        },
+    )
+
+    // A crafting graph in the high-contrast skin, right to left, on a pad: down then right walked
+    // focus from Ore to Ingot to Rod, and the camera eased along to keep the ringed node in view —
+    // Ore has gone off the left edge. The panel reads right to left; the graph does not, because a
+    // diagram is a picture rather than a line of text.
+    add(
+        DocShot(
+            "widget-panzoom-graph-rtl", 460, 280,
+            focus = true,
+            seconds = 0.6f,
+            pads = listOf(GamepadId(0) to GamepadButton.DpadDown, GamepadId(0) to GamepadButton.DpadRight),
+        ) {
+            ProvideSkin(Skin.HighContrast) {
+                ProvideLayoutDirection(LayoutDirection.Rtl) {
+                    Frame { CraftingGraph() }
+                }
+            }
+        },
+    )
+
 }
 
 // ---------------------------------------------------------------- game widgets
@@ -3089,3 +3146,181 @@ private class DocPhysics {
 }
 
 private enum class DocDifficulty { Easy, Normal, Hard }
+
+// ---------------------------------------------------------------- panning and zooming
+
+/** One place on the world map: where it is in the world, and whether it is on the water. */
+private class MapPlace(val name: String, val x: Float, val y: Float, val port: Boolean = false)
+
+/** The world the map pictures are taken of, in world units. */
+private val MapWorld = Rect(0f, 0f, 800f, 440f)
+
+private val MapPlaces = listOf(
+    MapPlace("Saltmere", 90f, 120f, port = true),
+    MapPlace("Old Docks", 150f, 265f, port = true),
+    MapPlace("Millbrook", 235f, 170f),
+    MapPlace("Kharn Ruins", 335f, 85f),
+    MapPlace("Fenwick", 300f, 300f),
+    MapPlace("Greywater", 215f, 375f),
+    MapPlace("Thornfell", 395f, 230f),
+    MapPlace("Redhollow", 470f, 130f),
+    MapPlace("Castle Vey", 565f, 205f),
+    MapPlace("Ashmoor", 515f, 350f),
+    MapPlace("Highgate", 665f, 110f),
+    MapPlace("Stonewatch", 705f, 275f),
+    MapPlace("Coldharbour", 735f, 390f, port = true),
+)
+
+/** Which places a road joins, as pairs of indices into [MapPlaces]. */
+private val MapRoads = listOf(
+    0 to 2, 0 to 1, 1 to 5, 1 to 4, 2 to 3, 2 to 6, 4 to 6, 5 to 4,
+    3 to 7, 6 to 7, 6 to 9, 7 to 8, 8 to 10, 8 to 11, 9 to 11, 11 to 12,
+)
+
+/** The land the roads run over, as rounded rectangles in world units. */
+private val MapLand = listOf(
+    Rect(40f, 60f, 620f, 420f),
+    Rect(420f, 70f, 780f, 320f),
+    Rect(560f, 290f, 780f, 425f),
+)
+
+private val MapSea = Colour.rgb(0x0E1A2B)
+private val MapGrid = Colour.argb(0x1AA0C4FF)
+private val MapGround = Colour.rgb(0x27352B)
+private val MapCoast = Colour.argb(0x99486B52)
+private val MapRoad = Colour.argb(0x88C9A227)
+
+/**
+ * A world map with pins on it, for the pictures of panning and zooming.
+ *
+ * The sea, the grid, the coast and the roads are the canvas's background, drawn in world units in
+ * one pass. Every pin is an ordinary widget put at a world position rather than a screen one, and
+ * the "you are here" marker is the one thing that keeps its size whatever the camera does.
+ */
+@Composable
+private fun WorldMapScene() {
+    val camera = rememberPanZoomState(zoom = 1f, minZoom = 0.4f, maxZoom = 3f, bounds = MapWorld)
+    val terrain: UiCanvas.(Rect) -> Unit = remember {
+        { visible ->
+            rect(MapWorld, MapSea)
+            var at = 80f
+            while (at < MapWorld.right) {
+                line(Offset(at, MapWorld.top), Offset(at, MapWorld.bottom), 1f, MapGrid)
+                at += 80f
+            }
+            at = 80f
+            while (at < MapWorld.bottom) {
+                line(Offset(MapWorld.left, at), Offset(MapWorld.right, at), 1f, MapGrid)
+                at += 80f
+            }
+            MapLand.forEach { land ->
+                rect(land, MapGround, corner = 70f)
+                border(land, MapCoast, width = 2f, corner = 70f)
+            }
+            MapRoads.forEach { (from, to) ->
+                val a = MapPlaces[from]
+                val b = MapPlaces[to]
+                // The background is one pass, but it is still the game's own drawing, and it is
+                // handed the visible world so it can leave out what is nowhere near the window.
+                val around = Rect(minOf(a.x, b.x) - 4f, minOf(a.y, b.y) - 4f, maxOf(a.x, b.x) + 4f, maxOf(a.y, b.y) + 4f)
+                if (around.overlaps(visible)) line(Offset(a.x, a.y), Offset(b.x, b.y), 3f, MapRoad)
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+        Text("Drag to pan, wheel to zoom, double click to go back", style = "label.dim")
+        PanZoomCanvas(state = camera, modifier = Modifier.size(400f, 224f), background = terrain) {
+            MapPlaces.forEach { place ->
+                key(place.name) {
+                    Column(
+                        Modifier.worldPosition(place.x, place.y, anchor = Alignment.TopCentre).clickable {},
+                        horizontalAlignment = HorizontalAlignment.Centre,
+                        verticalArrangement = Arrangement.spacedBy(3f),
+                    ) {
+                        Box(
+                            Modifier.size(if (place.port) 13f else 11f)
+                                .background(if (place.port) Colour.rgb(0x6BD5FF) else Colour.rgb(0xFFC53D), corner = 7f)
+                                .border(Colour.rgb(0x0B0E14), width = 2f, corner = 7f),
+                        )
+                        Text(place.name)
+                    }
+                }
+            }
+            // Follows the camera and stays its own size, which is what a pin wants.
+            Box(
+                Modifier.worldPosition(
+                    MapPlaces[6].x,
+                    MapPlaces[6].y - 10f,
+                    anchor = Alignment.BottomCentre,
+                    scaleWithZoom = false,
+                ).background(Colour.rgb(0xE5484D), corner = 5f).padding(left = 6f, right = 6f, top = 2f, bottom = 2f),
+            ) {
+                Text("you are here")
+            }
+        }
+    }
+}
+
+/** One step of a crafting chain: what it is called, and where it sits in the graph. */
+private class CraftNode(val name: String, val x: Float, val y: Float)
+
+private val CraftWorld = Rect(0f, 0f, 700f, 300f)
+
+private val CraftNodes = listOf(
+    CraftNode("Ore", 60f, 150f),
+    CraftNode("Dust", 190f, 70f),
+    CraftNode("Ingot", 190f, 230f),
+    CraftNode("Plate", 330f, 150f),
+    CraftNode("Rod", 330f, 235f),
+    CraftNode("Armour", 470f, 75f),
+    CraftNode("Gear", 470f, 220f),
+    CraftNode("Engine", 620f, 150f),
+)
+
+/** Which node feeds which, as pairs of indices into [CraftNodes]. */
+private val CraftLinks = listOf(0 to 1, 0 to 2, 2 to 3, 2 to 4, 3 to 5, 4 to 6, 3 to 6, 5 to 7, 6 to 7)
+
+/**
+ * A crafting graph, for the high-contrast right-to-left picture.
+ *
+ * The d-pad walks focus from node to node and the camera eases along to keep the focused one in
+ * view, so a graph is reachable on a pad with nothing written for it.
+ */
+@Composable
+private fun CraftingGraph() {
+    val camera = rememberPanZoomState(zoom = 1f, minZoom = 0.5f, maxZoom = 2.5f, bounds = CraftWorld)
+    val links: UiCanvas.(Rect) -> Unit = remember {
+        { visible ->
+            CraftLinks.forEach { (from, to) ->
+                val a = CraftNodes[from]
+                val b = CraftNodes[to]
+                val around = Rect(minOf(a.x, b.x), minOf(a.y, b.y), maxOf(a.x, b.x), maxOf(a.y, b.y))
+                if (around.overlaps(visible)) line(Offset(a.x, a.y), Offset(b.x, b.y), 3f, Colour.rgb(0x707070))
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+        Text("Crafting — the d-pad walks the graph", style = "label.dim")
+        PanZoomCanvas(
+            state = camera,
+            modifier = Modifier.size(400f, 224f),
+            reset = PanZoomReset.Fit,
+            background = links,
+        ) {
+            CraftNodes.forEachIndexed { index, node ->
+                key(node.name) {
+                    // Ordinary buttons, put at world points rather than screen ones: the ring the
+                    // pad leaves on them is the skin's, with nothing written for the plane.
+                    Button(
+                        node.name,
+                        onClick = {},
+                        modifier = Modifier.worldPosition(node.x, node.y, anchor = Alignment.Centre),
+                        initialFocus = index == 0,
+                    )
+                }
+            }
+        }
+    }
+}

@@ -30,6 +30,9 @@ import dev.wildware.composegl.ui.input.PointerButton
  * @param button which button that click is made with: `Secondary` for a picture of a right-click menu.
  * @param then where the pointer goes a couple of frames after the click, and rests there — for a
  *   picture of what resting on something inside the opened thing opens, like a menu's submenu.
+ * @param wheel how many notches the wheel is turned at [pointer], once, before anything else —
+ *   positive towards the screen, which is what zooms a pan-and-zoom canvas in. For a picture of
+ *   something a real wheel moved, rather than one handed the zoom it should start at.
  * @param padCursor where to put a pad's cursor, for a picture of a `VirtualCursor`. The player is
  *   on a pad in that picture, so the arrow is drawn. Null leaves the pad out of it.
  * @param hold whether that drag stays pressed at [dragTo] instead of letting go, for a picture of
@@ -66,6 +69,7 @@ internal class DocShot(
     val click: Boolean = false,
     val button: PointerButton = PointerButton.Primary,
     val then: Offset? = null,
+    val wheel: Int = 0,
     val padCursor: Offset? = null,
     val hold: Boolean = false,
     val seconds: Float = 0f,
