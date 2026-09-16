@@ -1141,6 +1141,9 @@ nine-patch is flipped, which needs a canvas that can mirror layers.
 `style = "codex"` reads `"codex.row"` and so on instead. `indent`, `glyphSize`
 and `spacing` set the sizes.
 
+`NodeTree`, in `composegl-debug`, is one of these over the interface itself: see
+[Debugging](Debugging.md#the-whole-screen-as-a-tree).
+
 ---
 
 ## Pictures

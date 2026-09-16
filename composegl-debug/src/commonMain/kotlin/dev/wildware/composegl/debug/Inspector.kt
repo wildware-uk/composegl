@@ -86,6 +86,9 @@ import kotlin.math.min
  *   in it for the same reason. `tree` above it hides
  *   the lot, and `<>` moves the panel to the other side when it is in the way.
  *
+ * For a bigger tree than the one in the panel — filtered, with each node's live change counts beside
+ * it, and in a panel of its own — put a [NodeTree] beside this and hand both the same [state].
+ *
  * Off, it is a plain box round the content that costs nothing, and turning it on or off rebuilds
  * nothing inside: the screen keeps its state, its scroll and its focus. Everything it shows is read
  * off the nodes themselves, and read again every frame while it is on, so a pinned node that grows
@@ -96,15 +99,17 @@ import kotlin.math.min
  * shipping.
  *
  * @param enabled whether the inspector is there. Off composes only [content].
+ * @param state what is hovered and pinned. Pass one from [rememberInspectorState] to share it with
+ *   another tool — a [NodeTree] in a window of its own, which pins what its rows choose.
  * @param content the screen to inspect.
  */
 @Composable
 fun Inspector(
     enabled: Boolean,
     modifier: Modifier = Modifier,
+    state: InspectorState = rememberInspectorState(),
     content: @Composable () -> Unit,
 ) {
-    val state = remember { InspectorState() }
     val keys = remember(state) { KeyHandler { state.onKey(it) } }
     val pad = remember(state) { GamepadHandler { state.onGamepad(it) } }
     Layout(
@@ -131,6 +136,18 @@ fun Inspector(
         },
     )
 }
+
+/**
+ * The inspector's own state, kept outside it so another tool can read it and write to it.
+ *
+ * ```kotlin
+ * val inspection = rememberInspectorState()
+ * Inspector(enabled = debug, state = inspection) { Game() }
+ * NodeTree(inspection, Modifier.width(280f).height(320f))
+ * ```
+ */
+@Composable
+fun rememberInspectorState(): InspectorState = remember { InspectorState() }
 
 /** What the node holding the inspected screen is called. */
 internal const val InspectedName = "inspected"
@@ -204,7 +221,8 @@ internal data class TreeRow(
     val folded: Boolean,
 )
 
-private fun titleOf(node: UiNode) = node.name + (node.testTag?.let { " #$it" } ?: "")
+/** How a node is named on screen: what it is, and its test tag when it has one. */
+internal fun titleOf(node: UiNode) = node.name + (node.testTag?.let { " #$it" } ?: "")
 
 /**
  * The inspector's whole state: what is hovered and pinned, and what the panel shows of it.
@@ -212,10 +230,18 @@ private fun titleOf(node: UiNode) = node.name + (node.testTag?.let { " #$it" } ?
  * Snapshot state, so the panel recomposes when any of it changes, and written only when it has
  * changed, so it recomposes only then. Written from input handlers and from the frame loop, both
  * outside composition.
+ *
+ * Held outside the inspector so that another debug tool can join in: a [NodeTree] reads [hovered] to
+ * open its rows down to whatever the pointer is over, and calls [pin] when one is chosen, which is
+ * what outlines that node on the screen and fills the inspector's panel with it.
  */
-internal class InspectorState {
+class InspectorState {
+
+    /** The node under the pointer, or null when the pointer is not over the screen. */
     var hovered by mutableStateOf<UiNode?>(null)
         private set
+
+    /** The node a click held on to, outlined in orange until it is let go. */
     var pinned by mutableStateOf<UiNode?>(null)
         private set
 
@@ -223,48 +249,57 @@ internal class InspectorState {
      * The node whose line in the tree the pointer is on. Outlined, but not what the panel is about:
      * the panel changing size under a pointer on its way to a line would move the line away.
      */
-    var pointed by mutableStateOf<UiNode?>(null)
+    internal var pointed by mutableStateOf<UiNode?>(null)
         private set
-    var report by mutableStateOf<NodeReport?>(null)
+    internal var report by mutableStateOf<NodeReport?>(null)
         private set
-    var rows by mutableStateOf<List<TreeRow>>(emptyList())
+    internal var rows by mutableStateOf<List<TreeRow>>(emptyList())
         private set
-    var folded by mutableStateOf<Set<UiNode>>(emptySet())
+    internal var folded by mutableStateOf<Set<UiNode>>(emptySet())
         private set
-    var treeShown by mutableStateOf(true)
-    var panelAtStart by mutableStateOf(false)
+    internal var treeShown by mutableStateOf(true)
+    internal var panelAtStart by mutableStateOf(false)
 
-    /** The input layer, set when it is composed. How the state finds the screen. */
-    var layer: UiNode? = null
+    /**
+     * The input layer, set when it is composed. How the state finds the screen.
+     *
+     * Snapshot state, so a tool composed beside the inspector and reading [screen] hears about the
+     * screen as soon as there is one, rather than being stuck with the null it first saw.
+     */
+    internal var layer by mutableStateOf<UiNode?>(null)
 
     /** What the panel is about: the pinned node, or else the hovered one. */
     val selected: UiNode? get() = pinned ?: hovered
 
-    /** The node the inspected content is composed into, the layer's first sibling. */
+    /**
+     * The node the inspected content is composed into, the layer's first sibling: the root of the
+     * game's own tree, with none of the inspector's nodes in it. Null while the inspector is off.
+     */
     val screen: UiNode? get() = layer?.parent?.children?.firstOrNull()
 
-    fun hover(node: UiNode?) {
+    internal fun hover(node: UiNode?) {
         hovered = node
         pointed = null
         refresh()
     }
 
-    fun point(node: UiNode?) {
+    internal fun point(node: UiNode?) {
         pointed = node
     }
 
+    /** Holds on to [node], or lets go with null: what a click on the screen or on a tree row does. */
     fun pin(node: UiNode?) {
         pinned = node
         refresh()
     }
 
-    fun fold(node: UiNode) {
+    internal fun fold(node: UiNode) {
         folded = if (node in folded) folded - node else folded + node
         refresh()
     }
 
     /** Reads everything shown off the tree again. Equal answers write nothing. */
-    fun refresh() {
+    internal fun refresh() {
         val screen = screen
         // A node taken off the screen is not something to show.
         if (pinned?.isUnder(screen) == false) pinned = null
@@ -275,7 +310,7 @@ internal class InspectorState {
         if (folded.any { !it.isUnder(screen) }) folded = folded.filterTo(mutableSetOf()) { it.isUnder(screen) }
     }
 
-    fun clear() {
+    internal fun clear() {
         hovered = null
         pointed = null
         pinned = null
@@ -283,6 +318,9 @@ internal class InspectorState {
         rows = emptyList()
         // Folded nodes too, so a screen that has gone is not held on to while the inspector is off.
         folded = emptySet()
+        // And the layer, which has gone with them: a stale one would hand out a screen that is not
+        // on any more, and hold it alive.
+        layer = null
     }
 
     private fun rowsUnder(screen: UiNode): List<TreeRow> {
@@ -305,7 +343,7 @@ internal class InspectorState {
     // --- input -----------------------------------------------------------------------------------
 
     /** The layer's pointer: a move hovers, a press pins. Scrolls go on to the screen. */
-    fun onPointer(event: PointerEvent): Boolean {
+    internal fun onPointer(event: PointerEvent): Boolean {
         val layer = layer ?: return false
         return when (event) {
             is PointerEvent.Move -> {
@@ -322,7 +360,7 @@ internal class InspectorState {
         }
     }
 
-    fun onKey(event: KeyEvent): Boolean {
+    internal fun onKey(event: KeyEvent): Boolean {
         val direction = when (event.key) {
             Key.Up -> Step.Parent
             Key.Down -> Step.Child
@@ -336,7 +374,7 @@ internal class InspectorState {
         return step(direction)
     }
 
-    fun onGamepad(event: GamepadEvent): Boolean {
+    internal fun onGamepad(event: GamepadEvent): Boolean {
         if (event !is GamepadEvent.ButtonDown) return false
         return step(
             when (event.button) {
@@ -384,7 +422,7 @@ internal class InspectorState {
      * overlap, whether or not it takes input. What cannot be seen is not found — a faded or
      * zero-scaled subtree, or the part of a child a clip or a scale cuts off.
      */
-    fun nodeAt(point: Offset): UiNode? {
+    internal fun nodeAt(point: Offset): UiNode? {
         val screen = screen ?: return null
         fun visit(node: UiNode): UiNode? {
             val resolved = node.resolved

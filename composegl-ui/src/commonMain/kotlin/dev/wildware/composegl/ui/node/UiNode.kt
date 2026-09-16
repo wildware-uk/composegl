@@ -230,7 +230,8 @@ class UiNode(var name: String = "node") {
      *
      * Zero until something turns counting on — [UiTree.countChanges], a
      * `RedrawOverlay` from `composegl-debug`, a budget listing its busiest nodes — and
-     * back to zero after [UiTree.resetChangeCounts].
+     * back to zero after [UiTree.resetChangeCounts]. [composeChanges] and [redrawChanges] say which
+     * kind each one was.
      */
     var changes: Int = 0
         internal set
@@ -242,10 +243,50 @@ class UiNode(var name: String = "node") {
     var changedAtNanos: Long = NeverChanged
         internal set
 
-    internal fun noteChange(frameNanos: Long) {
-        if (changes > 0 && changedAtNanos == frameNanos) return
-        changes++
-        changedAtNanos = frameNanos
+    /**
+     * How many of [changes] were the node itself being changed: a different chain, a new [content]
+     * or [ink], a child added, removed or moved, a place an animation stepped.
+     *
+     * This is the half a recomposition can be blamed for. A node whose count climbs every frame is
+     * being handed something new every frame — the lambda written inline — and the frame is paying
+     * for it.
+     */
+    var composeChanges: Int = 0
+        internal set
+
+    /**
+     * How many of [changes] were only the drawing moving, with nothing about the node different: a
+     * marquee sliding along, a spinner turning.
+     *
+     * A node with a big number here and a small [composeChanges] is redrawing on purpose and costs a
+     * frame each time; one where both climb together is being rebuilt as well as redrawn.
+     */
+    var redrawChanges: Int = 0
+        internal set
+
+    /** Which kinds have already been counted at [changedAtNanos], so one frame counts each once. */
+    private var countedKinds = 0
+
+    internal fun noteChange(frameNanos: Long, redrawOnly: Boolean) {
+        if (changes == 0 || changedAtNanos != frameNanos) {
+            changes++
+            changedAtNanos = frameNanos
+            countedKinds = 0
+        }
+        // A frame that both rebuilds a node and moves its drawing counts once in each, and once in
+        // [changes]: the three numbers answer different questions and none of them is a sum.
+        val kind = if (redrawOnly) RedrawKind else ComposeKind
+        if (countedKinds and kind != 0) return
+        countedKinds = countedKinds or kind
+        if (redrawOnly) redrawChanges++ else composeChanges++
+    }
+
+    internal fun forgetChanges() {
+        changes = 0
+        composeChanges = 0
+        redrawChanges = 0
+        countedKinds = 0
+        changedAtNanos = NeverChanged
     }
 
     // --- what `onSizeChanged` and `onPlaced` were last told ---
@@ -974,7 +1015,7 @@ class UiTree(val root: UiNode = UiNode("root")) {
     /** The same, naming the node that changed, so it is counted while the tree is counting. */
     internal fun invalidate(node: UiNode) {
         changed = true
-        if (counting) node.noteChange(clocks.frameNanos)
+        if (counting) node.noteChange(clocks.frameNanos, redrawOnly = false)
     }
 
     /**
@@ -983,7 +1024,7 @@ class UiTree(val root: UiNode = UiNode("root")) {
      */
     internal fun redraw(node: UiNode) {
         moved = true
-        if (counting) node.noteChange(clocks.frameNanos)
+        if (counting) node.noteChange(clocks.frameNanos, redrawOnly = true)
     }
 
     /**
@@ -1015,12 +1056,12 @@ class UiTree(val root: UiNode = UiNode("root")) {
         if (changeWatchers > 0) changeWatchers--
     }
 
-    /** Every node's [UiNode.changes] back to zero. What a game calls after loading a level. */
+    /**
+     * Every node's [UiNode.changes], [UiNode.composeChanges] and [UiNode.redrawChanges] back to
+     * zero. What a game calls after loading a level.
+     */
     fun resetChangeCounts() {
-        root.forEach {
-            it.changes = 0
-            it.changedAtNanos = NeverChanged
-        }
+        root.forEach { it.forgetChanges() }
     }
 
     /**
@@ -1100,3 +1141,7 @@ class UiTree(val root: UiNode = UiNode("root")) {
 
 /** The frame time of a node that has not changed since counting began. */
 const val NeverChanged = Long.MIN_VALUE
+
+/** The two kinds of change a frame can note on one node, as bits of `UiNode.countedKinds`. */
+private const val ComposeKind = 1
+private const val RedrawKind = 2
