@@ -32,6 +32,7 @@ enum class Exhibit(val title: String, val blurb: String) {
     Contacts("Contacts table", "Sort, resize and pick a drone"),
     Tree("Scene tree", "Rows that open, by mouse or pad"),
     Starmap("Star map", "A plane to drag and zoom"),
+    Skills("Skill tree", "Hold a node to buy it"),
     Nodes("UI tree", "The live interface, and what keeps changing"),
     Telemetry("Live plots", "Heat and frame time as graphs"),
     Wheel("Weapon wheel", "Hold Q or LB and flick a stick"),

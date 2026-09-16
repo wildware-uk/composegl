@@ -86,6 +86,11 @@ class HighContrastSkinTest {
         "itemtip.label" to "itemtip", "itemtip.value" to "itemtip", "itemtip.flavour" to "itemtip",
         "itemtip.hint" to "itemtip", "itemtip.better" to "itemtip", "itemtip.worse" to "itemtip",
         "itemtip.same" to "itemtip",
+        // A skill node's letters are written on its own frame; its rank is written under the node,
+        // on the plane, which is why it is the one here that names what it sits on.
+        "skilltree.node.locked" to null, "skilltree.node.available" to null,
+        "skilltree.node.owned" to null, "skilltree.node.maxed" to null,
+        "skilltree.rank" to "skilltree.plane",
         "damage" to null, "damage.critical" to null,
         "debugwindow.title" to null, "debugwindow.title.active" to null, "debugwindow.button" to "debugwindow",
         "debugwindow.label" to "debugwindow", "debugwindow.value" to "debugwindow",
