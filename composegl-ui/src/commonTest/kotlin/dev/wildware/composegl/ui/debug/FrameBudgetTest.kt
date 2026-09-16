@@ -117,6 +117,48 @@ class FrameBudgetTest {
     }
 
     @Test
+    fun `scene renders are timed apart and added to the total`() {
+        val budget = budget()
+        budget.draw { costing(5) }
+        budget.scene { costing(4) }
+        budget.scene { costing(2) }
+        budget.endFrame(drawCalls = 3)
+
+        val reading = budget.reading
+        assertEquals(6f, reading.sceneMillis, Tolerance)
+        assertEquals(5f, reading.drawMillis, Tolerance, "a scene is not the interface's drawing")
+        assertEquals(11f, reading.totalMillis, Tolerance, "but it is part of what the frame cost")
+        assertEquals(2, reading.scenes)
+        assertEquals(5, reading.drawCalls, "each scene render is at least one more call")
+        assertEquals(11f, FloatArray(1).also { budget.recentFrameMillis(it) }[0], Tolerance, "and the graph shows it")
+    }
+
+    @Test
+    fun `a frame with no scene renders counts none and a canvas that does not count stays unknown`() {
+        val budget = budget()
+        budget.scene { costing(1) }
+        budget.endFrame(drawCalls = -1)
+        assertEquals(-1, budget.reading.drawCalls)
+
+        budget.endFrame(drawCalls = 2)
+        assertEquals(0, budget.reading.scenes)
+        assertEquals(2, budget.reading.drawCalls)
+    }
+
+    @Test
+    fun `switched off a scene still runs and is not counted`() {
+        val budget = budget()
+        budget.isOn = false
+        var ran = false
+        budget.scene { ran = true }
+        budget.isOn = true
+        budget.endFrame()
+
+        assertTrue(ran)
+        assertEquals(0, budget.reading.scenes)
+    }
+
+    @Test
     fun `everything inside one frame is added together`() {
         val budget = budget()
         // Two panels drawn in one frame is one frame's drawing, not two.

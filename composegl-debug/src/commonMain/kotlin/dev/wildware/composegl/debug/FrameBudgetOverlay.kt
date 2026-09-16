@@ -36,6 +36,10 @@ import dev.wildware.composegl.ui.widget.Text
  * four times a second rather than every frame, so the overlay is not itself the reason the screen
  * is being redrawn — which would make the thing it measures a lie.
  *
+ * On a screen with `SceneView`s rendering, two more lines say what they cost: the time under the
+ * draw time, and how many rendered in the frame beside the draw calls. Each render is also one of
+ * the nodes listed below, as `scene view  scene 1`.
+ *
  * Under the draw calls, on a canvas that traces them, are the nodes that cut the batch most, and
  * why: `icon#sword  texture 2`. A HUD that costs twelve calls where it should cost two says which
  * two nodes to look at.
@@ -102,12 +106,16 @@ private fun Numbers(
         Line("  recompose", millis(reading.recomposeMillis), Dim)
         Line("  layout", millis(reading.layoutMillis), Dim)
         Line("  draw", millis(reading.drawMillis), Dim)
+        // Only on a screen with scene views at work: a HUD with none has nothing to say here.
+        val scenes = reading.scenes > 0 || reading.sceneMillis > 0f
+        if (scenes) Line("  scenes", millis(reading.sceneMillis), Dim)
         Line("worst", millis(reading.worstMillis), if (reading.worstMillis > overMillis) Over else Bright)
         // No spaces round the slash: with them, an overlay on a screen that reads from the right
         // draws "60/12" for twelve redraws in sixty frames. A single slash between two digits is
         // joined onto the number by the bidirectional algorithm, so there is nothing to reorder.
         Line("redraws", "${reading.redraws}/${reading.frames}", Bright)
         if (reading.drawCalls >= 0) Line("draw calls", "${reading.drawCalls}", Bright)
+        if (scenes) Line("scene renders", "${reading.scenes}", Bright)
         val blamed = reading.culprits
         for (index in 0 until minOf(culprits, blamed.size)) {
             val culprit = blamed[index]

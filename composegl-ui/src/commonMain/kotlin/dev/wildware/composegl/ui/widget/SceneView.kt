@@ -83,6 +83,10 @@ import dev.wildware.composegl.ui.skin.rememberStyle
  * panel to the other side like anything else, and does not mirror the picture — a scene is not
  * text. Use one [SceneViewState] per `SceneView`.
  *
+ * The picture is made on the first render, stretched while the panel is being resized and remade
+ * once its size holds for a frame, capped at the device's biggest texture, and given back when this
+ * leaves the composition; see [ScenePass][dev.wildware.composegl.ui.draw.ScenePass] for the rules.
+ *
  * @param state what owns the picture, its size and whether it needs drawing again.
  * @param onPointer pointer events over the panel, and every event of a gesture it took the press
  *   of, positioned in the picture's pixels. Return true to use the event.
@@ -98,8 +102,8 @@ import dev.wildware.composegl.ui.skin.rememberStyle
  * @param style the skin name drawn over the picture: `"sceneview"`, whose `focused` state is the
  *   ring a keyboard or pad player sees.
  * @param interaction the panel's hover, press and focus, for a game that draws its own ring.
- * @param draw fills the picture. Runs only when [state] is dirty or the panel's pixel size
- *   changed, with the picture bound; see [SceneDrawScope].
+ * @param draw fills the picture. Runs only when [state] is dirty or the panel's new pixel size has
+ *   held for a frame, and the panel is on the screen, with the picture bound; see [SceneDrawScope].
  */
 @Composable
 fun SceneView(
@@ -119,6 +123,9 @@ fun SceneView(
     val sounds = LocalUiSounds.current
     val direction = LocalLayoutDirection.current
     val paint = remember(state) { scenePainter(state) }
+    // Leaving the composition gives the picture back, whoever holds the state: a list of previews
+    // frees each one as its row scrolls away, not when the list itself goes.
+    DisposableEffect(state) { onDispose { state.release() } }
 
     // One handler object per state, reading the newest lambdas, so the chain compares equal from one
     // recomposition to the next and a drag in progress is not lost to a new closure.
@@ -291,6 +298,14 @@ class SceneViewState(resolutionScale: Float = 1f) {
     var draws: Long = 0L
         internal set
 
+    /**
+     * Whether the last render was cut down to fit the device's biggest texture: the panel's pixels
+     * times [resolutionScale] would have been more than a GPU will make, so it was rendered at a
+     * smaller scale that fits, the same shape. The prepass warns about it once per state.
+     */
+    var clamped: Boolean = false
+        internal set
+
     /** The picture the tree draws, or null before the first render and after [release]. */
     val texture: TextureHandle? get() = surface
 
@@ -299,6 +314,16 @@ class SceneViewState(resolutionScale: Float = 1f) {
     /** The size the prepass last asked the canvas for, which a small GPU may have cut down. */
     internal var askedWidth = 0
     internal var askedHeight = 0
+
+    /**
+     * The panel's pixel size, before the resolution scale, as the last prepass saw it. A size that
+     * matches is one that has held for a frame, which is when a resize is worth a new picture.
+     */
+    internal var seenWidth = 0
+    internal var seenHeight = 0
+
+    /** Whether the prepass has already warned that this state was clamped. */
+    internal var warnedClamped = false
 
     internal var node: UiNode? = null
 
@@ -348,8 +373,11 @@ class SceneViewState(resolutionScale: Float = 1f) {
 
     /**
      * Gives the picture back to the device now, on the thread that holds the context. The next
-     * frame makes a new one if the view is still showing. [rememberSceneViewState] calls it when
-     * the state leaves the composition.
+     * frame makes a new one if the view is still showing.
+     *
+     * Called for you when a [SceneView] leaves the composition — a row of a `LazyColumn` scrolled
+     * away, a tab closed — and when a [rememberSceneViewState] state does, so a shelf of previews
+     * holds pictures only for the rows that exist.
      */
     fun release() {
         surface?.close()
@@ -358,12 +386,15 @@ class SceneViewState(resolutionScale: Float = 1f) {
         height = 0
         askedWidth = 0
         askedHeight = 0
+        seenWidth = 0
+        seenHeight = 0
+        clamped = false
         dirty = true
         askForFrame()
     }
 
     /** The tree reports the next frame as changed, so a game that skips unchanged frames draws it. */
-    private fun askForFrame() {
+    internal fun askForFrame() {
         val node = node ?: return
         node.tree?.redraw(node)
     }

@@ -93,9 +93,10 @@ class UiRenderer(
 
     /**
      * The prepass that renders every dirty `SceneView` into its own picture. Run by [render] after
-     * [onLaidOut] and before the canvas's frame opens, unless [renderScenes] is off.
+     * [onLaidOut] and before the canvas's frame opens, unless [renderScenes] is off. Each render is
+     * timed and counted in [budget], so the overlay shows what the scenes cost.
      */
-    val scenes: ScenePass = ScenePass(host.tree, canvas)
+    val scenes: ScenePass = ScenePass(host.tree, canvas, budget)
 
     /**
      * Whether [render] runs [scenes] itself. On by default. Switch it off only for a game that has

@@ -706,6 +706,9 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     /** Yes: it makes a picture of the size asked for and writes down what the block did to it. */
     override val drawsScenes: Boolean get() = true
 
+    /** The biggest picture this canvas pretends a device will make. Set it to test a small GPU. */
+    override var maxSceneSize: Int = Int.MAX_VALUE
+
     /**
      * Runs [draw] against a target that writes its clears and hands-over down, and returns a
      * picture of the size asked for — the same one when the size has not changed. The block handed

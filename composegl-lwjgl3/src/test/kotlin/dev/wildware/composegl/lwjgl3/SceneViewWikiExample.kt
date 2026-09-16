@@ -2,22 +2,27 @@ package dev.wildware.composegl.lwjgl3
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import dev.wildware.composegl.ui.debug.FrameBudget
+import dev.wildware.composegl.ui.draw.ScenePass
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.host.UiHost
+import dev.wildware.composegl.ui.host.UiRenderer
 import dev.wildware.composegl.ui.input.GamepadAxis
 import dev.wildware.composegl.ui.input.GamepadEvent
 import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.input.KeyEventType
 import dev.wildware.composegl.ui.input.PointerEvent
-import dev.wildware.composegl.ui.modifier.fillMaxSize
-import dev.wildware.composegl.ui.graphics.UiCanvas
-import dev.wildware.composegl.ui.host.UiHost
-import dev.wildware.composegl.ui.host.UiRenderer
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.clip
+import dev.wildware.composegl.ui.modifier.fillMaxSize
+import dev.wildware.composegl.ui.modifier.fillMaxWidth
+import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.widget.Button
+import dev.wildware.composegl.ui.widget.LazyColumn
 import dev.wildware.composegl.ui.widget.SceneView
 import dev.wildware.composegl.ui.widget.rememberSceneViewState
 import org.lwjgl.opengl.GL11
@@ -126,6 +131,41 @@ private object SceneViewWikiExample {
         val scene = rememberSceneViewState(resolutionScale = 0.5f)
         SceneView(scene, Modifier.size(64f)) { clear(Colour.Black) }
     }
+
+    class Item(val id: String)
+
+    interface Models {
+        fun draw(item: Item, frame: GlFrame, width: Int, height: Int)
+    }
+
+    interface Log {
+        fun warn(message: String)
+    }
+
+    @Composable
+    fun Shelf(items: List<Item>, models: Models) {
+        LazyColumn(count = items.size, key = { items[it].id }) { index ->
+            val preview = rememberSceneViewState()
+            SceneView(preview, Modifier.fillMaxWidth().height(96f)) {
+                clear(Colour.Black)
+                raw { frame -> models.draw(items[index], frame as GlFrame, width, height) }
+            }
+        }
+    }
+
+    fun warnings(ui: UiRenderer, log: Log) {
+        ui.scenes.warn = { message -> log.warn(message) }
+    }
+
+    fun counting(host: UiHost, canvas: UiCanvas, viewport: Viewport, nanos: Long): Pair<Int, Float> {
+        val budget = FrameBudget(publishEveryMillis = 0)
+        val ui = UiRenderer(host, canvas, budget)
+        ui.render(viewport, nanos)
+        return budget.reading.scenes to budget.reading.sceneMillis
+    }
+
+    fun ownPass(host: UiHost, canvas: UiCanvas, budget: FrameBudget): ScenePass =
+        ScenePass(host.tree, canvas, budget)
 
     fun drivingThePrepass(host: UiHost, canvas: UiCanvas, shadows: Shadows, viewport: Viewport, nanos: Long) {
         val ui = UiRenderer(host, canvas)
