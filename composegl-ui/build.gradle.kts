@@ -97,15 +97,21 @@ kotlin {
 }
 
 /**
- * The example's skin is read off disk by `ExampleSkinTest`, so editing it runs the tests again.
+ * The two skins a person actually looks at are read off disk by `ExampleSkinTest` and
+ * `ShowcaseSkinTest`, so editing either of them runs the tests again.
  *
- * Named here rather than depended on: composegl-demo is an application, and a library module that
- * depended on one would be the wrong way round. This is the one thread between them, and it is an
- * input rather than a dependency.
+ * Named here rather than depended on: composegl-demo and composegl-demo-showcase are applications,
+ * and a library module that depended on one would be the wrong way round. This is the one thread
+ * between them, and it is an input rather than a dependency.
  */
 tasks.named<Test>("jvmTest") {
     inputs.file(rootProject.layout.projectDirectory.file("composegl-demo/src/main/resources/ui/demo.skin.json"))
         .withPropertyName("exampleSkin")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(
+        rootProject.layout.projectDirectory.file("composegl-demo-showcase/src/main/resources/ui/showcase.skin.json"),
+    )
+        .withPropertyName("showcaseSkin")
         .withPathSensitivity(PathSensitivity.RELATIVE)
 }
 

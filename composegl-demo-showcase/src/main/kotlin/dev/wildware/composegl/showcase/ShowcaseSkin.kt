@@ -21,7 +21,17 @@ fun showcaseSkin(fonts: FontProvider) = ReloadingSkin(
     onProblem = { println("skin: ${it.message}") },
 )
 
-private const val SKIN = "ui/showcase.skin.json"
+/**
+ * Every text size the showcase's skin asks for.
+ *
+ * A font is registered at the sizes it is going to be drawn at, and a size nobody registered is not
+ * a smaller word — it is a showcase that will not start, because measuring throws. So the list of
+ * sizes lives beside the skin rather than inside the startup code, and `ShowcaseFontSizesTest`
+ * reads the skin file and holds this to it.
+ */
+val ShowcaseTextSizes = listOf(12, 13, 14, 15, 16, 18, 20)
+
+internal const val SKIN = "ui/showcase.skin.json"
 
 private fun skinSource(): SkinSource {
     val onDisk = listOf(Path.of("composegl-demo-showcase/src/main/resources/$SKIN"), Path.of("src/main/resources/$SKIN"))

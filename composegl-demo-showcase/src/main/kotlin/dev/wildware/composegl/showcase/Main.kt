@@ -46,7 +46,8 @@ import kotlin.random.Random
  * Run it with `./gradlew :composegl-demo-showcase:run`. `COMPOSEGL_SHOWCASE_SHOT=<path>` draws one
  * frame, saves it and exits, and `COMPOSEGL_SHOWCASE_SHOT_AT` is how long to let it run first.
  * `COMPOSEGL_SHOWCASE_POINTER=x,y[,press]` puts the pointer somewhere, which is the only way to
- * photograph the ray hitting the terminal.
+ * photograph the ray hitting the terminal. `COMPOSEGL_SHOWCASE_SECTION=ui|debug|game` opens that
+ * module's section at startup, which is how the three section screenshots are taken.
  */
 class Showcase : ApplicationAdapter() {
 
@@ -80,6 +81,10 @@ class Showcase : ApplicationAdapter() {
     private val shotAt: Float = System.getenv("COMPOSEGL_SHOWCASE_SHOT_AT")?.toFloatOrNull() ?: 0f
     private val scriptedPointer: String? = System.getenv("COMPOSEGL_SHOWCASE_POINTER")
 
+    /** Which module's section to open on the first frame, by its short name. Null is the fight. */
+    private val openSection: Module? = System.getenv("COMPOSEGL_SHOWCASE_SECTION")
+        ?.let { name -> Module.entries.firstOrNull { it.tab.equals(name, ignoreCase = true) } }
+
     /**
      * The game's camera, as the one function the toolkit asks for: where on screen is this point,
      * and is it on screen at all.
@@ -104,7 +109,7 @@ class Showcase : ApplicationAdapter() {
         // Every size the skin file asks for, and every size the subtitle presets can turn 16 into.
         // A size nobody registered is not a smaller word, it is a showcase that will not start, so
         // the list has to follow the skin and the settings both.
-        val sizes = (listOf(13, 16, 18, 20) + scaledTextSizes(listOf(16), SubtitleSize.scales))
+        val sizes = (ShowcaseTextSizes + scaledTextSizes(listOf(16), SubtitleSize.scales))
             .distinct()
             .sorted()
         fonts.registerTrueType("body", file, sizes)
@@ -119,6 +124,15 @@ class Showcase : ApplicationAdapter() {
         holo.create()
 
         scene.drones.forEach { state.targets.add(TargetReadout(it.callsign)) }
+
+        state.section = openSection
+        // A photograph of a section is a picture of that page, so the two floating windows and the
+        // target panel, which a player would drag out of the way or close, are put away for it.
+        // Only while a shot is being taken: running the showcase by hand leaves them where they are.
+        if (openSection != null && shot != null) {
+            state.tuningOpen = false
+            if (state.isOn(Exhibit.Nodes)) state.toggle(Exhibit.Nodes)
+        }
 
         host = UiHost()
         host.setContent { ShowcaseUi(state, fonts, skin.skin, projection, budget) }
