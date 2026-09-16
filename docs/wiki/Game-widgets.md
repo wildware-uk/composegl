@@ -833,6 +833,13 @@ your own — a static glyph, a prompt — and even that goes.
 The bag: squares, the things in them, stacks that merge and split, and items
 bigger than one square.
 
+![a crate dragged across a bag: the squares under it go red where it will not fit and green where it will, and it lands in the corner when the mouse lets go](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-inventory-drag.gif)
+
+That is a real mouse on the real widget, a frame at a time: the crate is picked
+up by the square it was grabbed by, carried over two squares that are already
+taken so the answer goes red, carried on to four free ones so it goes green, and
+put down there.
+
 ```kotlin
 val bag = remember { InventoryState(columns = 8, rows = 6, items = save.items) }
 
@@ -909,6 +916,18 @@ item type, and it is what the picture is looked up from.
   rearrange the bag; yours still show, since a read-only bag may still be worth
   examining.
 - **Right to left**, the first column is the right-hand one. Nothing else changes.
+
+| | |
+|---|---|
+| ![a bag on a pad: the pile of twelve cells now says six and is faded, six are in the hand two squares along, and the square under them is lit green with the focus ring on it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-inventory-split.png) | a pad held West, pressed South on the pile of twelve, let West go and walked right twice. Six are in the hand, six are left behind, and the ring is on the square the pad really walked to |
+| ![the pile's menu open on a right-click: Examine and Drop, a line, then Split half and Split…, with the mouse resting on Split half](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-inventory-menu.png) | a real right-click on the same pile. Examine and Drop are the game's own; the two under the line are the grid's, and they are only offered because this pile is more than one thing |
+
+![the same bag twice under the high-contrast skin, once read left to right and once right to left, with the rifle in the opposite corner each time](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-inventory-contrast.png)
+
+The same bag under the high-contrast skin, laid out each way. Nothing is set on
+the grid to mirror it: in the right-to-left one the first column is the
+right-hand one, so the rifle starts in the top-right corner and the counts move
+with their piles.
 
 ### Two grids
 
