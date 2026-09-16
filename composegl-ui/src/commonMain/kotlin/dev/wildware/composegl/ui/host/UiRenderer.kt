@@ -2,6 +2,7 @@ package dev.wildware.composegl.ui.host
 
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.draw.DrawPass
+import dev.wildware.composegl.ui.draw.ScenePass
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.layout.Viewport
@@ -21,8 +22,9 @@ import dev.wildware.composegl.ui.layout.Viewport
  * genuinely apart — two trees, an effect between them, a pass of its own.
  *
  * What it does, in order: [settle] the tree — ask the runtime whether anything changed, lay it out
- * for the viewport, refresh [focus] — then tell [onLaidOut] that positions exist, open the canvas's
- * frame, draw, close it, and file the timings. The first three of those are not written out here:
+ * for the viewport, refresh [focus] — then tell [onLaidOut] that positions exist, render any dirty
+ * `SceneView` into its picture ([scenes]), open the canvas's frame, draw, close it, and file the
+ * timings. The first three of those are not written out here:
  * they are [settle], which is where that order is kept so a test that never draws can have the
  * same one. Nothing is allocated per node and almost nothing per frame; see
  * [dev.wildware.composegl.ui.layout.MeasurePass] for why the one object it does make has to be made again.
@@ -90,6 +92,19 @@ class UiRenderer(
     var drawBehind: ((UiCanvas) -> Unit)? = null
 
     /**
+     * The prepass that renders every dirty `SceneView` into its own picture. Run by [render] after
+     * [onLaidOut] and before the canvas's frame opens, unless [renderScenes] is off.
+     */
+    val scenes: ScenePass = ScenePass(host.tree, canvas)
+
+    /**
+     * Whether [render] runs [scenes] itself. On by default. Switch it off only for a game that has
+     * to put scene rendering between passes of its own and calls `scenes.render` itself — after
+     * layout, outside the canvas's frame: inside [onLaidOut] is the place.
+     */
+    var renderScenes: Boolean = true
+
+    /**
      * One frame. Returns whether anything actually changed, which is what a game checks before
      * bothering to swap buffers.
      *
@@ -99,6 +114,10 @@ class UiRenderer(
     fun render(viewport: Viewport, nanos: Long): Boolean {
         val changed = host.settle(viewport, focus, nanos, budget)
         onLaidOut?.invoke(nanos / 1_000_000)
+        // After input has had its say, so a click that marks a scene dirty shows this frame; before
+        // the frame opens, so a scene's state changes are not in the middle of the batch.
+        val rendered = renderScenes && scenes.render(viewport, nanos) > 0
+        val redrew = changed || rendered
 
         // Only while the budget is on: switched off, nobody is told anything and nothing is blamed.
         val trace = if (budget.measuring) budget.trace else null
@@ -111,7 +130,7 @@ class UiRenderer(
         canvas.end()
 
         // After end(), because that is when the last batch is actually handed over.
-        budget.endFrame(canvas.drawCalls, changed)
-        return changed
+        budget.endFrame(canvas.drawCalls, redrew)
+        return redrew
     }
 }

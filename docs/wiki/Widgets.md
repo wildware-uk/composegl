@@ -1166,6 +1166,11 @@ Image(icon, fit = ImageFit.Cover, alignment = Alignment.TopStart)
 A name that is not in the atlas stops there and says so, rather than drawing
 nothing — because nothing looks exactly like a widget somebody has not written yet.
 
+### Your own 3D scene in a panel
+
+`SceneView(state, modifier) { ... }` lays out like a picture and shows your renderer's
+scene inside it, redrawn only when you call `state.invalidate()`. See [[Scene view]].
+
 ### Sprite-sheet animation
 
 Moved to [Animation](Animation.md#sprite-sheet-animation).

@@ -112,6 +112,10 @@ class SqueezedWidgetsTest {
     // --- everything else that draws, for the same reason -----------------------------------------
 
     @Test
+    fun `a scene view survives being measured at nothing`() =
+        squeezed { SceneView(rememberSceneViewState(), modifier = it) { clear(dev.wildware.composegl.ui.graphics.Colour.Black) } }
+
+    @Test
     fun `a button survives being measured at nothing`() = squeezed { Button("GO", onClick = {}, modifier = it) }
 
     @Test

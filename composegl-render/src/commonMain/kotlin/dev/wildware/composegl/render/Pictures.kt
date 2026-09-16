@@ -1,5 +1,6 @@
 package dev.wildware.composegl.render
 
+import dev.wildware.composegl.ui.graphics.SceneSurface
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.layout.Viewport
 
@@ -48,6 +49,32 @@ class LayerPicture internal constructor(
     val u2: Float,
     val v2: Float,
 ) : TextureHandle
+
+/**
+ * A picture [RenderCanvas.scene] made: colour and depth, owned until [close]. Premultiplied, and
+ * counted the way a framebuffer is, bottom row first, which the canvas turns over when it draws it.
+ */
+class ScenePicture internal constructor(
+    internal val target: RenderTarget,
+    internal val device: GpuDevice,
+) : SceneSurface {
+
+    override val width: Int get() = target.width
+
+    override val height: Int get() = target.height
+
+    /** The colour texture, as the device binds it. */
+    val texture: DeviceTexture get() = checkNotNull(target.target) { "this scene picture has been closed" }.texture
+
+    override var closed: Boolean = false
+        private set
+
+    override fun close() {
+        if (closed) return
+        closed = true
+        target.close()
+    }
+}
 
 /**
  * What [RenderCanvas.raw] hands a block by default: the frame's projection, already in the

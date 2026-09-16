@@ -693,6 +693,35 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         record(DrawCall.Raw(state.clip, state.alpha, state.map(destination)))
     }
 
+    private val recordedScenes = mutableListOf<RecordedScene>()
+
+    /**
+     * Every [scene] this canvas rendered, in order, since it was made.
+     *
+     * Not emptied by [clear], unlike [calls]: a scene is rendered in the prepass of one frame and
+     * then drawn as a picture for many, and a test counting redraws across frames wants them all.
+     */
+    val scenes: List<RecordedScene> get() = recordedScenes
+
+    /** Yes: it makes a picture of the size asked for and writes down what the block did to it. */
+    override val drawsScenes: Boolean get() = true
+
+    /**
+     * Runs [draw] against a target that writes its clears and hands-over down, and returns a
+     * picture of the size asked for — the same one when the size has not changed. The block handed
+     * to [SceneTarget.raw] is not run, for the reason [handsOverRaw] gives.
+     */
+    override fun scene(surface: SceneSurface?, width: Int, height: Int, draw: (SceneTarget) -> Unit): SceneSurface? {
+        check(!drawing) { "scene() inside a frame: scenes are rendered before the frame begins" }
+        if (width <= 0 || height <= 0) return surface
+        val reused = (surface as? RecordedSceneSurface)?.takeIf { !it.closed && it.width == width && it.height == height }
+        val picture = reused ?: RecordedSceneSurface(width, height)
+        val scene = RecordedScene(picture, width, height, allocated = reused == null)
+        recordedScenes += scene
+        draw(scene.target)
+        return picture
+    }
+
     /** Only the calls of one kind, which is what an assertion usually wants. */
     inline fun <reified T : DrawCall> only(): List<T> = calls.filterIsInstance<T>()
 
@@ -717,4 +746,50 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         const val Unbalanced = "a clip, an alpha, a blend or a tint was pushed and never popped"
         const val UnbalancedInLayer = "a clip, an alpha, a blend or a tint was pushed inside a layer and never popped"
     }
+}
+
+/** A picture [RecordingCanvas.scene] made: a size and nothing else. */
+class RecordedSceneSurface(override val width: Int, override val height: Int) : SceneSurface {
+
+    override var closed: Boolean = false
+        private set
+
+    override fun close() {
+        closed = true
+    }
+
+    override fun toString(): String = "RecordedSceneSurface(${width}x$height${if (closed) ", closed" else ""})"
+}
+
+/** One [RecordingCanvas.scene]: the picture, its size, whether it was new, and what was done to it. */
+class RecordedScene(
+    val surface: RecordedSceneSurface,
+    val width: Int,
+    val height: Int,
+    /** True when the picture was made for this render rather than filled again. */
+    val allocated: Boolean,
+) {
+    private val recordedClears = mutableListOf<Colour>()
+
+    /** The colours the scene was cleared to, in order. */
+    val clears: List<Colour> get() = recordedClears
+
+    /** How many times the scene asked for the backend's drawing object. */
+    var raws: Int = 0
+        private set
+
+    internal val target = object : SceneTarget {
+        override val width: Int get() = this@RecordedScene.width
+        override val height: Int get() = this@RecordedScene.height
+
+        override fun clear(colour: Colour) {
+            recordedClears += colour
+        }
+
+        override fun raw(block: (Any) -> Unit) {
+            raws++
+        }
+    }
+
+    override fun toString(): String = "RecordedScene(${width}x$height, allocated=$allocated, clears=$clears, raws=$raws)"
 }
