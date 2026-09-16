@@ -25,8 +25,8 @@ repositories {
 }
 
 dependencies {
-    implementation("dev.wildware.composegl:composegl-korge:0.5.0")
-    implementation("dev.wildware.composegl:composegl-effects:0.5.0")   // optional: blur, outline, dissolve
+    implementation("dev.wildware.composegl:composegl-korge:0.6.0")
+    implementation("dev.wildware.composegl:composegl-effects:0.6.0")   // optional: blur, outline, dissolve
 }
 ```
 

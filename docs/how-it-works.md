@@ -41,7 +41,7 @@ Compose, and it survives without Compose UI.
 
 ## What works today
 
-**This page describes ComposeGL 0.5.0, and the interfaces will still move.** What works starts
+**This page describes ComposeGL 0.6.0, and the interfaces will still move.** What works starts
 with the picture above: layout,
 the modifier chain, the renderer, fonts, nine-patch art, and all three ways in — a mouse, a
 keyboard and a gamepad, with hit testing, focus and key routing behind them. The chips and the

@@ -14,7 +14,7 @@ They live in `composegl-effects`, a separate module so that a game which wants n
 of them carries none of them.
 
 ```kotlin
-implementation("dev.wildware.composegl:composegl-effects:0.5.0")
+implementation("dev.wildware.composegl:composegl-effects:0.6.0")
 ```
 
 ```kotlin

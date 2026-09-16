@@ -48,9 +48,9 @@ repositories {
 }
 
 dependencies {
-    implementation("dev.wildware.composegl:composegl-ui:0.5.0")
+    implementation("dev.wildware.composegl:composegl-ui:0.6.0")
     // One backend. This one draws through LibGDX.
-    implementation("dev.wildware.composegl:composegl-gdx:0.5.0")
+    implementation("dev.wildware.composegl:composegl-gdx:0.6.0")
 
     // LibGDX's desktop window, and the native code it and its FreeType fonts need.
     implementation("com.badlogicgames.gdx:gdx-backend-lwjgl3:1.14.2")

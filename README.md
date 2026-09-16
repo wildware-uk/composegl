@@ -1,6 +1,6 @@
 # ComposeGL
 
-These docs are for **ComposeGL 0.5.0**.
+These docs are for **ComposeGL 0.6.0**.
 
 [![Maven Central](https://img.shields.io/maven-central/v/dev.wildware.composegl/composegl-ui?label=Maven%20Central)](https://central.sonatype.com/artifact/dev.wildware.composegl/composegl-ui)
 [![CI](https://github.com/wildware-uk/composegl/actions/workflows/ci.yml/badge.svg)](https://github.com/wildware-uk/composegl/actions/workflows/ci.yml)
@@ -32,8 +32,8 @@ repositories {
 }
 
 dependencies {
-    implementation("dev.wildware.composegl:composegl-ui:0.5.0")
-    implementation("dev.wildware.composegl:composegl-gdx:0.5.0")   // a backend — pick one
+    implementation("dev.wildware.composegl:composegl-ui:0.6.0")
+    implementation("dev.wildware.composegl:composegl-gdx:0.6.0")   // a backend — pick one
 }
 ```
 
@@ -118,13 +118,13 @@ You need `composegl-ui` and exactly one backend. The library draws the interface
 | [Localisation](docs/wiki/Localisation.md) | strings looked up by the player's language with fallbacks and plurals; rows, alignment and padding that mirror for Arabic and Hebrew; Hebrew and English on one line drawn in reading order, with a caret that moves the way the arrows point |
 | [Debugging](docs/wiki/Debugging.md) | `composegl-debug`, for development builds: `DebugWindow` to tune your own properties from a floating window of sliders, toggles, dropdowns and colour pickers that remembers where it was left and can be docked to an edge of the screen or tabbed together with another window, `LayoutOverlay` to see boxes, padding and gaps across the whole screen, `Inspector` to point at one widget and read its size, constraints and modifiers, `NodeTree` to browse the whole screen and see what each node costs, `OverdrawOverlay` to see which pixels are painted over and over, a frame budget overlay that names the nodes costing extra draw calls and why, `FocusOverlay` to see where the pad will move focus and where clicks really land, `RedrawOverlay` to see which nodes keep redrawing, `TextMetricsOverlay` to see every label's baseline and cap height, `Plot` and `Histogram` to graph a number that changes every frame, and `DevConsole`, a drop-down console with typed commands, tab completion, history and a filtered log |
 | [Testing](docs/wiki/Testing.md) | screens tested with no window: tag a widget, then click, type and press pad buttons on it with `uiTest`; and `@Preview` composables drawn to PNGs with `renderPreviews`; print the tree with `dump`; animations paused and stepped a frame at a time |
-| [What's new in 0.5.0](docs/wiki/Whats-new-0.5.0.md) | everything since 0.4.0, and the breaking changes |
+| [What's new in 0.6.0](docs/wiki/Whats-new-0.6.0.md) | everything since 0.5.0, and the breaking changes |
 | [How it works](docs/how-it-works.md) | the long version: what is built, and why |
 | [Releasing](docs/releasing.md) | how a version gets to Maven Central |
 
 ## What this has actually run on
 
-0.5.0 is still early, and the interfaces will move. [What's new in 0.5.0](docs/wiki/Whats-new-0.5.0.md) lists what changed since 0.4.0, including what was removed.
+0.6.0 is still early, and the interfaces will move. [What's new in 0.6.0](docs/wiki/Whats-new-0.6.0.md) lists what changed since 0.5.0, including what was removed.
 
 Everything here has only ever run on Mesa's software OpenGL. **No real GPU, no macOS, no Windows,
 and no actual phone.** The Android launcher ran on an x86_64 emulator with no hardware
