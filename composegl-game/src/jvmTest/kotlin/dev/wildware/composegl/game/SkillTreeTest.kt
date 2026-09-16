@@ -557,8 +557,8 @@ class SkillTreeTest {
         open(tree(power = 1, strike = 1, guard = 1, fury = 1))
         frame()
 
-        assertNotNull(text("1 / 3"), "a node with ranks should show them")
-        assertNull(text("1 / 1"), "and a node with one rank should not")
+        assertNotNull(text("1/3"), "a node with ranks should show them")
+        assertNull(text("1/1"), "and a node with one rank should not")
     }
 
     // --- right to left ------------------------------------------------------------------------------------

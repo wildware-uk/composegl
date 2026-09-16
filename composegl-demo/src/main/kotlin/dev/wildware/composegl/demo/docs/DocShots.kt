@@ -287,6 +287,15 @@ import dev.wildware.composegl.ui.widget.dropTarget
  * The sizes are deliberately small and snug. A picture of a button in a 1280x720 screenshot is a
  * button nobody can see.
  */
+/**
+ * The text scales any picture is taken at: the three rows of `widget-text-scale`.
+ *
+ * Here rather than in the shot because the harness has to bake a font at each of them before the
+ * first picture is measured. One list, read by the picture that shows them and by the harness that
+ * makes them possible, so a fourth row cannot be a crash.
+ */
+internal val DocTextScales = listOf(1f, 1.25f, 1.5f)
+
 @Suppress("LongMethod")
 internal fun docShots(): List<DocShot> = buildList {
     scenes()
@@ -736,7 +745,7 @@ private fun MutableList<DocShot>.widgets() {
     add(DocShot("widget-text-scale", 420, 230) {
         Frame {
             Column(verticalArrangement = Arrangement.spacedBy(10f)) {
-                listOf(1f, 1.25f, 1.5f).forEach { scale ->
+                DocTextScales.forEach { scale ->
                     ProvideTextScale(scale) {
                         Row(horizontalArrangement = Arrangement.spacedBy(10f), verticalAlignment = VerticalAlignment.Centre) {
                             Image("icon/crest", Modifier.size(24f))
@@ -1302,47 +1311,47 @@ private fun MutableList<DocShot>.widgets() {
         }
     })
 
-	// A quest log on a pad: the pad stepped down to A Crown of Thorns and pressed South to choose it,
-	// then went on down to Side quests and pressed Right, which opened it. Done stays shut.
-	add(
-		DocShot(
-			"widget-tree-quest-log", 340, 280,
-			focus = true,
-			stock = true,
-			pads = listOf(
-				GamepadId(0) to GamepadButton.DpadDown,
-				GamepadId(0) to GamepadButton.DpadDown,
-				GamepadId(0) to GamepadButton.DpadDown,
-				GamepadId(0) to GamepadButton.South,
-				GamepadId(0) to GamepadButton.DpadDown,
-				GamepadId(0) to GamepadButton.DpadRight,
-			),
-		) {
-			Frame { QuestLog() }
-		},
-	)
+    // A quest log on a pad: the pad stepped down to A Crown of Thorns and pressed South to choose it,
+    // then went on down to Side quests and pressed Right, which opened it. Done stays shut.
+    add(
+        DocShot(
+            "widget-tree-quest-log", 340, 280,
+            focus = true,
+            stock = true,
+            pads = listOf(
+                GamepadId(0) to GamepadButton.DpadDown,
+                GamepadId(0) to GamepadButton.DpadDown,
+                GamepadId(0) to GamepadButton.DpadDown,
+                GamepadId(0) to GamepadButton.South,
+                GamepadId(0) to GamepadButton.DpadDown,
+                GamepadId(0) to GamepadButton.DpadRight,
+            ),
+        ) {
+            Frame { QuestLog() }
+        },
+    )
 
-	// A save picker, clicked on the arrow of a shut folder: the click really opened it, and the
-	// pointer rests there, so the arrow is lit.
-	add(DocShot("widget-tree-click", 300, 230, pointer = Offset(TreeClickArrowX, TreeClickArrowY), click = true, stock = true) {
-		Frame { SavePicker() }
-	})
+    // A save picker, clicked on the arrow of a shut folder: the click really opened it, and the
+    // pointer rests there, so the arrow is lit.
+    add(DocShot("widget-tree-click", 300, 230, pointer = Offset(TreeClickArrowX, TreeClickArrowY), click = true, stock = true) {
+        Frame { SavePicker() }
+    })
 
-	// Right to left in the high-contrast skin: a bestiary with the indent coming in from the right, the
-	// shut rows' arrows pointing left, and the pad's focus on a row.
-	add(
-		DocShot(
-			"widget-tree-rtl", 300, 230,
-			focus = true,
-			pads = listOf(GamepadId(0) to GamepadButton.DpadDown, GamepadId(0) to GamepadButton.DpadDown),
-		) {
-			ProvideSkin(Skin.HighContrast) {
-				ProvideLayoutDirection(LayoutDirection.Rtl) {
-					Frame { Bestiary() }
-				}
-			}
-		},
-	)
+    // Right to left in the high-contrast skin: a bestiary with the indent coming in from the right, the
+    // shut rows' arrows pointing left, and the pad's focus on a row.
+    add(
+        DocShot(
+            "widget-tree-rtl", 300, 230,
+            focus = true,
+            pads = listOf(GamepadId(0) to GamepadButton.DpadDown, GamepadId(0) to GamepadButton.DpadDown),
+        ) {
+            ProvideSkin(Skin.HighContrast) {
+                ProvideLayoutDirection(LayoutDirection.Rtl) {
+                    Frame { Bestiary() }
+                }
+            }
+        },
+    )
 
     // Left and come back to. The script inside picks an entry and scrolls, goes to the map, and
     // comes back, so what is photographed is the state the holder really kept rather than a screen
@@ -3216,39 +3225,39 @@ private class DocQuest(val name: String, val where: String = "", vararg val step
 /** A quest log with the main story open, for the picture of a tree on a pad. */
 @Composable
 private fun QuestLog() {
-	val quests = remember {
-		listOf(
-			DocQuest(
-				"Main story", "",
-				DocQuest("The Drowned Bell", "Saltmere"),
-				DocQuest("Ashes of Kharn", "Kharn Ruins"),
-				DocQuest("A Crown of Thorns", "Castle Vey"),
-			),
-			DocQuest(
-				"Side quests", "",
-				DocQuest("Lost Cat", "Saltmere"),
-				DocQuest("Smuggler's Cache", "Old Docks"),
-			),
-			DocQuest("Done", "", DocQuest("Rats in the Cellar", "Inn")),
-		)
-	}
-	var chosen by remember { mutableStateOf<DocQuest?>(null) }
-	Panel(Modifier.width(300f).height(240f)) {
-		TreeView(
-			roots = quests,
-			children = { it.steps.toList() },
-			key = { it.name },
-			modifier = Modifier.fillMaxWidth(),
-			selected = chosen,
-			onSelect = { chosen = it },
-			state = rememberTreeState("Main story"),
-		) { quest, _ ->
-			Row(horizontalArrangement = Arrangement.spacedBy(8f), verticalAlignment = VerticalAlignment.Centre) {
-				Text(quest.name)
-				if (quest.where.isNotEmpty()) Text(quest.where, style = "label.dim")
-			}
-		}
-	}
+    val quests = remember {
+        listOf(
+            DocQuest(
+                "Main story", "",
+                DocQuest("The Drowned Bell", "Saltmere"),
+                DocQuest("Ashes of Kharn", "Kharn Ruins"),
+                DocQuest("A Crown of Thorns", "Castle Vey"),
+            ),
+            DocQuest(
+                "Side quests", "",
+                DocQuest("Lost Cat", "Saltmere"),
+                DocQuest("Smuggler's Cache", "Old Docks"),
+            ),
+            DocQuest("Done", "", DocQuest("Rats in the Cellar", "Inn")),
+        )
+    }
+    var chosen by remember { mutableStateOf<DocQuest?>(null) }
+    Panel(Modifier.width(300f).height(240f)) {
+        TreeView(
+            roots = quests,
+            children = { it.steps.toList() },
+            key = { it.name },
+            modifier = Modifier.fillMaxWidth(),
+            selected = chosen,
+            onSelect = { chosen = it },
+            state = rememberTreeState("Main story"),
+        ) { quest, _ ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8f), verticalAlignment = VerticalAlignment.Centre) {
+                Text(quest.name)
+                if (quest.where.isNotEmpty()) Text(quest.where, style = "label.dim")
+            }
+        }
+    }
 }
 
 /** Where the arrow of the save picker's shut "Chapter 2" folder is, in its picture. */
@@ -3260,22 +3269,22 @@ private class DocSave(val name: String, vararg val files: DocSave)
 /** Save folders by chapter, for the picture of a click on an arrow. */
 @Composable
 private fun SavePicker() {
-	val saves = remember {
-		listOf(
-			DocSave("Chapter 1", DocSave("autosave-01.sav"), DocSave("before-boss.sav")),
-			DocSave("Chapter 2", DocSave("autosave-07.sav"), DocSave("the-bridge.sav"), DocSave("quick.sav")),
-			DocSave("Chapter 3"),
-		)
-	}
-	Panel(Modifier.width(260f).height(190f)) {
-		TreeView(
-			roots = saves,
-			children = { it.files.toList() },
-			hasChildren = { it.name.startsWith("Chapter") },
-			key = { it.name },
-			modifier = Modifier.fillMaxWidth(),
-		) { save, _ -> Text(save.name) }
-	}
+    val saves = remember {
+        listOf(
+            DocSave("Chapter 1", DocSave("autosave-01.sav"), DocSave("before-boss.sav")),
+            DocSave("Chapter 2", DocSave("autosave-07.sav"), DocSave("the-bridge.sav"), DocSave("quick.sav")),
+            DocSave("Chapter 3"),
+        )
+    }
+    Panel(Modifier.width(260f).height(190f)) {
+        TreeView(
+            roots = saves,
+            children = { it.files.toList() },
+            hasChildren = { it.name.startsWith("Chapter") },
+            key = { it.name },
+            modifier = Modifier.fillMaxWidth(),
+        ) { save, _ -> Text(save.name) }
+    }
 }
 
 private class DocBeast(val name: String, vararg val kinds: DocBeast)
@@ -3283,23 +3292,23 @@ private class DocBeast(val name: String, vararg val kinds: DocBeast)
 /** A bestiary with one family open, for the right-to-left tree picture. */
 @Composable
 private fun Bestiary() {
-	val beasts = remember {
-		listOf(
-			DocBeast("Undead", DocBeast("Skeleton"), DocBeast("Wraith"), DocBeast("Lich")),
-			DocBeast("Beasts", DocBeast("Dire wolf"), DocBeast("Cave bear")),
-			DocBeast("Dragons", DocBeast("Wyvern")),
-		)
-	}
-	Panel(Modifier.width(260f).height(190f)) {
-		TreeView(
-			roots = beasts,
-			children = { it.kinds.toList() },
-			key = { it.name },
-			modifier = Modifier.fillMaxWidth(),
-			selected = beasts[0].kinds[2],
-			state = rememberTreeState("Undead"),
-		) { beast, _ -> Text(beast.name) }
-	}
+    val beasts = remember {
+        listOf(
+            DocBeast("Undead", DocBeast("Skeleton"), DocBeast("Wraith"), DocBeast("Lich")),
+            DocBeast("Beasts", DocBeast("Dire wolf"), DocBeast("Cave bear")),
+            DocBeast("Dragons", DocBeast("Wyvern")),
+        )
+    }
+    Panel(Modifier.width(260f).height(190f)) {
+        TreeView(
+            roots = beasts,
+            children = { it.kinds.toList() },
+            key = { it.name },
+            modifier = Modifier.fillMaxWidth(),
+            selected = beasts[0].kinds[2],
+            state = rememberTreeState("Undead"),
+        ) { beast, _ -> Text(beast.name) }
+    }
 }
 
 private const val SpinnerShotWidth = 540
@@ -7150,7 +7159,7 @@ private val HebrewRaid = TrackedQuest(
     ),
 )
 
-/** What the Hebrew picture says, so [dev.wildware.composegl.demo.docs.main] can bake those letters. */
+/** What the Hebrew picture of the tracker says. */
 internal const val HebrewQuestName = "כבוש את המגדל"
 internal const val HebrewQuestRope = "חתוך את חבל האזעקה"
 internal const val HebrewQuestWatch = "השתק את השומרים"
@@ -7447,9 +7456,11 @@ private val HebrewChatWords = Strings(
 )
 
 /**
- * What the Hebrew picture of the chat says, so [dev.wildware.composegl.demo.docs.main] can bake
- * exactly those letters. Whole words rather than the letters picked out of them: a letter missed
- * here is a blank box in the picture and nobody notices which one it was.
+ * What the Hebrew picture of the chat says. Named rather than written inline because the log, the
+ * tabs and the localisation table all have to say the same thing for the picture to make sense.
+ *
+ * Nothing has to be registered for these any more: the harness bakes the whole Hebrew alphabet
+ * straight out of the font file, so a new line here cannot come out as a row of empty boxes.
  */
 internal const val HebrewChatSay = "דיבור"
 internal const val HebrewChatParty = "חבורה"

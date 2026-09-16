@@ -7,7 +7,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * The counter on a quest step — "3 / 5 wolves" — on its own, with no screen anywhere near it.
+ * The counter on a quest step — "3/5 wolves" — on its own, with no screen anywhere near it.
  *
  * It is two counts rather than a fraction because two counts is what the player reads, and the
  * arithmetic on top of them is the part a widget must not get wrong: a sixth wolf killed is still a
@@ -17,7 +17,7 @@ class ObjectiveProgressTest {
 
     @Test
     fun `it reads as the counter a player sees`() {
-        assertEquals("3 / 5", ObjectiveProgress(3, 5).toString())
+        assertEquals("3/5", ObjectiveProgress(3, 5).toString())
     }
 
     @Test
@@ -32,7 +32,7 @@ class ObjectiveProgressTest {
         val over = ObjectiveProgress(6, 5)
         assertEquals(1f, over.fraction, "a bar cannot run past its own end")
         assertTrue(over.isComplete)
-        assertEquals("6 / 5", over.toString(), "and the counter still says what the game counted")
+        assertEquals("6/5", over.toString(), "and the counter still says what the game counted")
     }
 
     @Test

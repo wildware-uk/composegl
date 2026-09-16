@@ -103,7 +103,10 @@ private fun Numbers(
         Line("  layout", millis(reading.layoutMillis), Dim)
         Line("  draw", millis(reading.drawMillis), Dim)
         Line("worst", millis(reading.worstMillis), if (reading.worstMillis > overMillis) Over else Bright)
-        Line("redraws", "${reading.redraws} / ${reading.frames}", Bright)
+        // No spaces round the slash: with them, an overlay on a screen that reads from the right
+        // draws "60/12" for twelve redraws in sixty frames. A single slash between two digits is
+        // joined onto the number by the bidirectional algorithm, so there is nothing to reorder.
+        Line("redraws", "${reading.redraws}/${reading.frames}", Bright)
         if (reading.drawCalls >= 0) Line("draw calls", "${reading.drawCalls}", Bright)
         val blamed = reading.culprits
         for (index in 0 until minOf(culprits, blamed.size)) {

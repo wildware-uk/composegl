@@ -248,6 +248,15 @@ anything else is.
 once a frame and the answer *places* the node, which is the cheap half of layout:
 a hundred nameplates following a hundred running enemies recompose nothing.
 
+**Move your camera before the layer reads it.** The layer asks your projection
+where everything is from inside a frame callback of its own. If your game writes
+its camera from a frame callback registered *after* that one, the markers on that
+frame were placed from where the camera was last frame — which looks like the
+markers sliding a frame behind the world during a fast pan. Write the camera in
+your own update, before the interface is composed, and it never comes up. A camera
+held in ordinary state and written from anywhere outside a frame callback is
+already right, which is nearly always the case.
+
 **Off the edge** is `OffScreen.Hide` (the default), `OffScreen.Show`, or
 `OffScreen.ClampToEdge`, which holds the whole marker just inside the layer and
 draws a triangle beside it turned towards the thing. It is the marker's whole box
@@ -1008,9 +1017,9 @@ What the player is meant to be doing, pinned in a corner of the HUD. A step that
 gets finished is ticked, has a line struck through it and slides away; a quest
 that arrives slides in and can raise a toast.
 
-![an objective panel pinned in the corner: the quest name in blue, a step to cut the alarm rope, and a step to silence the watchmen reading 3 / 5](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-objective-tracker.png)
+![an objective panel pinned in the corner: the quest name in blue, a step to cut the alarm rope, and a step to silence the watchmen reading 3/5](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-objective-tracker.png)
 
-That is the real widget a second into a real fight — the counter says 3 / 5
+That is the real widget a second into a real fight — the counter says 3/5
 because a third watchman really fell a moment before the picture was taken.
 
 ```kotlin
@@ -1036,7 +1045,7 @@ the next.
 `step(...)` takes a `progress` for the counter beside the words:
 
 ```kotlin
-step("Kill the wolves", progress = ObjectiveProgress(have = 3, need = 5))   // draws "3 / 5"
+step("Kill the wolves", progress = ObjectiveProgress(have = 3, need = 5))   // draws "3/5"
 ```
 
 `ObjectiveProgress` is two counts rather than a fraction, because two counts is
@@ -1050,7 +1059,7 @@ Turning a step's `done` from false to true plays the whole thing: the tick is
 drawn stroke by stroke, a line is struck through the words, it stays up long
 enough to read, and then it slides away with the list closing up over it.
 
-![the tracker running: the counter jumps to 3 / 5, the rope step ticks itself and is struck through before sliding away, the last step runs out to 5 / 5, an Objective complete toast and a New objective toast come up, the ferryman quest slides in and the finished one leaves](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-objective-run.gif)
+![the tracker running: the counter jumps to 3/5, the rope step ticks itself and is struck through before sliding away, the last step runs out to 5/5, an Objective complete toast and a New objective toast come up, the ferryman quest slides in and the finished one leaves](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-objective-run.gif)
 
 One little raid, photographed a frame at a time as it really ran. Nothing in it
 is posed: the numbers change on the interface clock, and the tick, the line, the
@@ -1476,7 +1485,7 @@ with the graph on it, so it drags, wheels, pinches and double-clicks like one, a
 every node is an ordinary widget laid out in world units — as sharp at three times
 its size as at its own.
 
-![a six-node upgrade board: a gold reactor on the left with every rank bought, a green autocannon reading 2 / 3 above it, a blue shield reading 0 / 2 below it, a blue burst node, and two grey nodes still shut; the line from the reactor to the autocannon is green, the two lines to the open nodes are blue, and the rest are grey](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-skill-tree.png)
+![a six-node upgrade board: a gold reactor on the left with every rank bought, a green autocannon reading 2/3 above it, a blue shield reading 0/2 below it, a blue burst node, and two grey nodes still shut; the line from the reactor to the autocannon is green, the two lines to the open nodes are blue, and the rest are grey](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-skill-tree.png)
 
 ### The tree works out each node's state
 
@@ -1517,7 +1526,7 @@ hold comes from the mouse, from Enter and from the pad's South button. Pass
 The whole thing, run rather than posed — one real hold on the shield, from the
 first frame to the last:
 
-![the shield node held down: the wedge sweeps all the way round, the counter drops from three points to two, the shield starts reading 1 / 2, the line from the reactor to it fills bright and settles green, and the cloak behind it turns from grey to blue](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-skill-tree-unlock.gif)
+![the shield node held down: the wedge sweeps all the way round, the counter drops from three points to two, the shield starts reading 1/2, the line from the reactor to it fills bright and settles green, and the cloak behind it turns from grey to blue](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-skill-tree-unlock.gif)
 
 Nothing in that is staged: the picture is one press held down, `onActivate`
 spending the point, and the tree working the rest out from the ranks it is handed
@@ -1545,7 +1554,7 @@ costs the few dozen on screen. When a node is taken, the lines that opened it fi
 from the old node to the new one over `unlockMillis`.
 
 `skilltree.node.locked`, `.available`, `.owned` and `.maxed` are the four frames,
-`skilltree.hold` the sweep of a hold, `skilltree.rank` the "2 / 3" under a node
+`skilltree.hold` the sweep of a hold, `skilltree.rank` the "2/3" under a node
 with more than one, `skilltree.plane` the backdrop, and `skilltree.edge.locked`,
 `.available`, `.owned` and `.fill` the lines.
 

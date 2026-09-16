@@ -77,7 +77,7 @@ import dev.wildware.composegl.ui.widget.Text
 /**
  * How far along a step is: two wolves of the five the quest asked for.
  *
- * Counts rather than a fraction, because "3 / 5" is what the player is shown and a fraction cannot
+ * Counts rather than a fraction, because "3/5" is what the player is shown and a fraction cannot
  * be turned back into it. [fraction] is there for anything that wants the bar rather than the words.
  *
  * @param have how many are done. Larger than [need] is clamped when it is read, since a game that
@@ -102,7 +102,17 @@ class ObjectiveProgress(val have: Int, val need: Int) {
 
     override fun hashCode(): Int = have * 31 + need
 
-    override fun toString(): String = "$have / $need"
+    /**
+     * "3/5", which is what the tracker draws when nothing has been translated.
+     *
+     * No spaces around the slash, and that is not a matter of taste. A screen that reads from the
+     * right decides where each piece of a line goes by the Unicode bidirectional algorithm, and a
+     * space is a neutral character that takes its direction from what surrounds it — so "3 / 5" on
+     * a Hebrew screen came out as "5 / 3", telling the player they had killed five of the three
+     * wolves. A single slash between two digits is joined onto the number instead, which makes the
+     * whole thing one number that nothing can turn round. See `RtlNumbersUiTest`.
+     */
+    override fun toString(): String = "$have/$need"
 }
 
 /**
@@ -130,7 +140,7 @@ interface ObjectiveScope {
      *   tick, the strike-through and the slide away; a step that is **already** done the first time
      *   it is declared is history and is not drawn at all, so a loaded save does not replay its
      *   own quest log. `keepCompleted` on the tracker keeps done steps on the list instead.
-     * @param progress how far along it is, drawn as "3 / 5" beside the words. Null for a step that
+     * @param progress how far along it is, drawn as "3/5" beside the words. Null for a step that
      *   is simply done or not done.
      * @param key what this step is, so that it keeps its node while the list around it changes.
      *   Null uses [text], which is right until two steps of one quest read the same. One key per
@@ -213,7 +223,7 @@ interface ObjectiveScope {
  *   side the language ends on — the right in English, the left in Arabic.
  * @param style the skin style of the panel. `"<style>.title"` is a quest's name, `"<style>.step"` a
  *   line under it and `"<style>.step.done"` a finished one, `"<style>.bullet"` the little box beside
- *   a step with `"<style>.tick"` the mark drawn in it, `"<style>.count"` the "3 / 5" and
+ *   a step with `"<style>.tick"` the mark drawn in it, `"<style>.count"` the "3/5" and
  *   `"<style>.more"` the fold row.
  * @param clock which clock the animations and the pause between the strike-through and the slide
  *   run on. The interface's by default, so a step finished as the game pauses still finishes.
@@ -462,13 +472,17 @@ private fun Bullet(drawn: Float, style: String) {
     Box(Modifier.size(BulletSize).styled("$style.bullet").drawInFront(mark))
 }
 
-/** "3 / 5", with a small jump the moment the number changes, because that is the news. */
+/** "3/5", with a small jump the moment the number changes, because that is the news. */
 @Composable
 private fun Counter(progress: ObjectiveProgress, style: String, clock: Clock) {
     val strings = LocalStrings.current
     val locale = LocalLocale.current
+    // The shipped default is written once, on the progress itself, so that the counter on screen
+    // and the counter in a log can never disagree about it — and neither can be read backwards on
+    // a screen that reads from the right. A game that translates `objective.progress` owns the
+    // question from there, spaces and all.
     val text = strings.get(locale, ProgressKey, progress.have, progress.need)
-        .takeIf { it != ProgressKey } ?: "${progress.have} / ${progress.need}"
+        .takeIf { it != ProgressKey } ?: progress.toString()
 
     val clocks = LocalClocks.current
     val pop = remember(clocks, clock) { Animatable(1f, FloatVectoriser, clock, clocks) }
