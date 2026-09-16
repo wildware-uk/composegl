@@ -1668,6 +1668,106 @@ private fun MutableList<DocShot>.game() {
         },
     )
 
+    // A pad splits the stack of twelve and carries half of it two squares along, caught while it is
+    // still in the air: West held down, South to take hold, West let go of, right twice. The pile it
+    // came from says six because six of it is in the hand, the square the pad has walked to is lit,
+    // and the ring is on that square because that is really where the pad is.
+    add(
+        DocShot(
+            "game-inventory-split",
+            330,
+            230,
+            focus = true,
+            padded = listOf(
+                // Down off the rifle onto the pile of cells, which is where the split happens.
+                Padding.Down(GamepadButton.DpadDown),
+                Padding.Up(GamepadButton.DpadDown),
+                // Held as the pile is picked up, which is the whole gesture: what the hand takes is
+                // settled at the moment of the press, so letting go of West now changes nothing.
+                Padding.Down(GamepadButton.West),
+                Padding.Down(GamepadButton.South),
+                Padding.Up(GamepadButton.South),
+                Padding.Up(GamepadButton.West),
+                Padding.Down(GamepadButton.DpadRight),
+                Padding.Up(GamepadButton.DpadRight),
+                Padding.Down(GamepadButton.DpadRight),
+                Padding.Up(GamepadButton.DpadRight),
+                Padding.Wait(4),
+            ),
+        ) { DocBagGrid() },
+    )
+
+    // A real right-click on the pile of cells, with the mouse then resting on one row of what it
+    // opened. Examine and Drop are the game's; the two under the line are the grid's own, and they
+    // are there because this pile is more than one thing.
+    add(
+        DocShot(
+            "game-inventory-menu",
+            330,
+            250,
+            pointer = Offset(40f, 90f),
+            click = true,
+            button = PointerButton.Secondary,
+            then = Offset(110f, 170f),
+        ) {
+            Frame {
+                PopupHost {
+                    DragAndDropHost {
+                        InventoryGrid(
+                            state = remember { docBag() },
+                            cellSize = 44f,
+                            spacing = 6f,
+                            menu = {
+                                Item("Examine") {}
+                                Item("Drop") {}
+                            },
+                        ) { item -> Text(item.kind.toString(), maxLines = 1) }
+                    }
+                }
+            }
+        },
+    )
+
+    // The high-contrast skin, the same bag twice, read each way. Nothing is set on the grid to
+    // mirror it: in the right-to-left one the first column is the right-hand one, so the rifle is in
+    // the top-right corner and the medkit in the bottom-left, and the counts move with them.
+    add(
+        DocShot("game-inventory-contrast", 330, 480) {
+            ProvideSkin(Skin.HighContrast) {
+                Frame {
+                    DragAndDropHost {
+                        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(14f)) {
+                            LocalisedBag("English, read left to right", LayoutDirection.Ltr)
+                            LocalisedBag("Arabic or Hebrew, read right to left", LayoutDirection.Rtl)
+                        }
+                    }
+                }
+            }
+        },
+    )
+
+    // The crate carried right across the bag and put down, as a moving picture: picked up by its
+    // bottom-right square, dragged over the rifle where two of the four squares it wants are taken
+    // and the footprint goes red, on to a corner where all four are free and it goes green, and let
+    // go of there. Each frame is its own drag, taken to that point and photographed still holding —
+    // real pointer events every frame, not a picture slid about. Only when asked for, because they
+    // are frames to be joined into a GIF rather than pictures of their own:
+    // `COMPOSEGL_DOC_FRAMES=1`, then join `game-inventory-drag-frame-*.png` in order, 0.12 s each.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        InventoryDragPath.forEachIndexed { i, step ->
+            add(
+                DocShot(
+                    "game-inventory-drag-frame-${i.toString().padStart(2, '0')}",
+                    330,
+                    230,
+                    pointer = InventoryGrab,
+                    dragTo = step.at,
+                    hold = step.held,
+                ) { DocBagGrid() },
+            )
+        }
+    }
+
     // The sweep is a dark wedge drawn over the ability, so a shot of one with nothing underneath
     // is a black square. The icon and the slot behind it are what it is covering.
     add(DocShot("game-cooldown", 180, 180, seconds = 1.1f) {
@@ -4687,6 +4787,64 @@ private fun docBag() = InventoryState(
         InventoryItem(id = "medkit", kind = "MED", at = InventoryCell(5, 3)),
     ),
 )
+
+/** The bag as every picture of it is composed: one grid, on the shared page, at the shared size. */
+@Composable
+private fun DocBagGrid() {
+    Frame {
+        DragAndDropHost {
+            InventoryGrid(state = remember { docBag() }, cellSize = 44f, spacing = 6f) { item ->
+                Text(item.kind.toString(), maxLines = 1)
+            }
+        }
+    }
+}
+
+/** The same bag under a caption, laid out the way [direction] reads. */
+@Composable
+private fun LocalisedBag(caption: String, direction: LayoutDirection) {
+    ProvideLayoutDirection(direction) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6f)) {
+            // English either way: a caption on the picture rather than anything the grid says.
+            ProvideLayoutDirection(LayoutDirection.Ltr) { SampleCaption(caption) }
+            InventoryGrid(state = remember { docBag() }, cellSize = 44f, spacing = 6f) { item ->
+                Text(item.kind.toString(), maxLines = 1)
+            }
+        }
+    }
+}
+
+/** The square the crate is taken hold of by in the moving picture: its bottom-right one. */
+private val InventoryGrab = Offset(190f, 190f)
+
+/** One frame of the moving picture: where the hand has got to, and whether it is still holding. */
+private class DragStep(val at: Offset, val held: Boolean = true)
+
+/**
+ * Where the hand is on each frame of the moving picture.
+ *
+ * A path rather than an animation: every frame is a whole drag of its own, pressed on the crate and
+ * moved to that point, so what the GIF shows is a run of real drags rather than one picture slid
+ * about.
+ */
+private val InventoryDragPath: List<DragStep> = buildList {
+    fun glide(from: Offset, to: Offset, steps: Int) {
+        for (step in 1..steps) add(DragStep(from + (to - from) * (step / steps.toFloat())))
+    }
+
+    val refused = Offset(90f, 90f)
+    val accepted = Offset(240f, 90f)
+    // Picked up, and not yet going anywhere.
+    repeat(3) { add(DragStep(InventoryGrab)) }
+    glide(InventoryGrab, refused, 6)
+    // Long enough over the squares it cannot have for the red to be read.
+    repeat(3) { add(DragStep(refused)) }
+    glide(refused, accepted, 5)
+    repeat(3) { add(DragStep(accepted)) }
+    // Let go of, and the frames after it are the bag with the crate in its new corner, held long
+    // enough to be looked at before the picture starts again.
+    repeat(6) { add(DragStep(accepted, held = false)) }
+}
 
 // ---------------------------------------------------------------- the compass bar
 
