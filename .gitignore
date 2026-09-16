@@ -11,3 +11,6 @@ local.properties
 
 # Stray output from a headless demo run
 */tmp/
+
+# Agent worktrees, scratch only
+/.claude/worktrees/
