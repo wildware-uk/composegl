@@ -1,0 +1,17 @@
+[
+  {
+    "id": "jvm",
+    "name": "JVM, Android and the architecture checks",
+    "tasks": "build -x allMetadataJar -x commonizeNativeDistribution -x compileAppleMainKotlinMetadata -x compileIosMainKotlinMetadata -x compileKotlinIosArm64 -x compileKotlinIosSimulatorArm64 -x compileKotlinLinuxX64 -x compileKotlinWasmJs -x compileNativeMainKotlinMetadata -x compileProductionExecutableKotlinWasmJs -x compileProductionExecutableKotlinWasmJsOptimize -x compileTestDevelopmentExecutableKotlinWasmJs -x compileTestKotlinIosArm64 -x compileTestKotlinIosSimulatorArm64 -x compileTestKotlinLinuxX64 -x compileTestKotlinWasmJs -x convertSyntheticImportProjectIntoDefFileIphonesimulator -x downloadKotlinNativeDistribution -x dumpXcodebuildArgsIphonesimulator -x exportCrossCompilationMetadataForIosArm64ApiElements -x exportCrossCompilationMetadataForIosSimulatorArm64ApiElements -x exportCrossCompilationMetadataForLinuxX64ApiElements -x fetchSyntheticImportProjectPackages -x fetchUmbrellaPackageIdentifierForDefault -x fingerprintSyntheticPackage -x fingerprintXcodebuildIphonesimulator -x generateSyntheticLinkageSwiftPMImportProjectForCinteropsAndLdDump -x generateUmbrellaPackageIdentifierBasedResolutionForDefault -x iosArm64MainKlibrary -x iosArm64MetadataElements -x iosArm64ProcessResources -x iosSimulatorArm64MainKlibrary -x iosSimulatorArm64MetadataElements -x iosSimulatorArm64ProcessResources -x iosSimulatorArm64Test -x kotlinWasmBinaryenSetup -x kotlinWasmKotlinNpmCachesSetup -x kotlinWasmNodeJsSetup -x kotlinWasmNpmInstall -x kotlinWasmPackageJsonUmbrella -x kotlinWasmRestoreYarnLock -x kotlinWasmStoreYarnLock -x kotlinWasmToolingSetup -x kotlinWasmYarnSetup -x linkDebugTestIosSimulatorArm64 -x linkDebugTestLinuxX64 -x linuxX64MainKlibrary -x linuxX64MetadataElements -x linuxX64ProcessResources -x linuxX64Test -x metadataAppleMainClasses -x metadataAppleMainProcessResources -x metadataIosMainClasses -x metadataIosMainProcessResources -x metadataNativeMainClasses -x metadataNativeMainProcessResources -x syncPersistedPackageResolvedToSynthetic -x transformAppleMainDependenciesMetadata -x transformIosMainDependenciesMetadata -x transformNativeMainDependenciesMetadata -x validateLocalSwiftPMDependencies -x wasmJsBrowserDistribution -x wasmJsBrowserProductionWebpack -x wasmJsBrowserTest -x wasmJsJar -x wasmJsMainClasses -x wasmJsPackageJson -x wasmJsProcessResources -x wasmJsProductionExecutableCompileSync -x wasmJsPublicPackageJson -x wasmJsTest -x wasmJsTestClasses -x wasmJsTestPackageJson -x wasmJsTestProcessResources -x wasmJsTestPublicPackageJson -x wasmJsTestTestDevelopmentExecutableCompileSync -x wasmRootPackageJson"
+  },
+  {
+    "id": "native",
+    "name": "Kotlin/Native: Linux and both iOS targets",
+    "tasks": "linuxX64Test iosSimulatorArm64Test linuxX64MainKlibrary iosArm64MainKlibrary iosSimulatorArm64MainKlibrary compileTestKotlinIosArm64 allMetadataJar linuxX64MetadataElements iosArm64MetadataElements iosSimulatorArm64MetadataElements compileAppleMainKotlinMetadata compileIosMainKotlinMetadata"
+  },
+  {
+    "id": "wasm",
+    "name": "WebAssembly and WebGL in a real browser",
+    "tasks": "wasmJsTest wasmJsJar wasmJsBrowserDistribution :composegl-webgl:wasmJsBrowserWebGl1Test"
+  }
+]

@@ -3,6 +3,7 @@ import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -30,6 +31,17 @@ abstract class OptInConfinementCheck : DefaultTask() {
     @get:Input
     abstract val allowedFileName: Property<String>
 
+    /**
+     * The module's name, for the messages. Read here rather than from `project` at execution time,
+     * which the configuration cache forbids.
+     */
+    @get:Internal
+    abstract val moduleName: Property<String>
+
+    init {
+        moduleName.convention(project.name)
+    }
+
     @TaskAction
     fun check() {
         val marker = annotation.get()
@@ -53,6 +65,6 @@ abstract class OptInConfinementCheck : DefaultTask() {
                 },
             )
         }
-        logger.lifecycle("${project.name}: $marker is confined to $allowed")
+        logger.lifecycle("${moduleName.get()}: $marker is confined to $allowed")
     }
 }

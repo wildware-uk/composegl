@@ -13,9 +13,31 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
+  # The legs the build is split into, read out of one file so that the jobs below and the job that
+  # checks nothing was dropped cannot drift apart.
+  plan:
+    name: Work out the legs
+    runs-on: ubuntu-latest
+    outputs:
+      legs: ${{ steps.read.outputs.legs }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        run: echo "legs=$(jq -c . .github/ci-legs.json)" >> "$GITHUB_OUTPUT"
+
+  # `./gradlew build` used to be one 16-minute job: one runner compiling and testing every target
+  # one after another. The targets do not need each other, so they now run on a runner each and the
+  # wall clock is the slowest of them rather than the sum. Nothing was dropped — the `covers` job
+  # below proves that on every run.
   build:
-    name: Build and headless tests
+    name: ${{ matrix.leg.name }}
+    needs: plan
     runs-on: ubuntu-latest
+    strategy:
+      # One leg failing should not hide what the others would have said.
+      fail-fast: false
+      matrix:
+        leg: ${{ fromJSON(needs.plan.outputs.legs) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -24,38 +46,46 @@ jobs:
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
 
-      # This also compiles composegl-ui for Linux native and runs its common test there. That is
+      # --build-cache reuses outputs from earlier runs, so a push that touches one module does not
+      # recompile the other sixteen. Independent modules already build at the same time, from
+      # org.gradle.parallel in gradle.properties.
+      #
+      # The native leg compiles composegl-ui for Linux and runs its common tests there, which is
       # what stops "the toolkit is platform-free" from being a claim nobody checks: a line reaching
-      # for a JVM API fails here rather than on somebody's phone.
-      - run: ./gradlew build --stacktrace
-
-  browser:
-    name: Browser (WebAssembly + WebGL in headless Chrome)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
-
-      # The runner's Chrome, headless, with WebGL drawn by SwiftShader: no GPU needed. The toolkit's
-      # common tests run in it too, which is what keeps "it compiles for the browser" honest. The WebGL
-      # backend runs twice: on WebGL 2, and with WebGL 2 switched off so the renderer's WebGL 1 path draws.
-      - name: The toolkit and the WebGL backend, in a real browser
+      # for a JVM API fails here rather than on somebody's phone. The wasm leg runs the toolkit's
+      # common tests in a real headless Chrome, and the WebGL backend twice — on WebGL 2, and with
+      # WebGL 2 switched off so the renderer's WebGL 1 path draws.
+      - name: ${{ matrix.leg.name }}
         run: |
-          export CHROME_BIN="$(command -v google-chrome || command -v chromium)"
-          ./gradlew :composegl-ui:wasmJsBrowserTest :composegl-debug:wasmJsBrowserTest :composegl-render:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserTest :composegl-webgl:wasmJsBrowserWebGl1Test :composegl-demo-web:wasmJsBrowserTest :composegl-demo-web:wasmJsBrowserDistribution --stacktrace
+          chrome="$(command -v google-chrome || command -v chromium || true)"
+          if [ -n "$chrome" ]; then export CHROME_BIN="$chrome"; fi
+          ./gradlew ${{ matrix.leg.tasks }} --build-cache --configuration-cache --stacktrace
 
       - name: Keep what went wrong
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-test-output
+          name: ${{ matrix.leg.id }}-test-output
           path: |
             **/build/reports/tests/**
             **/build/screenshots/**
+
+  # The legs above are a hand-written split of one task graph, and a hand-written split rots: a new
+  # module or a new target can land in `build` and in no leg, and CI would go green without running
+  # it. This asks Gradle what `build` would do and what the legs would do, and fails if `build`
+  # names a task no leg names. --dry-run executes nothing, so it costs a couple of minutes.
+  covers:
+    name: The legs still cover the whole build
+    needs: plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: .github/scripts/ci-covers-build.sh
 
   gl:
     name: OpenGL (Xvfb + llvmpipe)
@@ -79,46 +109,43 @@ jobs:
             libegl1 libegl-mesa0 libgbm1 libgles2 \
             libxi6 libxcursor1 libxrandr2 libxinerama1
 
-      - name: Renderer tests with a real GL context
+      # Every suite that wants a display and software GL, in one Gradle invocation rather than five.
+      # They were five steps because they are five different things, not because they need five
+      # builds: each one was re-configuring the build and recompiling the same code, which cost more
+      # than the tests did. The task names still say which is which when one fails.
+      #
+      #   :composegl-gdx:test          — the renderer against a real GL context.
+      #   :*:testGl30                  — a GL 3.2 core context, what a game on OpenGL ES 3 or
+      #                                  desktop GL 3 gets. On GL 3 LibGDX takes other paths, and
+      #                                  the interface once drew nothing there (#188).
+      #   :composegl-lwjgl3:test       — the raw OpenGL backend, a thin wrapper round
+      #                                  composegl-render with no LibGDX anywhere. Its job is to
+      #                                  disagree when the toolkit has quietly assumed LibGDX.
+      #   :*:testGles3, :*:testGles2   — real OpenGL ES 3 and ES 2 contexts made through EGL: what
+      #                                  a phone gives a game. ES 3 is what broke on an iPhone
+      #                                  (#188); until this ran, only fake devices had seen these
+      #                                  shaders.
+      #   :composegl-korge:jvmTest     — the KorGE backend in KorGE's own AWT window on Xvfb, the
+      #                                  way a desktop game opens it.
+      #
+      # --rerun-tasks and --no-build-cache are the point of this job: a test result cached from the
+      # headless legs was produced with no GL context at all, and must never stand in for these.
+      - name: The renderer on a real GL context — GL 2, GL 3.2 core, ES 3, ES 2, and inside KorGE
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
           GALLIUM_DRIVER: llvmpipe
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-gdx:test --rerun-tasks --stacktrace
+        run: >
+          xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew
+          :composegl-gdx:test :composegl-gdx:testGl30
+          :composegl-lwjgl3:test :composegl-lwjgl3:testGl30
+          :composegl-lwjgl3:testGles3 :composegl-lwjgl3:testGles2
+          :composegl-korge:jvmTest
+          --rerun-tasks --no-build-cache --no-parallel --stacktrace
 
-      # The same suite on a GL 3.2 core context, which is what a game on OpenGL ES 3 or desktop GL 3
-      # gets. On GL 3 LibGDX takes other paths, and the interface once drew nothing there (#188).
-      - name: Renderer tests on GL 3.2 core
-        env:
-          LIBGL_ALWAYS_SOFTWARE: '1'
-          GALLIUM_DRIVER: llvmpipe
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-gdx:testGl30 :composegl-lwjgl3:testGl30 --rerun-tasks --stacktrace
-
-      # The raw OpenGL backend, a thin wrapper round composegl-render with no LibGDX anywhere. Its
-      # job is to disagree when the toolkit has quietly assumed something about LibGDX.
-      - name: The same scenes, drawn with no LibGDX anywhere
-        env:
-          LIBGL_ALWAYS_SOFTWARE: '1'
-          GALLIUM_DRIVER: llvmpipe
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-lwjgl3:test --rerun-tasks --stacktrace
-
-      # The same suite again on real OpenGL ES 3 and ES 2 contexts, made through EGL: what a phone
-      # gives a game. ES 3 is what broke on an iPhone (#188); until this ran, only fake devices had
-      # ever seen these shaders.
-      - name: The same scenes on OpenGL ES 3 and ES 2
-        env:
-          LIBGL_ALWAYS_SOFTWARE: '1'
-          GALLIUM_DRIVER: llvmpipe
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-lwjgl3:testGles3 :composegl-lwjgl3:testGles2 --rerun-tasks --stacktrace
-
-      # The KorGE backend, in KorGE's own AWT window on Xvfb, the way a desktop game opens it.
-      - name: The same scenes, drawn inside a KorGE game
-        env:
-          LIBGL_ALWAYS_SOFTWARE: '1'
-          GALLIUM_DRIVER: llvmpipe
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :composegl-korge:jvmTest --rerun-tasks --stacktrace
-
-      # And again with no display at all: KorGE renders offscreen with llvmpipe. Both ways must agree.
-      - name: KorGE with no display
+      # And again with no display at all: KorGE renders offscreen with llvmpipe. Both ways must
+      # agree. The second task boots the KorGE demo for real and drives it from its menu into
+      # settings and the game.
+      - name: KorGE and its demo, with no display
         # The whole suite takes under a minute. A context that never comes up must fail the job, not
         # hold master's queue for the runner's six-hour limit.
         timeout-minutes: 10
@@ -129,19 +156,9 @@ jobs:
           # With no display Mesa's EGL picks GBM, which needs a /dev/dri render node a runner does
           # not have, so eglInitialize fails. Surfaceless needs no device and draws with llvmpipe.
           EGL_PLATFORM: surfaceless
-        run: env -u DISPLAY ./gradlew :composegl-korge:jvmTest --rerun-tasks --stacktrace
-
-      # The KorGE demo booted for real with no display, driven from its menu into settings and the game.
-      - name: The KorGE demo, booted and played with no display
-        timeout-minutes: 10
-        env:
-          KORGE_HEADLESS: 'true'
-          LIBGL_ALWAYS_SOFTWARE: '1'
-          GALLIUM_DRIVER: llvmpipe
-          # With no display Mesa's EGL picks GBM, which needs a /dev/dri render node a runner does
-          # not have, so eglInitialize fails. Surfaceless needs no device and draws with llvmpipe.
-          EGL_PLATFORM: surfaceless
-        run: env -u DISPLAY ./gradlew :composegl-demo-korge:check --rerun-tasks --stacktrace
+        run: >
+          env -u DISPLAY ./gradlew :composegl-korge:jvmTest :composegl-demo-korge:check
+          --rerun-tasks --no-build-cache --no-parallel --stacktrace
 
       - name: Prove the runtime redraws only when something changed
         env:
@@ -154,7 +171,9 @@ jobs:
           GALLIUM_DRIVER: llvmpipe
           SPIKE_S6_SCRIPT: '1'
           SPIKE_S6_FRAMES: '300'
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :spikes:s6-runtime-ui:run --stacktrace
+        run: >
+          xvfb-run -a -s "-screen 0 1280x1024x24" ./gradlew :spikes:s6-runtime-ui:run
+          --stacktrace
 
       # A failed screenshot leaves the actual, the expected and a difference map side by side.
       # Without these, the first question a broken golden raises — what does it look like now? —

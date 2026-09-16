@@ -4,6 +4,7 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -51,9 +52,17 @@ abstract class BytecodeReferenceCheck : DefaultTask() {
     @get:Input
     abstract val excludeClasses: ListProperty<String>
 
+    /**
+     * The module's name, for the messages. Read here rather than from `project` at execution time,
+     * which the configuration cache forbids.
+     */
+    @get:Internal
+    abstract val moduleName: Property<String>
+
     init {
         includeClasses.convention(emptyList())
         excludeClasses.convention(emptyList())
+        moduleName.convention(project.name)
     }
 
     @TaskAction
@@ -78,14 +87,14 @@ abstract class BytecodeReferenceCheck : DefaultTask() {
         if (offences.isNotEmpty()) {
             throw IllegalStateException(
                 buildString {
-                    appendLine("${offences.size} forbidden reference(s) in ${project.name}:")
+                    appendLine("${offences.size} forbidden reference(s) in ${moduleName.get()}:")
                     offences.forEach { appendLine(it) }
                     appendLine()
                     appendLine(reason.get())
                 },
             )
         }
-        logger.lifecycle("${project.name}: no references to ${forbidden.joinToString(", ")}")
+        logger.lifecycle("${moduleName.get()}: no references to ${forbidden.joinToString(", ")}")
     }
 
     private fun File.className(): String =
