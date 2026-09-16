@@ -1,10 +1,10 @@
 # Game widgets
 
-The in-play widgets: health bars with a damage trail, a crosshair, damage numbers
-anchored in the world, nameplates and waypoints pinned to points in the world,
-cooldowns, a hotbar, a weapon wheel, a minimap frame, a compass bar,
-notifications and particles. These are the ones that made this toolkit worth
-building.
+The in-play widgets: health bars with a damage trail, a crosshair, hit markers and
+damage direction arcs, a low-health vignette, damage numbers anchored in the world,
+nameplates and waypoints pinned to points in the world, cooldowns, a hotbar, a
+weapon wheel, a minimap frame, a compass bar, notifications and particles. These
+are the ones that made this toolkit worth building.
 
 ---
 
@@ -38,8 +38,9 @@ text that takes a [[ring|Widgets#outlined-text]] only when there is one,
 `RectCache`, for drawing the same rectangles every frame without allocating.
 
 **Their look is in the skin.** The default and high-contrast [[skins|Skins]]
-already have every style these use (`bar.*`, `reticle.*`, `damage.*`,
-`marker.*`, `cooldown.*`, `hotbar.*`, `wheel.*`, `minimap.*`, `compass.*`,
+already have every style these use (`bar.*`, `reticle.*`, `hitmarker.*`,
+`damage.*`, `vignette`, `marker.*`, `cooldown.*`, `hotbar.*`, `wheel.*`,
+`minimap.*`, `compass.*`,
 `notification.*`), so they look right with no setup. Your own skin file styles
 them by the same names.
 
@@ -84,6 +85,75 @@ reticle.hit(kill = true)
 
 Spread, bloom, hit markers. It is driven from your game code, not from state the
 interface owns.
+
+## Hit markers
+
+The ticks that flash over the middle of the screen when a shot lands. `Reticle`
+has a small one built in; this is the standalone widget, with a shape as well as
+a colour per kind — four ticks for an ordinary hit, eight for a critical, and the
+four with a diamond inside for a kill — and a hook for your own sound.
+
+```kotlin
+val marker = rememberHitMarkerState()
+HitMarker(marker, onHit = { kind -> audio.play(if (kind == HitKind.Kill) killSound else tick) })
+
+// …when a shot lands
+marker.hit(if (shot.killed) HitKind.Kill else if (shot.critical) HitKind.Critical else HitKind.Normal)
+```
+
+`onHit` is called on the frame the marker starts, which is where a game plays its
+own sound: the toolkit has no idea how yours does that, so it hands over the
+moment instead. Hitting again while a marker is still fading takes the marker over
+rather than stacking a second one on it. Keeping the state above the HUD is fine:
+a widget that comes back after the HUD was hidden does not flash, or sound, the
+hit it left behind.
+
+## Damage direction
+
+Arcs round the middle of the screen saying where the hits are coming from. Several
+stack, each fading on its own, so being shot at from two sides looks like being
+shot at from two sides.
+
+```kotlin
+val incoming = rememberDamageDirections()
+DamageDirectionLayer(incoming)
+
+// …when the player is hit
+val bearing = atan2(shooter.x - player.x, shooter.z - player.z) * 180f / PI.toFloat()
+incoming.hit(fromAngle = bearing - camera.yawDegrees, strength = 0.7f)
+```
+
+`fromAngle` is degrees clockwise from straight ahead: 0 in front, 90 on the
+player's right, 180 behind. `strength` goes from a thin faint arc to a thick bright
+one. It is a pool like the damage numbers, so a firefight allocates nothing, and
+the arcs go round the middle of the layer's own box — which is each player's own
+half in [[split-screen|Split-screen]]. They do not swap sides in a right-to-left
+interface: an arc is about the world, not about reading order. An arc is timed from
+the hit rather than from the frame it is first drawn on, so a pool held above a HUD
+the player can hide does not save the hidden minutes up and show them all at once.
+
+## Low-health vignette
+
+```kotlin
+LowHealthVignette(health = player.health / player.maxHealth, threshold = 0.3f)
+```
+
+Nothing at all above the threshold — no node, no drawing, no frames. Below it the
+ring closes in as health drops, and it beats like a heart that quickens the closer
+to dead the player is. It is one shader over the whole box through the same
+[[effect pipeline|Shaders]] a blur goes through, so the falloff is a real gradient;
+a backend that cannot take a picture of a layer gets a flat wash of the same
+colour instead.
+
+The beat is worked out from the clock as the frame is drawn, so it costs the
+composition nothing while it is up: the ring recomposes when health moves and not
+otherwise. The price is that the beat moves on the frames your game draws rather
+than on the frames the toolkit reports as changed — a host that skips drawing an
+unchanged frame shows a still ring. Every backend here draws every frame; one that
+does not should pass `pulse = false` and say it some other way.
+
+All three run on the world [[clock|Animation]], so a pause menu freezes the arcs,
+the marker and the beat rather than letting them run out behind it.
 
 ## Damage numbers
 

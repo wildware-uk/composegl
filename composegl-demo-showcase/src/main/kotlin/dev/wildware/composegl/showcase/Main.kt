@@ -11,6 +11,9 @@ import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.PixmapIO
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.math.Vector3
+import dev.wildware.composegl.game.HitKind
+import dev.wildware.composegl.game.WorldAnchor
+import dev.wildware.composegl.game.WorldProjection
 import dev.wildware.composegl.gdx.GdxCanvas
 import dev.wildware.composegl.gdx.GdxFonts
 import dev.wildware.composegl.gdx.GdxKeyboardInput
@@ -23,8 +26,6 @@ import dev.wildware.composegl.showcase.world.Particles
 import dev.wildware.composegl.showcase.world.Scene3D
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.draw.DrawPass
-import dev.wildware.composegl.game.WorldAnchor
-import dev.wildware.composegl.game.WorldProjection
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.host.UiHost
 import dev.wildware.composegl.ui.host.UiRenderer
@@ -253,7 +254,27 @@ class Showcase : ApplicationAdapter() {
             }
         }
 
+        // The player's own end of it: the shot landed, so the marker flashes, and one drone in
+        // three shoots back from wherever it happens to be.
+        state.hitMarker.hit(if (critical) HitKind.Critical else HitKind.Normal)
+        if (random.nextInt(3) == 0) shootBack(state.targets[index])
+
         state.ammo = (state.ammo - 1).coerceAtLeast(0)
+    }
+
+    /**
+     * Return fire, as the arcs read it.
+     *
+     * The bearing is worked out the way a game with a camera works one out — where the shooter is
+     * against where the player is looking — except that this camera is already pointing down the
+     * middle of the screen, so the drone's own place on screen is that answer.
+     */
+    private fun shootBack(shooter: TargetReadout) {
+        if (!shooter.onScreen) return
+        val acrossScreen = shooter.screenX - Gdx.graphics.width / 2f
+        val upScreen = Gdx.graphics.height / 2f - shooter.screenY
+        val bearing = kotlin.math.atan2(acrossScreen, upScreen) * 180f / kotlin.math.PI.toFloat()
+        state.incoming.hit(fromAngle = bearing, strength = 0.35f + random.nextFloat() * 0.65f)
     }
 
     /** Puts the pointer somewhere without a mouse, so a screenshot can show the ray landing. */

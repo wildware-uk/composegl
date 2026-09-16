@@ -271,6 +271,13 @@
     "damage": { "textColour": "#FFFF80", "text": { "size": 18 } },
     "damage.critical": { "textColour": "#FF8000", "text": { "size": 26 } },
 
+    // The arc that says which way a hit came from, and the ring that closes in when the player is
+    // nearly dead. Both are more solid here than in the default skin, because the whole point of
+    // this skin is that nothing is left to a player's ability to pick a faint shape out of a scene.
+
+    "damage.direction": { "background": { "fill": "#FFFF5050" } },
+    "vignette": { "background": { "fill": "#FFC00000" } },
+
     // The triangle beside a world marker held at the edge of the screen. White, because it has to
     // be read against whatever the game happens to be drawing behind it.
 
@@ -339,6 +346,12 @@
     "reticle.hostile": { "background": { "fill": "#FF5050" } },
     "reticle.hit": { "background": { "fill": "#FFFFFF" } },
     "reticle.kill": { "background": { "fill": "#FF5050" } },
+
+    // The ticks that flash when a shot lands.
+
+    "hitmarker": { "background": { "fill": "#FFFFFF" } },
+    "hitmarker.critical": { "background": { "fill": "#FFFF00" } },
+    "hitmarker.kill": { "background": { "fill": "#FF5050" } },
 
     "progress.track": { "background": { "fill": "#404040", "corner": 4 } },
     "progress.fill": { "background": { "fill": "#FFD600", "corner": 4 } },

@@ -277,6 +277,13 @@
     "damage": { "textColour": "#FFE9A8", "text": { "size": 18 } },
     "damage.critical": { "textColour": "#FF7A45", "text": { "size": 26 } },
 
+    // The arc that says which way a hit came from, and the ring that closes in when the player is
+    // nearly dead. Both carry their own opacity, because both are drawn over the game itself: an
+    // arc a player cannot see past is worse than no arc at all.
+
+    "damage.direction": { "background": { "fill": "#D8E5484D" } },
+    "vignette": { "background": { "fill": "#E88B1519" } },
+
     // A marker pinned to a point in the world: a nameplate, a health bar over an enemy, a
     // waypoint. What is inside one is the game's own interface, so the only thing the layer draws
     // itself is the little triangle beside a marker it is holding at the edge of the screen,
@@ -347,6 +354,13 @@
     "reticle.hostile": { "background": { "fill": "#FF5A4F" } },
     "reticle.hit": { "background": { "fill": "#FFFFFF" } },
     "reticle.kill": { "background": { "fill": "#FF5A4F" } },
+
+    // The ticks that flash when a shot lands. A critical is warm and a kill is the same red the
+    // crosshair uses for something hostile, so the two colours on this screen mean one thing each.
+
+    "hitmarker": { "background": { "fill": "#FFFFFF" } },
+    "hitmarker.critical": { "background": { "fill": "#FFD16A" } },
+    "hitmarker.kill": { "background": { "fill": "#FF5A4F" } },
 
     "progress.track": { "background": { "fill": "#2C3545", "corner": 4 } },
     "progress.fill": { "background": { "fill": "#5B8DEF", "corner": 4 } },

@@ -155,6 +155,12 @@
     "damage": { "textColour": "#FFE9A8", "text": { "size": 16 } },
     "damage.critical": { "textColour": "#FF7A45", "text": { "size": 20 } },
 
+    // Being shot at: the arc that says which way it came from, and the ring that closes in as the
+    // hull goes. Both carry their own opacity, because both are drawn over the scene itself.
+
+    "damage.direction": { "background": { "fill": "#D0FF5A4F" } },
+    "vignette": { "background": { "fill": "#E88B1519" } },
+
     // The triangle beside a drone tag being held at the edge of the screen, pointing at the drone.
 
     "marker.arrow": { "background": { "fill": "#4CC2FF" } },
@@ -165,6 +171,10 @@
     "reticle.hostile": { "background": { "fill": "#FF5A4F" } },
     "reticle.hit": { "background": { "fill": "#FFFFFF" } },
     "reticle.kill": { "background": { "fill": "#FF5A4F" } },
+
+    "hitmarker": { "background": { "fill": "#FFFFFF" } },
+    "hitmarker.critical": { "background": { "fill": "#FFD16A" } },
+    "hitmarker.kill": { "background": { "fill": "#FF5A4F" } },
 
     "minimap": {
       "background": { "fill": "#B00A1018", "corner": 4, "border": "#404CC2FF", "padding": [7, 7] }
