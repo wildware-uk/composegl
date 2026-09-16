@@ -414,12 +414,30 @@ RadialMenu(
 }
 ```
 
+![a weapon wheel of five slices over a game, the medkit slice lit up in blue, the hub reading MEDKIT, one slice dimmed and marked EMPTY and one with a cooldown counting down over it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-wheel-hud.png)
+
 The point of a wheel, and the reason it is not a ring of buttons: **nothing has to
 be reached**. The stick's *angle* picks a slice however far past the dead zone it
 is pushed, and the mouse picks the slice its *direction from the middle* points
 at, however far away the pointer is. Slamming the stick south-west and letting go
 is the fastest menu input there is, and the only one that works while the player
 is also driving.
+
+The picture above is a real push: the stick is a little over half way out and the
+medkit is chosen, because the medkit is the direction it is pointing in. Push it
+all the way and the same slice is chosen. A thumb only resting on the stick is
+inside the **dead zone**, and a wheel in that state has chosen nothing at all —
+which is what stops a resting thumb from equipping the wrong gun:
+
+![two wheels side by side, one with no slice lit and NOTHING in the middle, the other with the lance lit up in blue after a small push](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-wheel-deadzone.png)
+
+Both halves are two real pads in one window, pushed different amounts.
+
+The whole thing, as it happens: the bumper goes down, the thumb swings from the
+pulse round to the rifle, pushes all the way out into the rifle's ring of rounds,
+and lets go — and letting go is what equips the shell in the corner.
+
+![a wheel opening over a game, the highlight moving from one slice to the next as the stick sweeps round, a second ring of rounds opening outside the rifle, and the corner readout changing to HE when the button is let go](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-wheel-flick.gif)
 
 `open` is yours, never the wheel's. It never closes itself — it says what
 happened and your game decides. That is what makes hold-to-open work: the button
@@ -457,6 +475,17 @@ Box(Modifier.fillMaxSize().onShortcutKey(held)) {
 Moving from one slice to the next ticks: `UiSounds.focusMove()` and a
 `Haptic.Tick`, the same pair a pad's focus move makes, and the new slice swells
 into place. Taking one is a `UiSounds.change()` and a `Haptic.LightTap`.
+
+**A slice is whatever you draw in it.** The wheel knows nothing about ammunition
+or cooldowns: the dim `EMPTY` slice and the one counting down in the first
+picture are `content` drawing them, a `RadialCooldown` and all. The wheel will
+still hand you an empty gun if the player picks it, so refuse it in `onSelect`.
+
+**Right to left.** The same push of the stick, in two languages. The slices run
+the other way round in Hebrew, so the first item stays where that reader's eye
+starts and the same flick lands on a different one:
+
+![two numbered wheels side by side, the English one running 1 to 5 clockwise and the Hebrew one running 1 to 5 anticlockwise, the same stick push lighting slice 2 on the left and slice 5 on the right](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-wheel-rtl.png)
 
 **Slowing the world.** The wheel runs on the interface clock, so it keeps
 animating while the game does not:

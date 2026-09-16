@@ -20,6 +20,7 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.math.PI
 import kotlin.math.tan
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -63,7 +64,9 @@ import dev.wildware.composegl.game.OffScreen
 import dev.wildware.composegl.game.WorldMarkerLayer
 import dev.wildware.composegl.game.WorldPoint
 import dev.wildware.composegl.game.WorldProjection
+import dev.wildware.composegl.game.Cooldown
 import dev.wildware.composegl.game.RadialCooldown
+import dev.wildware.composegl.game.RadialMenu
 import dev.wildware.composegl.game.Reticle
 import dev.wildware.composegl.game.rememberCompassLabels
 import dev.wildware.composegl.game.rememberCooldown
@@ -78,6 +81,8 @@ import dev.wildware.composegl.ui.graphics.BorderStyle
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.Hsv
 import dev.wildware.composegl.ui.input.GamepadButton
+import dev.wildware.composegl.ui.input.GamepadEvent
+import dev.wildware.composegl.ui.input.GamepadHandler
 import dev.wildware.composegl.ui.input.GamepadId
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerId
@@ -141,6 +146,7 @@ import dev.wildware.composegl.ui.modifier.mirror
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onPlaced
 import dev.wildware.composegl.ui.modifier.onSizeChanged
+import dev.wildware.composegl.ui.modifier.onShortcutGamepad
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.rememberShake
 import dev.wildware.composegl.ui.modifier.parallax
@@ -254,6 +260,7 @@ internal fun docShots(): List<DocShot> = buildList {
     nodeTree()
     worldMarkers()
     compasses()
+    wheels()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -4890,6 +4897,341 @@ private fun LocalisedStrip(caption: String, locale: Locale, strings: Strings, di
                     Text(stringOf("objective"), style = "label")
                     Text("180m", style = "label.dim")
                 }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- the weapon wheel
+
+/**
+ * The wheel, aimed with a real stick.
+ *
+ * Nothing here is posed. Every picture holds the pad's left bumper down through the router, pushes
+ * the stick with `Padding.Push`, and photographs whatever the wheel made of it — so a lit slice is
+ * a slice somebody really pointed at, and a wheel showing nothing is a stick inside its dead zone.
+ */
+private fun MutableList<DocShot>.wheels() {
+    // Over a game: the bumper held, the stick pushed a little over half way towards the medkit. Half
+    // a push is the whole point — the angle picks the slice and the distance never does.
+    add(
+        DocShot(
+            "game-wheel-hud", WheelShotWidth, WheelShotHeight,
+            stock = true,
+            padded = listOf(Padding.Wait(60), Padding.Down(GamepadButton.LeftBumper), Padding.Wait(4)) +
+                push(MedkitTurn, 0.55f) + listOf(Padding.Wait(8)),
+        ) { WheelScene() },
+    )
+
+    // Two pads, two thumbs, one picture. The left one is resting on the stick and has chosen
+    // nothing; the right one has moved it barely past the dead zone and has chosen the lance.
+    add(
+        DocShot(
+            "game-wheel-deadzone", WheelShotWidth, 300,
+            stock = true,
+            players = 2,
+            padded = listOf(
+                Padding.Down(GamepadButton.LeftBumper, GamepadId(0)),
+                Padding.Down(GamepadButton.LeftBumper, GamepadId(1)),
+                Padding.Wait(4),
+            ) + push(LanceTurn, RestingStick, GamepadId(0)) + push(LanceTurn, 0.41f, GamepadId(1)) +
+                listOf(Padding.Wait(8)),
+        ) { DeadZonePanel() },
+    )
+
+    // The same push on both pads, in two languages. The slices run the other way round in Hebrew,
+    // so the same flick lands on a different one — which is the point: the first item stays where
+    // the eye starts, and everything after it follows the way that eye reads.
+    add(
+        DocShot(
+            "game-wheel-rtl", WheelShotWidth, 320,
+            stock = true,
+            players = 2,
+            padded = listOf(
+                Padding.Down(GamepadButton.LeftBumper, GamepadId(0)),
+                Padding.Down(GamepadButton.LeftBumper, GamepadId(1)),
+                Padding.Wait(4),
+            ) + push(MirrorTurn, 0.7f, GamepadId(0)) + push(MirrorTurn, 0.7f, GamepadId(1)) +
+                listOf(Padding.Wait(8)),
+        ) { MirrorPanel() },
+    )
+
+    // The whole flick as a moving picture, each frame the same script stopped a little later: the
+    // bumper goes down, the thumb swings from the pulse round to the rifle, pushes out into the
+    // rifle's ring of rounds, and lets go — which is what equips the shell in the corner. Only when
+    // asked for, because they are frames to be joined into a GIF rather than pictures of their own:
+    // `COMPOSEGL_DOC_FRAMES=1`, then join `game-wheel-flick-frame-*.png` in order.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        Flick.indices.step(FlickEvery).forEachIndexed { i, steps ->
+            val name = "game-wheel-flick-frame-${i.toString().padStart(2, '0')}"
+            add(
+                DocShot(name, WheelShotWidth, WheelShotHeight, stock = true, padded = Flick.take(steps)) {
+                    WheelScene()
+                },
+            )
+        }
+    }
+}
+
+/** How wide and tall the pictures of the wheel are. */
+private const val WheelShotWidth = 620
+private const val WheelShotHeight = 340
+
+/** A stick nobody is touching still reads a little off centre. Well inside the dead zone. */
+private const val RestingStick = 0.06f
+
+/** Where the slices the pictures aim at sit, in turns clockwise from straight up. */
+private const val RifleTurn = 0.2f
+private const val LanceTurn = 0.4f
+private const val MedkitTurn = 0.8f
+
+/** The middle of the shell the flick ends on, out in the rifle's ring. */
+private const val ShellTurn = 0.2625f
+
+/** The slice both halves of the mirrored picture are pushed at: up and to the right. */
+private const val MirrorTurn = 0.2f
+
+/** One frame of the GIF every this many frames of the flick. */
+private const val FlickEvery = 3
+
+/** One push of the stick [turns] round the wheel, [push] of the way out. */
+private fun push(turns: Float, push: Float, pad: GamepadId = GamepadId(0)): List<Padding> {
+    val radians = turns * 2f * PI.toFloat()
+    // The toolkit's y is positive downwards, and so is a pad's, so straight up is a negative push.
+    return listOf(Padding.Push(sin(radians) * push, -cos(radians) * push, pad = pad))
+}
+
+/** The thumb moving from one push to the next, a step a frame, the way a real sweep arrives. */
+private fun sweep(fromTurns: Float, toTurns: Float, fromPush: Float, toPush: Float, frames: Int): List<Padding> =
+    (1..frames).flatMap { step ->
+        val along = step / frames.toFloat()
+        push(fromTurns + (toTurns - fromTurns) * along, fromPush + (toPush - fromPush) * along)
+    }
+
+/**
+ * The flick the moving picture is made of, one frame a step.
+ *
+ * Flat rather than nested waits, so that stopping it after any number of steps is stopping a real
+ * thumb part way through the same movement.
+ */
+private val Flick: List<Padding> = buildList {
+    repeat(6) { add(Padding.Wait(1)) }
+    add(Padding.Down(GamepadButton.LeftBumper))
+    repeat(6) { add(Padding.Wait(1)) }
+    // Out of the middle to the pulse rifle at the top, then round to the rifle.
+    addAll(sweep(0f, 0f, RestingStick, 0.62f, frames = 4))
+    repeat(6) { add(Padding.Wait(1)) }
+    addAll(sweep(0f, RifleTurn, 0.62f, 0.62f, frames = 8))
+    repeat(6) { add(Padding.Wait(1)) }
+    // All the way out, which is how the rifle's ring of rounds is chosen out of instead.
+    addAll(sweep(RifleTurn, ShellTurn, 0.62f, 0.98f, frames = 6))
+    repeat(6) { add(Padding.Wait(1)) }
+    add(Padding.Up(GamepadButton.LeftBumper))
+    repeat(9) { add(Padding.Wait(1)) }
+}
+
+/** One thing on the wheel: what it is called, how many are left, and whether it is cooling down. */
+private data class Gun(val name: String, val ammo: String, val cooling: Boolean = false)
+
+/** Five weapons — one empty, one still cooling — and two kinds of round for the rifle. */
+private val Guns = listOf(
+    Gun("PULSE", "42"),
+    Gun("RIFLE", "18"),
+    Gun("LANCE", "3", cooling = true),
+    Gun("MINES", "0"),
+    Gun("MEDKIT", "2"),
+)
+
+private val Rounds = listOf(Gun("AP", "18"), Gun("HE", "6"))
+
+/**
+ * The wheel over a game, held open by the pad's left bumper.
+ *
+ * The flag belongs to the game and never to the wheel, so this is the whole of what a game writes:
+ * on while the bumper is down, heard wherever focus happens to be, because nobody clicks a wheel
+ * open first.
+ */
+@Composable
+private fun HoldingBumper(content: @Composable (Boolean) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val bumper = remember {
+        GamepadHandler { event ->
+            when {
+                event is GamepadEvent.ButtonDown && event.button == GamepadButton.LeftBumper -> {
+                    open = true
+                    true
+                }
+                event is GamepadEvent.ButtonUp && event.button == GamepadButton.LeftBumper -> {
+                    open = false
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+    Box(Modifier.fillMaxSize().onShortcutGamepad(bumper)) { content(open) }
+}
+
+/** A HUD with the wheel over it: the world, a hull bar, what is equipped, and the crosshair. */
+@Composable
+private fun WheelScene() {
+    var equipped by remember { mutableStateOf(Guns[0]) }
+    // The game's own, not the wheel's: it was triggered before the wheel came up and goes on
+    // sweeping underneath it.
+    val lance = rememberCooldown(2_400)
+    LaunchedEffect(lance) { lance.trigger() }
+
+    HoldingBumper { open ->
+        Box(Modifier.fillMaxSize()) {
+            WheelWorld()
+            Reticle(rememberReticleState(), gap = 8f, arm = 14f, thickness = 3f)
+
+            Column(
+                Modifier.align(Alignment.BottomStart).padding(16f),
+                verticalArrangement = Arrangement.spacedBy(6f),
+            ) {
+                Text("HULL", style = "label.dim")
+                Bar(0.72f, Modifier.width(150f))
+            }
+            Row(
+                Modifier.align(Alignment.BottomEnd).padding(16f),
+                horizontalArrangement = Arrangement.spacedBy(10f),
+            ) {
+                Text(equipped.name, style = "label.heading")
+                Text(equipped.ammo, style = "label.dim")
+            }
+
+            RadialMenu(
+                open = open,
+                items = Guns,
+                selected = equipped,
+                onSelect = { equipped = it },
+                children = { if (it.name == "RIFLE") Rounds else emptyList() },
+                radius = 104f,
+                hubRadius = 40f,
+                ringWidth = 40f,
+                centre = { Text(it?.name ?: "HOLD LB", style = "wheel.label") },
+            ) { gun, highlighted -> WheelSlice(gun, highlighted, lance) }
+        }
+    }
+}
+
+/**
+ * One slice's contents.
+ *
+ * The wheel has no idea that a gun is empty or cooling down: a slice is whatever the game draws in
+ * it, so "out of ammunition" is a dim name and a cooldown is the game's own sweep drawn over one.
+ */
+@Composable
+private fun WheelSlice(gun: Gun, highlighted: Boolean, lance: Cooldown) {
+    val style = if (highlighted) "wheel.label" else "label"
+    when {
+        gun.cooling -> Column(horizontalAlignment = HorizontalAlignment.Centre) {
+            // The sweep is a dark wedge drawn over whatever the ability is, so it needs something
+            // underneath it to be a wedge over: here a plain tile, in a game the weapon's icon.
+            RadialCooldown(lance, Modifier.size(40f).background(Colour.rgb(0x2B3A4E), corner = 6f))
+            Text(gun.name, style = style)
+        }
+        gun.ammo == "0" -> Column(horizontalAlignment = HorizontalAlignment.Centre) {
+            Text(gun.name, Modifier.alpha(0.4f), style = style)
+            Text("EMPTY", style = "label.danger")
+        }
+        else -> Text(gun.name, style = style)
+    }
+}
+
+/** What the player was looking at before they reached for the wheel. */
+@Composable
+private fun WheelWorld() {
+    Box(Modifier.fillMaxSize().background(Colour.rgb(0x121A26))) {
+        Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(96f).background(Colour.rgb(0x1B2635)))
+        Box(Modifier.offset(64f, 132f).size(38f, 122f).background(Colour.rgb(0x222F41)))
+        Box(Modifier.offset(112f, 168f).size(26f, 86f).background(Colour.rgb(0x1D2836)))
+        Box(Modifier.offset(470f, 150f).size(54f, 104f).background(Colour.rgb(0x222F41)))
+        Box(Modifier.offset(538f, 186f).size(30f, 68f).background(Colour.rgb(0x1D2836)))
+        Box(Modifier.offset(206f, 214f).size(16f, 30f).background(Colour.rgb(0xE5484D), corner = 3f))
+        Box(Modifier.offset(404f, 220f).size(14f, 26f).background(Colour.rgb(0xE5484D), corner = 3f))
+    }
+}
+
+/** Half the dead-zone picture: one player, one pad, one wheel, and what that thumb chose. */
+@Composable
+private fun DeadZonePanel() {
+    val resting = LocalDocPlayer.current == 0
+    Box(Modifier.fillMaxSize().background(Colour.rgb(0x0A0D12))) {
+        HoldingBumper { open ->
+            RadialMenu(
+                open = open,
+                items = Guns,
+                selected = Guns[0],
+                radius = 92f,
+                hubRadius = 42f,
+                ringWidth = 34f,
+                centre = { Text(it?.name ?: "NOTHING", style = "wheel.label") },
+            ) { gun, highlighted ->
+                Text(gun.name, style = if (highlighted) "wheel.label" else "label")
+            }
+        }
+        // After the wheel rather than before it, so the caption sits on top of the backdrop that
+        // dims the game rather than under it.
+        Text(
+            if (resting) "thumb resting on the stick" else "a nudge, barely past the dead zone",
+            Modifier.align(Alignment.TopCentre).padding(12f),
+            style = "label.dim",
+        )
+        Text(
+            if (resting) "nothing is chosen" else "the lance is chosen",
+            Modifier.align(Alignment.BottomCentre).padding(12f),
+            style = if (resting) "label.dim" else "label.good",
+        )
+    }
+}
+
+/** One item on the mirrored wheel: where it comes in the list, and its name in each language. */
+private data class Numbered(val order: Int, val english: String, val hebrew: String)
+
+/** Five things, numbered, so that which way round the wheel runs can be read without the words. */
+private val Numbers = listOf(
+    Numbered(1, "RIFLE", "רובה"),
+    Numbered(2, "PISTOL", "אקדח"),
+    Numbered(3, "GRENADE", "רימון"),
+    Numbered(4, "MINE", "מוקש"),
+    Numbered(5, "BANDAGE", "תחבושת"),
+)
+
+/** Half the mirrored picture: the same wheel, the same push, one language each. */
+@Composable
+private fun MirrorPanel() {
+    val hebrew = LocalDocPlayer.current == 1
+    ProvideLayoutDirection(if (hebrew) LayoutDirection.Rtl else LayoutDirection.Ltr) {
+        Box(Modifier.fillMaxSize().background(Colour.rgb(0x0A0D12))) {
+            HoldingBumper { open ->
+                RadialMenu(
+                    open = open,
+                    items = Numbers,
+                    radius = 96f,
+                    hubRadius = 40f,
+                    ringWidth = 36f,
+                    centre = { Text(if (it == null) "" else it.order.toString(), style = "wheel.label") },
+                ) { item, highlighted ->
+                    Column(horizontalAlignment = HorizontalAlignment.Centre) {
+                        Text(item.order.toString(), style = if (highlighted) "wheel.label" else "label")
+                        Text(if (hebrew) item.hebrew else item.english, style = "label")
+                    }
+                }
+            }
+            // English either way: a caption on the picture rather than anything the wheel says.
+            ProvideLayoutDirection(LayoutDirection.Ltr) {
+                Text(
+                    if (hebrew) "Hebrew: 1 is still where the eye starts" else "English: 1 at the top, then clockwise",
+                    Modifier.align(Alignment.TopCentre).padding(10f),
+                    style = "label.dim",
+                )
+                Text(
+                    "the same push of the stick",
+                    Modifier.align(Alignment.BottomCentre).padding(10f),
+                    style = "label.dim",
+                )
             }
         }
     }

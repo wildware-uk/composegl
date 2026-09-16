@@ -58,6 +58,10 @@ import dev.wildware.composegl.ui.input.PointerButton
  *   the first frame that has been laid out. For a picture of something that only exists once it has
  *   been typed at — a console with a command half written in it. The picture is always given enough
  *   frames for the whole script and a few after it.
+ * @param padded what a thumb does on a pad before the shutter, a step to a frame, the same way
+ *   [typed] is a hand at the keyboard. For a picture of something a stick aims rather than reaches —
+ *   a weapon wheel — where a push is the whole picture and there is nothing to click on. Each pad in
+ *   it is one player's, so a picture of two players is two thumbs doing different things.
  */
 internal class DocShot(
     val name: String,
@@ -80,6 +84,7 @@ internal class DocShot(
     val budget: FrameBudget? = null,
     val focus: Boolean = false,
     val typed: List<Typing> = emptyList(),
+    val padded: List<Padding> = emptyList(),
     val content: @Composable () -> Unit,
 )
 
@@ -100,6 +105,40 @@ internal sealed interface Typing {
     /** Frames with nobody typing, so that what the step before started can finish: a slide, a fade. */
     data class Wait(val frames: Int) : Typing
 }
+
+/**
+ * One thing a thumb does on a pad while a picture is being taken. See [DocShot.padded].
+ *
+ * Real events through the real router, the same as the keyboard and the mouse in these pictures: a
+ * wheel with a slice lit up is a wheel somebody really pushed a stick at, not one handed the slice
+ * it should be showing. A push and a held button stay where they are put until a later step moves
+ * them, because that is what a thumb does.
+ */
+internal sealed interface Padding {
+
+    /**
+     * The stick pushed to [x] and [y], each running -1 to 1, as a backend reports it: y is positive
+     * downwards, the same way the toolkit's y runs. The middle is a stick let go of.
+     */
+    data class Push(
+        val x: Float,
+        val y: Float,
+        val stick: DocStick = DocStick.Left,
+        val pad: GamepadId = GamepadId(0),
+    ) : Padding
+
+    /** A button pushed down and left down, for something that only happens while it is held. */
+    data class Down(val button: GamepadButton, val pad: GamepadId = GamepadId(0)) : Padding
+
+    /** That button let go of — which on a weapon wheel is the choice. */
+    data class Up(val button: GamepadButton, val pad: GamepadId = GamepadId(0)) : Padding
+
+    /** Frames with nobody touching the pad, so what the step before started can finish. */
+    data class Wait(val frames: Int) : Padding
+}
+
+/** Which stick a [Padding.Push] moves. */
+internal enum class DocStick { Left, Right }
 
 /** Which player's interface is being composed, counting from zero, in a picture of several. */
 internal val LocalDocPlayer = staticCompositionLocalOf { 0 }

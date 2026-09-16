@@ -16,6 +16,7 @@ import dev.wildware.composegl.ui.host.UiRenderer
 import dev.wildware.composegl.ui.input.GamepadCursor
 import dev.wildware.composegl.ui.input.InputSource
 import dev.wildware.composegl.ui.input.InputSourceTracker
+import dev.wildware.composegl.ui.input.GamepadAxis
 import dev.wildware.composegl.ui.input.GamepadEvent
 import dev.wildware.composegl.ui.input.GamepadId
 import dev.wildware.composegl.ui.input.GamepadNavigator
@@ -92,9 +93,11 @@ fun main() {
         everySize,
     )
     // DejaVu has the Hebrew alphabet; the families above were baked with Latin only, so the Hebrew
-    // in the localisation and compass pictures comes from the same file registered again as a
-    // fallback, holding only the letters those pictures say.
-    fonts.register("hebrew", typeface, everySize, StbFonts.codepointsOf("אפשרויותמוזיקהשםברוךשובךעדהצחנ"))
+    // in the localisation, compass and weapon wheel pictures comes from the same file registered
+    // again as a fallback, holding only the letters those pictures say. A letter at the end of a
+    // Hebrew word is a different letter from the same one in the middle, so the wheel's final nun
+    // has to be asked for by name however many plain nuns are already here.
+    fonts.register("hebrew", typeface, everySize, StbFonts.codepointsOf("אפשרויותמוזיקהשםברוךשובךעדהצחנן"))
     fonts.fallBackTo(listOf("cjk", "korean", "hebrew", "emoji"))
 
     val art = GlTexture.decode(resource("ui/ui.png"))
@@ -278,6 +281,25 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
     }
     var typed = 0
 
+    // The same, for the pad: one push or one button a frame, through the same router the buttons
+    // above go through, so a stick in a picture is a stick a player really moved.
+    val pushes: List<() -> Unit> = shot.padded.flatMap { step ->
+        when (step) {
+            is Padding.Push -> {
+                val horizontal = if (step.stick == DocStick.Left) GamepadAxis.LeftX else GamepadAxis.RightX
+                val vertical = if (step.stick == DocStick.Left) GamepadAxis.LeftY else GamepadAxis.RightY
+                listOf({
+                    router.onGamepad(GamepadEvent.Axis(step.pad, horizontal, step.x))
+                    router.onGamepad(GamepadEvent.Axis(step.pad, vertical, step.y))
+                })
+            }
+            is Padding.Down -> listOf({ router.onGamepad(GamepadEvent.ButtonDown(step.pad, step.button)) })
+            is Padding.Up -> listOf({ router.onGamepad(GamepadEvent.ButtonUp(step.pad, step.button)) })
+            is Padding.Wait -> List(step.frames) { {} }
+        }
+    }
+    var pushed = 0
+
     // After layout, because a pointer lands on whatever is under it and nothing is anywhere until
     // the tree has been measured.
     var dragged = false
@@ -330,12 +352,15 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
         // One step of the typing a frame, so each one is composed and laid out before the next: a
         // Tab has a word to finish, and an Enter has a line to run.
         if (typed < typing.size) typing[typed++]()
+        // And one step of the pad's, for the same reason: a wheel has to compose with the push it
+        // was given before it can be asked what the next one points at.
+        if (pushed < pushes.size) pushes[pushed++]()
     }
 
     try {
         // Long enough for the whole script and a few frames after it, so a picture never catches a
         // shot in the middle of its own typing because somebody forgot to ask for the seconds.
-        val frames = maxOf(Settle + (shot.seconds * 60f).toInt(), typing.size + Settle)
+        val frames = maxOf(Settle + (shot.seconds * 60f).toInt(), typing.size + Settle, pushes.size + Settle)
         for (frame in 0..frames) {
             GL11.glClearColor(0f, 0f, 0f, 1f)
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
