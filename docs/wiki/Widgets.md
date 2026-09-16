@@ -889,6 +889,11 @@ camera.animateTo(centre = Offset(skill.x, skill.y), zoom = 1.5f)
 val world = camera.screenToWorld(pointer)
 ```
 
+![a world map zoomed in on Thornfell, Redhollow and Castle Vey, with roads between the pins and a "you are here" marker](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-panzoom-map.png)
+
+Three notches of the wheel and a drag, on the real thing. The names and the pin edges
+are drawn at the size they appear, so they are as sharp here as at their own size.
+
 The children are laid out **once, in world units**, at their natural size, where
 `Modifier.worldPosition` puts them. Pan and zoom are a transform the canvas draws them
 through and the pointer finds them through, so moving the camera measures and composes
@@ -915,6 +920,12 @@ about 1.15× and with a ceiling at 4096 pixels. A camera has neither.
   pans a step when there is none.
 - **Keys**, the same way: `=` zooms in, `-` zooms out, `0` resets, and the arrows move
   focus as the d-pad does.
+
+![the same map zoomed out, the whole coast in the window, with the "you are here" marker still full size](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-panzoom-overview.png)
+
+The same map, five notches of the wheel the other way: the whole coast at half size.
+The red marker is the one thing that did not shrink, because it is placed with
+`scaleWithZoom = false`.
 
 `Modifier.worldPosition(x, y, anchor, scaleWithZoom)` is parent data, like `layoutId`:
 `anchor` says which point of the child sits on the world point — `Alignment.TopStart` for
@@ -949,6 +960,13 @@ Text is a picture made at one pixel size, so zoomed text is made again at the ne
 a few steps (0.5, 0.75, 1, 1.5, 2, 3) once a gesture settles, and stretched between steps
 while the camera is moving. The canvas's own look is the skin's `"panzoom"` style: the
 backdrop behind the world, and a ring when the pad has focus on the canvas itself.
+
+![a crafting graph in the high-contrast skin, right to left, with a yellow focus ring on the Rod node](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/widget-panzoom-graph-rtl.png)
+
+A crafting graph in the high-contrast skin on a right-to-left screen, on a pad: down
+then right walked focus from Ore to Ingot to Rod, and the camera came along to keep the
+ringed node in view, so Ore has gone off the left edge. The panel reads right to left;
+the graph does not, because a diagram is a picture rather than a line of text.
 
 ---
 
