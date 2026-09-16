@@ -19,7 +19,7 @@ import java.nio.file.Path
  *   stops the load and says which line it was on.
  */
 fun demoSkin(art: ArtAtlas, fonts: FontProvider) = ReloadingSkin(
-    source = skinSource(),
+    source = skinSource,
     art = art,
     fonts = fonts,
     // A broken save leaves the last skin that worked on screen; this is all the example does about
@@ -27,13 +27,23 @@ fun demoSkin(art: ArtAtlas, fonts: FontProvider) = ReloadingSkin(
     onProblem = { println("skin: ${it.message}") },
 )
 
+/**
+ * The example's skin file as text, from wherever [demoSkin] would read it.
+ *
+ * For anything that has to know what the skin says *before* there is a skin to ask — the doc-shot
+ * harness bakes the font sizes the file declares, and a font has to be registered before anything
+ * is measured. Reading it through the same source is what keeps the two answers the same file.
+ */
+fun demoSkinText(): String = skinSource.read()
+
 private const val SKIN = "ui/demo.skin.json"
 
-private fun skinSource(): SkinSource {
+/** Worked out once, because finding it says so out loud and nobody needs telling twice. */
+private val skinSource: SkinSource by lazy {
     val onDisk = listOf(Path.of("composegl-demo/src/main/resources/$SKIN"), Path.of("src/main/resources/$SKIN"))
         .firstOrNull { Files.exists(it) }
 
-    return when {
+    when {
         onDisk != null -> {
             println("skin: watching $onDisk — save it and the example changes")
             dev.wildware.composegl.ui.skin.FileSkinSource(onDisk)

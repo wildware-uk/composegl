@@ -16,6 +16,8 @@ import dev.wildware.composegl.ui.host.UiRenderer
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
+import dev.wildware.composegl.ui.layout.LayoutDirection
+import dev.wildware.composegl.ui.layout.ProvideLayoutDirection
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.fillMaxSize
@@ -129,5 +131,42 @@ class FrameBudgetOverlayTest {
         assertTrue(isDebugOverlay(game.ui.node("budget")), "the overlay's box is known for debug tooling")
         assertEquals(emptyList(), budget.reading.busiest, "but are not what anybody is looking for")
         assertTrue("busiest" !in game.ui.texts("budget"), "so the overlay lists nothing")
+    }
+
+    /**
+     * The redraw count is two numbers with a slash between them, and that is the one shape the
+     * Unicode bidirectional algorithm turns round: on a screen that reads from the right, the
+     * spaces round the slash used to be neutral characters that took the screen's direction and
+     * put the two numbers back to front — "12 / 60" read as "60 / 12". Without the spaces the
+     * slash is joined onto the digits and the whole thing is one number, which cannot move.
+     *
+     * The same fix the objective tracker's counter got; `RtlNumbersUiTest` in composegl-game is
+     * the sweep of everything else a widget writes for itself.
+     */
+    @Test
+    fun `the redraw count reads the same way round on a screen that reads from the right`() {
+        val budget = budget()
+        val game = open(budget) {
+            ProvideLayoutDirection(LayoutDirection.Rtl) {
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.size(40f, 40f).drawBehind(remembered).testTag("still"))
+                    FrameBudgetOverlay(budget, Modifier.testTag("budget"))
+                }
+            }
+        }
+
+        repeat(6) {
+            game.frame()
+            game.ui.settle()
+        }
+
+        val shown = game.ui.texts("budget")
+        val at = shown.indexOf("redraws")
+        assertTrue(at >= 0, "the overlay draws the count: $shown")
+        val count = shown[at + 1]
+        assertTrue(
+            Regex("""\d+/\d+""").matches(count),
+            "the count is handed over as one number rather than two put back to front: $count",
+        )
     }
 }

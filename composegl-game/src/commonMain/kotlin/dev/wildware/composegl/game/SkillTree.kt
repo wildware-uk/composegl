@@ -210,7 +210,7 @@ fun skillTreeBounds(nodes: List<SkillNode>, margin: Float = 120f): Rect {
  *
  * Everything it looks like is the skin's: `"<style>.node.locked"`, `"<style>.node.available"`,
  * `"<style>.node.owned"`, `"<style>.node.maxed"`, `"<style>.hold"` for the hold's sweep,
- * `"<style>.rank"` for the "2 / 3" in the corner, and the four edge styles above.
+ * `"<style>.rank"` for the "2/3" in the corner, and the four edge styles above.
  *
  * @param state the camera. One of its own by default, which has no bounds; a tree that should not be
  *   draggable into empty space passes [skillTreeBounds] — which is also what [reset] fits to, so a
@@ -359,7 +359,7 @@ fun SkillNodeIcon(
 /** How much of a node the picture in it takes up. The rest is the frame round it. */
 private const val IconFraction = 0.55f
 
-/** How far under a node its "2 / 3" sits, in world units. */
+/** How far under a node its "2/3" sits, in world units. */
 private const val RankGap = 3f
 
 /** The four directions a neighbour is looked up by, as indices into the graph's table. */
@@ -462,14 +462,17 @@ private fun SkillNodeView(
     // Only wrapped when there is something to say, so a tree with no tooltips needs no TooltipHost.
     if (node.tooltip != null) Tooltip(node.tooltip, place) { body(Modifier) } else body(place)
 
-    // Under the node rather than in it. A node is barely wider than its icon, and "2 / 3" written
+    // Under the node rather than in it. A node is barely wider than its icon, and "2/3" written
     // across the icon of a skill that is half bought is the one number a player actually reads
     // covering the one picture they recognise it by. Drawn only when there is more than one rank,
-    // because "1 / 1" on every square of a tree is a tree nobody can read.
+    // because "1/1" on every square of a tree is a tree nobody can read.
+    //
+    // No spaces round the slash, for the reason [ObjectiveProgress.toString] gives: with them, a
+    // screen that reads from the right draws "3/2" for a skill at rank two of three.
     if (node.ranks > 1) {
         val rank = rememberStyle("$style.rank")
         Text(
-            "${node.rank} / ${node.ranks}",
+            "${node.rank}/${node.ranks}",
             modifier = Modifier.worldPosition(node.x, node.y + size / 2f + RankGap, anchor = Alignment.TopCentre),
             textStyle = rank.textStyle,
             colour = rank.textColour,

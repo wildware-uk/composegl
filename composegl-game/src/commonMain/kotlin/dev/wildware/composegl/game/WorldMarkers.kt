@@ -211,6 +211,24 @@ interface WorldMarkerScope {
  * something actually moved — so a paused game with the camera standing still costs one projection
  * per marker and no drawing at all.
  *
+ * **Move the camera before the layer reads it.** The layer projects from inside its own
+ * `withFrameNanos`, which is the only place it can both see the new frame and ask for a redraw on
+ * it. A game that writes its camera in a frame callback of its own registered *after* the layer's
+ * is therefore writing it too late: that frame's markers were placed from the camera as it stood
+ * last frame, and a fast pan shows it as the markers sliding a frame behind the world under them.
+ * Nothing is lost and nothing drifts — every frame is one frame behind, not two — but the slide is
+ * visible, and it is the kind of thing that is blamed on the layer.
+ *
+ * It is documented rather than fixed because both ways out are worse. Projecting a second time
+ * during layout would break what this layer promises — one projection per marker per frame, which
+ * is what lets a game do real work in [WorldProjection.project] — and asking for a redraw every
+ * frame in case the camera moved would cost a paused game a full redraw a frame for nothing.
+ *
+ * So: write the camera in the game's own update, before the interface is composed, or from a frame
+ * callback registered before the layer exists. A camera held in ordinary state and written from
+ * anywhere outside a frame callback is already right, which is the usual case and why this is
+ * rarely met.
+ *
  * `scaleDistance` is the one thing to be careful with: scaling is drawn through an offscreen
  * picture, as [dev.wildware.composegl.ui.modifier.scale] explains, so it is crisp shrinking and
  * soft growing. Markers that must be sharp at every distance should be laid out at the size they
@@ -252,6 +270,9 @@ fun WorldMarkerLayer(
     // Nothing is asked of the runtime while the layer is empty, and the loop ends with the last
     // marker. While it runs it only asks for a redraw on a frame where something actually moved,
     // so a still camera over a paused world redraws nothing.
+    //
+    // This is also the moment the camera is read, and it is the reason the KDoc asks a game to have
+    // written its camera by now: a later frame callback's write is a frame too late for this one.
     LaunchedEffect(markers, projection, markers.count > 0) {
         while (markers.count > 0) {
             val nanos = withFrameNanos { it }

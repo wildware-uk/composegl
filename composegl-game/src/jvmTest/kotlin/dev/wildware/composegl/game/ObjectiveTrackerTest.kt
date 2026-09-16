@@ -54,7 +54,7 @@ import org.junit.jupiter.api.Test
  * The objective tracker on a HUD, driven the way a player drives one.
  *
  * The issue's four: a step that finishes gets a tick, a line through it and then goes; a quest that
- * arrives slides in and can raise a toast; steps count "3 / 5"; and a list longer than the corner
+ * arrives slides in and can raise a toast; steps count "3/5"; and a list longer than the corner
  * allows folds behind a row a mouse, a key or a pad opens — with the whole thing able to disappear
  * for a cutscene.
  *
@@ -174,7 +174,7 @@ class ObjectiveTrackerTest {
         assertTrue(texts().contains("Clear the pass"), "the quest's name: ${texts()}")
         assertTrue(texts().contains("Kill the wolves"))
         assertTrue(texts().contains("Reach the cabin"))
-        assertTrue(texts().contains("3 / 5"), "the counter is what tells a player they are getting there")
+        assertTrue(texts().contains("3/5"), "the counter is what tells a player they are getting there")
     }
 
     @Test
@@ -183,13 +183,13 @@ class ObjectiveTrackerTest {
             listOf(quest("Clear the pass", QuestStep("Kill the wolves", progress = ObjectiveProgress(3, 5)))),
         )
         show { Box(Modifier.fillMaxSize()) { Track(quests, Modifier.align(Alignment.TopEnd)) } }
-        assertTrue(texts().contains("3 / 5"))
+        assertTrue(texts().contains("3/5"))
 
         quests = listOf(quest("Clear the pass", QuestStep("Kill the wolves", progress = ObjectiveProgress(4, 5))))
         frames(6)
 
-        assertTrue(texts().contains("4 / 5"), "the counter did not move: ${texts()}")
-        assertFalse(texts().contains("3 / 5"))
+        assertTrue(texts().contains("4/5"), "the counter did not move: ${texts()}")
+        assertFalse(texts().contains("3/5"))
     }
 
     // --- finishing a step -------------------------------------------------------------------------

@@ -2,6 +2,7 @@ package dev.wildware.composegl.demo.docs
 
 import androidx.compose.runtime.CompositionLocalProvider
 import dev.wildware.composegl.demo.demoSkin
+import dev.wildware.composegl.demo.demoSkinText
 import dev.wildware.composegl.game.SubtitleSize
 import dev.wildware.composegl.lwjgl3.GlCanvas
 import dev.wildware.composegl.lwjgl3.GlTexture
@@ -35,7 +36,9 @@ import dev.wildware.composegl.ui.input.PointerRouter
 import dev.wildware.composegl.ui.layout.ScalePolicy
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.skin.Skin
+import dev.wildware.composegl.ui.skin.SkinFormat
 import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.text.TextStyle
 import dev.wildware.composegl.ui.text.scaledTextSizes
 import dev.wildware.composegl.ui.widget.LocalFonts
 import dev.wildware.composegl.ui.widget.ProvideGamepadCursor
@@ -44,8 +47,11 @@ import dev.wildware.composegl.ui.skin.ProvideSkin
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
+import kotlin.math.roundToInt
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11
+import org.lwjgl.stb.STBTTFontinfo
+import org.lwjgl.stb.STBTruetype
 
 /**
  * Takes every picture in the wiki.
@@ -63,66 +69,39 @@ fun main() {
     out.mkdirs()
 
     val window = GlfwWindow("composegl doc shots", Window, Window, visible = false, vsync = false)
-    val fonts = StbFonts(pageSize = 1024)
-    val typeface = resource("fonts/DejaVuSans.ttf")
-    // Every size again at 125% and 150%, for the picture of the text size setting.
-    // 14 and 15 are the objective tracker's step and title in the example's skin; the rest are what
-    // every other picture through that skin asks for.
-    fonts.register("body", typeface, scaledTextSizes(listOf(12, 13, 14, 15, 16, 20), listOf(1f, 1.25f, 1.5f)))
-    fonts.register("display", typeface, listOf(34))
-    // What the toolkit's own skin asks for, for the pictures taken without the example's skin, plus
-    // sixteen at each subtitle size preset, for the picture of the subtitle size setting: a preset
-    // is a font baked at that size rather than one stretched to it.
-    fonts.register(
-        "default",
-        typeface,
-        (listOf(11, 12, 13, 14, 15, 16, 18, 22, 26) + scaledTextSizes(listOf(16), SubtitleSize.scales))
-            .distinct()
-            .sorted(),
-    )
-    // Where characters DejaVu does not have come from, for the chat picture. Small cuts of Noto
-    // Sans CJK holding only what that picture says, and Noto's emoji as pictures, at every size any
-    // family above is asked for.
-    val everySize = fonts.families().flatMap { fonts.sizesOf(it) }.distinct()
-    fonts.register(
-        "cjk",
-        resource("fonts/NotoSansSC-Subset.ttf"),
-        everySize,
-        StbFonts.codepointsOf("你好！欢迎来到游戏玩家プレイヤーこんにちは"),
-    )
-    fonts.register("korean", resource("fonts/NotoSansKR-Subset.ttf"), everySize, StbFonts.codepointsOf("플레이어안녕하세요"))
-    fonts.registerPictures(
-        "emoji",
-        mapOf(
-            "👍" to resource("emoji/emoji_u1f44d.png"),
-            "🎮" to resource("emoji/emoji_u1f3ae.png"),
-            "😀" to resource("emoji/emoji_u1f600.png"),
-            "❤️" to resource("emoji/emoji_u2764.png"),
-            "🚀" to resource("emoji/emoji_u1f680.png"),
-            "🔥" to resource("emoji/emoji_u1f525.png"),
-        ),
-        everySize,
-    )
-    // DejaVu has the Hebrew alphabet; the families above were baked with Latin only, so the Hebrew
-    // in the localisation, compass and weapon wheel pictures comes from the same file registered
-    // again as a fallback, holding only the letters those pictures say. A letter at the end of a
-    // Hebrew word is a different letter from the same one in the middle, so the wheel's final nun
-    // has to be asked for by name however many plain nuns are already here.
-    fonts.register(
-        "hebrew",
-        typeface,
-        everySize,
-        StbFonts.codepointsOf(
-            "אפשרויותמוזיקהשםברוךשובךעדהצחנן" +
-                HebrewSubtitles + HebrewDialogue + HebrewObjectives + HebrewChat,
-        ),
-    )
-    fonts.fallBackTo(listOf("cjk", "korean", "hebrew", "emoji"))
-
     val art = GlTexture.decode(resource("ui/ui.png"))
     val coins = coinSheet()
+    val pictures = atlas(art, coins)
+
+    val fonts = StbFonts(pageSize = 1024)
+    val typeface = resource("fonts/DejaVuSans.ttf")
+    // Not a list of sizes anybody keeps up to date. Every skin these pictures are taken through is
+    // read first for the sizes it declares, and each of those is baked again at every text scale a
+    // picture asks for — so a style added to a skin file, or a picture taken through a skin nothing
+    // has used yet, already has the font it needs. A missing one is not a blank label but a crash:
+    // "no font for body at 14", four times over during one week of work, is why this is worked out.
+    bakedSizes(listOf(Skin.Default, Skin.HighContrast, SkinFormat.read(demoSkinText(), pictures)))
+        .forEach { (family, sizes) -> fonts.register(family, typeface, sizes) }
+
+    // Where characters DejaVu's Latin does not cover come from, at every size anything above asks
+    // for. Each fallback is registered with what its own file can actually draw rather than with a
+    // list of the characters some picture happens to say today: the two Noto files are cuts holding
+    // a few dozen characters each, and the Hebrew is DejaVu's own Hebrew block. So a new sentence in
+    // any of these languages — and every form of a Hebrew letter, final nun included — is already
+    // baked, and cannot turn up on the wiki as a row of empty boxes.
+    val everySize = fonts.families().flatMap { fonts.sizesOf(it) }.distinct()
+    val chinese = resource("fonts/NotoSansSC-Subset.ttf")
+    val korean = resource("fonts/NotoSansKR-Subset.ttf")
+    fonts.register("cjk", chinese, everySize, coverageOf(chinese, Everything))
+    fonts.register("korean", korean, everySize, coverageOf(korean, Everything))
+    fonts.register("hebrew", typeface, everySize, coverageOf(typeface, HebrewBlock))
+    // And the emoji, as pictures, one per file in the resources folder: dropping a PNG in beside
+    // them is all it takes to be able to say that emoji in a picture.
+    fonts.registerPictures("emoji", emojiPictures(), everySize)
+    fonts.fallBackTo(listOf("cjk", "korean", "hebrew", "emoji"))
+
     val canvas = GlCanvas(fonts)
-    val skin = demoSkin(atlas(art, coins), fonts)
+    val skin = demoSkin(pictures, fonts)
 
     try {
         docShots().forEach { shot ->
@@ -201,43 +180,88 @@ private fun resource(path: String): ByteArray =
         .use { it.readBytes() }
 
 /**
- * Every letter the Hebrew subtitles say, so the fallback carries them.
+ * Every font size the pictures are going to ask for, by family: each size a skin declares, baked
+ * again at each of [DocTextScales] and each subtitle preset.
  *
- * The whole sentences rather than the letters picked out of them, because a letter missed here is a
- * blank box in the picture and nobody notices which one it was.
+ * Read off the skins rather than written down here, because the two kept drifting apart and the
+ * drift is a crash rather than something a person notices. A skin is parsed for this with no fonts
+ * and no art of its own — the file is the whole answer, and it can be read long before there is a
+ * font to measure with.
+ *
+ * Every scale is applied to every family. A family is a handful of sizes and the sizes overlap, so
+ * working out which scale reaches which style is more arithmetic than it would save.
  */
-private const val HebrewSubtitles =
-    "עברנו את השער. הישארו צמודים לקיר ושמרו על שקט." +
-        "דלת נטרקת למטה" +
-        "אז הם יודעים שאנחנו כאן. שניים במדרגות, אחד על המשטח." +
-        "מירה אנדר"
+private fun bakedSizes(skins: List<Skin>): Map<String, List<Int>> {
+    val scales = (DocTextScales + SubtitleSize.scales + 1f).distinct()
+    val declared = LinkedHashMap<String, MutableSet<Int>>()
+    // A widget nothing styled draws at the toolkit's own default, which no skin file has to mention.
+    fun take(style: TextStyle?) {
+        if (style == null) return
+        declared.getOrPut(style.family) { LinkedHashSet() } += style.size.roundToInt()
+    }
+    take(TextStyle())
+    skins.forEach { skin ->
+        take(skin.defaults?.textStyle)
+        skin.styles.values.forEach { style ->
+            listOf(style.base, style.hovered, style.focused, style.pressed, style.disabled)
+                .forEach { take(it?.textStyle) }
+        }
+    }
+    return declared.mapValues { (_, sizes) -> scaledTextSizes(sizes, scales) }
+}
 
 /**
- * Every letter the Hebrew dialogue picture says, including the box's own three words.
+ * The characters [ttf] can really draw, within [range], as the ranges a font is registered with.
  *
- * The sentences themselves, taken from where the picture says them, so that changing what the
- * warden says in Hebrew cannot leave a blank box behind in the picture.
+ * Asked of the file rather than listed by hand. The two Noto files here are cuts holding a few
+ * dozen characters each, so "everything in the file" is the right set for them; DejaVu holds
+ * thousands, so its Hebrew is asked for by block.
  */
-private val HebrewDialogue =
-    HebrewWarden + HebrewWarningText + HebrewAnswerOne + HebrewAnswerTwo + "אוטומטידלגיומן"
+private fun coverageOf(ttf: ByteArray, range: IntRange): List<IntRange> {
+    val bytes = BufferUtils.createByteBuffer(ttf.size).put(ttf)
+    bytes.flip()
+    val info = STBTTFontinfo.create()
+    check(STBTruetype.stbtt_InitFont(info, bytes)) { "that is not a font this can read" }
+    val found = ArrayList<IntRange>()
+    var start = -1
+    for (codepoint in range) {
+        val has = STBTruetype.stbtt_FindGlyphIndex(info, codepoint) != 0
+        if (has && start < 0) start = codepoint
+        if (!has && start >= 0) {
+            found += start until codepoint
+            start = -1
+        }
+    }
+    if (start >= 0) found += start..range.last
+    check(found.isNotEmpty()) { "that font has nothing in $range" }
+    return found
+}
 
 /**
- * Every letter the Hebrew objective tracker says, taken from where the picture says it.
+ * The emoji, one per PNG in the `emoji` resource folder, under the character each one draws.
  *
- * The same rule as the dialogue above: the sentences themselves, so that changing what the quest
- * asks for in Hebrew cannot leave a row of blank boxes behind on the wiki.
+ * `emoji_u1f44d.png` is 👍. Listing the folder rather than naming the six files means a new emoji in
+ * a picture is a file dropped in beside the others, with nothing here to remember.
  */
-private val HebrewObjectives = HebrewQuestName + HebrewQuestRope + HebrewQuestWatch
+private fun emojiPictures(): Map<String, ByteArray> {
+    val folder = checkNotNull(object {}.javaClass.classLoader.getResource("emoji")) { "no emoji on the classpath" }
+    val files = checkNotNull(File(folder.toURI()).listFiles()) { "$folder is not a folder to list" }
+    return files.filter { it.name.endsWith(".png") }
+        .sortedBy { it.name }
+        .associate { file ->
+            val codepoints = file.name.removeSuffix(".png").split('_')
+                .filter { it.startsWith("u") }
+                .map { it.removePrefix("u").toInt(16) }
+            require(codepoints.isNotEmpty()) { "${file.name} is not named emoji_u<hex>" }
+            codepoints.joinToString("") { String(Character.toChars(it)) } to file.readBytes()
+        }
+}
 
-/**
- * Every letter the Hebrew chat picture says: the channel tabs, who is talking, what they say and
- * the hint in the empty input. The same rule again — the words themselves, from where the picture
- * says them, so that changing what the raid says cannot leave a blank box behind on the wiki.
- */
-private val HebrewChat =
-    HebrewChatSay + HebrewChatParty + HebrewChatGuild + HebrewChatMira + HebrewChatAnder +
-        HebrewChatSorrel + HebrewChatWren + HebrewChatHint + HebrewChatJoined + HebrewChatRope +
-        HebrewChatGate + HebrewChatIron + HebrewChatVault + HebrewChatMixed
+/** Every character a font file might hold that these pictures could want: the whole of the BMP. */
+private val Everything = 0x20..0xFFFF
+
+/** Hebrew, as Unicode has it: the letters, their final forms, the points and the punctuation. */
+private val HebrewBlock = 0x0590..0x05FF
 
 /** The window every picture is drawn inside. Bigger than the biggest of them. */
 private const val Window = 640
