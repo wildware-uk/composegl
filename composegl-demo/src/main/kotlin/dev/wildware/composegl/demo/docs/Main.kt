@@ -66,7 +66,7 @@ fun main() {
     val fonts = StbFonts(pageSize = 1024)
     val typeface = resource("fonts/DejaVuSans.ttf")
     // Every size again at 125% and 150%, for the picture of the text size setting.
-    fonts.register("body", typeface, scaledTextSizes(listOf(12, 13, 16, 20), listOf(1f, 1.25f, 1.5f)))
+    fonts.register("body", typeface, scaledTextSizes(listOf(12, 13, 16, 20), listOf(1f, 1.25f, 1.5f)), Marks)
     fonts.register("display", typeface, listOf(34))
     // What the toolkit's own skin asks for, for the pictures taken without the example's skin, plus
     // sixteen at each subtitle size preset, for the picture of the subtitle size setting: a preset
@@ -75,6 +75,7 @@ fun main() {
         "default",
         typeface,
         (listOf(11, 12, 13, 14, 16, 18, 22, 26) + scaledTextSizes(listOf(16), SubtitleSize.scales)).distinct().sorted(),
+        Marks,
     )
     // Where characters DejaVu does not have come from, for the chat picture. Small cuts of Noto
     // Sans CJK holding only what that picture says, and Noto's emoji as pictures, at every size any
@@ -214,6 +215,16 @@ private const val HebrewSubtitles =
 private val HebrewDialogue =
     HebrewWarden + HebrewWarningText + HebrewAnswerOne + HebrewAnswerTwo + "אוטומטידלגיומן"
 
+/**
+ * What the two ordinary families are baked with: everything the toolkit bakes, and ▼ as well.
+ *
+ * The toolkit's own list has the shapes a button prompt draws, and a downward triangle was not one
+ * of them — so the item card's "worse" mark is the one character in these pictures DejaVu has and
+ * nobody had asked for. A missing glyph is a blank box, and a blank box where the answer goes is
+ * the one thing that card must never show.
+ */
+private val Marks = StbFonts.Codepoints + StbFonts.codepointsOf("▼")
+
 /** The window every picture is drawn inside. Bigger than the biggest of them. */
 private const val Window = 640
 
@@ -288,7 +299,10 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
         // reaches for a pad, except a picture that asks for focus to be kept, as a game's renderer does.
         // A picture with typing in it keeps it too: typed characters go to whatever has focus, and
         // nothing has any until the renderer has been given a focus manager to refresh.
-        val kept = shot.players > 1 || shot.focus || shot.typed.isNotEmpty()
+        // A script that only holds a key down is not typing at anything: a held Shift is heard
+        // wherever focus is, including nowhere, so a picture of a mouse keeps its ringless bag.
+        val types = shot.typed.any { it is Typing.Press || it is Typing.Write }
+        val kept = shot.players > 1 || shot.focus || types
         UiRenderer(hosts[player], canvas, shot.budget?.takeIf { player == 0 } ?: FrameBudget()).also { if (kept) it.focus = focuses[player] }
     }
     // The keyboard, wired the way a game wires it: whatever has focus first, the shortcut layer
@@ -308,6 +322,7 @@ private fun take(shot: DocShot, canvas: GlCanvas, fonts: FontProvider, skin: Ski
                 press(KeyEvent(step.key, KeyEventType.Down, step.modifiers))
                 press(KeyEvent(step.key, KeyEventType.Up, step.modifiers))
             })
+            is Typing.Hold -> listOf({ press(KeyEvent(step.key, KeyEventType.Down, step.modifiers)) })
             is Typing.Write -> step.text.map { character -> { write(character) } }
             is Typing.Wait -> List(step.frames) { {} }
         }
