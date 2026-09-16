@@ -12,6 +12,10 @@ enum class HostState {
      * buffers 0, texture 0 on unit 0, and depth, cull and stencil tests off. A frame drawn into an
      * offscreen target also gets its framebuffer and viewport put back. For an engine that sets
      * what it needs before it draws: raw LWJGL, LibGDX, a browser page that owns its context.
+     *
+     * One thing it does not put back: clearing a target that has a depth buffer leaves depth
+     * writing switched on, which is OpenGL's own default. An engine that turns it off for a pass of
+     * its own turns it off again anyway; one that cannot wants [Restore].
      */
     Leave,
 
@@ -34,6 +38,7 @@ internal class GlSnapshot {
     var scissorTest = false
     var blend = false
     var depthTest = false
+    var depthMask = true
     var cullFace = false
     var stencilTest = false
     var blendSrcRgb = GlConst.ONE
@@ -57,6 +62,9 @@ internal class GlSnapshot {
         scissorTest = gl.isEnabled(GlConst.SCISSOR_TEST)
         blend = gl.isEnabled(GlConst.BLEND)
         depthTest = gl.isEnabled(GlConst.DEPTH_TEST)
+        // Clearing an offscreen picture's depth buffer switches depth writing on, so what the
+        // engine had is saved with everything else.
+        depthMask = gl.getInteger(GlConst.DEPTH_WRITEMASK) != 0
         cullFace = gl.isEnabled(GlConst.CULL_FACE)
         stencilTest = gl.isEnabled(GlConst.STENCIL_TEST)
         blendSrcRgb = gl.getInteger(GlConst.BLEND_SRC_RGB)
@@ -87,6 +95,7 @@ internal class GlSnapshot {
         set(gl, GlConst.SCISSOR_TEST, scissorTest)
         set(gl, GlConst.BLEND, blend)
         set(gl, GlConst.DEPTH_TEST, depthTest)
+        gl.depthMask(depthMask)
         set(gl, GlConst.CULL_FACE, cullFace)
         set(gl, GlConst.STENCIL_TEST, stencilTest)
         gl.blendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha)

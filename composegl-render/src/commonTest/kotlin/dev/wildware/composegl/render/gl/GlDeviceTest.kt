@@ -106,6 +106,92 @@ class GlDeviceTest {
     }
 
     @Test
+    fun `an offscreen picture asked for depth gets a depth buffer of its own size`() {
+        val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 3, core = true))
+        val target = GlDevice(gl).offscreen(16, 9, depth = true) as GlDeviceTarget
+
+        assertTrue(target.depth)
+        assertTrue(target.depthBuffer != 0, "a renderbuffer of its own")
+        assertEquals("renderbufferStorage(${GlConst.DEPTH_COMPONENT24}, 16x9)", gl.named("renderbufferStorage").single())
+        assertEquals(
+            "framebufferRenderbuffer(${GlConst.DEPTH_ATTACHMENT}, ${target.depthBuffer})",
+            gl.named("framebufferRenderbuffer").single(),
+        )
+    }
+
+    @Test
+    fun `ES 2 and WebGL 1 take the only depth format they have`() {
+        listOf(GlProfile(GlApi.Es, 2, 0), GlProfile(GlApi.WebGl, 1, 0)).forEach { profile ->
+            val gl = RecordingGl(profile)
+            GlDevice(gl).offscreen(8, 8, depth = true)
+            assertEquals("renderbufferStorage(${GlConst.DEPTH_COMPONENT16}, 8x8)", gl.named("renderbufferStorage").single(), "$profile")
+        }
+    }
+
+    @Test
+    fun `an offscreen picture without depth asks for no renderbuffer at all`() {
+        val gl = RecordingGl()
+        val target = GlDevice(gl).offscreen(8, 8) as GlDeviceTarget
+
+        assertFalse(target.depth)
+        assertEquals(0, gl.calls.count { it.startsWith("createRenderbuffer") || it.startsWith("renderbufferStorage") })
+    }
+
+    @Test
+    fun `clearing a target that has depth clears the depth buffer with it`() {
+        val gl = RecordingGl()
+        val device = GlDevice(gl)
+        val target = device.offscreen(8, 8, depth = true)
+        device.begin(target)
+        device.target(target, 0, 0, 8, 8)
+        val from = gl.calls.size
+        device.clear(0f, 0f, 0f, 1f)
+        val cleared = gl.calls.subList(from, gl.calls.size)
+
+        assertTrue("depthMask(true)" in cleared, "a game that left depth writing off would clear nothing: $cleared")
+        assertEquals("clear(${GlConst.COLOR_BUFFER_BIT or GlConst.DEPTH_BUFFER_BIT})", cleared.last())
+    }
+
+    @Test
+    fun `clearing a target without depth clears colour only`() {
+        val gl = RecordingGl()
+        val device = GlDevice(gl)
+        val target = device.offscreen(8, 8)
+        device.begin(target)
+        device.target(target, 0, 0, 8, 8)
+        device.clear(0f, 0f, 0f, 1f)
+
+        assertEquals("clear(${GlConst.COLOR_BUFFER_BIT})", gl.named("clear(").last())
+        assertEquals(0, gl.named("depthMask").size, "and nothing touches the engine's depth writing")
+    }
+
+    @Test
+    fun `giving a target back gives its depth buffer back with it`() {
+        val gl = RecordingGl()
+        val device = GlDevice(gl)
+        val target = device.offscreen(8, 8, depth = true) as GlDeviceTarget
+        device.delete(target)
+
+        assertEquals("deleteRenderbuffer(${target.depthBuffer})", gl.named("deleteRenderbuffer").single())
+        assertEquals(1, gl.named("deleteFramebuffer").size)
+        assertEquals(1, gl.named("deleteTexture").size)
+    }
+
+    @Test
+    fun `a game's own framebuffer can say it already has depth`() {
+        val gl = RecordingGl()
+        val device = GlDevice(gl)
+        val adopted = GlDeviceTarget.adopt(3, 42, 8, 8, depth = true)
+        device.begin(adopted)
+        device.target(adopted, 0, 0, 8, 8)
+        device.clear(0f, 0f, 0f, 1f)
+        device.delete(adopted)
+
+        assertEquals("clear(${GlConst.COLOR_BUFFER_BIT or GlConst.DEPTH_BUFFER_BIT})", gl.named("clear(").last())
+        assertEquals(0, gl.named("delete").size, "and nothing of the game's is deleted")
+    }
+
+    @Test
     fun `GL 2 without framebuffers cannot draw offscreen`() {
         assertFalse(GlDevice(RecordingGl(GlProfile(GlApi.Desktop, 2, 1))).limits.offscreen)
         assertTrue(GlDevice(RecordingGl(GlProfile(GlApi.Desktop, 2, 1), setOf("GL_EXT_framebuffer_object"))).limits.offscreen)

@@ -88,6 +88,8 @@ class RecordingGl(
     override fun viewport(x: Int, y: Int, width: Int, height: Int) = log("viewport($x, $y, $width, $height)")
     override fun scissor(x: Int, y: Int, width: Int, height: Int) = log("scissor($x, $y, $width, $height)")
     override fun clearColor(red: Float, green: Float, blue: Float, alpha: Float) = log("clearColor")
+    override fun clearDepth(depth: Float) = log("clearDepth($depth)")
+    override fun depthMask(write: Boolean) = log("depthMask($write)")
     override fun clear(mask: Int) = log("clear($mask)")
     override fun getInteger(name: Int): Int = (integers[name] ?: 0).also { log("getInteger($name)") }
     override fun getIntegers(name: Int, into: IntArray) {
@@ -151,6 +153,13 @@ class RecordingGl(
     override fun framebufferTexture2D(target: Int, attachment: Int, textureTarget: Int, texture: Int, level: Int) =
         log("framebufferTexture2D($texture)")
     override fun checkFramebufferStatus(target: Int): Int = GlConst.FRAMEBUFFER_COMPLETE
+    override fun createRenderbuffer(): Int = made("createRenderbuffer")
+    override fun bindRenderbuffer(target: Int, renderbuffer: Int) = log("bindRenderbuffer($renderbuffer)")
+    override fun deleteRenderbuffer(renderbuffer: Int) = log("deleteRenderbuffer($renderbuffer)")
+    override fun renderbufferStorage(target: Int, format: Int, width: Int, height: Int) =
+        log("renderbufferStorage($format, ${width}x$height)")
+    override fun framebufferRenderbuffer(target: Int, attachment: Int, renderbufferTarget: Int, renderbuffer: Int) =
+        log("framebufferRenderbuffer($attachment, $renderbuffer)")
     override fun readPixels(x: Int, y: Int, width: Int, height: Int, format: Int, type: Int, into: GlBytes) =
         log("readPixels($x, $y, $width, $height)")
 }

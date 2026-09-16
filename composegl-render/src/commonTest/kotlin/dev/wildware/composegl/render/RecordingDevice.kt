@@ -62,8 +62,10 @@ class RecordingDevice(offscreen: Boolean = true, maxTextureSize: Int = 4096) : G
         calls += "write(${(texture as FakeTexture).id}, $x, $y, ${width}x$height)"
     }
 
-    override fun offscreen(width: Int, height: Int): DeviceTarget =
-        FakeTarget(next++, FakeTexture(next++, width, height)).also { calls += "offscreen(${it.id}, ${width}x$height)" }
+    override fun offscreen(width: Int, height: Int, depth: Boolean): DeviceTarget =
+        FakeTarget(next++, FakeTexture(next++, width, height), depth).also {
+            calls += "offscreen(${it.id}, ${width}x$height${if (depth) ", depth" else ""})"
+        }
 
     override fun delete(resource: DeviceResource) {
         deleted += resource
@@ -126,7 +128,7 @@ class RecordingDevice(offscreen: Boolean = true, maxTextureSize: Int = 4096) : G
 
     class FakeTexture(val id: Int, override val width: Int, override val height: Int) : DeviceTexture
 
-    class FakeTarget(val id: Int, override val texture: FakeTexture) : DeviceTarget {
+    class FakeTarget(val id: Int, override val texture: FakeTexture, override val depth: Boolean = false) : DeviceTarget {
         override val width: Int get() = texture.width
         override val height: Int get() = texture.height
     }

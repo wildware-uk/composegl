@@ -14,14 +14,23 @@ import org.khronos.webgl.WebGLTexture
  *
  * What comes out is **premultiplied**, as on the desktop, so a game puts it on a quad with
  * `gl.blendFunc(ONE, ONE_MINUS_SRC_ALPHA)` and needs no shader of its own.
+ *
+ * @param depth give it a depth buffer, for a page drawing its own 3D scene into it. Cleared with the
+ *   colour by every [draw]; without one a scene comes out inside-out.
  */
-class WebGlRenderTarget(private val gl: GL, width: Int, height: Int) : AutoCloseable {
+class WebGlRenderTarget(private val gl: GL, width: Int, height: Int, depth: Boolean = false) : AutoCloseable {
 
-    private val shared = RenderTarget(GlDevice(WebGl(gl)), width, height)
+    private val shared = RenderTarget(GlDevice(WebGl(gl)), width, height, depth)
 
     val width: Int get() = shared.width
 
     val height: Int get() = shared.height
+
+    /** Whether it has a depth buffer to draw a 3D scene against. */
+    val depth: Boolean get() = shared.depth
+
+    /** Whether the last size asked for was bigger than this GPU's biggest texture and was cut to it. */
+    val clamped: Boolean get() = shared.clamped
 
     private val target: GlDeviceTarget? get() = shared.target as GlDeviceTarget?
 

@@ -63,6 +63,8 @@ object LwjglGl : Gl {
     override fun viewport(x: Int, y: Int, width: Int, height: Int) = GL11.glViewport(x, y, width, height)
     override fun scissor(x: Int, y: Int, width: Int, height: Int) = GL11.glScissor(x, y, width, height)
     override fun clearColor(red: Float, green: Float, blue: Float, alpha: Float) = GL11.glClearColor(red, green, blue, alpha)
+    override fun clearDepth(depth: Float) = GL11.glClearDepth(depth.toDouble())
+    override fun depthMask(write: Boolean) = GL11.glDepthMask(write)
     override fun clear(mask: Int) = GL11.glClear(mask)
     override fun getInteger(name: Int): Int = GL11.glGetInteger(name)
     override fun getIntegers(name: Int, into: IntArray) = GL11.glGetIntegerv(name, into)
@@ -122,6 +124,13 @@ object LwjglGl : Gl {
     override fun framebufferTexture2D(target: Int, attachment: Int, textureTarget: Int, texture: Int, level: Int) =
         GL30.glFramebufferTexture2D(target, attachment, textureTarget, texture, level)
     override fun checkFramebufferStatus(target: Int): Int = GL30.glCheckFramebufferStatus(target)
+    override fun createRenderbuffer(): Int = GL30.glGenRenderbuffers()
+    override fun bindRenderbuffer(target: Int, renderbuffer: Int) = GL30.glBindRenderbuffer(target, renderbuffer)
+    override fun deleteRenderbuffer(renderbuffer: Int) = GL30.glDeleteRenderbuffers(renderbuffer)
+    override fun renderbufferStorage(target: Int, format: Int, width: Int, height: Int) =
+        GL30.glRenderbufferStorage(target, format, width, height)
+    override fun framebufferRenderbuffer(target: Int, attachment: Int, renderbufferTarget: Int, renderbuffer: Int) =
+        GL30.glFramebufferRenderbuffer(target, attachment, renderbufferTarget, renderbuffer)
     override fun readPixels(x: Int, y: Int, width: Int, height: Int, format: Int, type: Int, into: GlBytes) =
         GL11.glReadPixels(x, y, width, height, format, type, (into as Bytes).buffer.clear())
 

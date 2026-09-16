@@ -52,6 +52,8 @@ object LwjglGles : Gl {
     override fun viewport(x: Int, y: Int, width: Int, height: Int) = GLES20.glViewport(x, y, width, height)
     override fun scissor(x: Int, y: Int, width: Int, height: Int) = GLES20.glScissor(x, y, width, height)
     override fun clearColor(red: Float, green: Float, blue: Float, alpha: Float) = GLES20.glClearColor(red, green, blue, alpha)
+    override fun clearDepth(depth: Float) = GLES20.glClearDepthf(depth)
+    override fun depthMask(write: Boolean) = GLES20.glDepthMask(write)
     override fun clear(mask: Int) = GLES20.glClear(mask)
     override fun getInteger(name: Int): Int = GLES20.glGetInteger(name)
     override fun getIntegers(name: Int, into: IntArray) = GLES20.glGetIntegerv(name, into)
@@ -111,6 +113,13 @@ object LwjglGles : Gl {
     override fun framebufferTexture2D(target: Int, attachment: Int, textureTarget: Int, texture: Int, level: Int) =
         GLES20.glFramebufferTexture2D(target, attachment, textureTarget, texture, level)
     override fun checkFramebufferStatus(target: Int): Int = GLES20.glCheckFramebufferStatus(target)
+    override fun createRenderbuffer(): Int = GLES20.glGenRenderbuffers()
+    override fun bindRenderbuffer(target: Int, renderbuffer: Int) = GLES20.glBindRenderbuffer(target, renderbuffer)
+    override fun deleteRenderbuffer(renderbuffer: Int) = GLES20.glDeleteRenderbuffers(renderbuffer)
+    override fun renderbufferStorage(target: Int, format: Int, width: Int, height: Int) =
+        GLES20.glRenderbufferStorage(target, format, width, height)
+    override fun framebufferRenderbuffer(target: Int, attachment: Int, renderbufferTarget: Int, renderbuffer: Int) =
+        GLES20.glFramebufferRenderbuffer(target, attachment, renderbufferTarget, renderbuffer)
     override fun readPixels(x: Int, y: Int, width: Int, height: Int, format: Int, type: Int, into: GlBytes) =
         GLES20.glReadPixels(x, y, width, height, format, type, (into as LwjglGl.Bytes).buffer.clear())
 }

@@ -21,14 +21,28 @@ import dev.wildware.composegl.ui.graphics.Colour
  * ```
  *
  * @param gl the binding for the context it draws on, the same one as the canvas's.
+ * @param depth give it a depth buffer, for a game drawing its own 3D scene into it — a model in an
+ *   inventory slot, a level editor's view. Cleared with the colour by every [draw]. Without one a
+ *   scene comes out inside-out, and the interface itself never needs it.
  */
-class GlRenderTarget(width: Int, height: Int, gl: Gl = GlfwContext.Default.binding) : AutoCloseable {
+class GlRenderTarget(
+    width: Int,
+    height: Int,
+    gl: Gl = GlfwContext.Default.binding,
+    depth: Boolean = false,
+) : AutoCloseable {
 
-    private val shared = RenderTarget(GlDevice(gl), width, height)
+    private val shared = RenderTarget(GlDevice(gl), width, height, depth)
 
     val width: Int get() = shared.width
 
     val height: Int get() = shared.height
+
+    /** Whether it has a depth buffer to draw a 3D scene against. */
+    val depth: Boolean get() = shared.depth
+
+    /** Whether the last size asked for was bigger than this GPU's biggest texture and was cut to it. */
+    val clamped: Boolean get() = shared.clamped
 
     private val gl: GlDeviceTarget? get() = shared.target as GlDeviceTarget?
 
@@ -38,15 +52,23 @@ class GlRenderTarget(width: Int, height: Int, gl: Gl = GlfwContext.Default.bindi
     /** The colour texture's GL name, or 0 once closed. */
     val textureName: Int get() = gl?.texture?.name ?: 0
 
+    /** The depth renderbuffer's GL name, or 0 where there is none. */
+    val depthBufferName: Int get() = gl?.depthBuffer ?: 0
+
     /** The picture, for the game to map onto whatever it is drawing. Replaced by a [resize]. */
-    var texture: GlTexture = GlTexture(textureName, width, height)
+    var texture: GlTexture = picture()
         private set
 
-    /** Makes it a different size, giving the old framebuffer and texture back at once. */
+    /**
+     * Makes it a different size, giving the old framebuffer and texture back at once. A size bigger
+     * than this GPU's biggest texture is cut down to it, and [clamped] says so.
+     */
     fun resize(width: Int, height: Int) {
         shared.resize(width, height)
-        texture = GlTexture(textureName, width, height)
+        texture = picture()
     }
+
+    private fun picture(): GlTexture = GlTexture(textureName, shared.width, shared.height)
 
     /**
      * Draws into it: clears it to [clear], runs [block] in a frame of [canvas], and puts back the

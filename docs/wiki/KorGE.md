@@ -287,7 +287,9 @@ The texture is redrawn only when the panel changed. A `WorldPanel` is a bare
 composition: provide the fonts and skin yourself. `target.slice` is KorGE's own
 texture slice, for drawing it with your own batch; `target.read(ctx)` reads the pixels
 back. What comes out is premultiplied, as KorGE expects. A world panel takes no input
-of its own: only your game knows where a click landed on it.
+of its own: only your game knows where a click landed on it. Like every KorGE
+framebuffer it has a depth and stencil buffer, cleared with the colour, so your own 3D
+drawing can go into it too — see [[Render targets]].
 
 ---
 

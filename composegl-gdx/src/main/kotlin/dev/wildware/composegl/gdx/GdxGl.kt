@@ -66,6 +66,8 @@ object GdxGl : Gl {
     override fun viewport(x: Int, y: Int, width: Int, height: Int) = gl.glViewport(x, y, width, height)
     override fun scissor(x: Int, y: Int, width: Int, height: Int) = gl.glScissor(x, y, width, height)
     override fun clearColor(red: Float, green: Float, blue: Float, alpha: Float) = gl.glClearColor(red, green, blue, alpha)
+    override fun clearDepth(depth: Float) = gl.glClearDepthf(depth)
+    override fun depthMask(write: Boolean) = gl.glDepthMask(write)
     override fun clear(mask: Int) = gl.glClear(mask)
     override fun getInteger(name: Int): Int = ints.also { it.clear(); gl.glGetIntegerv(name, it) }.get(0)
     override fun getIntegers(name: Int, into: IntArray) {
@@ -133,6 +135,13 @@ object GdxGl : Gl {
     override fun framebufferTexture2D(target: Int, attachment: Int, textureTarget: Int, texture: Int, level: Int) =
         gl.glFramebufferTexture2D(target, attachment, textureTarget, texture, level)
     override fun checkFramebufferStatus(target: Int): Int = gl.glCheckFramebufferStatus(target)
+    override fun createRenderbuffer(): Int = gl.glGenRenderbuffer()
+    override fun bindRenderbuffer(target: Int, renderbuffer: Int) = gl.glBindRenderbuffer(target, renderbuffer)
+    override fun deleteRenderbuffer(renderbuffer: Int) = gl.glDeleteRenderbuffer(renderbuffer)
+    override fun renderbufferStorage(target: Int, format: Int, width: Int, height: Int) =
+        gl.glRenderbufferStorage(target, format, width, height)
+    override fun framebufferRenderbuffer(target: Int, attachment: Int, renderbufferTarget: Int, renderbuffer: Int) =
+        gl.glFramebufferRenderbuffer(target, attachment, renderbufferTarget, renderbuffer)
     override fun readPixels(x: Int, y: Int, width: Int, height: Int, format: Int, type: Int, into: GlBytes) =
         gl.glReadPixels(x, y, width, height, format, type, (into as Bytes).buffer.clear())
 

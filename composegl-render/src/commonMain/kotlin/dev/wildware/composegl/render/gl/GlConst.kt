@@ -24,6 +24,7 @@ object GlConst {
     const val FUNC_ADD = 0x8006
 
     const val COLOR_BUFFER_BIT = 0x4000
+    const val DEPTH_BUFFER_BIT = 0x0100
 
     const val ARRAY_BUFFER = 0x8892
     const val ELEMENT_ARRAY_BUFFER = 0x8893
@@ -51,8 +52,20 @@ object GlConst {
     const val COLOR_ATTACHMENT0 = 0x8CE0
     const val FRAMEBUFFER_COMPLETE = 0x8CD5
 
+    // Depth, for an offscreen picture a game draws a 3D scene into.
+    const val RENDERBUFFER = 0x8D41
+    const val DEPTH_ATTACHMENT = 0x8D00
+
+    /** Sixteen bits of depth: the only depth storage OpenGL ES 2 and WebGL 1 promise. */
+    const val DEPTH_COMPONENT16 = 0x81A5
+
+    /** Twenty-four bits, where the context has sized formats: desktop GL, ES 3, WebGL 2. */
+    const val DEPTH_COMPONENT24 = 0x81A6
+
     // queries
     const val FRAMEBUFFER_BINDING = 0x8CA6
+    const val RENDERBUFFER_BINDING = 0x8CA7
+    const val DEPTH_WRITEMASK = 0x0B72
     const val VIEWPORT = 0x0BA2
     const val SCISSOR_BOX = 0x0C10
     const val CURRENT_PROGRAM = 0x8B8D

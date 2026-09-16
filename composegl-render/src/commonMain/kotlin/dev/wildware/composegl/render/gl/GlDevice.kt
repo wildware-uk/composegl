@@ -34,6 +34,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         val vertexArrays: Boolean,
         val dialect: GlslDialect,
         val offscreenFormat: Int,
+        val depthFormat: Int,
         val limits: DeviceLimits,
     )
 
@@ -61,6 +62,8 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
             vertexArrays = vertexArrays,
             dialect = GlslDialect.of(profile),
             offscreenFormat = if (sized) GlConst.RGBA8 else GlConst.RGBA,
+            // Twenty-four bits where the context has them; ES 2 and WebGL 1 promise only sixteen.
+            depthFormat = if (sized) GlConst.DEPTH_COMPONENT24 else GlConst.DEPTH_COMPONENT16,
             limits = DeviceLimits(maxTextureSize = gl.getInteger(GlConst.MAX_TEXTURE_SIZE), offscreen = offscreen),
         )
     }
@@ -306,9 +309,20 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         gl.disable(GlConst.SCISSOR_TEST)
     }
 
+    /**
+     * A target with a depth buffer has it cleared with the colour, to the far plane.
+     *
+     * Depth writing is switched on first: a game that was drawing transparent things had it off,
+     * and a depth clear while it is off writes nothing at all — a scene that then comes out
+     * inside-out with no error anywhere to say why. It is left on, which is OpenGL's own default;
+     * [HostState.Restore] puts back whatever the engine had.
+     */
     override fun clear(red: Float, green: Float, blue: Float, alpha: Float) {
         gl.clearColor(red, green, blue, alpha)
-        gl.clear(GlConst.COLOR_BUFFER_BIT)
+        if ((target as? DeviceTarget)?.depth != true) return gl.clear(GlConst.COLOR_BUFFER_BIT)
+        gl.depthMask(true)
+        gl.clearDepth(1f)
+        gl.clear(GlConst.COLOR_BUFFER_BIT or GlConst.DEPTH_BUFFER_BIT)
     }
 
     // --- drawing ---
@@ -520,7 +534,15 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         gl.bindTexture(GlConst.TEXTURE_2D, 0)
     }
 
-    override fun offscreen(width: Int, height: Int): DeviceTarget {
+    /**
+     * A framebuffer with a colour texture, and a depth renderbuffer beside it when [depth] is asked
+     * for. The depth buffer is made here and given back in [delete], always the picture's own size,
+     * so a resize cannot leave a scene testing against the depth of the size before.
+     *
+     * A renderbuffer rather than a depth texture: every OpenGL there is has one, and nothing here
+     * reads depth back.
+     */
+    override fun offscreen(width: Int, height: Int, depth: Boolean): DeviceTarget {
         require(width > 0 && height > 0) { "a render target is at least one pixel each way" }
         val caps = caps()
         val colour = gl.createTexture()
@@ -529,18 +551,35 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         parameters(GlConst.LINEAR)
         gl.bindTexture(GlConst.TEXTURE_2D, 0)
 
+        val depthBuffer = if (depth) depthBuffer(caps, width, height) else 0
+
         val framebuffer = gl.createFramebuffer()
         val previous = gl.getInteger(GlConst.FRAMEBUFFER_BINDING)
         gl.bindFramebuffer(GlConst.FRAMEBUFFER, framebuffer)
         gl.framebufferTexture2D(GlConst.FRAMEBUFFER, GlConst.COLOR_ATTACHMENT0, GlConst.TEXTURE_2D, colour, 0)
+        if (depthBuffer != 0) {
+            gl.framebufferRenderbuffer(GlConst.FRAMEBUFFER, GlConst.DEPTH_ATTACHMENT, GlConst.RENDERBUFFER, depthBuffer)
+        }
         val status = gl.checkFramebufferStatus(GlConst.FRAMEBUFFER)
         gl.bindFramebuffer(GlConst.FRAMEBUFFER, previous)
         if (status != GlConst.FRAMEBUFFER_COMPLETE) {
             gl.deleteFramebuffer(framebuffer)
             gl.deleteTexture(colour)
-            error("this driver would not give us a ${width}x$height render target (status $status)")
+            if (depthBuffer != 0) gl.deleteRenderbuffer(depthBuffer)
+            val what = if (depth) "render target with depth" else "render target"
+            error("this driver would not give us a ${width}x$height $what (status $status)")
         }
-        return GlDeviceTarget(framebuffer, GlDeviceTexture(colour, width, height, owned = true), owned = true)
+        return GlDeviceTarget(framebuffer, GlDeviceTexture(colour, width, height, owned = true), owned = true, depthBuffer = depthBuffer)
+    }
+
+    /** Depth storage of exactly the picture's size, leaving bound whatever renderbuffer was bound. */
+    private fun depthBuffer(caps: Caps, width: Int, height: Int): Int {
+        val name = gl.createRenderbuffer()
+        val previous = gl.getInteger(GlConst.RENDERBUFFER_BINDING)
+        gl.bindRenderbuffer(GlConst.RENDERBUFFER, name)
+        gl.renderbufferStorage(GlConst.RENDERBUFFER, caps.depthFormat, width, height)
+        gl.bindRenderbuffer(GlConst.RENDERBUFFER, previous)
+        return name
     }
 
     override fun delete(resource: DeviceResource) {
@@ -548,6 +587,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
             is GlDeviceTarget -> if (resource.owned) {
                 gl.deleteFramebuffer(resource.framebuffer)
                 gl.deleteTexture(resource.texture.name)
+                if (resource.depthBuffer != 0) gl.deleteRenderbuffer(resource.depthBuffer)
             }
             is GlDeviceTexture -> if (resource.owned) gl.deleteTexture(resource.name)
         }
@@ -620,18 +660,31 @@ class GlDeviceTexture internal constructor(
     }
 }
 
-/** An OpenGL framebuffer with a colour texture, as the device draws into it. */
+/**
+ * An OpenGL framebuffer with a colour texture, as the device draws into it, and a depth
+ * renderbuffer beside it where one was asked for.
+ *
+ * @param depthBuffer the depth renderbuffer's GL name, or 0 for a picture with no depth of ours —
+ *   including an adopted framebuffer, whose depth is the game's own to make and give back.
+ */
 class GlDeviceTarget internal constructor(
     val framebuffer: Int,
     override val texture: GlDeviceTexture,
     internal val owned: Boolean,
+    val depthBuffer: Int = 0,
+    override val depth: Boolean = depthBuffer != 0,
 ) : DeviceTarget {
     override val width: Int get() = texture.width
     override val height: Int get() = texture.height
 
     companion object {
-        /** A game's own framebuffer, drawn into and never deleted. */
-        fun adopt(framebuffer: Int, texture: Int, width: Int, height: Int): GlDeviceTarget =
-            GlDeviceTarget(framebuffer, GlDeviceTexture.adopt(texture, width, height), owned = false)
+        /**
+         * A game's own framebuffer, drawn into and never deleted.
+         *
+         * @param depth whether it already carries a depth attachment. Says so and the toolkit
+         *   clears it with the colour; leave it false and the game's depth is left alone.
+         */
+        fun adopt(framebuffer: Int, texture: Int, width: Int, height: Int, depth: Boolean = false): GlDeviceTarget =
+            GlDeviceTarget(framebuffer, GlDeviceTexture.adopt(texture, width, height), owned = false, depth = depth)
     }
 }
