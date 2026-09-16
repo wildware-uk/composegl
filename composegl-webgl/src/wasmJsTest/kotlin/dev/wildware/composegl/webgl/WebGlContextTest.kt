@@ -10,6 +10,7 @@ import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextStyle
 import kotlinx.coroutines.await
 import kotlinx.coroutines.test.runTest
+import org.khronos.webgl.WebGLFramebuffer
 import org.khronos.webgl.WebGLRenderingContext as GL
 import org.w3c.dom.HTMLCanvasElement
 import kotlin.js.Promise
@@ -101,7 +102,45 @@ class WebGlContextTest {
             element.remove()
         }
     }
+
+    @Test
+    fun `a render target asked for depth has a depth buffer attached and cleared without an error`() = runTest(timeout = 2.minutes) {
+        val element = pageCanvas(16, 16)
+        val backend = WebGlBackend(element, testFonts(), preserveDrawingBuffer = true)
+        val plain = WebGlRenderTarget(backend.gl, 8, 8)
+        val deep = WebGlRenderTarget(backend.gl, 8, 8, depth = true)
+        try {
+            assertEquals(NoAttachment, depthAttachment(backend.gl, plain.framebufferName), "none was asked for")
+            assertEquals(Renderbuffer, depthAttachment(backend.gl, deep.framebufferName), "a renderbuffer as the depth")
+
+            deep.resize(12, 12)
+            assertEquals(Renderbuffer, depthAttachment(backend.gl, deep.framebufferName), "and again after a resize")
+
+            deep.draw(backend.canvas, Colour.Black) { }
+            assertEquals(GL.NO_ERROR, backend.gl.getError(), "clearing colour and depth together is legal WebGL")
+        } finally {
+            plain.close()
+            deep.close()
+            backend.close()
+            element.remove()
+        }
+    }
+
+    private companion object {
+        const val NoAttachment = 0
+        const val Renderbuffer = 0x8D41
+    }
 }
+
+/** What is attached as [framebuffer]'s depth: `RENDERBUFFER`, `TEXTURE`, or 0 for nothing. */
+private fun depthAttachment(gl: GL, framebuffer: WebGLFramebuffer): Int = js(
+    """(() => {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        const type = gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        return type || 0;
+    })()""",
+)
 
 /** Which WebGL the Karma run was started for: 2 normally, 1 for `wasmJsBrowserWebGl1Test`. */
 private fun askedForWebGl(): Int = js("(() => { const k = window.__karma__ || (window.parent && window.parent.__karma__); return (k && k.config && k.config.composeglWebGl) || 2; })()")

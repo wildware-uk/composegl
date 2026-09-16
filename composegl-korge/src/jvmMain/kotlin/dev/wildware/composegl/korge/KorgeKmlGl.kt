@@ -9,10 +9,12 @@ import dev.wildware.composegl.render.gl.GlShorts
 import korlibs.kgl.KmlGl
 import korlibs.kgl.deleteBuffer
 import korlibs.kgl.deleteFramebuffer
+import korlibs.kgl.deleteRenderbuffer
 import korlibs.kgl.deleteTexture
 import korlibs.kgl.deleteVertexArray
 import korlibs.kgl.genBuffer
 import korlibs.kgl.genFramebuffer
+import korlibs.kgl.genRenderbuffer
 import korlibs.kgl.genTexture
 import korlibs.kgl.genVertexArray
 import korlibs.kgl.getIntegerv
@@ -74,6 +76,8 @@ internal class KorgeKmlGl : Gl {
     override fun viewport(x: Int, y: Int, width: Int, height: Int) = kml.viewport(x, y, width, height)
     override fun scissor(x: Int, y: Int, width: Int, height: Int) = kml.scissor(x, y, width, height)
     override fun clearColor(red: Float, green: Float, blue: Float, alpha: Float) = kml.clearColor(red, green, blue, alpha)
+    override fun clearDepth(depth: Float) = kml.clearDepthf(depth)
+    override fun depthMask(write: Boolean) = kml.depthMask(write)
     override fun clear(mask: Int) = kml.clear(mask)
     override fun getInteger(name: Int): Int = kml.getIntegerv(name)
     override fun getIntegers(name: Int, into: IntArray) {
@@ -139,6 +143,13 @@ internal class KorgeKmlGl : Gl {
     override fun framebufferTexture2D(target: Int, attachment: Int, textureTarget: Int, texture: Int, level: Int) =
         kml.framebufferTexture2D(target, attachment, textureTarget, texture, level)
     override fun checkFramebufferStatus(target: Int): Int = kml.checkFramebufferStatus(target)
+    override fun createRenderbuffer(): Int = kml.genRenderbuffer()
+    override fun bindRenderbuffer(target: Int, renderbuffer: Int) = kml.bindRenderbuffer(target, renderbuffer)
+    override fun deleteRenderbuffer(renderbuffer: Int) = later { it.deleteRenderbuffer(renderbuffer) }
+    override fun renderbufferStorage(target: Int, format: Int, width: Int, height: Int) =
+        kml.renderbufferStorage(target, format, width, height)
+    override fun framebufferRenderbuffer(target: Int, attachment: Int, renderbufferTarget: Int, renderbuffer: Int) =
+        kml.framebufferRenderbuffer(target, attachment, renderbufferTarget, renderbuffer)
     override fun readPixels(x: Int, y: Int, width: Int, height: Int, format: Int, type: Int, into: GlBytes) =
         kml.readPixels(x, y, width, height, format, type, (into as Bytes).buffer)
 

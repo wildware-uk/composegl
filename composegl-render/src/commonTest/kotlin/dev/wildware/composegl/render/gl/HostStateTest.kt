@@ -59,6 +59,23 @@ class HostStateTest {
     }
 
     @Test
+    fun `an engine that had depth writing off gets it back off after a depth clear`() {
+        val gl = engine()
+        gl.integers[GlConst.DEPTH_WRITEMASK] = 0
+        val device = GlDevice(gl, HostState.Restore)
+        val target = device.offscreen(8, 8, depth = true)
+        device.begin(target)
+        device.target(target, 0, 0, 8, 8)
+        device.clear(0f, 0f, 0f, 0f)
+        val from = gl.calls.size
+        device.end()
+        val end = gl.calls.subList(from, gl.calls.size)
+
+        assertTrue("depthMask(true)" in gl.calls.subList(0, from), "the clear needed it on")
+        assertEquals(listOf("depthMask(false)"), end.filter { it.startsWith("depthMask") }, "and the engine's own comes back")
+    }
+
+    @Test
     fun `the vertex array goes back before the element buffer that belongs to it`() {
         val gl = engine()
         val device = GlDevice(gl, HostState.Restore)

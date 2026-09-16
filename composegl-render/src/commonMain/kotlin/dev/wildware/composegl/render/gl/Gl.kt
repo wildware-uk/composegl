@@ -32,6 +32,12 @@ interface Gl {
     fun viewport(x: Int, y: Int, width: Int, height: Int)
     fun scissor(x: Int, y: Int, width: Int, height: Int)
     fun clearColor(red: Float, green: Float, blue: Float, alpha: Float)
+
+    /** What a depth clear writes. 1.0 is the far plane, and what OpenGL itself starts at. */
+    fun clearDepth(depth: Float)
+
+    /** Whether depth is written at all. A clear of the depth buffer does nothing while it is off. */
+    fun depthMask(write: Boolean)
     fun clear(mask: Int)
     fun getInteger(name: Int): Int
 
@@ -106,6 +112,13 @@ interface Gl {
     fun deleteFramebuffer(framebuffer: Int)
     fun framebufferTexture2D(target: Int, attachment: Int, textureTarget: Int, texture: Int, level: Int)
     fun checkFramebufferStatus(target: Int): Int
+
+    // Renderbuffers, for the depth attachment on an offscreen picture a 3D scene is drawn into.
+    fun createRenderbuffer(): Int
+    fun bindRenderbuffer(target: Int, renderbuffer: Int)
+    fun deleteRenderbuffer(renderbuffer: Int)
+    fun renderbufferStorage(target: Int, format: Int, width: Int, height: Int)
+    fun framebufferRenderbuffer(target: Int, attachment: Int, renderbufferTarget: Int, renderbuffer: Int)
 
     @Suppress("LongParameterList")
     fun readPixels(x: Int, y: Int, width: Int, height: Int, format: Int, type: Int, into: GlBytes)

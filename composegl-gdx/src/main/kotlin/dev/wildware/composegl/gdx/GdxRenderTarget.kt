@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.glutils.FrameBuffer
 import com.badlogic.gdx.utils.Disposable
+import dev.wildware.composegl.render.gl.GlConst
 import dev.wildware.composegl.render.gl.GlDeviceTarget
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
@@ -26,16 +27,36 @@ import dev.wildware.composegl.ui.layout.Viewport
  * if (panel.needsRedraw(now)) target.draw(canvas) { panel.draw(canvas) }
  * scene.drawQuad(target.texture)
  * ```
+ *
+ * @param depth give it a depth buffer, for a game drawing its own 3D scene into it — a model in an
+ *   inventory slot, a level editor's view. LibGDX makes and frees it with the framebuffer, and the
+ *   toolkit clears it with the colour. Without one a scene comes out inside-out.
  */
-class GdxRenderTarget(width: Int, height: Int) : Disposable {
+class GdxRenderTarget(width: Int, height: Int, val depth: Boolean = false) : Disposable {
 
-    var width: Int = width
+    /** The biggest texture this GPU makes, asked once. */
+    private val most: Int by lazy { GdxGl.getInteger(GlConst.MAX_TEXTURE_SIZE).coerceAtLeast(1) }
+
+    /** How wide the picture really is: what was asked for, or the most this GPU makes. */
+    var width: Int = 0
         private set
 
-    var height: Int = height
+    var height: Int = 0
         private set
 
-    private var buffer: FrameBuffer = make(width, height)
+    /**
+     * Whether the last size asked for was bigger than this GPU's biggest texture, and so was cut
+     * down to it rather than failing in the middle of a frame.
+     */
+    var clamped: Boolean = false
+        private set
+
+    private var buffer: FrameBuffer
+
+    init {
+        fit(width, height)
+        buffer = make(this.width, this.height, depth)
+    }
 
     /** The colour texture's GL name, for a game with a renderer of its own. */
     val textureName: Int get() = buffer.colorBufferTexture.textureObjectHandle
@@ -49,17 +70,25 @@ class GdxRenderTarget(width: Int, height: Int) : Disposable {
      *
      * The old framebuffer is disposed here rather than left to a collector: a panel that follows a
      * window's size would otherwise leak one per resize, which is invisible until a machine runs
-     * out of memory.
+     * out of memory. A size bigger than this GPU's biggest texture is cut down to it, and [clamped]
+     * says so; one that cuts down to the size it already has costs nothing.
      */
     fun resize(width: Int, height: Int) {
-        require(width > 0 && height > 0) { "a render target is at least one pixel each way" }
-        if (width == this.width && height == this.height) return
+        val before = this.width to this.height
+        fit(width, height)
+        if (this.width to this.height == before) return
 
         buffer.dispose()
-        this.width = width
-        this.height = height
-        buffer = make(width, height)
+        buffer = make(this.width, this.height, depth)
         texture = wrap(buffer)
+    }
+
+    /** Sets [width], [height] and [clamped] for a size asked for. */
+    private fun fit(width: Int, height: Int) {
+        require(width > 0 && height > 0) { "a render target is at least one pixel each way" }
+        this.width = width.coerceAtMost(most)
+        this.height = height.coerceAtMost(most)
+        clamped = width > this.width || height > this.height
     }
 
     /**
@@ -73,7 +102,7 @@ class GdxRenderTarget(width: Int, height: Int) : Disposable {
     fun <T> draw(canvas: GdxCanvas, clear: Colour = Transparent, block: () -> T): T {
         canvas.begin(
             Viewport.oneToOne(Size(width.toFloat(), height.toFloat())),
-            GlDeviceTarget.adopt(buffer.framebufferHandle, textureName, width, height),
+            GlDeviceTarget.adopt(buffer.framebufferHandle, textureName, width, height, depth),
             clear,
         )
         return try {
@@ -101,9 +130,9 @@ class GdxRenderTarget(width: Int, height: Int) : Disposable {
     private companion object {
         val Transparent = Colour(0)
 
-        fun make(width: Int, height: Int): FrameBuffer {
+        fun make(width: Int, height: Int, depth: Boolean): FrameBuffer {
             require(width > 0 && height > 0) { "a render target is at least one pixel each way" }
-            return FrameBuffer(Pixmap.Format.RGBA8888, width, height, false)
+            return FrameBuffer(Pixmap.Format.RGBA8888, width, height, depth)
         }
 
         /**

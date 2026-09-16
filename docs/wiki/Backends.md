@@ -269,13 +269,13 @@ an iPhone: `UiKitSoftKeyboard`, `UiKitTextInput` and `UiKitHaptics`.
 ## Writing your own
 
 **The library draws; a backend is a thin wrapper.** `composegl-render` holds the one
-renderer: the canvas, the batch, the shape shader, layers, render targets, shader
+renderer: the canvas, the batch, the shape shader, layers, [[render targets|Render-targets]], shader
 effects, the glyph atlas, fallback fonts, emoji and draw-call tracing. On OpenGL a
 backend supplies four small things and nothing that draws:
 
 | piece | what it is | lwjgl3's | webgl's |
 |---|---|---|---|
-| a `Gl` binding | about seventy calls, each a one-liner onto your GL (`glDrawElements`, `glUniform4f`, …) | `LwjglGl.kt` | `WebGl.kt` |
+| a `Gl` binding | about seventy-five calls, each a one-liner onto your GL (`glDrawElements`, `glUniform4f`, `glRenderbufferStorage`, …) | `LwjglGl.kt` | `WebGl.kt` |
 | a `GlyphRasteriser` | one font at one size, one glyph at a time: metrics, advance, a coverage or colour bitmap | `StbRasteriser` in `StbFonts.kt` | `CanvasRasteriser` in `WebFonts.kt` |
 | a `TextureResolver` | your texture type as a GL name and texture coordinates | `GlTexture.Resolver` | `WebGlTexture.Resolver` |
 | the engine handoff | what `raw { }` hands a game, and `HostState.Leave` or `Restore` | `GlCanvas` | `WebGlCanvas` |

@@ -55,6 +55,8 @@ class WebGl(val context: GL) : Gl {
     override fun viewport(x: Int, y: Int, width: Int, height: Int) = context.viewport(x, y, width, height)
     override fun scissor(x: Int, y: Int, width: Int, height: Int) = context.scissor(x, y, width, height)
     override fun clearColor(red: Float, green: Float, blue: Float, alpha: Float) = context.clearColor(red, green, blue, alpha)
+    override fun clearDepth(depth: Float) = context.clearDepth(depth)
+    override fun depthMask(write: Boolean) = context.depthMask(write)
     override fun clear(mask: Int) = context.clear(mask)
     override fun getInteger(name: Int): Int = getInteger(c, name)
     override fun getIntegers(name: Int, into: IntArray) {
@@ -135,6 +137,13 @@ class WebGl(val context: GL) : Gl {
     override fun framebufferTexture2D(target: Int, attachment: Int, textureTarget: Int, texture: Int, level: Int) =
         framebufferTexture2D(c, target, attachment, textureTarget, texture, level)
     override fun checkFramebufferStatus(target: Int): Int = context.checkFramebufferStatus(target)
+    override fun createRenderbuffer(): Int = createRenderbuffer(c)
+    override fun bindRenderbuffer(target: Int, renderbuffer: Int) = bindRenderbuffer(c, target, renderbuffer)
+    override fun deleteRenderbuffer(renderbuffer: Int) = deleteRenderbuffer(c, renderbuffer)
+    override fun renderbufferStorage(target: Int, format: Int, width: Int, height: Int) =
+        context.renderbufferStorage(target, format, width, height)
+    override fun framebufferRenderbuffer(target: Int, attachment: Int, renderbufferTarget: Int, renderbuffer: Int) =
+        framebufferRenderbuffer(c, target, attachment, renderbufferTarget, renderbuffer)
     @OptIn(UnsafeWasmMemoryApi::class)
     override fun readPixels(x: Int, y: Int, width: Int, height: Int, format: Int, type: Int, into: GlBytes) = withScopedMemoryAllocator { allocator ->
         val bytes = width * height * 4
@@ -265,3 +274,9 @@ private fun deleteFramebuffer(c: JsAny, id: Int): Unit = js("{ c.gl.deleteFrameb
 @Suppress("LongParameterList")
 private fun framebufferTexture2D(c: JsAny, target: Int, attachment: Int, textureTarget: Int, texture: Int, level: Int): Unit =
     js("{ c.gl.framebufferTexture2D(target, attachment, textureTarget, c.t[texture] || null, level); }")
+
+private fun createRenderbuffer(c: JsAny): Int = js("(() => { const o = c.gl.createRenderbuffer(); return o == null ? 0 : (o.__composegl = c.t.push(o) - 1); })()")
+private fun bindRenderbuffer(c: JsAny, target: Int, id: Int): Unit = js("{ c.gl.bindRenderbuffer(target, c.t[id] || null); }")
+private fun deleteRenderbuffer(c: JsAny, id: Int): Unit = js("{ c.gl.deleteRenderbuffer(c.t[id] || null); if (id) c.t[id] = null; }")
+private fun framebufferRenderbuffer(c: JsAny, target: Int, attachment: Int, renderbufferTarget: Int, id: Int): Unit =
+    js("{ c.gl.framebufferRenderbuffer(target, attachment, renderbufferTarget, c.t[id] || null); }")

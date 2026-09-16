@@ -53,8 +53,15 @@ interface GpuDevice {
     @Suppress("LongParameterList")
     fun write(texture: DeviceTexture, x: Int, y: Int, width: Int, height: Int, source: ByteArray, sourceWidth: Int)
 
-    /** An offscreen picture to draw into, with its colour texture inside. */
-    fun offscreen(width: Int, height: Int): DeviceTarget
+    /**
+     * An offscreen picture to draw into, with its colour texture inside.
+     *
+     * @param depth ask for a depth buffer as well, made and given back with the picture and always
+     *   its size. A 3D scene drawn into a picture without one comes out inside-out, because there
+     *   is nothing to depth-test against. The interface itself never needs it, so it is off by
+     *   default and a layer or an effect costs no more than it did.
+     */
+    fun offscreen(width: Int, height: Int, depth: Boolean = false): DeviceTarget
 
     /** Gives [resource] back to the driver. Adopted resources that belong to a game are left alone. */
     fun delete(resource: DeviceResource)
@@ -67,7 +74,11 @@ interface GpuDevice {
 
     fun noScissor()
 
-    /** Fills the whole current target (the scissor must be off) with a premultiplied colour. */
+    /**
+     * Fills the whole current target (the scissor must be off) with a premultiplied colour. A
+     * target that has a depth buffer has that cleared to the far plane at the same time, so a scene
+     * drawn into it starts from nothing in both.
+     */
     fun clear(red: Float, green: Float, blue: Float, alpha: Float)
 
     /** Vertex storage for [quads] quads of [ShapeVertex.Floats] floats a vertex, owned by the device. */
@@ -121,6 +132,12 @@ interface DeviceTarget : FrameTarget, DeviceResource {
     val width: Int
     val height: Int
     val texture: DeviceTexture
+
+    /**
+     * Whether it has a depth buffer to test and write against. False unless it was asked for: only
+     * a game's own 3D drawing needs one, and it is cleared with the colour when it is there.
+     */
+    val depth: Boolean get() = false
 }
 
 /** Storage for vertices that the device can hand to the GPU without copying it first. */
