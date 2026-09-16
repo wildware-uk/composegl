@@ -230,6 +230,7 @@ internal fun docShots(): List<DocShot> = buildList {
     modifiers()
     animation()
     console()
+    debugWindows()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -3323,4 +3324,276 @@ private fun CraftingGraph() {
             }
         }
     }
+}
+
+// ---------------------------------------------------------------- debug windows
+
+/**
+ * The floating windows, over a game that answers them.
+ *
+ * Every one of these is taken over the same arena: a drone raid with a throw arc, a fog wash and a
+ * shield ring, all of it drawn from the very properties the window's lines are wired to. The
+ * pointer in them is a real one, so the slider in the picture is a slider a hand is really holding
+ * and the arc behind it is the arc that gravity really produces.
+ */
+private fun MutableList<DocShot>.debugWindows() {
+    // A hand on the Gravity slider, still holding it, dragged to the right: the readout says what it
+    // reached and the throw arc behind the window has collapsed to match. Nothing in the arena knows
+    // the window exists — it reads `arena.gravity`, and the window writes it.
+    add(
+        DocShot(
+            "debug-window-tuning",
+            ArenaWidth,
+            ArenaHeight,
+            stock = true,
+            pointer = Offset(430f, 55f),
+            dragTo = Offset(508f, 55f),
+            hold = true,
+        ) {
+            val arena = remember { DocArena() }
+            DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+                ArenaScene(arena)
+                ArenaWindow(arena)
+            }
+        },
+    )
+
+    // Two at once, and the one behind being carried: the pointer took Spawns by its title bar and is
+    // still holding it over Physics, so it is the window in front and the one with the lit title bar.
+    add(
+        DocShot(
+            "debug-window-two",
+            ArenaWidth,
+            ArenaHeight,
+            stock = true,
+            pointer = Offset(380f, 27f),
+            dragTo = Offset(330f, 110f),
+            hold = true,
+        ) {
+            val arena = remember { DocArena() }
+            DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+                ArenaScene(arena)
+                ArenaWindow(arena)
+                SpawnWindow(arena, Offset(20f, 150f))
+            }
+        },
+    )
+
+    // The high-contrast skin, right to left: the windows are measured from the top-right corner and
+    // their title bars read from the right. Spawns has had its triangle clicked, so it is folded to
+    // its title bar and the triangle points left, the way a folded thing points in this direction.
+    add(
+        DocShot(
+            "debug-window-rtl",
+            ArenaWidth,
+            ArenaHeight,
+            pointer = Offset(272f, 247f),
+            click = true,
+        ) {
+            val arena = remember { DocArena() }
+            ProvideSkin(Skin.HighContrast) {
+                ProvideLayoutDirection(LayoutDirection.Rtl) {
+                    DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+                        // The world itself is not mirrored — a game's scene is drawn where its own
+                        // code puts it. It is the interface over it that reads from the right.
+                        ProvideLayoutDirection(LayoutDirection.Ltr) { ArenaScene(arena) }
+                        ArenaWindow(arena, Offset(20f, 16f))
+                        SpawnWindow(arena, Offset(330f, 236f))
+                    }
+                }
+            }
+        },
+    )
+
+    // The same picture with the hand further along the slider each time, for the animated one. Only
+    // when asked for, because they are frames to be joined into a GIF rather than pictures of their
+    // own: `COMPOSEGL_DOC_FRAMES=1`, then join `debug-window-drag-frame-*.png` in order, 1/12 s each.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(DragFrames) { i ->
+            val name = "debug-window-drag-frame-${i.toString().padStart(2, '0')}"
+            // A real drag to a real place, a few pixels further along than the frame before it.
+            val to = Offset(430f + i * (92f / (DragFrames - 1)), 55f)
+            add(
+                DocShot(
+                    name,
+                    ArenaWidth,
+                    ArenaHeight,
+                    stock = true,
+                    pointer = Offset(430f, 55f),
+                    dragTo = to,
+                    hold = true,
+                ) {
+                    val arena = remember { DocArena() }
+                    DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+                        ArenaScene(arena)
+                        ArenaWindow(arena)
+                    }
+                },
+            )
+        }
+    }
+}
+
+/** How wide and tall every debug-window picture is. The arena is drawn to these numbers. */
+private const val ArenaWidth = 620
+private const val ArenaHeight = 340
+
+/** Frames in the animated picture of a slider being dragged. */
+private const val DragFrames = 13
+
+/** Where the ground starts, and where the thrown thing leaves the player's hand. */
+private const val GroundY = 286f
+private const val ThrowX = 86f
+private const val ThrowY = 248f
+
+/** How fast the thrown thing leaves the hand, and what one unit of gravity does to it. */
+private const val ThrowSpeed = 210f
+private const val ThrowLift = 255f
+private const val ThrowScale = 66f
+
+/** How far right the arc is drawn: where the window starts, so no dot is hidden behind one. */
+private const val ArcEdge = 292f
+
+/**
+ * The window the pictures tune: one line per property of [DocArena], which the arena already reads.
+ */
+@Composable
+private fun ArenaWindow(arena: DocArena, at: Offset = Offset(296f, 16f)) {
+    DebugWindow("Physics", initialPosition = at, onClose = {}) {
+        tweak("Gravity", arena::gravity, 3f..24f, step = 0.1f)
+        tweak("Drones", arena::drones, 0..16)
+        toggle("God mode", arena::godMode)
+        choice("Threat", arena::threat, DocThreat.entries)
+        colour("Fog", arena::fog, alpha = false)
+        button("Spawn wave") {}
+        text("Alive", arena.drones.toString())
+    }
+}
+
+/** A second window, for the pictures of two of them. */
+@Composable
+private fun SpawnWindow(arena: DocArena, at: Offset) {
+    DebugWindow("Spawns", initialPosition = at, id = "Spawns", onClose = {}, labelWidth = 74f) {
+        tweak("Every", arena::interval, 0.5f..6f, step = 0.1f)
+        tweak("Drones", arena::drones, 0..16)
+        toggle("Paused", arena::paused)
+    }
+}
+
+/**
+ * The game under the windows: a drone raid over a ridge, with a throw arc, a fog wash and a shield.
+ *
+ * Every number it draws with comes from [arena], so a slider moved in a window over it changes the
+ * picture — the arc bends, drones appear, the wash changes colour — without the scene knowing that
+ * anything but its own properties changed.
+ */
+@Composable
+private fun ArenaScene(arena: DocArena) {
+    Box(Modifier.fillMaxSize().background(Brush.vertical(Colour.rgb(0x151C33), Colour.rgb(0x3B2A46)))) {
+        // The ridge behind everything, three overlapping rounded humps.
+        Box(Modifier.offset(-40f, 162f).size(280f, 220f).background(Colour.rgb(0x1E2742), corner = 100f))
+        Box(Modifier.offset(190f, 186f).size(330f, 220f).background(Colour.rgb(0x18203A), corner = 120f))
+        Box(Modifier.offset(450f, 170f).size(280f, 220f).background(Colour.rgb(0x1E2742), corner = 110f))
+
+        // The ground, and the line along the top of it.
+        Box(
+            Modifier.offset(0f, GroundY).fillMaxWidth().height(ArenaHeight - GroundY)
+                .background(Colour.rgb(0x10141F)),
+        )
+        Box(Modifier.offset(0f, GroundY).fillMaxWidth().height(2f).background(Colour.rgb(0x38455F)))
+
+        Drones(arena)
+        ThrowArc(arena)
+        Player(arena)
+
+        // The fog, over the lot: the colour line in the window is this wash and nothing else.
+        Box(Modifier.fillMaxSize().background(arena.fog.withAlpha(0x2B)))
+
+        // A HUD, so the picture reads as a game rather than a drawing.
+        Column(Modifier.offset(14f, 12f), verticalArrangement = Arrangement.spacedBy(6f)) {
+            Text("WAVE 3", style = "label.heading")
+            Text("${arena.threat.name.uppercase()} · ${arena.drones} DRONES", style = "label.dim")
+            Box(Modifier.size(118f, 8f).background(Colour.rgb(0x222B3C), corner = 4f)) {
+                Box(Modifier.size(82f, 8f).background(Colour.rgb(0x46A758), corner = 4f))
+            }
+        }
+    }
+}
+
+/** The raid itself: [DocArena.drones] of them, in ranks, wearing the colour of the threat chosen. */
+@Composable
+private fun Drones(arena: DocArena) {
+    val colour = arena.threat.colour
+    repeat(arena.drones) { i ->
+        val x = 152f + (i % 4) * 50f
+        val y = 70f + (i / 4) * 40f
+        Box(Modifier.offset(x, y).size(34f, 15f).background(colour, corner = 7f))
+        Box(Modifier.offset(x + 4f, y - 5f).size(9f, 3f).background(colour.scaleAlpha(0.6f), corner = 2f))
+        Box(Modifier.offset(x + 21f, y - 5f).size(9f, 3f).background(colour.scaleAlpha(0.6f), corner = 2f))
+        Box(Modifier.offset(x + 13f, y + 5f).size(7f, 5f).background(Colour.rgb(0x0B0E13), corner = 2f))
+    }
+}
+
+/**
+ * Where a thrown grenade goes, a dot along its flight, for the gravity line to bend.
+ *
+ * The same sum a game's own physics does: it leaves the hand at a fixed speed and the only thing
+ * that changes between one picture and the next is `arena.gravity`.
+ */
+@Composable
+private fun ThrowArc(arena: DocArena) {
+    val steps = 40
+    var landed: Offset? = null
+    repeat(steps + 1) { i ->
+        val t = i / steps.toFloat()
+        val x = ThrowX + ThrowSpeed * t
+        val y = ThrowY - (ThrowLift * t - 0.5f * ThrowScale * arena.gravity * t * t)
+        if (landed == null && x <= ArcEdge && y <= GroundY) {
+            val fade = 0.35f + 0.65f * (1f - t)
+            Box(
+                Modifier.offset(x, y).size(5f, 5f)
+                    .background(Colour.rgb(0xFFD166).scaleAlpha(fade), corner = 3f),
+            )
+            if (y >= GroundY - 6f) landed = Offset(x, y)
+        }
+    }
+    // Where it comes down, when it comes down in front of the window.
+    landed?.let { at ->
+        Box(
+            Modifier.offset(at.x - 11f, GroundY - 11f).size(24f, 24f)
+                .border(Colour.rgb(0xFFD166), width = 2f, corner = 12f),
+        )
+    }
+}
+
+/** Who is throwing it, with the ring god mode puts round them. */
+@Composable
+private fun Player(arena: DocArena) {
+    if (arena.godMode) {
+        Box(
+            Modifier.offset(44f, 224f).size(60f, 60f)
+                .background(Colour.argb(0x2246A758), corner = 30f)
+                .border(Colour.rgb(0x7BE08F), width = 2f, corner = 30f),
+        )
+    }
+    Box(Modifier.offset(62f, 248f).size(24f, 38f).background(Colour.rgb(0x5B8DEF), corner = 5f))
+    Box(Modifier.offset(66f, 232f).size(16f, 16f).background(Colour.rgb(0xE8ECF2), corner = 8f))
+}
+
+/** What the debug-window pictures tune: ordinary properties, the kind a game's own systems have. */
+private class DocArena {
+    var gravity by mutableStateOf(9.8f)
+    var drones by mutableStateOf(8)
+    var godMode by mutableStateOf(true)
+    var threat by mutableStateOf(DocThreat.Raid)
+    var fog by mutableStateOf(Colour.rgb(0x4A7FD4))
+    var interval by mutableStateOf(2.5f)
+    var paused by mutableStateOf(false)
+}
+
+/** How hard the raid is, and what colour that paints it. */
+private enum class DocThreat(val colour: Colour) {
+    Scout(Colour.rgb(0x46A758)),
+    Raid(Colour.rgb(0xE8A33D)),
+    Swarm(Colour.rgb(0xE5484D)),
 }

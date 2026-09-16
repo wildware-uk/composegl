@@ -56,6 +56,11 @@ a budget with no debug module at all.
 Tuning gravity, spawning a wave, turning god mode on. A `DebugWindow` is a floating window
 of controls over the game, and each line of it is one of your own properties:
 
+![a floating Physics window over a game, its gravity slider held part way along, and the throw arc in the scene behind it bent to match](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-tuning.png)
+
+The hand in that picture is really on the slider, and the arc behind the window is really the arc
+the game draws from the number the slider is holding. Nothing in the scene knows the window exists.
+
 ```kotlin
 DebugWindowHost {                       // round the whole game, once, outside everything else
     Game()
@@ -90,7 +95,9 @@ DebugWindowHost {                       // round the whole game, once, outside e
 Each line takes either a property — `physics::gravity` — or a value and what to do with a
 new one, `tweak("Gravity", gravity, { gravity = it }, 0f..50f)`, which is what a local `var`
 needs, since Kotlin cannot take a reference to one. A property backed by `mutableStateOf`
-shows a change made anywhere in the game the moment it happens.
+shows a change made anywhere in the game the moment it happens — and so does the game:
+
+![the gravity slider being dragged from one end to the other, the throw arc in the game behind it flattening and steepening as it goes](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-drag.gif)
 
 The controls are the toolkit's own, so the keyboard and a pad work them as they do on any
 screen, and the skin draws them. The labels sit in a column `labelWidth` wide, so the
@@ -110,6 +117,8 @@ controls line up.
 | F6, or the pad's right stick click | focus moves to the next window, then back to the game |
 | the pad's right stick, with focus inside | the window moves, and stops as soon as focus leaves it |
 | both sticks clicked together | every window is put away, as F9 does |
+
+![two debug windows over the same game, the Physics one caught mid-drag by its title bar and now drawn in front of the Spawns one](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-two.png)
 
 Every key and button there is an argument of `DebugWindowHost` — `hideShortcut`,
 `hideChord`, `cycleShortcut`, `cycleButton` — and all of them are shortcuts, so a field
@@ -158,6 +167,11 @@ and `"debugwindow.active"` for the frame, `"debugwindow.title"` and
 `"debugwindow.label"`, `"debugwindow.value"` and `"debugwindow.grip"`. The default and
 high-contrast skins name all of them, and a colour line wears the picker's own
 `"colourswatch"` and `"colourpicker"`.
+
+![the same two windows in the high-contrast skin, reading from the right, one of them folded to its title bar with its triangle pointing left](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window-rtl.png)
+
+That is the high-contrast skin, right to left, with the second window folded by a click on its
+triangle. The game under it is drawn where its own code puts it: it is the interface that mirrors.
 
 The showcase demo has one over its scene: `Fight`, in the Debug menu.
 
