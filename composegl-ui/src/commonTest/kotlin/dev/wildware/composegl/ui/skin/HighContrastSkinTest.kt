@@ -59,6 +59,7 @@ class HighContrastSkinTest {
         "table.row" to "table", "table.row.alt" to "table", "table.row.selected" to "table", "table.empty" to "table",
         "tree.row" to null, "tree.row.selected" to null,
         "hotbar.prompt" to "hotbar.slot", "hotbar.charges" to "hotbar.slot",
+        "wheel.label" to "wheel.hub",
         "damage" to null, "damage.critical" to null,
         "console.title" to "console", "console.prompt" to "console",
         "console.line" to "console", "console.line.debug" to "console", "console.line.info" to "console",

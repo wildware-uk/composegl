@@ -26,6 +26,7 @@ enum class Exhibit(val title: String, val blurb: String) {
     Starmap("Star map", "A plane to drag and zoom"),
     Nodes("UI tree", "The live interface, and what keeps changing"),
     Telemetry("Live plots", "Heat and frame time as graphs"),
+    Wheel("Weapon wheel", "Hold Q or LB and flick a stick"),
 }
 
 /** How often the fight fires, as a debug window offers it. */
@@ -89,6 +90,12 @@ class ShowcaseState {
 
     /** The colour the reticle is tinted, chosen with the colour picker in the hull panel. */
     var reticleTint by mutableStateOf(Colour.White)
+
+    /** Whether the weapon wheel is up, which here means "the key or the bumper is held". */
+    var wheelOpen by mutableStateOf(false)
+
+    /** What the wheel last equipped. Shown under the hull readout. */
+    var weapon by mutableStateOf("PULSE")
 
     /** How far the camera has turned, for the radar's compass. */
     var heading by mutableFloatStateOf(0f)

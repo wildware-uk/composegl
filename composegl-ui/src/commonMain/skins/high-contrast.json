@@ -309,6 +309,19 @@
     "cooldown.flash": { "background": { "fill": "#70FFFFFF" } },
     "cooldown.seconds": { "textColour": "#FFFFFF", "text": { "size": 18 } },
 
+    // The weapon wheel. Black slices with the yellow this skin uses everywhere else for "this one":
+    // the whole point here is that the slice being pointed at is unmistakable, whatever art a game
+    // draws on top of it.
+
+    "wheel.backdrop": { "background": { "fill": "#D9000000" } },
+    "wheel.slice": { "background": { "fill": "#F2000000" } },
+    "wheel.slice.selected": { "background": { "fill": "#F2333333" } },
+    "wheel.slice.highlighted": { "background": { "fill": "#FFFFD600" } },
+    "wheel.ring": { "background": { "fill": "#F2000000" } },
+    "wheel.ring.highlighted": { "background": { "fill": "#FFFFE866" } },
+    "wheel.hub": { "background": { "fill": "#FF000000" } },
+    "wheel.label": { "textColour": "#FFFFFF", "text": { "size": 18 } },
+
     // The crosshair. Off-white rather than white, because a pure white crosshair disappears over
     // a bright sky; the hostile colour is the one thing on screen allowed to be that red.
 

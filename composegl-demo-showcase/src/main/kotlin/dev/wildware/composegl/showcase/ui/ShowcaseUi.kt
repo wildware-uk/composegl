@@ -2,6 +2,7 @@ package dev.wildware.composegl.showcase.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +18,8 @@ import dev.wildware.composegl.showcase.Pace
 import dev.wildware.composegl.showcase.ShowcaseState
 import dev.wildware.composegl.showcase.TargetReadout
 import dev.wildware.composegl.ui.animation.Easings
+import dev.wildware.composegl.ui.animation.Clock
+import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.animateFloatAsState
 import dev.wildware.composegl.ui.debug.FrameBudget
@@ -40,6 +43,7 @@ import dev.wildware.composegl.game.HotbarSlot
 import dev.wildware.composegl.game.HotbarState
 import dev.wildware.composegl.game.MinimapFrame
 import dev.wildware.composegl.game.ParticleLayer
+import dev.wildware.composegl.game.RadialMenu
 import dev.wildware.composegl.game.MinimapMarker
 import dev.wildware.composegl.game.Reticle
 import dev.wildware.composegl.game.OffScreen
@@ -66,6 +70,8 @@ import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.onKeyEvent
 import dev.wildware.composegl.ui.modifier.onPlaced
+import dev.wildware.composegl.ui.modifier.onShortcutGamepad
+import dev.wildware.composegl.ui.modifier.onShortcutKey
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.tint
@@ -76,7 +82,11 @@ import dev.wildware.composegl.ui.skin.Skin
 import dev.wildware.composegl.ui.skin.styled
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.input.GamepadButton
+import dev.wildware.composegl.ui.input.GamepadEvent
+import dev.wildware.composegl.ui.input.GamepadHandler
 import dev.wildware.composegl.ui.input.Key
+import dev.wildware.composegl.ui.input.KeyEventType
+import dev.wildware.composegl.ui.input.KeyHandler
 import dev.wildware.composegl.ui.input.KeyShortcut
 import dev.wildware.composegl.ui.input.Modifiers
 import dev.wildware.composegl.ui.input.plus
@@ -160,6 +170,10 @@ fun ShowcaseUi(
                     }
 
                     ExhibitPanel(state)
+
+                    // Over the HUD and under the menus, because a wheel covers the fight but not
+                    // the things that are not part of it.
+                    if (state.isOn(Exhibit.Wheel)) WeaponWheel(state)
 
                     // Behind the game's own switch, which is the only place that decision belongs.
                     if (budget.isOn) {
@@ -637,6 +651,77 @@ private fun Abilities(state: ShowcaseState, hotbar: HotbarState) {
         slotSize = 56f,
     )
 }
+
+/**
+ * The weapon wheel: hold Q or the pad's left bumper, flick the stick or point the mouse, let go.
+ *
+ * Nothing has to be reached. The wheel takes the direction, not the distance, so the fastest way to
+ * equip the launcher is to slam the stick south-west and let the bumper go — which is the whole
+ * reason weapon wheels exist and the reason they are worth a widget rather than four buttons.
+ *
+ * The rifle has ammunition types under it, so pointing at it opens a second ring, and pushing the
+ * stick all the way out chooses out of that one instead.
+ *
+ * The world stops while it is up, which is the hook the wheel offers: the interface is on its own
+ * clock, so the wheel still animates while nothing in the fight moves.
+ */
+@Composable
+private fun WeaponWheel(state: ShowcaseState) {
+    val clocks = LocalClocks.current
+
+    val held = remember(state) {
+        KeyHandler { event ->
+            if (event.key != Key.Q) {
+                false
+            } else {
+                state.wheelOpen = event.type == KeyEventType.Down
+                true
+            }
+        }
+    }
+
+    val bumper = remember(state) {
+        GamepadHandler { event ->
+            when {
+                event is GamepadEvent.ButtonDown && event.button == GamepadButton.LeftBumper -> {
+                    state.wheelOpen = true
+                    true
+                }
+                event is GamepadEvent.ButtonUp && event.button == GamepadButton.LeftBumper -> {
+                    state.wheelOpen = false
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    // The exhibit can be switched off with the wheel still up, and the key that holds it open is
+    // switched off with it — so the flag is let go of here rather than waiting for a key that can
+    // no longer arrive. The world clock is the wheel's own to hand back, and it does.
+    DisposableEffect(state) { onDispose { state.wheelOpen = false } }
+
+    // The key and the bumper are heard wherever focus is, because a player holding the wheel open
+    // is not first clicking on it.
+    Box(Modifier.fillMaxSize().onShortcutKey(held).onShortcutGamepad(bumper)) {
+        RadialMenu(
+            open = state.wheelOpen,
+            items = Guns,
+            selected = state.weapon,
+            onSelect = { state.weapon = it },
+            onOpenChange = { clocks.setRunning(Clock.World, !it) },
+            children = { if (it == "RIFLE") Rounds else emptyList() },
+            centre = { Text(it ?: "HOLD Q", style = "wheel.label") },
+        ) { gun, highlighted ->
+            Text(gun, style = if (highlighted) "wheel.label" else "label")
+        }
+    }
+}
+
+/** Four guns and two kinds of round for one of them, which is enough to show a nested ring. */
+private val Guns = listOf("PULSE", "RIFLE", "LANCE", "MINES")
+
+private val Rounds = listOf("AP", "HE")
 
 /** What an ability does here: start its cooldown and cost something. */
 private fun use(cooldown: Cooldown, state: ShowcaseState) {
