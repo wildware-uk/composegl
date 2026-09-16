@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.GamepadEvent
 import dev.wildware.composegl.ui.input.Key
@@ -15,13 +16,16 @@ import dev.wildware.composegl.ui.input.KeyEventType
 enum class Section(val title: String, val blurb: String, val tag: String) {
     Home("Home", "What ComposeGL is", "home"),
     Widgets("Widgets", "Buttons, fields, lists, dialogs, rebinding", "widgets"),
+    Tools("Tools and data", "Menus, trees, tables, splitters, colour", "tools"),
     Layout("Layout", "Rows, grids, flow, ratios, baselines", "layout"),
     Animation("Animation", "Springs, crossfades, shake, sprites", "animation"),
-    Game("Game widgets", "Health bars, cooldowns, hotbar, dialogue", "game"),
+    Game("Game widgets", "Health bars, cooldowns, hotbar, damage numbers", "game"),
+    Hud("HUD", "Compass, markers, weapon wheel, subtitles, dialogue", "hud"),
+    Gear("Inventory and quests", "Bag, item cards, skill tree, objectives, chat", "gear"),
     Effects("Effects", "Gradients, clips, blend, 3D, shaders", "effects"),
     Text("Text", "Styled runs, selection, fallback, right to left", "text"),
     Settings("Accessibility", "Skins, high contrast and text size", "settings"),
-    Debug("Debug tools", "Overlays, inspector and the frame budget", "debug"),
+    Debug("Debug tools", "Overlays, windows, console, plots, node tree", "debug"),
 }
 
 /** The three looks the settings page switches between. The first is the showcase's own. */
@@ -67,6 +71,25 @@ class ShowcaseState {
     /** The dialog the widgets page opens; at the top of the screen, over everything. */
     var dialogOpen by mutableStateOf(false)
 
+    /** The debug page's floating window of tweaks, drawn over every page. */
+    var tuningOpen by mutableStateOf(false)
+
+    /** The debug page's window holding the interface's own node tree. */
+    var nodesOpen by mutableStateOf(false)
+
+    /**
+     * A weapon's heat, 0 to 1. One number several pages share, the way a game's state is shared: the
+     * tuning window tweaks it, the console sets it, the debug page plots it and the HUD page's
+     * reticle spreads with it.
+     */
+    var heat by mutableFloatStateOf(0.3f)
+
+    /** What the HUD page's weapon wheel equipped. The tuning window offers the same choice. */
+    var weapon by mutableStateOf(Weapons.first())
+
+    /** The colour the HUD page's world markers are drawn in, picked on the tools page or in the tuning window. */
+    var tint by mutableStateOf(Colour.rgb(0x4CC2FF))
+
     /** Bumped on every page change, so a page's scroll starts at the top. */
     var visits by mutableIntStateOf(0)
         private set
@@ -107,5 +130,8 @@ class ShowcaseState {
     companion object {
         const val CompactBelow = 820f
         val TextScales = listOf(1f, 1.25f, 1.5f)
+
+        /** The guns on the weapon wheel. */
+        val Weapons = listOf("PULSE", "RIFLE", "LANCE", "MINES")
     }
 }

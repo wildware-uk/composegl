@@ -1,7 +1,13 @@
 package dev.wildware.composegl.demo.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.staticCompositionLocalOf
+import dev.wildware.composegl.debug.DebugWindowsState
+import dev.wildware.composegl.debug.DevConsoleState
+import dev.wildware.composegl.debug.MemoryDebugWindowStore
+import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
@@ -19,6 +25,15 @@ val LocalCardWidth = staticCompositionLocalOf { 380f }
 
 /** The showcase's frame, for a page that wants to change page or open the dialog. */
 val LocalShowcase = staticCompositionLocalOf { ShowcaseState() }
+
+/** The debug windows' state, so the debug page can dock and float them. */
+val LocalWindows = staticCompositionLocalOf { DebugWindowsState(MemoryDebugWindowStore()) }
+
+/** The tour's developer console, so the debug page can open it and run commands through it. */
+val LocalConsole = staticCompositionLocalOf<DevConsoleState?> { null }
+
+/** The node the whole tour is built into, once it has been laid out. For the node tree. */
+val LocalInterfaceRoot = staticCompositionLocalOf<State<UiNode?>> { mutableStateOf(null) }
 
 /** A page: a heading, a line saying what it shows, and its cards wrapping to the width. */
 @Composable
