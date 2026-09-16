@@ -47,7 +47,7 @@ val StyleNames = listOf(
     "button.key", "button.key.on",
     // things that take a value
     "checkbox", "checkbox.tick", "radio", "radio.dot", "toggle", "toggle.on", "toggle.knob",
-    "slider.track", "slider.fill", "slider.knob", "panzoom", "splitter",
+    "slider.track", "slider.fill", "slider.knob", "panzoom", "sceneview", "splitter",
     "colourpicker", "colourpicker.area", "colourpicker.marker", "colourpicker.checker", "colourswatch",
     "stepper", "stepper.arrow", "stepper.value",
     // a game's own furniture

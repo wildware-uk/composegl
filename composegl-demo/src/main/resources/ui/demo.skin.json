@@ -610,6 +610,12 @@
       "focused": { "background": { "fill": "#080B10", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } }
     },
 
+    // A scene view is the game's own picture: nothing over it but a ring while it has focus.
+    "sceneview": {
+      "background": "none",
+      "focused": { "background": { "fill": "#00000000", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
     // The bar between two panes. Quiet until the pointer finds it, so there is something to grab
     // before the cursor says so.
     "splitter": {

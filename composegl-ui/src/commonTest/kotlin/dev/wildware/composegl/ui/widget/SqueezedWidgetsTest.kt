@@ -116,6 +116,19 @@ class SqueezedWidgetsTest {
         squeezed { SceneView(rememberSceneViewState(), modifier = it) { clear(dev.wildware.composegl.ui.graphics.Colour.Black) } }
 
     @Test
+    fun `a focused scene view that takes input survives being measured at nothing`() =
+        squeezed {
+            SceneView(
+                rememberSceneViewState(),
+                modifier = it,
+                onPointer = { true },
+                onKey = { true },
+                onPad = { true },
+                initialFocus = true,
+            ) { clear(dev.wildware.composegl.ui.graphics.Colour.Black) }
+        }
+
+    @Test
     fun `a button survives being measured at nothing`() = squeezed { Button("GO", onClick = {}, modifier = it) }
 
     @Test

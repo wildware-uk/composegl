@@ -224,6 +224,51 @@ class GamepadNavigatorTest {
     }
 
     @Test
+    fun `a node that takes the stick coming back to centre still stops the repeat`() {
+        // A push the navigator heard moves focus onto a node that takes every stick event, a camera
+        // say. The stick coming back is that node's to take, and the navigator must still let go.
+        val heard = mutableListOf<GamepadEvent>()
+        val first = InteractionState().also { states += it }
+        screen.box("0", modifier = Modifier.interaction(first).focusable(first))
+        val camera = InteractionState().also { states += it }
+        screen.box(
+            "1",
+            x = 50f,
+            modifier = Modifier.interaction(camera).focusable(camera)
+                .onGamepadEvent(GamepadHandler { event -> heard += event; event is GamepadEvent.Axis }),
+        )
+        val last = InteractionState().also { states += it }
+        screen.box("2", x = 100f, modifier = Modifier.interaction(last).focusable(last))
+        focus.refresh()
+        pad.frame(0L)
+
+        pad.onGamepad(GamepadEvent.Axis(GamepadId.First, GamepadAxis.LeftX, 1f))
+        assertEquals("1", focused())
+
+        assertTrue(pad.onGamepad(GamepadEvent.Axis(GamepadId.First, GamepadAxis.LeftX, 0f)), "the node took it")
+        assertEquals(listOf<GamepadEvent>(GamepadEvent.Axis(GamepadId.First, GamepadAxis.LeftX, 0f)), heard)
+        assertNull(pad.direction, "the stick is back, whoever took the news")
+
+        pad.frame(10_000L)
+        assertEquals("1", focused(), "focus stays where the push put it")
+    }
+
+    @Test
+    fun `a node that takes a push past the dead zone keeps it from the navigator`() {
+        val state = InteractionState().also { states += it }
+        screen.box("0", modifier = Modifier.interaction(state).focusable(state).onGamepadEvent(GamepadHandler { it is GamepadEvent.Axis }))
+        val other = InteractionState().also { states += it }
+        screen.box("1", x = 50f, modifier = Modifier.interaction(other).focusable(other))
+        focus.refresh()
+
+        stick(x = 1f)
+        pad.frame(10_000L)
+
+        assertEquals("0", focused(), "the push was the node's")
+        assertNull(pad.direction)
+    }
+
+    @Test
     fun `a node that declines leaves the pad to navigate as before`() {
         val declines = GamepadHandler { false }
         val state = InteractionState().also { states += it }

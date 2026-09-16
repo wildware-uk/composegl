@@ -28,6 +28,7 @@ fun WeaponPreview(renderer: MyRenderer) {
 
 `SceneView`, `SceneViewState`, `rememberSceneViewState` and `SceneDrawScope` are in
 `dev.wildware.composegl.ui.widget`. `ScenePass` is in `dev.wildware.composegl.ui.draw`.
+To orbit, drag or pick inside it, see [Input](#input).
 
 ---
 
@@ -96,6 +97,121 @@ the picture. Use one state per `SceneView`.
 Pixel size is the panel's content box (inside its padding) times the viewport's scale,
 times any `Modifier.scale` above it, times `resolutionScale`, rounded up. A GPU's
 biggest texture caps it, and `width` and `height` say what you really got.
+
+---
+
+## Input
+
+A scene view can take the mouse, the keyboard and the pad, so you can orbit a camera,
+drag a gizmo or pick an object.
+
+```kotlin
+@Composable
+fun EditorViewport(renderer: MyRenderer, camera: OrbitCamera) {
+    val scene = rememberSceneViewState()
+    val grab = remember { Grab() }
+
+    SceneView(
+        scene,
+        Modifier.fillMaxSize(),
+        onPointer = { e ->
+            when (e) {
+                is PointerEvent.Press -> {
+                    grab.at = e.position
+                    camera.pick(e.position.x, e.position.y, scene.width, scene.height)
+                    true
+                }
+                is PointerEvent.Move -> if (e.pressed.isEmpty()) false else {
+                    camera.orbit(e.position - grab.at)
+                    grab.at = e.position
+                    scene.invalidate()
+                    true
+                }
+                is PointerEvent.Scroll -> {
+                    camera.zoom(e.delta.y)
+                    scene.invalidate()
+                    true
+                }
+                else -> false
+            }
+        },
+        onKey = { e ->
+            if (e.key == Key.F && e.type == KeyEventType.Down) {
+                camera.frameSelection()
+                scene.invalidate()
+                true
+            } else {
+                false
+            }
+        },
+        onPad = { e ->
+            if (e is GamepadEvent.Axis) {
+                camera.fly(e.axis, e.value)
+                scene.invalidate()
+                true
+            } else {
+                false
+            }
+        },
+    ) {
+        clear(Colour.Black)
+        raw { frame -> renderer.draw(frame as GlFrame, width, height) }
+    }
+}
+```
+
+**Where a position is.** `(0, 0)` is the top-left corner of the picture on screen. A
+position is in the picture's own pixels: the same units as `width` and `height` in the
+draw block. So the far corner is `(scene.width, scene.height)`, and a position goes
+straight into your renderer's picking maths.
+
+That stays true wherever the panel is: in a scrolled column, in a `Splitter` pane,
+under the viewport's design-to-pixel scaling, inside `Modifier.scale`, with padding,
+with a `resolutionScale`, or right to left. You never convert anything yourself.
+
+**The rules.**
+
+| | |
+|---|---|
+| return `true` | you used the event. It goes no further. |
+| return `false` | it carries on to whatever is behind: a click to the card the preview sits on, the wheel to the list it is in, Tab to the next control |
+| a press you take | holds the pointer. Moves keep coming after it leaves the panel, with positions below zero or past the size, until the button comes up. |
+| a press you take | also puts focus on the panel, so the keyboard follows the click |
+
+**Focus.** A scene view with any handler is focusable: Tab and the pad's d-pad stop on
+it, and the skin draws a ring over it while it has focus. `onKey` and `onPad` only hear
+events while it has focus. A still preview with no handlers is not a stop, so a shelf
+of eight previews is not eight Tab presses.
+
+| parameter | what it does |
+|---|---|
+| `onPointer` | pointer events, in the picture's pixels |
+| `onKey` | keys while focused |
+| `onPad` | pad buttons and sticks while focused, before the pad moves focus |
+| `focusable` | on when there is a handler; set it yourself to change that |
+| `initialFocus` | open the screen with focus here |
+| `style` | the skin style drawn over the picture, `"sceneview"` by default. Its `focused` state is the ring. |
+| `interaction` | the panel's hover, press and focus, if you draw your own ring |
+
+Focus often arrives on a press that started somewhere else: Tab, the d-pad, a push of
+the left stick. What ends that press lands on the panel. So that your handler cannot
+swallow it and leave the pad thinking a direction is still held:
+
+- A key or pad button coming **up** reaches your handler only if its going **down** did
+  too.
+- The left stick coming back to rest reaches your handler as usual, and you can take it,
+  but `GamepadNavigator` lets go of the push either way. Without that, a camera that
+  takes every stick event would get focus from a push, and the navigator, never hearing
+  the stick come back, would step focus straight back out and keep stepping. A push
+  *out* that you take is still yours: focus stays.
+
+One thing to handle yourself: if focus leaves while a key or button your handler took is
+still down, its **up** goes wherever focus went, and `onKey` or `onPad` never hears it.
+A camera flying while W is held would keep flying. Stop what a held key started when the
+panel loses focus, by passing your own `interaction` and watching `isFocused`.
+
+The widget still interprets nothing. There is no camera, no gizmo and no picking
+helper: what a drag or a key means is up to you.
 
 ---
 

@@ -566,7 +566,10 @@ Modifier.onGamepadEvent { event ->
 ```
 
 It walks out from the focused node like a key. Take an up only when you took its
-down, or the navigator is left holding a button that never comes up.
+down, or the navigator is left holding a button that never comes up. A left stick
+coming back to rest is the exception: you can take it, but the navigator lets go of a
+push it was holding either way, so a push that moved focus onto a control that takes
+every stick event does not keep stepping focus back out.
 
 A control that holds on to a button or a stick push of its own will not hear it let go
 if the pad is unplugged, so every handler on that walk is also told
@@ -577,6 +580,10 @@ focus moving away: the release goes to wherever focus went, so let go then too.
 `Cancel` is the one people forget. The window lost focus, the platform started a
 system gesture, a finger lifted outside the screen — whatever had the pointer must
 let go **without** firing a click. Handle it and a dragged slider does not stick.
+
+For your own 3D scene in a panel, `SceneView` takes `onPointer`, `onKey` and `onPad`
+itself, with positions already in the picture's pixels and the up-without-a-down rule
+handled for you. See [[Scene view]].
 
 ## Widgets that are not rectangles
 

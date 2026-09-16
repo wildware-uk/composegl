@@ -1,7 +1,15 @@
 package dev.wildware.composegl.lwjgl3
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.input.GamepadAxis
+import dev.wildware.composegl.ui.input.GamepadEvent
+import dev.wildware.composegl.ui.input.Key
+import dev.wildware.composegl.ui.input.KeyEventType
+import dev.wildware.composegl.ui.input.PointerEvent
+import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.host.UiHost
 import dev.wildware.composegl.ui.host.UiRenderer
@@ -46,6 +54,71 @@ private object SceneViewWikiExample {
             renderer.turn(15f)
             scene.invalidate()
         })
+    }
+
+    interface OrbitCamera {
+        fun orbit(by: Offset)
+        fun zoom(by: Float)
+        fun pick(x: Float, y: Float, width: Int, height: Int)
+        fun frameSelection()
+        fun fly(axis: GamepadAxis, value: Float)
+    }
+
+    class Grab {
+        var at = Offset.Zero
+    }
+
+    @Composable
+    fun EditorViewport(renderer: MyRenderer, camera: OrbitCamera) {
+        val scene = rememberSceneViewState()
+        val grab = remember { Grab() }
+
+        SceneView(
+            scene,
+            Modifier.fillMaxSize(),
+            onPointer = { e ->
+                when (e) {
+                    is PointerEvent.Press -> {
+                        grab.at = e.position
+                        camera.pick(e.position.x, e.position.y, scene.width, scene.height)
+                        true
+                    }
+                    is PointerEvent.Move -> if (e.pressed.isEmpty()) false else {
+                        camera.orbit(e.position - grab.at)
+                        grab.at = e.position
+                        scene.invalidate()
+                        true
+                    }
+                    is PointerEvent.Scroll -> {
+                        camera.zoom(e.delta.y)
+                        scene.invalidate()
+                        true
+                    }
+                    else -> false
+                }
+            },
+            onKey = { e ->
+                if (e.key == Key.F && e.type == KeyEventType.Down) {
+                    camera.frameSelection()
+                    scene.invalidate()
+                    true
+                } else {
+                    false
+                }
+            },
+            onPad = { e ->
+                if (e is GamepadEvent.Axis) {
+                    camera.fly(e.axis, e.value)
+                    scene.invalidate()
+                    true
+                } else {
+                    false
+                }
+            },
+        ) {
+            clear(Colour.Black)
+            raw { frame -> renderer.draw(frame as GlFrame, width, height) }
+        }
     }
 
     @Composable
