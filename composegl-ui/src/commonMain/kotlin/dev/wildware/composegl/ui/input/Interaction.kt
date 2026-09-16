@@ -81,6 +81,29 @@ fun interface PointerHandler {
 }
 
 /**
+ * Pointer events for one node that it only ever watches, in that node's own coordinates.
+ *
+ * The difference from [PointerHandler] is everything a watcher **cannot** do: it cannot take an
+ * event, it is never hovered, and it never presses. So a layer that only wants to know where the
+ * mouse is — a card that hangs beside it, a cursor a game draws itself, a heat map — stops standing
+ * in front of the buttons underneath it. A watching layer with a raw handler instead is the topmost
+ * thing the pointer finds, and the slot under it never lights up again.
+ *
+ * Told the same events a handler on the same node would be told, in the same order and the same
+ * coordinates, whether or not something else has already taken them — and told them first, since
+ * the answer is never a watcher's. A press a button underneath swallows, every move while that
+ * button holds the gesture, the release that ends it, and the [PointerEvent.Exit] when the mouse
+ * leaves the window all arrive. A card hanging beside the cursor is therefore still beside it half
+ * way through a drag, and knows to put itself away when there is no cursor left.
+ *
+ * A watcher written inline is a new object every recomposition and so never compares equal —
+ * `remember` it, exactly as with [PointerHandler].
+ */
+fun interface PointerWatcher {
+    fun saw(event: PointerEvent)
+}
+
+/**
  * Keys for one node, while it has focus.
  *
  * Return true to say the key was used, which stops it going any further — not to the node's

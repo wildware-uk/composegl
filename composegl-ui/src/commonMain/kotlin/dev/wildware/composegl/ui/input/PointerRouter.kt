@@ -30,6 +30,11 @@ import dev.wildware.composegl.ui.widget.openContextMenu
  * 3. **A cancel is not a release.** The platform taking a gesture away ends it without firing a
  *    click, which is why [PointerEvent.Cancel] exists as its own thing.
  *
+ * Capture decides who *handles* an event, and nothing else. A node that only watches the pointer —
+ * [dev.wildware.composegl.ui.modifier.watchPointer] — is told everything that happens over it
+ * whatever else is going on, a captured gesture included, because it is not competing for the
+ * event: see [PointerWatcher].
+ *
  * Hover is different from press on purpose. Everything interactive under the pointer is hovered,
  * ancestors included, because a panel that lights up while the pointer is anywhere inside it is a
  * thing people want. Only the node that consumed the press is pressed.
@@ -160,6 +165,8 @@ class PointerRouter(
         root.tree?.watched(event)
         val held = captures[event.pointerId]
         if (held != null) {
+            // Every watching layer the pointer is over hears it too, whoever is holding the gesture.
+            if (watching) watched(candidatesUnder(event.position), event, held.node)
             // A second button on a pointer already holding something belongs to the same gesture.
             // It does not get to move the capture somewhere else half way through.
             held.buttons += event.button
@@ -168,10 +175,13 @@ class PointerRouter(
         }
 
         val candidates = candidatesUnder(event.position)
+        // And every watching layer the pointer is over, whoever ends up taking the press.
+        if (watching) watched(candidates, event)
+
         // The shape is read here as well as on a move, because the press is what the drag will hold
         // it at. A press with no move before it, or after a scroll slid something new under a still
         // mouse, would otherwise drag with whatever shape the last move left.
-        if (event.type.hasCursor) show(iconOf(hoverPathFrom(candidates.firstOrNull(), event.position)))
+        if (event.type.hasCursor) show(iconOf(hoverPathFrom(topmost(candidates), event.position)))
         val menu = if (event.button == PointerButton.Secondary) menuUnder(candidates) else -1
         val taker = if (menu < 0) {
             // Nothing else wanting it, a node with a context menu holds the press itself, since a
@@ -211,6 +221,11 @@ class PointerRouter(
     private fun move(event: PointerEvent.Move): Boolean {
         val capture = captures[event.pointerId]
         if (capture != null) {
+            // The gesture belongs to the captured node, but a watching layer is not competing for
+            // it: a card hanging beside the cursor has to keep up while the player drags an item
+            // across the bag. So the walk happens under a capture too — but only on a tree that
+            // has a watcher on it, since a drag is otherwise the one move that walks nothing.
+            if (watching) watched(candidatesUnder(event.position), event, capture.node)
             pressWhereInside(capture, event.position)
             val used = deliver(capture.node, event)
             // A press that is doing something — a slider's thumb following it, a selection growing,
@@ -228,7 +243,8 @@ class PointerRouter(
         }
 
         val candidates = candidatesUnder(event.position)
-        val path = hoverPathFrom(candidates.firstOrNull(), event.position)
+        if (watching) watched(candidates, event)
+        val path = hoverPathFrom(topmost(candidates), event.position)
         hover(event.pointerId, path)
         if (event.type.hasCursor) show(iconOf(path))
         return candidates.any { deliver(it, event) }
@@ -252,7 +268,14 @@ class PointerRouter(
 
     private fun release(event: PointerEvent.Release): Boolean {
         val capture = captures[event.pointerId]
-            ?: return candidatesUnder(event.position).any { deliver(it, event) }
+        if (capture == null) {
+            val candidates = candidatesUnder(event.position)
+            if (watching) watched(candidates, event)
+            return candidates.any { deliver(it, event) }
+        }
+        // Where the button came up is as much a part of what the pointer did as the move before it,
+        // and the gesture holding the event does not stop anything else being told about it.
+        if (watching) watched(candidatesUnder(event.position), event, capture.node)
 
         capture.buttons -= event.button
         if (capture.buttons.isNotEmpty()) {
@@ -295,7 +318,7 @@ class PointerRouter(
         // that is the node it pressed or something it was already on, since as far as the player
         // is concerned the pointer never left; a drag let go over another button has arrived there.
         // The cursor it held still through the drag is free to be that thing's.
-        val path = hoverPathFrom(candidatesUnder(event.position).firstOrNull(), event.position)
+        val path = hoverPathFrom(topmost(candidatesUnder(event.position)), event.position)
         hover(event.pointerId, path, after = capture)
         if (event.type.hasCursor) show(iconOf(path))
         return true
@@ -303,6 +326,9 @@ class PointerRouter(
 
     private fun cancel(event: PointerEvent.Cancel): Boolean {
         val capture = captures.remove(event.pointerId)
+        // Every watcher, not only the ones the point lands on: a cancel is the gesture being taken
+        // away, and where the pointer happened to be when that happened is neither here nor there.
+        watchedEverywhere(event)
         hover(event.pointerId, emptyList())
         // Nothing is hovered after a cancel, so nothing is asking for a shape.
         if (event.type.hasCursor) show(PointerIcon.Default)
@@ -317,13 +343,27 @@ class PointerRouter(
         return true
     }
 
-    private fun scroll(event: PointerEvent.Scroll): Boolean =
-        candidatesUnder(event.position).any { deliver(it, event) }
+    private fun scroll(event: PointerEvent.Scroll): Boolean {
+        val candidates = candidatesUnder(event.position)
+        if (watching) watched(candidates, event)
+        return candidates.any { deliver(it, event) }
+    }
 
     private fun exit(event: PointerEvent.Exit): Boolean {
         // Hover ends; a drag does not. A mouse leaving the window while a slider is being dragged
         // must keep dragging, and every toolkit that conflates the two has sliders that let go.
         val wasHovering = hovering[event.pointerId]?.isNotEmpty() == true
+        // The one way a watching layer can learn there is no pointer any more. A card that hangs
+        // beside the cursor has nowhere to be once the cursor is off the window, and without this
+        // it sits at the last place the mouse was on the way out.
+        //
+        // Every watcher on the tree, without asking what is under the point — which is the whole
+        // difficulty with an exit. Its position is where the pointer went *out*, so it is on the
+        // node's edge or past it, and hit testing is half-open: an exit at `x == width` is over
+        // nothing at all. A backend that reports the real edge (the browser's `pointerleave`) or a
+        // point in the next screen along (a split screen telling the area the pointer just left)
+        // would otherwise reach nobody, which is the one case this whole feature exists for.
+        watchedEverywhere(event)
         hover(event.pointerId, emptyList())
         // Unless a drag is still going, in which case the shape it started with stays with it.
         if (event.type.hasCursor && event.pointerId !in captures) show(PointerIcon.Default)
@@ -333,7 +373,8 @@ class PointerRouter(
     // --- the machinery ------------------------------------------------------------------------
 
     /**
-     * Every interactive node containing [point], in the order they should be offered it.
+     * Every node the pointer has anything to say to containing [point], in the order they should be
+     * offered it — the interactive ones and the ones only watching.
      *
      * The reverse of the order they are drawn in: children before their parent, last sibling
      * drawn — the highest `zIndex`, then the last written — before the ones under it. So the node
@@ -458,7 +499,7 @@ class PointerRouter(
         // The rectangle said yes; a node with a shape of its own now gets to say no. Turning it
         // down here rather than at the top leaves the children alone and lets the event carry on
         // to whatever is underneath this node.
-        if (inside && resolved.isInteractive &&
+        if (inside && resolved.hearsPointer &&
             ownsPoint(node, innerX, innerY, innerScaleX, innerScaleY, pointX, pointY)
         ) {
             into += node
@@ -509,6 +550,17 @@ class PointerRouter(
             Size(node.width, node.height),
         )
     }
+
+    /**
+     * The first of [candidates] that is actually in front of the others.
+     *
+     * Everything the pointer finds is offered the event, but a node that only *watches* it —
+     * [dev.wildware.composegl.ui.modifier.watchPointer] — is not standing in front of anything, so
+     * hover, the cursor's shape and a hold that opens a menu all look past it to the real node
+     * underneath. Without this a full-screen layer watching the mouse would be the topmost thing
+     * the pointer ever found, and nothing under it would light up again.
+     */
+    private fun topmost(candidates: List<UiNode>): UiNode? = candidates.firstOrNull { it.resolved.isInteractive }
 
     /**
      * What counts as hovered when the pointer is over [node]: the node and its interactive
@@ -570,6 +622,61 @@ class PointerRouter(
         return handlers.any { it.onPointer(local) }
     }
 
+    /**
+     * Whether anything on this tree is watching the pointer at all. One comparison, and false in
+     * nearly every game there will ever be.
+     *
+     * Everything a watcher needs costs a walk over the tree, and two of those walks — the one under
+     * a capture and the one on a release — are walks the router would otherwise not do at all. So
+     * they are asked for only when there is somebody to hear them. The register is kept by
+     * [dev.wildware.composegl.ui.node.UiNode.pointerWatching] as chains change and nodes come and
+     * go, so this is never out of date.
+     */
+    private val watching: Boolean get() = root.tree?.pointerWatchers?.isNotEmpty() == true
+
+    /**
+     * Tells every watcher on the tree, wherever it is and wherever the pointer is.
+     *
+     * For the two events that are *about* the pointer no longer being anywhere: it left the window,
+     * or the platform took the gesture away. Their position is by definition not over the thing
+     * being told — an exit's is on the edge or past it — so hit testing for them finds nobody, and
+     * a card hanging beside a cursor that is gone would sit there for ever.
+     */
+    private fun watchedEverywhere(event: PointerEvent) {
+        val watchers = root.tree?.pointerWatchers ?: return
+        if (watchers.isEmpty()) return
+        // Over a copy: a watcher may take its own layer off the tree as it hears the pointer go.
+        watchers.toList().forEach { watched(it, event) }
+    }
+
+    /**
+     * Tells the watchers on everything the pointer is over, before anything decides what to do
+     * with the event.
+     *
+     * A pass of its own rather than a step inside [deliver], because the two questions have
+     * different answers. Who *handles* an event is one node — whoever captured the gesture, or the
+     * first candidate that wanted it — so a press a button swallows never reaches the layer under
+     * it and a move during a drag reaches nothing else at all. Who *watches* it is everything the
+     * pointer is over, every time: that is the whole point of
+     * [dev.wildware.composegl.ui.modifier.watchPointer], and a card hanging beside the cursor that
+     * went quiet the moment a player held the mouse down would be a card frozen mid-drag.
+     *
+     * [held] is the node holding a captured gesture, if there is one. Told as well when the pointer
+     * has been dragged off it, so a watcher on it hears exactly what a handler on it hears.
+     */
+    private fun watched(candidates: List<UiNode>, event: PointerEvent, held: UiNode? = null) {
+        candidates.forEach { watched(it, event) }
+        if (held != null && candidates.none { it === held }) watched(held, event)
+    }
+
+    /** One node's watchers, in chain order, in its own coordinates, exactly as [deliver] asks. */
+    private fun watched(node: UiNode, event: PointerEvent) {
+        val watchers = node.resolved.pointerWatchers
+        if (watchers.isEmpty()) return
+        val local = event.movedTo(node.toLocal(event.position))
+        watchers.forEach { it.saw(local) }
+    }
+
     /** Whether [node] takes this press: a handler that says so, a `clickable`, or a `draggable`. */
     private fun consumes(node: UiNode, event: PointerEvent.Press): Boolean =
         deliver(node, event) || node.resolved.click != null ||
@@ -594,7 +701,7 @@ class PointerRouter(
      */
     private fun holdOnly(candidates: List<UiNode>, event: PointerEvent.Press): UiNode? {
         if (event.button != PointerButton.Primary) return null
-        return candidates.firstOrNull()?.menuOnHold?.takeIf { it in candidates && it.canOpenContextMenu }
+        return topmost(candidates)?.menuOnHold?.takeIf { it in candidates && it.canOpenContextMenu }
     }
 
     /**
@@ -620,7 +727,11 @@ class PointerRouter(
         if (captures[id] !== capture) return
         captures.remove(id)
         if (capture.inside) capture.node.resolved.interactions.forEach { it.release() }
-        deliver(capture.node, PointerEvent.Cancel(id, capture.lastAt, capture.press.type, capture.press.timeMillis))
+        val cancelled = PointerEvent.Cancel(id, capture.lastAt, capture.press.type, capture.press.timeMillis)
+        // Only this node's watchers: this cancel is not something the pointer did, it is one node
+        // being let go of, and nothing else is being told it either.
+        watched(capture.node, cancelled)
+        deliver(capture.node, cancelled)
         cancelDrag(capture)
     }
 
@@ -730,7 +841,11 @@ class PointerRouter(
     private fun handOff(capture: Capture, to: UiNode, event: PointerEvent.Move) {
         val from = capture.node
         if (capture.inside) from.resolved.interactions.forEach { it.release() }
-        deliver(from, PointerEvent.Cancel(event.pointerId, event.position, event.type, event.timeMillis))
+        val cancelled = PointerEvent.Cancel(event.pointerId, event.position, event.type, event.timeMillis)
+        // This node's own watchers, for the same reason as in [menuOpened]: the gesture moving to
+        // an ancestor is news to the child it left, and to nobody else.
+        watched(from, cancelled)
+        deliver(from, cancelled)
         capture.node = to
         capture.inside = to.claims(event.position)
         if (capture.inside) to.resolved.interactions.forEach { it.press() }

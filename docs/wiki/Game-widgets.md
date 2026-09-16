@@ -4,7 +4,8 @@ The in-play widgets: health bars with a damage trail, a crosshair, hit markers a
 damage direction arcs, a low-health vignette, damage numbers anchored in the world,
 nameplates and waypoints pinned to points in the world, cooldowns, a hotbar, a
 weapon wheel, an inventory grid, a minimap frame, a compass bar, a dialogue box
-with answers and a log, notifications, timed subtitles and particles. These are
+with answers and a log, notifications, timed subtitles, item cards that compare a
+drop against what is equipped, and particles. These are
 the ones that made this toolkit worth building.
 
 ---
@@ -42,8 +43,8 @@ text that takes a [[ring|Widgets#outlined-text]] only when there is one,
 already have every style these use (`bar.*`, `reticle.*`, `hitmarker.*`,
 `damage.*`, `vignette`, `marker.*`, `cooldown.*`, `hotbar.*`, `wheel.*`,
 `inventory.*`, `minimap.*`, `compass.*`, `dialogue.*`, `notification.*`,
-`subtitle.*`), so they look right with no setup. Your own skin file styles
-them by the same names.
+`subtitle.*`, `itemtip.*`), so they look right with no setup. Your own skin file
+styles them by the same names.
 
 `Typewriter`, `PromptGlyph` and `ProvidePrompts` stay in `composegl-ui`: they
 are not only for games, and the [dialogue box](#dialogue) here is built on the
@@ -553,6 +554,126 @@ A ring never goes the whole way round, however many children a category has: it
 stops at seven eighths of a turn so that there is always an angle outside it to
 sweep back out through. Past eight children, put them on a second wheel rather
 than a ring.
+
+## Item cards
+
+The card a looter lives in: what this drop is, and how it compares with what is
+already equipped. Players do not read the numbers — they read the green and red
+arrows and decide in about a third of a second.
+
+```kotlin
+ItemTooltip(
+    item = hovered,                      // what the pointer or focus is on; null draws nothing
+    compareWith = equipped[slot],        // what the player has on now
+    rarity = { it.rarity.colour },       // the card's edge and its title
+    compareHint = "Hold Shift to compare",
+) {
+    title(it.name)
+    subtitle("Rare · Main hand")
+    separator()
+    stat("Damage", it.damage)
+    stat("Rate of fire", it.rateOfFire)
+    stat("Mass", it.mass, higherIsBetter = false)
+    flavour(it.description)
+}
+```
+
+The block is run **twice** — once for the item and once for the thing it would
+replace — and the two runs are paired up by the label each stat was given. So a
+game writes `stat("Damage", it.damage)` once and gets the difference for free.
+A stat the other item has not got simply has nothing beside it.
+
+### The arrows carry the answer, not the colours
+
+Red and green are the first thing a looter player learns and the one thing about
+eight per cent of the men playing cannot see. So every difference is written
+three ways at once:
+
+- the **sign** says which way the number moved: `+6`, `-1`
+- the **mark** says whether that is an improvement: `▲`, `▼`, `=`
+- the **colour** says the same thing again, out of the skin
+
+`higherIsBetter = false` is what makes those two disagree on purpose. A lighter
+gun reads `-0.7 ▲`: the number fell, and that is good. A card that only turned
+the number green says nothing at all to a player with deuteranopia. Swap the
+glyphs for a font atlas with no triangles in it:
+
+```kotlin
+ItemTooltip(item = hovered, marks = ItemMarks(better = "up", worse = "down", same = "--")) { … }
+```
+
+### When the comparison is on screen
+
+```kotlin
+ItemTooltip(
+    item = hovered,
+    compareWith = equipped,
+    compare = ItemCompare.Held,          // the default: while the key or the pad button is down
+    compareKey = Key.Shift,
+    compareButton = GamepadButton.LeftBumper,
+) { … }
+```
+
+`ItemCompare.Held` is Diablo's Ctrl and Destiny's trigger. `Always` is for an
+inventory screen with nothing going on behind it, `Toggled` is a press on and a
+press off for a player who would rather not hold anything, and `Never` leaves the
+card plain. Pass `sideBySide = false` to keep the arrows and drop the second
+card — which is what a screen narrower than two cards plus the gap is. **That is
+the game's call, not the widget's**: two cards need `2 × width + gap` of room and
+nothing sheds the second one on its own, so a layout that goes narrow has to say
+so. The key
+and the pad button are heard **wherever focus is**, because a player holding one
+is not first clicking on anything. They are only heard there, never taken: the
+key is swallowed while a card with something to compare against is actually up,
+and left to the rest of the game the other ninety-nine per cent of the time.
+
+### Where the card goes
+
+It is a layer, not a wrapper round the icon — the card has to be drawn over the
+bag it came out of and be allowed to move so that none of it is off the screen.
+Give it the room it may use and say what is being looked at:
+
+```kotlin
+Box(Modifier.fillMaxSize()) {
+    Bag(onHover = { hovered = it })
+    ItemTooltip(item = hovered, compareWith = equipped) { … }   // fills the screen by default
+}
+```
+
+The layer covers the screen and is still not in front of the bag: it *watches* the
+pointer rather than handling it (`watchPointer`), so every slot underneath is
+hovered exactly as it was before the card was there. A layer that handled the
+pointer would take the hover the game works `item` out from, and the mouse would
+stop putting cards up at all.
+
+It hangs beside the pointer, flipping to the other side and above rather than
+being cut off at an edge. **On a pad nothing is ever hovered**, so pass the
+focused slot instead and the card follows focus:
+
+```kotlin
+var slot by remember { mutableStateOf<Rect?>(null) }
+
+Slot(Modifier.onPlaced { node -> slot = node.boundsInRoot })
+ItemTooltip(item = focusedItem, anchor = slot) { … }
+```
+
+`anchor` is in the **root's** coordinates — `boundsInRoot`, the same rectangle
+every other widget here takes — and the layer turns it into its own. So it is
+still the right rectangle when the layer is inside something padded, offset or
+scaled, rather than only when it happens to start at the top left of the screen.
+
+Right to left, all of it mirrors: the card goes to the left of the pointer and
+the equipped card sits to the left of the new one, where an Arabic reader's eye
+is already looking.
+
+Nothing is composed while `item` is null, which is nearly all of the time. The
+layer's own node stays, so that a player already holding the compare key when
+they hover the next sword sees the arrows on it straight away.
+
+Skin: `itemtip` is the card, `itemtip.rarity` the edge when the game names no
+colour of its own, `itemtip.compare` the equipped card beside it, and
+`itemtip.title`, `.subtitle`, `.label`, `.value`, `.better`, `.worse`, `.same`,
+`.flavour` and `.hint` are its lines.
 
 ## Subtitles and captions
 

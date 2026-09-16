@@ -30,6 +30,10 @@ val StyleNames = listOf(
     "dialogue.timer.track", "dialogue.timer.fill",
     "dialogue.control", "dialogue.control.on",
     "dialogue.history.speaker", "dialogue.history.line", "dialogue.history.answer",
+    // the item card, and the one beside it saying what is on now
+    "itemtip", "itemtip.compare", "itemtip.rarity", "itemtip.title", "itemtip.subtitle",
+    "itemtip.label", "itemtip.value", "itemtip.better", "itemtip.worse", "itemtip.same",
+    "itemtip.flavour", "itemtip.hint",
     // text
     "label", "label.title", "label.heading", "label.dim", "label.danger", "label.good",
     // buttons

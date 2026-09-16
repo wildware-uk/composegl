@@ -82,6 +82,10 @@ class HighContrastSkinTest {
         // A wheel's own words are written in the middle, on the hub, and on the slice being pointed
         // at. Both, because a skin that reads on one and not the other is half a skin.
         "wheel.label" to "wheel.hub", "wheel.label" to "wheel.slice.highlighted",
+        "itemtip" to null, "itemtip.title" to "itemtip", "itemtip.subtitle" to "itemtip",
+        "itemtip.label" to "itemtip", "itemtip.value" to "itemtip", "itemtip.flavour" to "itemtip",
+        "itemtip.hint" to "itemtip", "itemtip.better" to "itemtip", "itemtip.worse" to "itemtip",
+        "itemtip.same" to "itemtip",
         "damage" to null, "damage.critical" to null,
         "debugwindow.title" to null, "debugwindow.title.active" to null, "debugwindow.button" to "debugwindow",
         "debugwindow.label" to "debugwindow", "debugwindow.value" to "debugwindow",

@@ -38,6 +38,7 @@ enum class Exhibit(val title: String, val blurb: String) {
     Comms("Subtitles", "Timed lines, captions and the player's settings"),
     Dialogue("Comms channel", "A conversation with answers and a log"),
     Cargo("Cargo grid", "Stacks, splits and long items"),
+    Salvage("Loot cards", "Hover a drop and hold Shift to compare"),
 }
 
 /** How often the fight fires, as a debug window offers it. */
