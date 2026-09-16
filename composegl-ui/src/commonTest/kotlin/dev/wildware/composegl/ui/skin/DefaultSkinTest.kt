@@ -24,17 +24,18 @@ class DefaultSkinTest {
 
     @Test
     fun `everything a widget set will ask for is in it`() {
-        val expected = listOf(
-            "screen", "panel", "separator", "divider", "tooltip",
-            "label", "button", "button.primary", "button.danger", "button.quiet",
-            "checkbox", "radio", "slider.track", "slider.knob", "progress.track", "progress.fill",
-            "spinner", "spinner.track", "indeterminatebar.track", "indeterminatebar.fill",
-            "field", "selection", "item", "scrollbar.thumb", "focusRing",
-        )
-
-        val missing = expected.filterNot { skin.has(it) }
+        val missing = StyleNames.filterNot { skin.has(it) }
 
         assertEquals(emptyList(), missing, "styles the shipped skin does not name")
+    }
+
+    @Test
+    fun `and it names nothing a widget will never ask for`() {
+        // The other direction, so the list below stays the real answer to "what can a skin set?"
+        // rather than drifting into a list of what somebody once wrote down.
+        val spare = skin.styles.keys.filterNot { it in StyleNames }
+
+        assertEquals(emptyList<String>(), spare, "styles nobody reads, or a name missing from StyleNames")
     }
 
     @Test

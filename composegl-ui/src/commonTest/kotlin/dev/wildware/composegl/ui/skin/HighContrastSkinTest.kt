@@ -42,30 +42,47 @@ class HighContrastSkinTest {
         assertEquals(emptyList(), moved, "styles that would move something when the skin is switched")
     }
 
-    /** The styles a widget writes words in, each with the style its words sit on when that is another. */
-    private val text = mapOf(
+    /**
+     * The styles a widget writes words in, each with the style its words sit on when that is another.
+     *
+     * Null means the words sit on the style's own fill, or on the screen when it has none. A name
+     * means they sit on that style instead, whatever this one is filled with — a compass pin is a
+     * yellow diamond with its distance written *under* it, on the compass, not on the diamond.
+     *
+     * A list rather than a map because one style's words can land on two different things: a wheel's
+     * label is written both in the middle of the wheel and on the slice being pointed at.
+     */
+    private val text = listOf(
         "label" to null, "label.title" to null, "label.heading" to null, "label.dim" to null,
         "label.danger" to null, "label.good" to null,
         "button" to null, "button.primary" to null, "button.danger" to null, "button.quiet" to null,
+        "button.icon" to null,
         "button.listening" to null, "button.key" to null, "button.key.on" to null, "dropdown" to null,
-        "collapsingheader" to null, "collapsingheader.open" to null,
+        "collapsingheader" to null, "collapsingheader.open" to null, "collapsingheader.glyph" to null,
         "tooltip" to null, "notification" to null, "notification.detail" to "notification",
         "notification.more" to "notification", "minimap.compass" to "minimap", "prompt" to null,
-        "compass.label" to "compass", "compass.readout" to "compass",
+        "compass.label" to "compass", "compass.readout" to "compass", "compass.pin" to "compass",
         "subtitle" to null, "subtitle.speaker" to "subtitle", "subtitle.caption" to "subtitle",
         "stepper.arrow" to "stepper", "stepper.value" to "stepper",
         "field" to null, "field.placeholder" to "field",
         "item" to null, "item.selected" to null, "tab" to null, "tab.selected" to null,
-        "table.header.cell" to "table.header", "table.header.cell.sorted" to "table.header",
-        "table.row" to "table", "table.row.alt" to "table", "table.row.selected" to "table", "table.empty" to "table",
-        "tree.row" to null, "tree.row.selected" to null,
+        "menubar.title" to "menubar", "menubar.title.open" to null,
+        "menu.item" to "menu", "menu.item.open" to null, "menu.shortcut" to "menu",
+        "table.header.cell" to "table.header", "table.header.cell.sorted" to null,
+        "table.row" to "table", "table.row.alt" to null, "table.row.selected" to null, "table.empty" to "table",
+        "tree.row" to null, "tree.row.selected" to null, "tree.toggle" to null, "tree.toggle.open" to null,
         "hotbar.prompt" to "hotbar.slot", "hotbar.charges" to "hotbar.slot",
-        "wheel.label" to "wheel.hub",
+        "cooldown.seconds" to null,
+        // A wheel's own words are written in the middle, on the hub, and on the slice being pointed
+        // at. Both, because a skin that reads on one and not the other is half a skin.
+        "wheel.label" to "wheel.hub", "wheel.label" to "wheel.slice.highlighted",
         "damage" to null, "damage.critical" to null,
+        "debugwindow.title" to null, "debugwindow.title.active" to null, "debugwindow.button" to "debugwindow",
+        "debugwindow.label" to "debugwindow", "debugwindow.value" to "debugwindow",
         "console.title" to "console", "console.prompt" to "console",
         "console.line" to "console", "console.line.debug" to "console", "console.line.info" to "console",
         "console.line.warn" to "console", "console.line.error" to "console", "console.line.echo" to "console",
-        "console.suggestion" to "console", "console.suggestion.selected" to "console",
+        "console.suggestion" to "console", "console.suggestion.selected" to null,
         "console.field" to "console", "console.field.placeholder" to "console",
         "plot.label" to "plot", "plot.value" to "plot",
     )
@@ -77,8 +94,8 @@ class HighContrastSkinTest {
             // Disabled text is meant to recede, and is held to the lower bar below.
             states.filter { WidgetState.Disabled !in it }.mapNotNull { state ->
                 val style = skin.resolve(name, state)
-                val behind = fillOf(style)?.takeIf { it.alpha == 0xFF }
-                    ?: on?.let { fillOf(skin.resolve(it, state)) }
+                val behind = on?.let { fillOf(skin.resolve(it, state)) }
+                    ?: fillOf(style)?.takeIf { it.alpha == 0xFF }
                     ?: screen
                 val ratio = contrast(style.textColour, behind)
                 if (ratio >= 4.5f) null else "$name $state: ${ratio.format()}"
@@ -159,6 +176,72 @@ class HighContrastSkinTest {
         }
 
         assertEquals(emptyList(), lost)
+    }
+
+    @Test
+    fun `every shape the skin draws stands out from what it is drawn on`() {
+        // Each of these is a shape with no words and no edge of its own, so the only thing that can
+        // make it visible is being a different colour from whatever it sits on. A wheel is the case
+        // that made this test worth having: it brings its own backdrop, so a black slice on a black
+        // backdrop is a wheel a player cannot see at all.
+        val pairs = listOf(
+            "wheel.slice" to "wheel.backdrop", "wheel.slice.selected" to "wheel.backdrop",
+            "wheel.ring" to "wheel.backdrop", "wheel.hub" to "wheel.backdrop",
+            "wheel.slice.highlighted" to "wheel.slice", "wheel.ring.highlighted" to "wheel.ring",
+            "divider" to "screen", "separator" to "screen", "splitter" to "screen",
+            "tree.guide" to "screen", "marker.arrow" to "screen",
+            "reticle" to "screen", "reticle.hostile" to "screen",
+            "hitmarker" to "screen", "hitmarker.critical" to "screen", "hitmarker.kill" to "screen",
+            "selection" to "screen",
+            "field.caret" to "field", "field.selection" to "field",
+            "minimap.marker" to "minimap",
+            "compass.tick" to "compass", "compass.marker" to "compass", "compass.pin" to "compass",
+            "menu.separator" to "menu", "menu.check" to "menu", "menu.radio" to "menu",
+            "table.divider" to "table",
+            "scrollbar.thumb" to "scrollbar.track",
+            "debugwindow.grip" to "debugwindow",
+        )
+
+        val lost = pairs.mapNotNull { (thing, behind) ->
+            val ratio = contrast(fillOf(skin.resolve(thing))!!, fillOf(skin.resolve(behind))!!)
+            if (ratio >= 3f) null else "$thing on $behind: ${ratio.format()}"
+        }
+
+        assertEquals(emptyList(), lost)
+    }
+
+    @Test
+    fun `an edge that says where a widget is can be seen`() {
+        // An edge is drawn just inside the shape, so it is visible if it stands clear of either the
+        // fill it is drawn on or the screen behind it. A dark grey edge on a black box is neither,
+        // which in this skin means an unticked checkbox nobody can find.
+        val screen = fillOf(skin.resolve("screen"))!!
+        val lost = skin.styles.keys.flatMap { name ->
+            states.mapNotNull { state ->
+                val fill = skin.resolve(name, state).background as? SkinDrawable.Fill ?: return@mapNotNull null
+                val border = fill.border ?: return@mapNotNull null
+                val on = fill.colour.takeIf { it.alpha == 0xFF } ?: screen
+                val ratio = maxOf(contrast(border, on), contrast(border, screen))
+                if (ratio >= 3f) null else "$name $state: ${ratio.format()}"
+            }
+        }
+
+        assertEquals(emptyList(), lost, "edges too close to what they are drawn against")
+    }
+
+    @Test
+    fun `a track whose block is drawn inside it leaves room for its own edge`() {
+        // An indeterminate bar draws its block within the track's padding. A track with an outline
+        // and no padding is a track whose outline the block rubs out every time it slides past.
+        for (from in listOf(Skin.Default, skin)) {
+            val track = from.resolve("indeterminatebar.track").background as SkinDrawable.Fill
+            val room = minOf(track.padding.left, track.padding.top, track.padding.right, track.padding.bottom)
+
+            assertTrue(
+                track.border == null || room >= track.borderWidth,
+                "${from.name}: an edge ${track.borderWidth} wide with $room to draw it in",
+            )
+        }
     }
 
     @Test

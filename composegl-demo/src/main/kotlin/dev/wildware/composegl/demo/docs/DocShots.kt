@@ -4936,6 +4936,18 @@ private fun MutableList<DocShot>.wheels() {
         ) { WheelScene() },
     )
 
+    // The same wheel in the high-contrast skin. A wheel brings its own backdrop, so every piece of
+    // it has to be a step away from that dark: grey slices, blue for the one already in hand, the
+    // skin's yellow for the one being pointed at, and black words on a white hub.
+    add(
+        DocShot(
+            "game-wheel-high-contrast", WheelShotWidth, WheelShotHeight,
+            stock = true,
+            padded = listOf(Padding.Wait(60), Padding.Down(GamepadButton.LeftBumper), Padding.Wait(4)) +
+                push(MedkitTurn, 0.55f) + listOf(Padding.Wait(8)),
+        ) { ProvideSkin(Skin.HighContrast) { WheelScene() } },
+    )
+
     // Two pads, two thumbs, one picture. The left one is resting on the stick and has chosen
     // nothing; the right one has moved it barely past the dead zone and has chosen the lance.
     add(
