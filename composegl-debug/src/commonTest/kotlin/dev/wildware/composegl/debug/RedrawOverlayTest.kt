@@ -38,6 +38,7 @@ import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.testing.UiTest
 import dev.wildware.composegl.ui.testing.uiTest
 import dev.wildware.composegl.ui.widget.Button
+import dev.wildware.composegl.ui.widget.Spinner
 import dev.wildware.composegl.ui.widget.Text
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -425,6 +426,25 @@ class RedrawOverlayTest {
 
         assertTrue(ui.node("title").changes >= first + 20, "each frame it moves is a change to the label: $first then ${ui.node("title").changes}")
         assertTrue(ui.node("title").boundsInRoot in drawn(ui).flashes())
+    }
+
+    @Test
+    fun `a spinner redrawing every frame is flashed on every frame`() {
+        val ui = open {
+            Box(Modifier.fillMaxSize()) {
+                Spinner(Modifier.offset(40f, 40f).size(24f, 24f).testTag("spin"))
+                RedrawOverlay(true)
+            }
+        }
+        val spinner = ui.node("spin").boundsInRoot
+
+        // The case the whole overlay is for: still glowing on a still screen is what costs a frame
+        // every frame. It reads the node's time and the frame's own in the same pass, as it draws, so
+        // neither has moved on by the time the other is read.
+        repeat(12) { frame ->
+            val flashes = drawn(ui).flashes()
+            assertEquals(255, flashes[spinner], "frame $frame: full flash on a spinner turning: $flashes")
+        }
     }
 
     @Test
