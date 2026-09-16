@@ -162,6 +162,28 @@
     "dialogue.history.line": { "textColour": "#E8ECF2", "text": { "size": 14 } },
     "dialogue.history.answer": { "textColour": "#5B8DEF", "text": { "size": 14 } },
 
+    // The pinned list of what the player is meant to be doing. The panel is see-through, because a
+    // HUD corner is somewhere the game is still happening; a finished step is dimmed and has a line
+    // struck through it in its own colour, and the little box beside each step is where the tick
+    // is drawn.
+    "objective": {
+      "background": { "fill": "#B3141922", "corner": 5, "border": "#39445A", "padding": [12, 10] }
+    },
+    "objective.title": { "textColour": "#F2C94C", "text": { "size": 15 } },
+    "objective.step": { "textColour": "#E8ECF2", "text": { "size": 14 } },
+    "objective.step.done": { "textColour": "#8A94A6", "text": { "size": 14 } },
+    "objective.bullet": { "background": { "fill": "#10131A", "corner": 3, "border": "#4A5568" } },
+    "objective.tick": { "background": { "fill": "#46A758" } },
+    "objective.count": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "objective.more": {
+      "background": { "fill": "#00000000", "corner": 4, "padding": [4, 2] },
+      "textColour": "#7C8798",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#232A35", "corner": 4 }, "textColour": "#C7D0DC" },
+      "focused": { "background": { "fill": "#2A3342", "corner": 4, "border": "#5B8DEF" } },
+      "pressed": { "background": { "fill": "#10131A", "corner": 4 }, "contentOffset": [0, 1] }
+    },
+
     // --- text ---
 
     "label": {

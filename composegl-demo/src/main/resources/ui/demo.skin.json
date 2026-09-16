@@ -435,6 +435,31 @@
     "notification.detail": { "textColour": "#9AA4B2", "text": { "size": 13 } },
     "notification.more": { "textColour": "#7C8798", "text": { "size": 13 } },
 
+    // --- the objective list ---
+    //
+    // See-through, because the corner it sits in is still somewhere the game is happening. The
+    // quest's name is the accent, a step is ordinary text, and a finished step is dimmed — the
+    // line struck through it is drawn in whatever colour the step itself is, so it dims with it.
+    // The little box beside each step is the hole the tick is drawn into.
+
+    "objective": {
+      "background": { "fill": "#B30B1119", "corner": 5, "border": "#2A3440", "padding": [12, 10] }
+    },
+    "objective.title": { "textColour": "#4CC2FF", "text": { "size": 15 } },
+    "objective.step": { "textColour": "#E6EAF2", "text": { "size": 14 } },
+    "objective.step.done": { "textColour": "#8E9AAB", "text": { "size": 14 } },
+    "objective.bullet": { "background": { "fill": "#080B10", "corner": 3, "border": "#4A5568" } },
+    "objective.tick": { "background": { "fill": "#46A758" } },
+    "objective.count": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "objective.more": {
+      "background": { "fill": "#00000000", "corner": 4, "padding": [4, 2] },
+      "textColour": "#7C8798",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#1B2230", "corner": 4 }, "textColour": "#C9D3E0" },
+      "focused": { "background": { "fill": "#24303F", "corner": 4, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#080B10", "corner": 4 }, "contentOffset": [0, 1] }
+    },
+
     // The chrome round the minimap. The padding is the hole the game draws its own map into.
     "minimap": {
       "background": { "fill": "#151B26", "corner": 6, "border": "#5A6B86", "padding": [7, 7] }
