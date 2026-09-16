@@ -56,6 +56,13 @@ import dev.wildware.composegl.ui.modifier.repeatingClickable
 import dev.wildware.composegl.game.Bar
 import dev.wildware.composegl.game.BarThreshold
 import dev.wildware.composegl.game.CompassBar
+import dev.wildware.composegl.game.DamageDirectionLayer
+import dev.wildware.composegl.game.DamageDirections
+import dev.wildware.composegl.game.HitKind
+import dev.wildware.composegl.game.HitMarker
+import dev.wildware.composegl.game.HitMarkerState
+import dev.wildware.composegl.game.rememberDamageDirections
+import dev.wildware.composegl.game.rememberHitMarkerState
 import dev.wildware.composegl.game.Hotbar
 import dev.wildware.composegl.game.HotbarSlot
 import dev.wildware.composegl.game.MinimapFrame
@@ -263,6 +270,7 @@ internal fun docShots(): List<DocShot> = buildList {
     worldMarkers()
     compasses()
     wheels()
+    firefight()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -5260,3 +5268,315 @@ private fun MirrorPanel() {
         }
     }
 }
+
+// ---------------------------------------------------------------- being shot at, and landing shots
+
+/**
+ * The arcs that say where a hit came from, and the ticks that say one of yours landed.
+ *
+ * One firefight, run rather than posed. A driver fires real shots and takes real hits on the frames
+ * it says, through `HitMarkerState.hit` and `DamageDirections.hit`, and everything on the screen —
+ * how faded an arc is, how bright a marker is, where the health bar's trail has got to — is
+ * whatever the widgets themselves had reached by the frame the shutter went. Nothing is handed a
+ * strength or an opacity to make it look right in a picture.
+ */
+private fun MutableList<DocShot>.firefight() {
+    // Part way through the fight: shot at from the right a moment ago and from behind-left since,
+    // so two arcs are up at once at two different ages, over a kill marker that has just flashed.
+    add(
+        DocShot("game-damage-direction", FightWidth, FightHeight, stock = true, seconds = FightStill) {
+            FirefightHud()
+        },
+    )
+
+    // The three shapes, each from a real hit on a real state: four ticks, eight, and four round a
+    // diamond. Taken a moment after the hit, so each is already on its way out — which is why a
+    // kill, the one worth looking at, is the brightest of the three.
+    add(
+        DocShot("game-hit-markers", 440, 190, stock = true, seconds = MarkerStill) {
+            Frame {
+                Row(horizontalArrangement = Arrangement.spacedBy(20f)) {
+                    MarkerPanel("a hit", HitKind.Normal)
+                    MarkerPanel("a critical", HitKind.Critical)
+                    MarkerPanel("a kill", HitKind.Kill)
+                }
+            }
+        },
+    )
+
+    // The high-contrast skin, and the same two hits in a left-to-right interface and a right-to-left
+    // one. The arcs are in the same places in both: an arc says where something is in the world, and
+    // the world does not swap sides with the language. The line under each box is an ordinary row,
+    // and that one does mirror.
+    add(
+        DocShot("game-damage-rtl", 600, 250, seconds = ArcStill) {
+            ProvideSkin(Skin.HighContrast) {
+                Frame {
+                    Row(horizontalArrangement = Arrangement.spacedBy(24f)) {
+                        ArcPanel("English, read left to right", LayoutDirection.Ltr, HebrewFight)
+                        ArcPanel("Hebrew, read right to left", LayoutDirection.Rtl, HebrewFight)
+                    }
+                }
+            }
+        },
+    )
+
+    // The same fight a little later each time, for the moving picture: hits arrive, arcs fade at
+    // their own rates, markers flash and go, and the health bar's trail catches up behind each hit.
+    // Only when asked for, because they are frames to be joined into a GIF rather than pictures of
+    // their own: `COMPOSEGL_DOC_FRAMES=1`, then join `game-firefight-frame-*.png` in order, 0.06 s
+    // each, which is the speed the fight really ran.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(FightFrames) { i ->
+            val name = "game-firefight-frame-${i.toString().padStart(2, '0')}"
+            add(
+                DocShot(name, FightWidth, FightHeight, stock = true, seconds = FightFirst + i * FightStep) {
+                    FirefightHud()
+                },
+            )
+        }
+    }
+}
+
+/** How wide and tall the firefight is, and where the floor starts. */
+private const val FightWidth = 620
+private const val FightHeight = 300
+private const val FightHorizon = 212f
+
+/** Where the two shooters are, in degrees clockwise from straight ahead. */
+private const val FromTheRight = 78f
+private const val FromBehindLeft = 214f
+
+/** The moment each still is taken. */
+private const val FightStill = 0.78f
+private const val MarkerStill = 0.12f
+private const val ArcStill = 0.3f
+
+/** Where the second one starts, where it ends up, and the frames it walks over. */
+private const val SecondStart = 398f
+private const val SecondEnd = 302f
+private const val WalkFrom = 50
+private const val WalkTo = 76
+
+/** The frames the moving picture is made of. */
+private const val FightFrames = 30
+private const val FightFirst = 0.05f
+private const val FightStep = 0.06f
+
+/** A HUD as a game has one: the room, the arcs over it, a crosshair, a marker, and the health. */
+@Composable
+private fun FirefightHud() {
+    val incoming = rememberDamageDirections()
+    val marker = rememberHitMarkerState()
+    val fight = remember { DocFirefight() }
+
+    // Driven from a frame callback, the way a game drives one: the fight is the game's, and the
+    // widgets are told what happened rather than asked to pretend something did.
+    LaunchedEffect(fight) {
+        while (true) {
+            withFrameNanos { fight.step(incoming, marker) }
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        FirefightScene(fight)
+        DamageDirectionLayer(incoming)
+        Reticle(rememberReticleState(), gap = 7f, arm = 13f, thickness = 2f, dot = 2f)
+        HitMarker(marker)
+
+        Column(Modifier.offset(18f, FightHeight - 58f), verticalArrangement = Arrangement.spacedBy(6f)) {
+            Text("HEALTH", style = "label.dim")
+            Bar(fight.health, length = 168f, thickness = 11f)
+        }
+    }
+}
+
+/**
+ * What the player can see: a corridor, and the two in front of them.
+ *
+ * The one shooting from the right is at the very edge of the picture and the one behind them is not
+ * in it at all, which is the whole reason the arcs exist.
+ */
+@Composable
+private fun FirefightScene(fight: DocFirefight) {
+    Box(Modifier.fillMaxSize().background(Brush.vertical(Colour.rgb(0x151B2A), Colour.rgb(0x2C1D24)))) {
+        FightPillars.forEach { pillar ->
+            Box(
+                Modifier.offset(pillar.x, FightHorizon - pillar.height)
+                    .size(pillar.width, pillar.height)
+                    .background(pillar.colour, corner = 3f),
+            )
+        }
+
+        Box(
+            Modifier.offset(0f, FightHorizon).fillMaxWidth().height(FightHeight - FightHorizon)
+                .background(Colour.rgb(0x0B0F19)),
+        )
+        Box(Modifier.offset(0f, FightHorizon).fillMaxWidth().height(2f).background(Colour.rgb(0x3E2D39)))
+
+        // The one the crosshair is on, and the one that comes out from behind the pillar to take
+        // its place once it is down.
+        Enemy(298f, 90f, fight.firstDown, fallBy = -44f)
+        Enemy(fight.secondX, 84f, fight.secondDown, fallBy = 20f)
+
+        // The one shooting from the right, half out of the picture, lit up on the frames it fires.
+        Box(
+            Modifier.offset(FightWidth - 34f, FightHorizon - 78f).size(30f, 78f)
+                .background(Colour.rgb(0x3A2833), corner = 8f),
+        )
+        if (fight.flash) {
+            Box(
+                Modifier.offset(FightWidth - 52f, FightHorizon - 62f).size(22f, 22f)
+                    .background(Colour.rgb(0xFFD79A), corner = 11f),
+            )
+        }
+    }
+}
+
+/**
+ * One of the two in front: standing, or down and dim once the kill marker has been for them.
+ *
+ * [fallBy] is which way they go over, so two of them killed in the same doorway do not end up as
+ * one shape on the floor.
+ */
+@Composable
+private fun Enemy(x: Float, height: Float, down: Boolean, fallBy: Float) {
+    if (down) {
+        Box(
+            Modifier.offset(x + fallBy, FightHorizon - 17f).size(52f, 17f).alpha(0.8f)
+                .background(Colour.rgb(0x4A3340), corner = 8f),
+        )
+    } else {
+        Box(Modifier.offset(x, FightHorizon - height).size(24f, height).background(Colour.rgb(0x3A2833), corner = 10f))
+        Box(Modifier.offset(x + 5f, FightHorizon - height + 14f).size(14f, 4f).background(Colour.rgb(0xE5484D), corner = 2f))
+    }
+}
+
+/** A pillar down the corridor. */
+private class FightPillar(val x: Float, val width: Float, val height: Float, val colour: Colour)
+
+private val FightPillars = listOf(
+    FightPillar(40f, 54f, 150f, Colour.rgb(0x1D2436)),
+    FightPillar(148f, 40f, 120f, Colour.rgb(0x232B40)),
+    FightPillar(430f, 46f, 134f, Colour.rgb(0x232B40)),
+    FightPillar(516f, 58f, 162f, Colour.rgb(0x1D2436)),
+)
+
+/**
+ * The fight itself: a plain object the game owns, stepping a frame at a time.
+ *
+ * It calls `hit` on the two states on the frames it says and nothing else. Every number in the
+ * picture after that belongs to the widgets.
+ */
+private class DocFirefight {
+
+    private var frame = 0
+    private var flashFor = 0
+
+    var health by mutableStateOf(1f)
+        private set
+
+    var firstDown by mutableStateOf(false)
+        private set
+
+    var secondDown by mutableStateOf(false)
+        private set
+
+    /** Where the second one is. It walks out from behind the pillar once the first is down. */
+    var secondX by mutableStateOf(SecondStart)
+        private set
+
+    var flash by mutableStateOf(false)
+        private set
+
+    fun step(incoming: DamageDirections, marker: HitMarkerState) {
+        frame++
+        if (flashFor > 0) {
+            flashFor--
+            if (flashFor == 0) flash = false
+        }
+        if (frame in WalkFrom..WalkTo) {
+            val along = (frame - WalkFrom) / (WalkTo - WalkFrom).toFloat()
+            secondX = SecondStart + (SecondEnd - SecondStart) * along
+        }
+        when (frame) {
+            4 -> marker.hit(HitKind.Normal)
+            10 -> marker.hit(HitKind.Normal)
+            16 -> shotAt(incoming, FromTheRight, strength = 0.5f, damage = 0.11f)
+            22 -> marker.hit(HitKind.Critical)
+            30 -> shotAt(incoming, FromBehindLeft, strength = 0.85f, damage = 0.19f)
+            36 -> marker.hit(HitKind.Normal)
+            44 -> {
+                marker.hit(HitKind.Kill)
+                firstDown = true
+            }
+            58 -> shotAt(incoming, FromBehindLeft, strength = 0.45f, damage = 0.1f)
+            66 -> shotAt(incoming, FromTheRight, strength = 0.7f, damage = 0.15f)
+            78 -> marker.hit(HitKind.Critical)
+            92 -> {
+                marker.hit(HitKind.Kill)
+                secondDown = true
+            }
+        }
+    }
+
+    private fun shotAt(incoming: DamageDirections, angle: Float, strength: Float, damage: Float) {
+        incoming.hit(fromAngle = angle, strength = strength)
+        health = (health - damage).coerceAtLeast(0f)
+        if (angle == FromTheRight) {
+            flash = true
+            flashFor = 6
+        }
+    }
+}
+
+/** One kind of hit marker, from a real hit on a real state, over a dark square. */
+@Composable
+private fun MarkerPanel(caption: String, kind: HitKind) {
+    Column(verticalArrangement = Arrangement.spacedBy(6f)) {
+        Text(caption, style = "label.dim")
+        val marker = rememberHitMarkerState()
+        // From an effect rather than in composition: a hit written while composing is a
+        // recomposition loop, and this is the same call a game makes when a shot lands.
+        LaunchedEffect(marker) { marker.hit(kind) }
+        Box(Modifier.size(124f).background(Ink, corner = 6f)) {
+            HitMarker(marker, gap = 9f, length = 12f, thickness = 3f)
+        }
+    }
+}
+
+/** The same two hits, in one language and one reading direction. */
+@Composable
+private fun ArcPanel(caption: String, direction: LayoutDirection, strings: Strings) {
+    val locale = if (direction == LayoutDirection.Rtl) Locale("he") else Locale.English
+    ProvideLocale(locale, strings) {
+        ProvideLayoutDirection(direction) {
+            Column(Modifier.width(260f), verticalArrangement = Arrangement.spacedBy(6f)) {
+                // Written in English either way: it is a caption on the picture rather than
+                // anything the interface says.
+                ProvideLayoutDirection(LayoutDirection.Ltr) { Text(caption, style = "label.dim") }
+                val incoming = rememberDamageDirections()
+                LaunchedEffect(incoming) {
+                    incoming.hit(fromAngle = FromTheRight, strength = 0.9f)
+                    incoming.hit(fromAngle = FromBehindLeft, strength = 0.6f)
+                }
+                Box(Modifier.size(260f, 150f).background(Ink, corner = 6f)) {
+                    DamageDirectionLayer(incoming)
+                    Reticle(rememberReticleState(), gap = 6f, arm = 11f, thickness = 2f)
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10f)) {
+                    Text(stringOf("health"), style = "label")
+                    Text("56%", style = "label.dim")
+                }
+            }
+        }
+    }
+}
+
+/** The one word the right-to-left picture says, in both languages. */
+private val HebrewFight = Strings(
+    mapOf(
+        Locale.English to mapOf("health" to "Health"),
+        Locale("he") to mapOf("health" to "בריאות"),
+    ),
+)
