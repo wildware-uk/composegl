@@ -1,11 +1,15 @@
 package dev.wildware.composegl.game
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import dev.wildware.composegl.ui.focus.FocusWithinHandler
+import dev.wildware.composegl.ui.focus.focusOnNode
 import dev.wildware.composegl.ui.input.ActivateHandler
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.GamepadEvent
@@ -32,6 +36,7 @@ import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
 import dev.wildware.composegl.ui.layout.Padding
+import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.modifier.Modifier
@@ -40,6 +45,8 @@ import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.modifier.focusTrap
 import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.onActivate
+import dev.wildware.composegl.ui.modifier.onFocusWithin
+import dev.wildware.composegl.ui.modifier.onPlaced
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onShortcutGamepad
 import dev.wildware.composegl.ui.modifier.onShortcutKey
@@ -50,6 +57,7 @@ import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.styled
 import dev.wildware.composegl.ui.modifier.testTag
 import dev.wildware.composegl.ui.modifier.zIndex
+import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.skin.rememberStates
 import dev.wildware.composegl.ui.skin.rememberStyle
 import dev.wildware.composegl.ui.skin.styled
@@ -236,6 +244,10 @@ fun InventoryGrid(
     var prompt by remember { mutableStateOf<InventoryItem?>(null) }
     var promptCount by remember { mutableStateOf(1) }
 
+    // Whether the ring is anywhere in this grid, which is what says a drop may move it. Read at the
+    // moment of the drop rather than composed with, so the grid asks for the answer of the day.
+    var ringHere by remember { mutableStateOf(false) }
+
     val drag = dnd.payload as? InventoryDrag
     val grid = remember { InventoryTargets() }
     grid.state = state
@@ -243,6 +255,7 @@ fun InventoryGrid(
     grid.onMove = onMove
     grid.onAccept = onAccept
     grid.enabled = enabled
+    grid.ringHere = { ringHere }
 
     val splitKeys = remember(splitKey, rotateKey, rotating) {
         KeyHandler { event ->
@@ -320,10 +333,12 @@ fun InventoryGrid(
     // Only a lazy grid has any use for its own height, and a grid that measures itself recomposes
     // once more than one that does not.
     val measured = remember { SizeChangedHandler { window = it.height } }
+    val ring = remember { FocusWithinHandler { ringHere = it } }
     Box(
         modifier = modifier
             .onShortcutKey(splitKeys)
             .onShortcutGamepad(splitButtons)
+            .onFocusWithin(ring)
             .then(if (lazy) Modifier.onSizeChanged(measured) else Modifier),
     ) {
         if (lazy) ScrollArea(state = scroll, bars = true) { board() } else board()
@@ -370,6 +385,11 @@ private fun rotateCarried(drag: InventoryDrag?, rotating: Boolean): Boolean {
         drag.grab.x.coerceIn(0, drag.carried.down - 1),
     )
     return true
+}
+
+/** Where one pile's square ended up, kept out of the composition because nothing draws it. */
+private class KnownNode {
+    var node: UiNode? = null
 }
 
 /** The squares a drop would land on, drawn under the hand: where they are, and whether it fits. */
@@ -421,6 +441,39 @@ private class InventoryTargets {
     var onAccept: (InventoryItem, InventoryCell) -> InventoryItem? = { item, _ -> item }
     var enabled = true
 
+    /** Whether the ring is anywhere in this grid now, which the grid answers from `onFocusWithin`. */
+    var ringHere: () -> Boolean = { false }
+
+    /** The node each pile is drawn by, so the ring can be put back on one by name. */
+    private val nodes = mutableMapOf<Any, UiNode>()
+
+    /** The pile the ring is on its way to, while that pile is waiting to be placed. */
+    private var chasing: Any? = null
+
+    /** A pile saying where it is now. Also the moment a ring that was waiting for it can land. */
+    fun placed(id: Any, node: UiNode) {
+        nodes[id] = node
+        if (chasing == id && focusOnNode(node)) chasing = null
+    }
+
+    /** And a pile going away. Without this a long session in a big stash keeps every pile it ever had. */
+    fun forget(id: Any, node: UiNode?) {
+        if (nodes[id] === node) nodes -= id
+    }
+
+    /**
+     * The ring goes to the pile a drop landed on.
+     *
+     * A pile moved inside its own grid keeps its node and is focused here and now. A pile that
+     * merged into another, or arrived from a chest, has a node that either belongs to a different
+     * pile or does not exist yet — so the name is written down and [placed] finishes the job on the
+     * frame the new square appears.
+     */
+    private fun chase(id: Any) {
+        val node = nodes[id]
+        chasing = if (node != null && focusOnNode(node)) null else id
+    }
+
     /** Where a pile's corner lands when it is dropped on [over], given where it was grabbed. */
     fun anchor(drag: InventoryDrag, over: InventoryCell) =
         InventoryCell(over.x - drag.grab.x, over.y - drag.grab.y)
@@ -441,11 +494,29 @@ private class InventoryTargets {
         if (!accepts(drag, over)) return
         if (drag.from === state && drag.isWhole) {
             onMove(drag.carried, to)
+            landedOn(to)
             return
         }
         val taken = drag.take(drag.item, drag.taking) ?: return
         val left = onAccept(taken.copy(rotated = drag.rotated), to)
         if (left != null) drag.putBack(left)
+        landedOn(to)
+    }
+
+    /**
+     * The ring follows what was just put down, when the ring was in this grid to begin with.
+     *
+     * A pile poured into another one stops existing, and the square it came from is not where the
+     * player put it — so the pile it went into is the answer, which is whatever is standing on [to]
+     * now. Asked of the state rather than of the drag, because a merge, a swap and a plain move all
+     * answer it the same way.
+     *
+     * The ring being elsewhere is left alone: a screen driven by a mouse that shows no ring at all
+     * must not grow one because something was dragged across it.
+     */
+    private fun landedOn(to: InventoryCell) {
+        if (!ringHere()) return
+        state.itemAt(to)?.let { chase(it.id) }
     }
 
     /**
@@ -558,31 +629,40 @@ private fun Board(
         content = {
             slots.forEachIndexed { index, item ->
                 val gutter = item.gutterIn(state.columns, state.rows, spacing, mirrored)
-                if (item.item == null) {
-                    FreeSquare(item.cell, states[index], grid, style, enabled, gutter)
-                } else {
-                    ItemSquare(
-                        item = item.item,
-                        cell = item.cell,
-                        target = states[index],
-                        grid = grid,
-                        pitch = pitch,
-                        spacing = spacing,
-                        mirrored = mirrored,
-                        gutter = gutter,
-                        style = style,
-                        enabled = enabled,
-                        faded = !matches(item.item),
-                        splitting = splitting,
-                        rotating = rotating,
-                        labels = labels,
-                        menu = menu,
-                        onTake = onTake,
-                        onPutBack = onPutBack,
-                        onMenuOpen = onMenuOpen,
-                        onSplitPrompt = onSplitPrompt,
-                        slot = slot,
-                    )
+                // A pile is known by its name and a free square by where it is, so that moving a
+                // pile moves its node instead of leaving the node where it was and pouring a
+                // different square into it. Without this the board is matched up by position in
+                // this list, and the list is re-sorted every time anything moves — so the node the
+                // focus ring is drawn on would go on being the third one along while the pile that
+                // had focus went somewhere else entirely. The flag keeps the two kinds of key
+                // apart, in case a game names an item after a cell.
+                key(item.item != null, item.item?.id ?: item.cell) {
+                    if (item.item == null) {
+                        FreeSquare(item.cell, states[index], grid, style, enabled, gutter)
+                    } else {
+                        ItemSquare(
+                            item = item.item,
+                            cell = item.cell,
+                            target = states[index],
+                            grid = grid,
+                            pitch = pitch,
+                            spacing = spacing,
+                            mirrored = mirrored,
+                            gutter = gutter,
+                            style = style,
+                            enabled = enabled,
+                            faded = !matches(item.item),
+                            splitting = splitting,
+                            rotating = rotating,
+                            labels = labels,
+                            menu = menu,
+                            onTake = onTake,
+                            onPutBack = onPutBack,
+                            onMenuOpen = onMenuOpen,
+                            onSplitPrompt = onSplitPrompt,
+                            slot = slot,
+                        )
+                    }
                 }
             }
             if (preview != null) {
@@ -660,6 +740,14 @@ private fun ItemSquare(
     drag.putBack = onPutBack
     val inHand = dnd.payload === drag
 
+    // The grid is told which node this pile is, so that a drop can put the ring back on the pile it
+    // landed on — which for a merge is a pile that was somewhere else entirely. Nothing here is
+    // composed with: it is a note passed to the grid from the layout pass, and a pile whose node
+    // changed has not changed what it looks like.
+    val known = remember(grid, item.id) { KnownNode() }
+    val placed = remember(grid, item.id) { PlacedHandler { known.node = it; grid.placed(item.id, it) } }
+    DisposableEffect(grid, item.id) { onDispose { grid.forget(item.id, known.node) } }
+
     // What the hand takes hold of is settled as the pile is pressed, not while it is in the air:
     // letting go of the split key halfway across the bag does not change what is being carried.
     val grabbed = remember(drag, pitch, mirrored) {
@@ -701,6 +789,7 @@ private fun ItemSquare(
     Box(
         modifier = Modifier
             .testTag("inventory.item.${item.id}")
+            .onPlaced(placed)
             .interaction(interaction)
             .onPointer(grabbed)
             .onActivate(pressed)

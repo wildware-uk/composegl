@@ -181,6 +181,11 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
      */
     var focusSearch: FocusSearch = BeamFocusSearch()
 
+    /** Where the focused node was, and what it was one of, the last time it was still there. */
+    private class LastSeen(val within: UiNode?, val bounds: Rect)
+
+    private var heldAt: LastSeen? = null
+
     /**
      * Makes sure focus still points at something real.
      *
@@ -193,8 +198,44 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         val focusable = focusables()
         if (pressing != null && pressing !in focusable) cancelPress()
         val holding = current
+        // Read before the node goes: once it is out of the tree it no longer knows where it was.
+        val was = heldAt
         if (holding != null && holding !in focusable && !holding.keepsPointerFocus(scope ?: root)) release(holding)
-        if (current == null && autoFocus) take(preferred(focusable))
+        if (current == null && autoFocus) take(tookTheSpotOf(was, focusable) ?: preferred(focusable))
+        heldAt = current?.let { LastSeen(it.parent, it.boundsInRoot) }
+    }
+
+    /**
+     * Whatever is now standing exactly where focus was standing, among the same set of things.
+     *
+     * The focused node going away is ordinary — a list row deleted, a square in a bag filled by the
+     * thing that was just dropped on it — and falling back to the first focusable on the screen is
+     * wrong every time it happens in the middle of one. The player watches the ring fly off to the
+     * top-left corner of a grid they were three rows down in.
+     *
+     * Two things keep this from being a guess. The ring only stays put among the node's own former
+     * siblings, so a screen that has genuinely been replaced is not searched at all and falls
+     * through to [preferred] the way it always did — that is the difference between a row going and
+     * a menu going. And the smallest candidate under the point wins, because the box around a list
+     * is often focusable too and covers every row in it; the player was on the row.
+     */
+    private fun tookTheSpotOf(was: LastSeen?, focusable: List<UiNode>): UiNode? {
+        val within = was?.within ?: return null
+        if (was.bounds.isEmpty || !within.isInside(root) || !within.isVisible) return null
+        val centre = was.bounds.centre
+        var best: UiNode? = null
+        var bestArea = Float.MAX_VALUE
+        focusable.forEach { candidate ->
+            if (candidate.parent !== within) return@forEach
+            val bounds = candidate.boundsInRoot
+            if (bounds.isEmpty || centre !in bounds) return@forEach
+            val area = bounds.width * bounds.height
+            if (area < bestArea) {
+                best = candidate
+                bestArea = area
+            }
+        }
+        return best
     }
 
     /** Gives focus to whatever [requester] is attached to. False when nothing is. */

@@ -223,6 +223,64 @@ class FocusManagerTest {
     }
 
     @Test
+    fun `focus stays put when something else takes the place of the node it was on`() {
+        val list = screen.box("list", 0f, 0f, width = 100f, height = 90f)
+        screen.box("first", 0f, 0f, modifier = Modifier.focusable(), parent = list)
+        val second = screen.box("second", 0f, 30f, modifier = Modifier.focusable(), parent = list)
+        screen.box("third", 0f, 60f, modifier = Modifier.focusable(), parent = list)
+
+        val focus = manager()
+        focus.focusOn(second)
+        focus.refresh()
+
+        // The row is deleted and the one under it slides up into the space, which is what a list
+        // does. Landing back on "first" would drag the player to the top of a list they were in
+        // the middle of.
+        screen.remove(second)
+        screen["third"].y = 30f
+        focus.refresh()
+
+        assertEquals("third", focus.name(), "whatever is standing there now")
+    }
+
+    @Test
+    fun `a screen that really has been replaced still starts at the beginning`() {
+        val panel = screen.box("panel", 0f, 0f, width = 100f, height = 60f)
+        screen.box("cancel", 0f, 30f, modifier = Modifier.focusable(), parent = panel)
+
+        val focus = manager()
+        focus.focusOn(screen["cancel"])
+        focus.refresh()
+
+        // The whole panel goes, and the screen behind it happens to have something where the
+        // cancel button was. That is a coincidence, not somewhere the player was standing.
+        screen.remove(panel)
+        screen.box("play", 0f, 0f, modifier = Modifier.focusable())
+        screen.box("options", 0f, 30f, modifier = Modifier.focusable())
+        focus.refresh()
+
+        assertEquals("play", focus.name(), "a new screen starts where it says it starts")
+    }
+
+    @Test
+    fun `the thing standing there is the small one and not the sheet behind it`() {
+        val stack = screen.box("stack", 0f, 0f, width = 100f, height = 90f)
+        // A backdrop that can be clicked covers the lot, the way the sheet behind a card does.
+        screen.box("backdrop", 0f, 0f, 100f, 90f, modifier = Modifier.focusable(), parent = stack)
+        screen.box("gone", 0f, 30f, modifier = Modifier.focusable(), parent = stack)
+
+        val focus = manager()
+        focus.focusOn(screen["gone"])
+        focus.refresh()
+
+        screen.remove(screen["gone"])
+        screen.box("arrived", 0f, 30f, modifier = Modifier.focusable(), parent = stack)
+        focus.refresh()
+
+        assertEquals("arrived", focus.name(), "the player was on the card, not on the sheet under it")
+    }
+
+    @Test
     fun `a disabled node is not in the running`() {
         screen.box("a", 0f, 0f, modifier = Modifier.focusable())
         screen.box("off", 50f, 0f, modifier = Modifier.focusable(enabled = false))
