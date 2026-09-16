@@ -14,6 +14,7 @@ import dev.wildware.composegl.debug.rememberPlotBuffer
 import dev.wildware.composegl.debug.rememberDebugWindowsState
 import dev.wildware.composegl.ui.debug.FrameBudget
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import kotlin.math.abs
 import kotlin.math.cos
@@ -75,6 +76,8 @@ import dev.wildware.composegl.game.InventoryCell
 import dev.wildware.composegl.game.InventoryGrid
 import dev.wildware.composegl.game.InventoryItem
 import dev.wildware.composegl.game.InventoryState
+import dev.wildware.composegl.game.ItemCompare
+import dev.wildware.composegl.game.ItemTooltip
 import dev.wildware.composegl.game.MinimapFrame
 import dev.wildware.composegl.game.MinimapMarker
 import dev.wildware.composegl.game.OffScreen
@@ -112,6 +115,7 @@ import dev.wildware.composegl.ui.input.GamepadId
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerId
 import dev.wildware.composegl.ui.input.InputBinding
+import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.Key
 import dev.wildware.composegl.ui.widget.KeyBindButton
 import dev.wildware.composegl.ui.widget.KeyBindState
@@ -161,6 +165,8 @@ import dev.wildware.composegl.ui.modifier.focusRequester
 import dev.wildware.composegl.ui.modifier.hitShape
 import dev.wildware.composegl.debug.RedrawOverlay
 import dev.wildware.composegl.debug.TextMetricsOverlay
+import dev.wildware.composegl.ui.modifier.focusable
+import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.fillMaxHeight
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -191,6 +197,7 @@ import dev.wildware.composegl.ui.saveable.SaveableStateHolder
 import dev.wildware.composegl.ui.saveable.rememberSaveable
 import dev.wildware.composegl.ui.skin.ProvideSkin
 import dev.wildware.composegl.ui.skin.Skin
+import dev.wildware.composegl.ui.skin.rememberStates
 import dev.wildware.composegl.ui.skin.styled
 import dev.wildware.composegl.ui.widget.AnimatedImage
 import dev.wildware.composegl.ui.widget.Button
@@ -1773,6 +1780,8 @@ private fun MutableList<DocShot>.game() {
         }
     }
 
+    itemCards()
+
     // The sweep is a dark wedge drawn over the ability, so a shot of one with nothing underneath
     // is a black square. The icon and the slot behind it are what it is covering.
     add(DocShot("game-cooldown", 180, 180, seconds = 1.1f) {
@@ -2644,7 +2653,7 @@ private fun firstFrames(script: List<Typing>, frames: Int): List<Typing> {
     for (step in script) {
         if (left <= 0) break
         when (step) {
-            is Typing.Press -> {
+            is Typing.Press, is Typing.Hold -> {
                 taken += step
                 left -= 1
             }
@@ -4849,6 +4858,291 @@ private val InventoryDragPath: List<DragStep> = buildList {
     // Let go of, and the frames after it are the bag with the crate in its new corner, held long
     // enough to be looked at before the picture starts again.
     repeat(6) { add(DragStep(accepted, held = false)) }
+}
+
+// ---------------------------------------------------------------- the item card
+
+/**
+ * The card a looter decides with, taken the way a player meets it: by really pointing at something.
+ *
+ * Nothing in these three is posed. The pointer is moved onto a square and the square says it is
+ * hovered; the comparison is a Shift really held down, and the pad one is a thumb really walking
+ * along a bench with the bumper held. What the card then does with the room it has — sliding back
+ * from an edge, hanging off a square instead of a pointer — is the widget's own arithmetic.
+ */
+private fun MutableList<DocShot>.itemCards() {
+    // The plain card: the mouse is on the last gun in the bag and nothing is being compared. The
+    // square underneath is still lit, which is the thing to notice — the layer covering the picture
+    // only watches the pointer, so the bag is hovered exactly as it would be with no card there.
+    add(
+        DocShot("game-item-card", 380, 250, pointer = Offset(156f, 40f), stock = true) { DocLootBag() },
+    )
+
+    // The same bag with Shift held down, on the gun that is the actual decision: it hits half as
+    // hard again and is worse at everything else. Each difference is written three ways — the sign
+    // says which way the number moved, the arrow says whether that is an improvement, the colour
+    // says it again — so the mass line reads "+3.6 ▼" and the player knows without reading a word.
+    add(
+        DocShot(
+            "game-item-card-compare",
+            580,
+            250,
+            pointer = Offset(156f, 40f),
+            stock = true,
+            typed = listOf(Typing.Hold(Key.Shift), Typing.Wait(3)),
+        ) { DocLootBag() },
+    )
+
+    // No pointer anywhere. A pad walks focus along three guns on a bench and holds the left bumper,
+    // and the card hangs off the square that has focus rather than off a mouse that never moved.
+    // The bench is at the right-hand edge on purpose: two cards centred under that last square
+    // would hang off the picture, so the widget slides them back rather than letting one be cut off.
+    add(
+        DocShot(
+            "game-item-card-pad",
+            560,
+            300,
+            stock = true,
+            focus = true,
+            padHold = listOf(GamepadId(0) to GamepadButton.LeftBumper),
+            padded = listOf(
+                Padding.Down(GamepadButton.DpadRight),
+                Padding.Up(GamepadButton.DpadRight),
+                Padding.Down(GamepadButton.DpadRight),
+                Padding.Up(GamepadButton.DpadRight),
+                Padding.Down(GamepadButton.DpadRight),
+                Padding.Up(GamepadButton.DpadRight),
+                Padding.Wait(4),
+            ),
+        ) { DocLootBench() },
+    )
+}
+
+/**
+ * One gun, as a game would model it. The toolkit has never heard of this class.
+ *
+ * Three in the bag and one on the player's back, so every kind of difference the card can draw has
+ * something to say: a gun that is better in every column, one that is worse in every column, and
+ * one that trades the two that matter against each other.
+ */
+private class DocDrop(
+    val name: String,
+    val label: String,
+    val tier: String,
+    val damage: Float,
+    val rateOfFire: Float,
+    val mass: Float,
+    val rarity: Colour,
+    val flavour: String,
+)
+
+/** What the player has on. Everything in the bag is weighed against this one. */
+private val DocEquipped = DocDrop(
+    name = "MK II REPEATER",
+    label = "MK2",
+    tier = "Standard",
+    damage = 42f,
+    rateOfFire = 3.4f,
+    mass = 5.6f,
+    rarity = Colour.rgb(0x8E9AAB),
+    flavour = "Issued with the ship. Fires until it does not.",
+)
+
+private val DocDrops = listOf(
+    DocDrop(
+        name = "ASHFALL",
+        label = "ASH",
+        tier = "Rare",
+        damage = 51f,
+        rateOfFire = 3.1f,
+        mass = 4.9f,
+        rarity = Colour.rgb(0x5B8DEF),
+        flavour = "Pulled out of a wreck that was still warm.",
+    ),
+    DocDrop(
+        name = "TIN CARBINE",
+        label = "TIN",
+        tier = "Common",
+        damage = 33f,
+        rateOfFire = 4.6f,
+        mass = 6.8f,
+        rarity = Colour.rgb(0x8E9AAB),
+        flavour = "Cheap and loud. Mostly loud.",
+    ),
+    DocDrop(
+        name = "SUNBREAKER",
+        label = "SUN",
+        tier = "Legendary",
+        damage = 74f,
+        rateOfFire = 1.9f,
+        mass = 9.2f,
+        rarity = Colour.rgb(0xFFB020),
+        flavour = "One shot, and then a long think about the next one.",
+    ),
+)
+
+/** The guns as a bag holds them: a square each, in the order they were picked up. */
+private fun docLoot() = InventoryState(
+    columns = 4,
+    rows = 2,
+    items = DocDrops.mapIndexed { column, drop ->
+        InventoryItem(id = drop.label, kind = drop, at = InventoryCell(column, 0))
+    },
+)
+
+/**
+ * What the player is looking at, and where it is. The game's own two fields.
+ *
+ * The bag knows nothing about the card and the card knows nothing about the bag; this is the whole
+ * of what joins them, which is the point worth showing.
+ */
+private class DocBench {
+
+    var looking by mutableStateOf<DocDrop?>(null)
+
+    /** Where the square is, for a pad player, who never hovers anything. Null follows the pointer. */
+    var anchor by mutableStateOf<Rect?>(null)
+
+    fun look(drop: DocDrop, at: Rect?) {
+        looking = drop
+        anchor = at
+    }
+
+    /** Only if it is still this one: a pointer crossing from one square to the next arrives in that order. */
+    fun leave(drop: DocDrop) {
+        if (looking === drop) {
+            looking = null
+            anchor = null
+        }
+    }
+}
+
+/** The card itself, wired the same way in every picture of it. */
+@Composable
+private fun DocItemCard(
+    bench: DocBench,
+    compare: ItemCompare = ItemCompare.Held,
+    hint: String? = "Hold Shift to compare",
+) {
+    ItemTooltip(
+        item = bench.looking,
+        compareWith = DocEquipped,
+        anchor = bench.anchor,
+        rarity = { it.rarity },
+        compare = compare,
+        compareHint = hint,
+        width = 186f,
+    ) {
+        title(it.name)
+        subtitle("${it.tier} · Main hand")
+        separator()
+        stat("Damage", it.damage)
+        stat("Rate of fire", it.rateOfFire)
+        stat("Mass", it.mass, higherIsBetter = false)
+        flavour(it.flavour)
+    }
+}
+
+/**
+ * The bag of guns with the card over it, as the pictures of a mouse take it.
+ *
+ * The square the pointer is on says so; nothing else does. The card is a layer over the whole
+ * picture rather than something inside the bag, because it has to be drawn past the bag's edge.
+ */
+@Composable
+private fun DocLootBag(hint: String? = "Hold Shift to compare") {
+    val bench = remember { DocBench() }
+    Box(Modifier.fillMaxSize()) {
+        Frame {
+            DragAndDropHost {
+                // In the corner rather than the middle, so there is room beside it for the card the
+                // picture is about, and the card is not the only thing anyone can see.
+                InventoryGrid(
+                    state = remember { docLoot() },
+                    modifier = Modifier.align(Alignment.TopStart),
+                    cellSize = 52f,
+                    spacing = 6f,
+                ) { item -> DocLootSlot(item.kind as DocDrop, bench) }
+            }
+        }
+        DocItemCard(bench, hint = hint)
+    }
+}
+
+/** One square's contents: the gun's short name, and whether the pointer is on it. */
+@Composable
+private fun DocLootSlot(drop: DocDrop, bench: DocBench) {
+    val interaction = remember { InteractionState() }
+    val hovered = interaction.isHovered
+    DisposableEffect(hovered, drop) {
+        if (hovered) bench.look(drop, null) else bench.leave(drop)
+        onDispose { bench.leave(drop) }
+    }
+    Box(Modifier.fillMaxSize().interaction(interaction), contentAlignment = Alignment.Centre) {
+        Text(drop.label, colour = drop.rarity, maxLines = 1)
+    }
+}
+
+/**
+ * The same three guns on a bench a pad walks along, for the picture with no pointer in it.
+ *
+ * A console never hovers anything, so what puts the card up is **focus** landing on a square, and
+ * the card hangs off that square's rectangle rather than off a pointer that has never moved.
+ */
+@Composable
+private fun DocLootBench() {
+    val bench = remember { DocBench() }
+    Box(Modifier.fillMaxSize()) {
+        Frame {
+            // Against the far edge, so that the card hanging off the last square has to be slid
+            // back to stay on the screen rather than fitting wherever it likes.
+            Row(
+                Modifier.align(Alignment.TopEnd),
+                horizontalArrangement = Arrangement.spacedBy(8f),
+            ) {
+                DocDrops.forEach { drop -> DocBenchSlot(drop, bench) }
+            }
+        }
+        DocItemCard(bench, hint = "Hold LB to compare")
+    }
+}
+
+/** One square on the bench: focusable, and it says where it is once it has been laid out. */
+@Composable
+private fun DocBenchSlot(drop: DocDrop, bench: DocBench) {
+    val interaction = remember { InteractionState() }
+    val states = rememberStates(interaction)
+
+    // Written after layout and read only when focus lands here, so a square moving costs nothing.
+    val box = remember { FloatArray(4) }
+    val placed = remember {
+        PlacedHandler { node ->
+            val at = node.boundsInRoot
+            box[0] = at.left
+            box[1] = at.top
+            box[2] = at.right
+            box[3] = at.bottom
+        }
+    }
+
+    val focused = interaction.isFocused
+    DisposableEffect(focused, drop) {
+        if (focused) bench.look(drop, Rect(box[0], box[1], box[2], box[3])) else bench.leave(drop)
+        onDispose { bench.leave(drop) }
+    }
+
+    Box(
+        Modifier.size(56f)
+            .interaction(interaction)
+            // The state has to be handed to `focusable` as well: `interaction` on its own is told
+            // about the pointer, and focus is only reported to the state focus itself was given.
+            .focusable(interaction)
+            .onPlaced(placed)
+            .styled("hotbar.slot", states),
+        contentAlignment = Alignment.Centre,
+    ) {
+        Text(drop.label, colour = drop.rarity, maxLines = 1)
+    }
 }
 
 // ---------------------------------------------------------------- the compass bar

@@ -561,6 +561,13 @@ The card a looter lives in: what this drop is, and how it compares with what is
 already equipped. Players do not read the numbers — they read the green and red
 arrows and decide in about a third of a second.
 
+![a bag of three guns with the mouse on the last one, and its card hanging under the pointer: SUNBREAKER in gold, its tier, three numbers, a line of flavour text and "Hold Shift to compare"](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-item-card.png)
+
+A real mouse on a real bag. The square under the pointer is still lit, which is
+the thing to notice: the card is a layer over the whole picture, and it only
+*watches* the pointer, so the bag is hovered exactly as it would be with no card
+there.
+
 ```kotlin
 ItemTooltip(
     item = hovered,                      // what the pointer or focus is on; null draws nothing
@@ -584,6 +591,13 @@ game writes `stat("Damage", it.damage)` once and gets the difference for free.
 A stat the other item has not got simply has nothing beside it.
 
 ### The arrows carry the answer, not the colours
+
+![the same card with Shift held: Damage 74 +32 with a green up arrow, Rate of fire 1.9 -1.5 with a red down arrow, Mass 9.2 +3.6 with a red down arrow, and the equipped MK II REPEATER on a sunken card beside it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-item-card-compare.png)
+
+The same bag with Shift really held down, on the gun that is the actual decision:
+it hits half as hard again and is worse at everything else. Mass reads `+3.6 ▼` —
+the number went up, and that is bad — which is what `higherIsBetter = false` is
+for.
 
 Red and green are the first thing a looter player learns and the one thing about
 eight per cent of the men playing cannot see. So every difference is written
@@ -656,6 +670,14 @@ var slot by remember { mutableStateOf<Rect?>(null) }
 Slot(Modifier.onPlaced { node -> slot = node.boundsInRoot })
 ItemTooltip(item = focusedItem, anchor = slot) { … }
 ```
+
+![three guns against the right-hand edge with the focus ring on the last one, and the two cards below it slid back from the edge so neither is cut off](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-item-card-pad.png)
+
+No pointer anywhere in that one. A pad walked focus along the three squares and
+held the left bumper, and the card hangs off the square that has focus. The
+squares are against the right-hand edge on purpose: two cards centred under that
+last one would hang off the picture, so they are slid back rather than one of
+them being cut off.
 
 `anchor` is in the **root's** coordinates — `boundsInRoot`, the same rectangle
 every other widget here takes — and the layer turns it into its own. So it is

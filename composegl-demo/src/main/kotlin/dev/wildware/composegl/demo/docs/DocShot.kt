@@ -99,6 +99,15 @@ internal sealed interface Typing {
     /** A key pressed and let go, on one frame. */
     data class Press(val key: Key, val modifiers: Modifiers = Modifiers.None) : Typing
 
+    /**
+     * A key pressed down and never let go, so the picture is taken with a finger still on it.
+     *
+     * For something that is only on screen while a key is held — an item card's comparison, which
+     * is a Shift a looter player holds down — where a press and a release turns it on and straight
+     * off again. The keyboard's half of [DocShot.padHold].
+     */
+    data class Hold(val key: Key, val modifiers: Modifiers = Modifiers.None) : Typing
+
     /** Characters into whatever has focus, one a frame, the way a keyboard sends them. */
     data class Write(val text: String) : Typing
 
