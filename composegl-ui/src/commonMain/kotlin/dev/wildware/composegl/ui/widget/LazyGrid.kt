@@ -355,7 +355,10 @@ private class LazyGridPolicy(
                 val y = if (vertical) start else sideways
                 placeable.at(if (rightToLeft) width - x - placeable.width else x, y)
             }
-            if (vertical) bar?.at(width - thickness, 0f) else bar?.at(0f, height - thickness)
+            // The bar hangs on the edge the lines of cells end at, which is the left of a mirrored
+            // grid: on the right it would lie over the first cell of every line.
+            val barX = if (rightToLeft) 0f else width - thickness
+            if (vertical) bar?.at(barX, 0f) else bar?.at(0f, height - thickness)
         }
     }
 

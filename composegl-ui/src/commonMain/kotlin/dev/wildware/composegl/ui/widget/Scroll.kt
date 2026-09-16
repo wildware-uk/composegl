@@ -213,10 +213,13 @@ private class ScrollPolicy(
 
         // In a right-to-left screen the contents start against the right, and x is how far they have
         // moved right from there.
-        val left = if (layoutDirection == LayoutDirection.Rtl) width - inside.width + x else -x
+        val rtl = layoutDirection == LayoutDirection.Rtl
+        val left = if (rtl) width - inside.width + x else -x
         return layout(width, height) {
             inside.at(left, -y)
-            barY?.at(width - thickness, 0f)
+            // The up-and-down bar hangs on the edge the lines end at, which a mirrored screen puts on
+            // the left. On the right it would lie across the first letter of every line.
+            barY?.at(if (rtl) 0f else width - thickness, 0f)
             barX?.at(0f, height - thickness)
         }
     }

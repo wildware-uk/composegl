@@ -858,6 +858,10 @@ Both remember how far they were scrolled when their screen is left and come
 back to, as long as a `SaveableStateHolder` is above them — see
 [[Saving state]].
 
+The bar sits over the contents rather than beside them, on the edge the lines end at: the
+right of an ordinary screen, and the **left** of a right-to-left one, where the text begins
+on the right. See [[Localisation]].
+
 ---
 
 ## Panning and zooming

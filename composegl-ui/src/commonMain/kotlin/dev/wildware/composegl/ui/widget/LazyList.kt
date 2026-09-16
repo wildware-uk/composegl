@@ -694,16 +694,21 @@ private class LazyPolicy(
 
         pin(starts, placeables, scrolled)
 
-        val mirrored = !vertical && layoutDirection == LayoutDirection.Rtl
+        val rtl = layoutDirection == LayoutDirection.Rtl
+        val mirrored = !vertical && rtl
         return layout(width, height) {
             placeables.forEachIndexed { slot, placeable ->
                 when {
-                    vertical -> placeable.at(0f, starts[slot])
+                    // A row narrower than the list hangs off the edge it starts at, which a mirrored
+                    // screen puts on the right — where a left-to-right one has it on the left.
+                    vertical -> placeable.at(if (rtl) width - placeable.width else 0f, starts[slot])
                     mirrored -> placeable.at(width - starts[slot] - placeable.width, 0f)
                     else -> placeable.at(starts[slot], 0f)
                 }
             }
-            if (vertical) bar?.at(width - thickness, 0f) else bar?.at(0f, height - thickness)
+            // The bar hangs on the edge the rows end at: the left of a mirrored list, so that it does
+            // not lie across the first letter of every row.
+            if (vertical) bar?.at(if (rtl) 0f else width - thickness, 0f) else bar?.at(0f, height - thickness)
         }
     }
 
