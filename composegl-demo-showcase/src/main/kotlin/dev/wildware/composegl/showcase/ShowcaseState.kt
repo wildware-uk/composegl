@@ -24,6 +24,7 @@ enum class Exhibit(val title: String, val blurb: String) {
     Contacts("Contacts table", "Sort, resize and pick a drone"),
     Tree("Scene tree", "Rows that open, by mouse or pad"),
     Starmap("Star map", "A plane to drag and zoom"),
+    Nodes("UI tree", "The live interface, and what keeps changing"),
 }
 
 /** How often the fight fires, as a debug window offers it. */

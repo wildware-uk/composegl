@@ -2,9 +2,10 @@
 
 The tools for finding out why a screen looks or costs what it does, and for changing the game
 while it runs: floating windows of controls wired straight to your own properties, an overlay
-for the layout, an inspector to point at one widget, a console for typing commands at a running
-game, and overlays for overdraw, draw calls, focus, redraws and the lines inside text. Each one
-is drawn by the toolkit itself, so it looks the same on every backend.
+for the layout, an inspector to point at one widget, a browsable tree of the whole screen, a
+console for typing commands at a running game, and overlays for overdraw, draw calls, focus,
+redraws and the lines inside text. Each one is drawn by the toolkit itself, so it looks the
+same on every backend.
 
 For one widget, `Modifier.debugBounds()` stays in `composegl-ui`; see
 [Modifiers](Modifiers.md). For the tree as text, `dump`, see
@@ -39,6 +40,7 @@ import dev.wildware.composegl.debug.FocusOverlay
 import dev.wildware.composegl.debug.FrameBudgetOverlay
 import dev.wildware.composegl.debug.Inspector
 import dev.wildware.composegl.debug.LayoutOverlay
+import dev.wildware.composegl.debug.NodeTree
 import dev.wildware.composegl.debug.arg
 import dev.wildware.composegl.debug.rememberDevConsole
 ```
@@ -245,6 +247,70 @@ grows shows its new size. It only redraws when something it shows changed, and t
 off rebuilds nothing: the screen keeps its state and focus.
 
 ![a settings panel with its APPLY button pinned, and the inspector's panel listing the button's size, padding and modifiers above a tree of the screen](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/inspector.png)
+
+---
+
+## The whole screen as a tree
+
+The inspector answers "what is *this*?" for whatever the pointer is over. `NodeTree` answers
+"what is on this screen at all?" — which is the only way to reach a widget you cannot point
+at: one that is invisible, zero sized, clipped away, or under something else.
+
+```kotlin
+val inspection = rememberInspectorState()
+
+Inspector(enabled = debug, state = inspection) { Game() }
+NodeTree(inspection, Modifier.width(300f).height(320f))
+```
+
+Sharing one `rememberInspectorState()` is what joins the two: the rows open down to whatever
+the pointer is over, and choosing a row pins that node — outlined in orange on the screen,
+with the inspector's panel filled in. Without an inspector, point it at a node yourself:
+
+```kotlin
+var interfaceRoot by remember { mutableStateOf<UiNode?>(null) }
+val placed = remember { PlacedHandler { interfaceRoot = it } }
+
+Box(Modifier.fillMaxSize().onPlaced(placed)) {
+    Game()
+    NodeTree(interfaceRoot, Modifier.width(300f).height(320f))
+}
+```
+
+Each row says what the node is (`button #play`), how big it is, and what it has cost:
+
+| On a row | What it means |
+|---|---|
+| `c12` | twelve frames rebuilt the node — a new chain, a new drawing, a child added or taken away |
+| `r300` | three hundred frames only redrew it — a `marquee` sliding, a `Spinner` turning |
+| red, fading | the count ticked on this frame. A widget still glowing on a still screen is the one costing you a frame every frame |
+
+Those are `RedrawOverlay`'s numbers, read off the nodes rather than flashed over them;
+counting is turned on while the tree is composed and off again when it goes.
+
+| Do this | And you get |
+|---|---|
+| type in the box | every node whose name or tag has that text in it, and the nodes above them so there is a way down. `#play` finds it by tag, `button` by name |
+| clear the box | the rows back the way you had them before the first letter |
+| tick `0x0` | nodes with no width or no height left out, except where something showing sits under one |
+| click a row | that node chosen — pinned, with an inspector sharing its state |
+| up and down, right and left, Enter or the pad's South | the tree's own keys: move, open or go in, close or go out, choose. Mirrored in a right-to-left screen |
+
+It is a [[Widgets|TreeView]] underneath, so only the rows you can see are built and a screen of
+ten thousand nodes costs a screenful; and unlike the inspector it is skinned like any other
+tree, under `style`. Its own rows are left out of the walk, so pointing it at the root of the
+whole interface neither lists nor flashes on the tree itself.
+
+It is a plain composable, so it goes in a [window](#tweaking-values-while-the-game-runs) you can
+drag out of the way — which is where the showcase demo keeps it. Give it a height of its own: a
+window's body scrolls, so it offers what is in it all the room it asks for, and a tree told to
+fill that would have nothing to scroll inside.
+
+```kotlin
+DebugWindow("UI tree") {
+    NodeTree(interfaceRoot, Modifier.width(280f).height(320f))
+}
+```
 
 ---
 
@@ -560,8 +626,12 @@ ui.budget.busiest = 5
 
 `FrameBudgetOverlay` then lists the five nodes the most frames changed, most first, by test
 tag (`#score`) or by name, with how many frames. The counts are also on every node as
-`node.changes`, and `tree.countChanges = true` turns them on for a test that wants them
-alone. `budget.reset()` and `tree.resetChangeCounts()` start them again.
+`node.changes`, split into `node.composeChanges` (frames that rebuilt it) and
+`node.redrawChanges` (frames that only redrew it — a `marquee`, a `Spinner`). A node with a
+big `redrawChanges` and a small `composeChanges` is redrawing on purpose; one where both
+climb together is being rebuilt as well. `tree.countChanges = true` turns the counting on for
+a test that wants the numbers alone, `budget.reset()` and `tree.resetChangeCounts()` start
+them again, and `NodeTree` above puts all three beside the widget they belong to.
 
 Neither overlay marks anything changed itself, so turning them on does not make a still
 screen redraw. The budget's own numbers refresh four times a second on purpose and are left
@@ -670,6 +740,7 @@ What a tool can read off the tree, besides the rectangles every node has:
 | `node.drawnScale`, `drawnMirrorX`, `drawnMirrorY`, `isResizing` | what the pointer search stops at |
 | `node.changes`, `node.changedAtNanos`, `tree.clocks.frameNanos` | what changed, and when |
 | `tree.watchChanges()`, `tree.stopWatchingChanges()` | change counting, while a tool needs it |
+| `node.changes`, `node.composeChanges`, `node.redrawChanges` | how many frames changed it, and which kind |
 | `node.focusManager`, `focus.peek(direction)`, `focus.reachable()` | where focus goes, and why |
 | `focus.addMovedListener`, `removeMovedListener` | told when focus moves |
 | `policy.linearOrientation` | a `Row` or `Column`'s direction, or null |

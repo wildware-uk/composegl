@@ -90,6 +90,38 @@ class ChangeCountTest {
     }
 
     @Test
+    fun `a rebuild and a redraw are counted apart`() {
+        val tree = tree()
+        val node = UiNode("a")
+        tree.root.insertAt(0, node)
+        assertEquals(1, node.composeChanges, "it appeared")
+        assertEquals(0, node.redrawChanges)
+
+        tree.nextFrame()
+        tree.redraw(node)
+        assertEquals(2, node.changes)
+        assertEquals(1, node.composeChanges, "nothing about it was different")
+        assertEquals(1, node.redrawChanges)
+    }
+
+    @Test
+    fun `a frame that both rebuilds and redraws counts once in each and once in all`() {
+        val tree = tree()
+        val node = UiNode("a")
+        tree.root.insertAt(0, node)
+
+        tree.nextFrame()
+        node.modifier = Modifier.padding(4f)
+        node.content = {}
+        tree.redraw(node)
+        tree.redraw(node)
+
+        assertEquals(2, node.changes, "one frame is one change")
+        assertEquals(2, node.composeChanges, "the frame it appeared, and this one")
+        assertEquals(1, node.redrawChanges)
+    }
+
+    @Test
     fun `turning counting off stops counting and a reset clears what was counted`() {
         val tree = tree()
         val node = UiNode("a")
@@ -104,6 +136,8 @@ class ChangeCountTest {
 
         tree.resetChangeCounts()
         assertEquals(0, node.changes)
+        assertEquals(0, node.composeChanges)
+        assertEquals(0, node.redrawChanges)
         assertEquals(NeverChanged, node.changedAtNanos)
     }
 

@@ -22,6 +22,7 @@ import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.debug.DebugWindow
 import dev.wildware.composegl.debug.DebugWindowHost
 import dev.wildware.composegl.debug.DevConsole
+import dev.wildware.composegl.debug.NodeTree
 import dev.wildware.composegl.debug.FrameBudgetOverlay
 import dev.wildware.composegl.debug.arg
 import dev.wildware.composegl.debug.rememberDevConsole
@@ -44,6 +45,7 @@ import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
+import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.layout.VerticalAlignment
 import dev.wildware.composegl.ui.modifier.Modifier
@@ -57,10 +59,12 @@ import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.onKeyEvent
+import dev.wildware.composegl.ui.modifier.onPlaced
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.tint
 import dev.wildware.composegl.ui.modifier.width
+import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.skin.ProvideSkin
 import dev.wildware.composegl.ui.skin.Skin
 import dev.wildware.composegl.ui.skin.styled
@@ -111,10 +115,15 @@ fun ShowcaseUi(
             // every widget rather than by whatever happens to have focus.
             val hotbar = remember { HotbarState() }
 
+            // The node the whole interface is composed into, kept so the node tree can walk it.
+            // Written on every layout pass, and the same node every time, so it costs nothing.
+            var interfaceRoot by remember { mutableStateOf<UiNode?>(null) }
+            val placed = remember { PlacedHandler { interfaceRoot = it } }
+
             // The windows go over everything, and the host is a PopupHost too, so the menu bar's
             // menus and the target panel's context menu drop through it.
             DebugWindowHost {
-                Box(Modifier.fillMaxSize().onKeyEvent(hotbar::onKey)) {
+                Box(Modifier.fillMaxSize().onPlaced(placed).onKeyEvent(hotbar::onKey)) {
                     if (state.isOn(Exhibit.Hud)) {
                         CombatHud(state)
                         Radar(state)
@@ -157,9 +166,13 @@ fun ShowcaseUi(
                     ShowcaseConsole(state)
                 }
 
-                // Written here, drawn by the host over the lot, and draggable anywhere. F9 puts it
-                // away with every other debug window; the Debug menu brings it back.
+                // Written here, drawn by the host over the lot, and draggable anywhere. F9 puts them
+                // away with every other debug window; the Debug menu brings them back.
                 if (state.tuningOpen) TuningWindow(state)
+
+                // Outside the Box above on purpose: the tree walks that Box, so a window written
+                // here is not something it can find, and it never lists the tool looking at it.
+                if (state.isOn(Exhibit.Nodes)) NodeWindow(state, interfaceRoot)
             }
         }
     }
@@ -629,6 +642,30 @@ private fun SceneTree(state: ShowcaseState) {
 
 /** The rows that open. Known without asking, the way a real scene knows which nodes are groups. */
 private val Branches = setOf("ship", "weapons", "drones", "effects")
+
+/**
+ * The interface's own tree, live, in a window you can drag out of the way: every node on this screen,
+ * how big it is, and how many frames have changed it.
+ *
+ * The "Scene tree" panel is the *game's* tree, written by hand. This one is written by nobody — it is
+ * what the toolkit actually built, which is the only way to find a widget that is invisible, zero
+ * sized or hiding under something else. Type in the box to keep the rows whose name or tag matches,
+ * and the counts beside each row go red as they tick, so a widget quietly costing a frame every frame
+ * is the one still glowing.
+ */
+@Composable
+private fun NodeWindow(state: ShowcaseState, root: UiNode?) {
+    DebugWindow(
+        "UI tree",
+        // To the right of the scene tree, clear of the target panel down the other side.
+        initialPosition = Offset(620f, BelowMenus + 32f),
+        onClose = { state.toggle(Exhibit.Nodes) },
+    ) {
+        // A height of its own: a window's body scrolls, so it offers its contents all the room they
+        // ask for, and a tree told to fill that would have nothing to scroll inside.
+        NodeTree(root, Modifier.width(280f).height(320f))
+    }
+}
 
 /**
  * The switches: every exhibit can be turned off, which is how you see what each one costs. They sit
