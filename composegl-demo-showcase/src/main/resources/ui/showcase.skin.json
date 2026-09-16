@@ -377,6 +377,508 @@
     "console.field.placeholder": { "textColour": "#5A6A80" },
     "console.field.caret": { "background": { "fill": "#4CC2FF" } },
     "console.field.selection": { "background": { "fill": "#504CC2FF" } },
-    "console.field.composition": { "background": { "fill": "#7E8DA3" } }
+    "console.field.composition": { "background": { "fill": "#7E8DA3" } },
+
+    // --- the rest of the toolkit's vocabulary ---
+    //
+    // Everything below is named by `StyleNames` in composegl-ui, and `ShowcaseSkinTest` holds this
+    // file to that list. It is here because a missing style is silent: a skin that does not answer
+    // one draws the widget plain — no fill, no edge, no selection — and nobody finds out until they
+    // photograph it. The menus, the table, the tree, the debug windows, the plots, the wheel, the
+    // upgrade board, the item cards and the objectives were all drawing plain in this demo until
+    // the test went in.
+
+    // --- more surfaces ---
+
+    "screen": { "background": { "fill": "#0A1018" } },
+    "panel.raised": {
+      "background": { "fill": "#E0111A26", "corner": 4, "border": "#504CC2FF", "padding": 16 }
+    },
+    "panel.keyboard": {
+      "background": { "fill": "#F00A1018", "corner": 6, "border": "#404CC2FF", "padding": 12 }
+    },
+    "dialog": {
+      "background": { "fill": "#F20A1018", "corner": 6, "border": "#4CC2FF", "padding": 20 }
+    },
+    "scrim": { "background": { "fill": "#B0050810" } },
+    "separator": { "background": { "fill": "#28FFFFFF" } },
+    "divider": { "background": { "fill": "#28FFFFFF" } },
+
+    // --- more text ---
+
+    "label.heading": { "textColour": "#E6F4FF", "text": { "size": 18 } },
+    "label.danger": { "textColour": "#FF5A4F" },
+    "label.good": { "textColour": "#8AFFD8" },
+
+    // --- more buttons ---
+
+    "button.primary": {
+      "background": { "fill": "#804CC2FF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2, "padding": [14, 8] },
+      "textColour": "#06121C",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#B04CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#FF4CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#804CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+    "button.danger": {
+      "background": { "fill": "#40FF5A4F", "corner": 4, "border": "#FF5A4F", "padding": [14, 8] },
+      "textColour": "#FFD5D5",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#70FF5A4F", "corner": 4, "border": "#FF8F8F", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#A0FF5A4F", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#40FF5A4F", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    // The quiet one is what a section's own buttons wear: a row of them should read as a list of
+    // things to try, not as a row of things shouting.
+    "button.quiet": {
+      "background": { "fill": "#18FFFFFF", "corner": 4, "border": "#28FFFFFF", "padding": [12, 6] },
+      "textColour": "#9AA4B2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 4, "border": "#4CC2FF" }, "textColour": "#E6F4FF" },
+      "pressed": { "background": { "fill": "#504CC2FF", "corner": 4, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#4A5A6A" }
+    },
+    "button.icon": {
+      "background": { "fill": "#18FFFFFF", "corner": 4, "border": "#28FFFFFF", "padding": 6 },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 4, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "contentOffset": [0, 1] }
+    },
+    "button.listening": {
+      "background": { "fill": "#40FFC24C", "corner": 4, "border": "#FFC24C", "borderWidth": 2, "padding": [14, 8] },
+      "textColour": "#FFC24C",
+      "text": { "size": 13 }
+    },
+    "button.key": {
+      "background": { "fill": "#18FFFFFF", "corner": 4, "border": "#28FFFFFF", "padding": [4, 7] },
+      "textColour": "#DCE6F2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 4, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#404CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#604CC2FF", "corner": 4, "border": "#4CC2FF" }, "contentOffset": [0, 1] },
+      "disabled": { "textColour": "#4A5A6A" }
+    },
+    "button.key.on": {
+      "background": { "fill": "#804CC2FF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2, "padding": [4, 7] },
+      "textColour": "#06121C",
+      "text": { "size": 13 },
+      "focused": { "background": { "fill": "#804CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    // --- the rest of the things that take a value ---
+
+    "checkbox": {
+      "background": { "fill": "#2000FFFF", "corner": 3, "border": "#4CC2FF", "padding": 3 },
+      "hovered": { "background": { "fill": "#3000FFFF", "corner": 3, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#2000FFFF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+    "checkbox.tick": { "background": { "fill": "#4CC2FF", "corner": 2 } },
+
+    "radio": {
+      "background": { "fill": "#2000FFFF", "corner": 8, "border": "#4CC2FF", "padding": 3 },
+      "hovered": { "background": { "fill": "#3000FFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#2000FFFF", "corner": 8, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+    "radio.dot": { "background": { "fill": "#4CC2FF", "corner": 5 } },
+
+    "slider.track": { "background": { "fill": "#60000000", "corner": 3 } },
+    "slider.fill": { "background": { "fill": "#4CC2FF", "corner": 3 } },
+    "slider.knob": {
+      "background": { "fill": "#E8F4FF", "corner": 8, "border": "#4CC2FF" },
+      "hovered": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#FFFFFF", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    "stepper": {
+      "background": { "fill": "#2000FFFF", "corner": 4, "border": "#304CC2FF", "padding": [2, 4] },
+      "hovered": { "background": { "fill": "#3000FFFF", "corner": 4, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#2000FFFF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+    "stepper.arrow": {
+      "textColour": "#4CC2FF",
+      "padding": [10, 2],
+      "hovered": { "textColour": "#8ADBFF" },
+      "pressed": { "textColour": "#FFFFFF", "contentOffset": [0, 1] },
+      "disabled": { "textColour": "#304CC2FF" }
+    },
+    "stepper.value": { "textColour": "#E8F4FF", "padding": [8, 2], "text": { "size": 13 } },
+
+    // The plane a pan-zoom canvas draws on: nearly black, because what is on it is the picture.
+    "panzoom": {
+      "background": { "fill": "#060A12", "corner": 4 },
+      "focused": { "background": { "fill": "#060A12", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
+    "colourpicker": {
+      "background": { "fill": "#F00A1018", "corner": 6, "border": "#404CC2FF", "padding": 12 }
+    },
+    "colourpicker.area": {
+      "background": { "fill": "#060A12", "corner": 3, "border": "#304CC2FF" },
+      "hovered": { "background": { "fill": "#060A12", "corner": 3, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#060A12", "corner": 3, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+    "colourpicker.marker": { "background": { "fill": "#060A12" }, "textColour": "#FFFFFF" },
+    "colourpicker.checker": { "background": { "fill": "#C8CCD2" }, "textColour": "#8A9099" },
+    "colourswatch": {
+      "background": { "fill": "#060A12", "corner": 3, "border": "#304CC2FF", "padding": 2 },
+      "hovered": { "background": { "fill": "#060A12", "corner": 3, "border": "#4CC2FF", "padding": 2 } },
+      "focused": { "background": { "fill": "#060A12", "corner": 3, "border": "#FFFFFF", "borderWidth": 2, "padding": 2 } },
+      "pressed": { "background": { "fill": "#060A12", "corner": 3, "border": "#8ADBFF", "padding": 2 } }
+    },
+
+    // --- typing ---
+
+    "field": {
+      "background": { "fill": "#600A1018", "corner": 4, "border": "#304CC2FF", "padding": [10, 7] },
+      "textColour": "#E6F4FF",
+      "hovered": { "background": { "fill": "#600A1018", "corner": 4, "border": "#604CC2FF" } },
+      "focused": { "background": { "fill": "#600A1018", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#4A5A6A" }
+    },
+    "field.placeholder": { "textColour": "#58697C" },
+    "field.caret": { "background": { "fill": "#E6F4FF" } },
+    "field.selection": { "background": { "fill": "#504CC2FF" } },
+    "field.composition": { "background": { "fill": "#8ADBFF" } },
+    "selection": { "background": { "fill": "#504CC2FF" } },
+
+    // --- lists, menus and tabs ---
+
+    "item": {
+      "background": "none",
+      "padding": [10, 6],
+      "hovered": { "background": { "fill": "#18FFFFFF", "corner": 4 } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#304CC2FF", "corner": 4 } },
+      "disabled": { "textColour": "#4A5A6A" }
+    },
+    "item.selected": {
+      "background": { "fill": "#604CC2FF", "corner": 4, "padding": [10, 6] },
+      "textColour": "#06121C",
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 4 } },
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "dropdown": {
+      "background": { "fill": "#600A1018", "corner": 4, "border": "#304CC2FF", "padding": [10, 7] },
+      "hovered": { "background": { "fill": "#600A1018", "corner": 4, "border": "#604CC2FF" } },
+      "focused": { "background": { "fill": "#600A1018", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#304CC2FF", "corner": 4, "border": "#4CC2FF" } },
+      "disabled": { "textColour": "#4A5A6A" }
+    },
+    "dropdown.list": {
+      "background": { "fill": "#F20A1018", "corner": 4, "border": "#4CC2FF", "padding": 4 }
+    },
+
+    // The tabs the three module sections are chosen with, and any a game adds later.
+    "tab": {
+      "background": { "fill": "#18FFFFFF", "corner": 4, "border": "#28FFFFFF", "padding": [14, 6] },
+      "textColour": "#9AA4B2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 4, "border": "#4CC2FF" }, "textColour": "#E6F4FF" },
+      "pressed": { "background": { "fill": "#504CC2FF", "corner": 4, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+    "tab.selected": {
+      "background": { "fill": "#404CC2FF", "corner": 4, "border": "#4CC2FF", "borderWidth": 2, "padding": [14, 6] },
+      "textColour": "#8ADBFF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#504CC2FF", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#404CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "scrollbar.track": { "background": { "fill": "#30000000", "corner": 4 } },
+    "scrollbar.thumb": {
+      "background": { "fill": "#604CC2FF", "corner": 4 },
+      "hovered": { "background": { "fill": "#4CC2FF", "corner": 4 } }
+    },
+
+    "menubar": { "background": { "fill": "#C00A1018", "border": "#28FFFFFF", "padding": [4, 2] } },
+    "menubar.title": {
+      "background": { "fill": "#00000000", "corner": 4, "padding": [10, 5] },
+      "textColour": "#DCE6F2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 4 } },
+      "focused": { "background": { "fill": "#304CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#504CC2FF", "corner": 4 } },
+      "disabled": { "textColour": "#4A5A6A" }
+    },
+    "menubar.title.open": {
+      "background": { "fill": "#604CC2FF", "corner": 4, "padding": [10, 5] },
+      "textColour": "#06121C",
+      "text": { "size": 13 },
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "menu": {
+      "background": { "fill": "#F20A1018", "corner": 4, "border": "#4CC2FF", "padding": 4 }
+    },
+    "menu.item": {
+      "background": "none",
+      "padding": [10, 5],
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 3 } },
+      "focused": { "background": { "fill": "#304CC2FF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#504CC2FF", "corner": 3 } },
+      "disabled": { "textColour": "#4A5A6A" }
+    },
+    "menu.item.open": {
+      "background": { "fill": "#504CC2FF", "corner": 3, "padding": [10, 5] },
+      "text": { "size": 14 }
+    },
+    "menu.shortcut": { "textColour": "#7E8DA3", "text": { "size": 13 } },
+    "menu.separator": { "background": { "fill": "#28FFFFFF" } },
+    "menu.check": { "background": { "fill": "#4CC2FF", "corner": 2 }, "disabled": { "tint": "#80FFFFFF" } },
+    "menu.radio": { "background": { "fill": "#4CC2FF", "corner": 7 }, "disabled": { "tint": "#80FFFFFF" } },
+
+    // --- the tree ---
+
+    "tree.row": {
+      "background": "none",
+      "padding": [8, 4],
+      "hovered": { "background": { "fill": "#18FFFFFF", "corner": 3 } },
+      "focused": { "background": { "fill": "#18FFFFFF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#304CC2FF", "corner": 3 } },
+      "disabled": { "textColour": "#4A5A6A" }
+    },
+    "tree.row.selected": {
+      "background": { "fill": "#604CC2FF", "corner": 3, "padding": [8, 4] },
+      "textColour": "#06121C",
+      "hovered": { "background": { "fill": "#804CC2FF", "corner": 3 } },
+      "focused": { "background": { "fill": "#604CC2FF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+    "tree.toggle": { "textColour": "#7E8DA3", "hovered": { "textColour": "#4CC2FF" } },
+    "tree.toggle.open": { "textColour": "#4CC2FF", "hovered": { "textColour": "#8ADBFF" } },
+    "tree.guide": { "background": { "fill": "#28FFFFFF" } },
+
+    // --- the table ---
+
+    "table": { "background": { "fill": "#600A1018", "corner": 4, "border": "#304CC2FF", "padding": 2 } },
+    "table.header": { "background": { "fill": "#18FFFFFF" } },
+    "table.header.cell": {
+      "background": "none",
+      "textColour": "#7E8DA3",
+      "padding": [10, 6],
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#304CC2FF" }, "textColour": "#E6F4FF" },
+      "focused": { "background": { "fill": "#304CC2FF", "border": "#FFFFFF", "borderWidth": 2 }, "textColour": "#E6F4FF" },
+      "pressed": { "background": { "fill": "#504CC2FF" } }
+    },
+    "table.header.cell.sorted": {
+      "background": "none",
+      "textColour": "#4CC2FF",
+      "padding": [10, 6],
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#304CC2FF" } },
+      "focused": { "background": { "fill": "#304CC2FF", "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#504CC2FF" } }
+    },
+    "table.divider": {
+      "background": { "fill": "#28FFFFFF" },
+      "padding": [4, 6],
+      "hovered": { "background": { "fill": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#8ADBFF" } }
+    },
+    "table.row": {
+      "background": "none",
+      "hovered": { "background": { "fill": "#18FFFFFF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#304CC2FF" } }
+    },
+    "table.row.alt": {
+      "background": { "fill": "#0CFFFFFF" },
+      "hovered": { "background": { "fill": "#18FFFFFF" } },
+      "focused": { "background": { "fill": "#18FFFFFF", "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#304CC2FF" } }
+    },
+    "table.row.selected": {
+      "background": { "fill": "#604CC2FF" },
+      "textColour": "#06121C",
+      "hovered": { "background": { "fill": "#804CC2FF" } },
+      "focused": { "background": { "fill": "#604CC2FF", "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+    "table.cell": { "padding": [10, 5] },
+    "table.empty": { "textColour": "#7E8DA3", "padding": 16 },
+
+    // --- things that talk to the player ---
+
+    "tooltip": {
+      "background": { "fill": "#F00A1018", "corner": 3, "border": "#4CC2FF", "padding": [8, 5] },
+      "textColour": "#E8ECF2",
+      "text": { "size": 13 }
+    },
+    "notification": {
+      "background": { "fill": "#E6111A26", "corner": 4, "border": "#404CC2FF", "padding": [12, 9] },
+      "textColour": "#E6F4FF",
+      "text": { "size": 13 }
+    },
+    "notification.detail": { "textColour": "#7E8DA3", "text": { "size": 13 } },
+    "notification.more": { "textColour": "#6E8093", "text": { "size": 13 } },
+
+    "prompt": {
+      "background": { "fill": "#39445A", "corner": 3, "border": "#8994A8", "padding": [6, 0] },
+      "textColour": "#E8ECF2",
+      "text": { "size": 13 }
+    },
+
+    "progress.track": { "background": { "fill": "#60000000", "corner": 3 } },
+    "progress.fill": { "background": { "fill": "#4CC2FF", "corner": 3 } },
+    "progress.fill.danger": { "background": { "fill": "#FF5A4F", "corner": 3 } },
+    "progress.fill.good": { "background": { "fill": "#8AFFD8", "corner": 3 } },
+
+    // --- what the player is meant to be doing ---
+
+    "objective": {
+      "background": { "fill": "#B00A1018", "corner": 4, "border": "#28FFFFFF", "padding": [12, 10] }
+    },
+    "objective.title": { "textColour": "#4CC2FF", "text": { "size": 15 } },
+    "objective.step": { "textColour": "#E6F4FF", "text": { "size": 14 } },
+    "objective.step.done": { "textColour": "#7E8DA3", "text": { "size": 14 } },
+    "objective.bullet": { "background": { "fill": "#060A12", "corner": 3, "border": "#4A5568" } },
+    "objective.tick": { "background": { "fill": "#46A758" } },
+    "objective.count": { "textColour": "#7E8DA3", "text": { "size": 13 } },
+    "objective.more": {
+      "background": { "fill": "#00000000", "corner": 3, "padding": [4, 2] },
+      "textColour": "#6E8093",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#18FFFFFF", "corner": 3 }, "textColour": "#DCE6F2" },
+      "focused": { "background": { "fill": "#304CC2FF", "corner": 3, "border": "#4CC2FF" } },
+      "pressed": { "background": { "fill": "#060A12", "corner": 3 }, "contentOffset": [0, 1] }
+    },
+
+    // --- the item card ---
+
+    "itemtip": {
+      "background": { "fill": "#F00A1018", "corner": 4, "border": "#2A3440", "borderWidth": 2, "padding": [10, 8] },
+      "textColour": "#DCE6F2",
+      "text": { "size": 13 }
+    },
+    "itemtip.compare": {
+      "background": { "fill": "#F0060A12", "corner": 4, "border": "#1C242E", "borderWidth": 2, "padding": [10, 8] }
+    },
+    "itemtip.rarity": { "background": { "fill": "#4CC2FF" } },
+    "itemtip.title": { "textColour": "#E6F4FF", "text": { "size": 16 } },
+    "itemtip.subtitle": { "textColour": "#7E8DA3", "text": { "size": 12 } },
+    "itemtip.label": { "textColour": "#7E8DA3", "text": { "size": 13 } },
+    "itemtip.value": { "textColour": "#E6F4FF", "text": { "size": 13 } },
+    "itemtip.better": { "textColour": "#8AFFD8", "text": { "size": 13 } },
+    "itemtip.worse": { "textColour": "#FF8080", "text": { "size": 13 } },
+    "itemtip.same": { "textColour": "#8E9AAB", "text": { "size": 13 } },
+    "itemtip.flavour": { "textColour": "#8E9AAB", "text": { "size": 12 } },
+    "itemtip.hint": { "textColour": "#6E8093", "text": { "size": 12 } },
+
+    // --- the weapon wheel ---
+
+    "wheel.backdrop": { "background": { "fill": "#B0050810" } },
+    "wheel.slice": { "background": { "fill": "#E6111A26" } },
+    "wheel.slice.selected": { "background": { "fill": "#E61E3452" } },
+    "wheel.slice.highlighted": { "background": { "fill": "#F24CC2FF" } },
+    "wheel.ring": { "background": { "fill": "#E60A1018" } },
+    "wheel.ring.highlighted": { "background": { "fill": "#F28ADBFF" } },
+    "wheel.hub": { "background": { "fill": "#F0050810" } },
+    "wheel.label": { "textColour": "#E8F4FF", "text": { "size": 18 } },
+
+    // --- the upgrade board ---
+
+    "skilltree.plane": {
+      "background": { "fill": "#060A12" },
+      "focused": { "background": { "fill": "#060A12", "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+    "skilltree.node.locked": {
+      "background": { "fill": "#0A1018", "corner": 6, "border": "#243140" },
+      "textColour": "#6E8093",
+      "hovered": { "background": { "fill": "#121A24", "corner": 6, "border": "#2A3440" } },
+      "focused": { "background": { "fill": "#121A24", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#4A5A6A", "tint": "#90FFFFFF" }
+    },
+    "skilltree.node.available": {
+      "background": { "fill": "#12283A", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 },
+      "textColour": "#E6F4FF",
+      "hovered": { "background": { "fill": "#1A3550", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#20405F", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#1A3550", "corner": 6, "border": "#8ADBFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#4A5A6A", "tint": "#90FFFFFF" }
+    },
+    "skilltree.node.owned": {
+      "background": { "fill": "#103324", "corner": 6, "border": "#46A758", "borderWidth": 2 },
+      "textColour": "#E6F4FF",
+      "hovered": { "background": { "fill": "#16452F", "corner": 6, "border": "#8AFFD8", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#1C5238", "corner": 6, "border": "#8AFFD8", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#16452F", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#4A5A6A", "tint": "#90FFFFFF" }
+    },
+    "skilltree.node.maxed": {
+      "background": { "fill": "#40340F", "corner": 6, "border": "#FFC24C", "borderWidth": 2 },
+      "textColour": "#FFF2D6",
+      "hovered": { "background": { "fill": "#524218", "corner": 6, "border": "#FFE9A8", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#524218", "corner": 6, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#9A8560", "tint": "#90FFFFFF" }
+    },
+    "skilltree.hold": { "background": { "fill": "#804CC2FF" } },
+    "skilltree.rank": { "textColour": "#7E8DA3", "text": { "size": 12 } },
+    "skilltree.edge.locked": { "background": { "fill": "#66243140" } },
+    "skilltree.edge.available": { "background": { "fill": "#CC4CC2FF" } },
+    "skilltree.edge.owned": { "background": { "fill": "#CC46A758" } },
+    "skilltree.edge.fill": { "background": { "fill": "#FF8AFFD8" } },
+
+    // --- the debug windows ---
+
+    "debugwindow": { "background": { "fill": "#EE0A1018", "corner": 4, "border": "#2A3440", "padding": 1 } },
+    "debugwindow.active": { "background": { "fill": "#F20A1018", "corner": 4, "border": "#4CC2FF", "padding": 1 } },
+    "debugwindow.title": {
+      "background": { "fill": "#18FFFFFF", "corner": 3, "padding": [8, 4] },
+      "textColour": "#7E8DA3",
+      "text": { "size": 13 }
+    },
+    "debugwindow.title.active": {
+      "background": { "fill": "#404CC2FF", "corner": 3, "padding": [8, 4] },
+      "textColour": "#E6F4FF",
+      "text": { "size": 13 }
+    },
+    "debugwindow.button": {
+      "background": { "fill": "#00000000", "corner": 3, "padding": 3 },
+      "textColour": "#7E8DA3",
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 3 }, "textColour": "#FFFFFF" },
+      "focused": { "background": { "fill": "#304CC2FF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 }, "textColour": "#FFFFFF" },
+      "pressed": { "background": { "fill": "#504CC2FF", "corner": 3 } }
+    },
+    "debugwindow.body": { "padding": [10, 8] },
+    "debugwindow.label": { "textColour": "#7E8DA3", "text": { "size": 13 } },
+    "debugwindow.value": { "textColour": "#E6F4FF", "text": { "size": 13 } },
+    "debugwindow.grip": { "background": { "fill": "#40FFFFFF", "corner": 2 } },
+    "debugwindow.tab": {
+      "background": { "fill": "#18FFFFFF", "corner": 3, "padding": [8, 2] },
+      "textColour": "#7E8DA3",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 3 }, "textColour": "#FFFFFF" },
+      "focused": { "background": { "fill": "#304CC2FF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#504CC2FF", "corner": 3 } }
+    },
+    "debugwindow.tab.selected": {
+      "background": { "fill": "#404CC2FF", "corner": 3, "padding": [8, 2] },
+      "textColour": "#E6F4FF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#584CC2FF", "corner": 3 } },
+      "focused": { "background": { "fill": "#404CC2FF", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#584CC2FF", "corner": 3 } }
+    },
+    "debugwindow.dock": { "background": { "fill": "#404CC2FF", "corner": 4, "border": "#4CC2FF" } },
+    "debugwindow.dock.target": { "background": { "fill": "#D90A1018", "corner": 3, "border": "#4CC2FF" } },
+    "debugwindow.dock.target.active": { "background": { "fill": "#F24CC2FF", "corner": 3, "border": "#FFFFFF" } },
+
+    // --- the graphs ---
+
+    "plot": {
+      "background": { "fill": "#060A12", "corner": 4, "border": "#2A3440", "padding": [6, 4] },
+      "textColour": "#DCE6F2"
+    },
+    "plot.label": { "textColour": "#6E8093", "text": { "size": 13 } },
+    "plot.value": { "textColour": "#E6F4FF", "text": { "size": 13 } },
+    "plot.line": { "textColour": "#4CC2FF" },
+    "plot.fill": { "textColour": "#404CC2FF" },
+    "plot.guide": { "textColour": "#3A4756" },
+    "plot.cursor": { "textColour": "#FFB454" },
+    "plot.bar": { "textColour": "#4CC2FF" }
   }
 }

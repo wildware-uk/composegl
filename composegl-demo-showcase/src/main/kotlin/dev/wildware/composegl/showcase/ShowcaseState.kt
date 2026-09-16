@@ -20,27 +20,52 @@ import dev.wildware.composegl.game.SubtitleSize
 import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.graphics.Colour
 
-/** One thing on show, and whether it is currently on. */
-enum class Exhibit(val title: String, val blurb: String) {
-    Hud("Combat HUD", "Reticle, radar, bars, cooldowns"),
-    Tracking("World tracking", "Tags that follow drones"),
-    Damage("Floating numbers", "Damage text at world positions"),
-    Holo("In-world panel", "The toolkit on a quad in the scene"),
-    Particles("GL particles", "Embers drawn by the game"),
-    Shaders("Shaders", "Blur, outline, grade, dissolve"),
-    Sparks("Hit sparks", "A seeded burst off every hit"),
-    Contacts("Contacts table", "Sort, resize and pick a drone"),
-    Tree("Scene tree", "Rows that open, by mouse or pad"),
-    Starmap("Star map", "A plane to drag and zoom"),
-    Skills("Skill tree", "Hold a node to buy it"),
-    Nodes("UI tree", "The live interface, and what keeps changing"),
-    Telemetry("Live plots", "Heat and frame time as graphs"),
-    Wheel("Weapon wheel", "Hold Q or LB and flick a stick"),
-    Comms("Subtitles", "Timed lines, captions and the player's settings"),
-    Dialogue("Comms channel", "A conversation with answers and a log"),
-    Chat("Squad chat", "Channels, clickable names and an input line"),
-    Cargo("Cargo grid", "Stacks, splits and long items"),
-    Salvage("Loot cards", "Hover a drop and hold Shift to compare"),
+/**
+ * Which published module a thing on show comes out of.
+ *
+ * The showcase has always been one screen with everything happening at once, which answers "what
+ * does this look like in a game" and answers "what is actually in composegl-game" not at all. So
+ * each module also has a **section**: a page of its own widgets, driven rather than described. See
+ * `ui/ModuleSection.kt`.
+ */
+enum class Module(val artifact: String, val tab: String, val blurb: String) {
+    Ui("composegl-ui", "ui", "The toolkit itself: menus, tables, trees, the things you point at"),
+    Debug("composegl-debug", "debug", "The tools that sit over a game while it runs"),
+    Game("composegl-game", "game", "The widgets a game needs and never wants to write twice"),
+}
+
+/**
+ * One thing on show, and whether it is currently on.
+ *
+ * [module] is which section it belongs to, and [overlay] says whether it is drawn over the scene
+ * rather than in a panel of its own — an overlay keeps drawing while a section has the screen,
+ * because the section is usually the thing driving it.
+ */
+enum class Exhibit(
+    val title: String,
+    val blurb: String,
+    val module: Module,
+    val overlay: Boolean = false,
+) {
+    Hud("Combat HUD", "Reticle, radar, bars, cooldowns", Module.Game),
+    Tracking("World tracking", "Tags that follow drones", Module.Game, overlay = true),
+    Damage("Floating numbers", "Damage text at world positions", Module.Game, overlay = true),
+    Holo("In-world panel", "The toolkit on a quad in the scene", Module.Ui, overlay = true),
+    Particles("GL particles", "Embers drawn by the game", Module.Game, overlay = true),
+    Shaders("Shaders", "Blur, outline, grade, dissolve", Module.Ui),
+    Sparks("Hit sparks", "A seeded burst off every hit", Module.Game, overlay = true),
+    Contacts("Contacts table", "Sort, resize and pick a drone", Module.Ui),
+    Tree("Scene tree", "Rows that open, by mouse or pad", Module.Ui),
+    Starmap("Star map", "A plane to drag and zoom", Module.Ui),
+    Skills("Skill tree", "Hold a node to buy it", Module.Game),
+    Nodes("UI tree", "The live interface, and what keeps changing", Module.Debug),
+    Telemetry("Live plots", "Heat and frame time as graphs", Module.Debug),
+    Wheel("Weapon wheel", "Hold Q or LB and flick a stick", Module.Game, overlay = true),
+    Comms("Subtitles", "Timed lines, captions and the player's settings", Module.Game, overlay = true),
+    Dialogue("Comms channel", "A conversation with answers and a log", Module.Game),
+    Chat("Squad chat", "Channels, clickable names and an input line", Module.Game),
+    Cargo("Cargo grid", "Stacks, splits and long items", Module.Game),
+    Salvage("Loot cards", "Hover a drop and hold Shift to compare", Module.Game),
 }
 
 /** How often the fight fires, as a debug window offers it. */
@@ -91,6 +116,32 @@ class ShowcaseState {
     fun toggle(exhibit: Exhibit) {
         if (exhibit in enabled) enabled.remove(exhibit) else enabled.add(exhibit)
     }
+
+    // --- which module's section is open ----------------------------------------------------------
+
+    /**
+     * The module whose section has the screen, or null for the ordinary combat HUD.
+     *
+     * The Modules menu sets it, Control and a number sets it, and the buttons along the top of the
+     * section set it. Nothing else in the showcase reads it except [showsPanel].
+     */
+    var section by mutableStateOf<Module?>(null)
+
+    /** Moves to the section [by] along, wrapping, starting at the first if none is open. */
+    fun stepSection(by: Int) {
+        val entries = Module.entries
+        val at = section?.let { entries.indexOf(it) } ?: -1
+        section = entries[((at + by) % entries.size + entries.size) % entries.size]
+    }
+
+    /**
+     * Whether an exhibit should draw now.
+     *
+     * A section takes the left-hand side of the screen and most of its height, so the HUD's own
+     * panels give it up while one is open. The overlays do not: a section's whole job is often to
+     * drive one — press "take a hit" and the arc it draws is over the scene, not in the panel.
+     */
+    fun showsPanel(exhibit: Exhibit) = isOn(exhibit) && (section == null || exhibit.overlay)
 
     val targets = mutableStateListOf<TargetReadout>()
 

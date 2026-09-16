@@ -14,6 +14,7 @@ import dev.wildware.composegl.effects.colourGrade
 import dev.wildware.composegl.effects.dissolve
 import dev.wildware.composegl.effects.outline
 import dev.wildware.composegl.showcase.Exhibit
+import dev.wildware.composegl.showcase.Module
 import dev.wildware.composegl.showcase.Pace
 import dev.wildware.composegl.showcase.ShowcaseState
 import dev.wildware.composegl.showcase.TargetReadout
@@ -30,6 +31,7 @@ import dev.wildware.composegl.debug.DebugWindowsState
 import dev.wildware.composegl.debug.DockSide
 import dev.wildware.composegl.debug.rememberDebugWindowsState
 import dev.wildware.composegl.debug.DevConsole
+import dev.wildware.composegl.debug.DevConsoleState
 import dev.wildware.composegl.debug.NodeTree
 import dev.wildware.composegl.debug.FrameBudgetOverlay
 import dev.wildware.composegl.debug.Histogram
@@ -56,7 +58,6 @@ import dev.wildware.composegl.game.HotbarSlot
 import dev.wildware.composegl.game.HotbarState
 import dev.wildware.composegl.game.InventoryGrid
 import dev.wildware.composegl.game.InventoryState
-import dev.wildware.composegl.game.ItemTooltip
 import dev.wildware.composegl.game.LowHealthVignette
 import dev.wildware.composegl.game.MinimapFrame
 import dev.wildware.composegl.game.Notifications
@@ -90,11 +91,7 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.geometry.Offset
-import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
-import dev.wildware.composegl.ui.input.InteractionState
-import dev.wildware.composegl.ui.modifier.focusable
-import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -112,7 +109,6 @@ import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.skin.ProvideSkin
 import dev.wildware.composegl.ui.skin.Skin
-import dev.wildware.composegl.ui.skin.rememberStates
 import dev.wildware.composegl.ui.skin.styled
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.TextRange
@@ -182,6 +178,24 @@ fun ShowcaseUi(
             // float them again: what a drag does, the menu does too.
             val windows = rememberDebugWindowsState()
 
+            // Made here rather than inside the console itself, so the composegl-debug section can
+            // run a command through the same console the backtick opens.
+            val console = showcaseConsole(state)
+
+            // Whether a module's section has the screen. The HUD's own panels stand aside for one;
+            // what is drawn over the scene carries on, because the section is usually driving it.
+            val browsing = state.section != null
+
+            // The pad's Start button walks the sections, so a player with no keyboard can find
+            // what is in each module without going through the menu bar every time.
+            val sectionPad = remember(state) {
+                GamepadHandler { event ->
+                    val start = event is GamepadEvent.ButtonDown && event.button == GamepadButton.Start
+                    if (start) state.stepSection(1)
+                    start
+                }
+            }
+
             // The windows go over everything, and the host is a PopupHost too, so the menu bar's
             // menus and the target panel's context menu drop through it.
             DebugWindowHost(state = windows) {
@@ -193,26 +207,35 @@ fun ShowcaseUi(
                     // game adds later — is drawn over every panel rather than inside the one it
                     // belongs to.
                     TooltipHost {
-                        Box(Modifier.fillMaxSize().onPlaced(placed).onKeyEvent(hotbar::onKey)) {
+                        Box(
+                            Modifier.fillMaxSize()
+                                .onPlaced(placed)
+                                .onKeyEvent(hotbar::onKey)
+                                .onShortcutGamepad(sectionPad),
+                        ) {
                             if (state.isOn(Exhibit.Hud)) {
-                                CombatHud(state)
-                                Radar(state)
-                                Compass(state)
-                                Abilities(state, hotbar)
-                                Objectives(state)
+                                // The middle of the screen and its edges: a section on the left-hand
+                                // side never covers these, so they carry on while one is open.
+                                CombatOverlays(state)
+                                if (!browsing) {
+                                    CombatPanels(state)
+                                    Radar(state)
+                                    Compass(state)
+                                    Abilities(state, hotbar)
+                                    Objectives(state)
+                                }
                             }
-
-                            if (state.isOn(Exhibit.Comms)) Comms(state)
 
                             if (state.isOn(Exhibit.Tracking)) TargetTags(state, projection)
 
-                            if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
-
-                            if (state.isOn(Exhibit.Contacts)) Contacts(state)
-                            if (state.isOn(Exhibit.Tree)) SceneTree(state)
-                            if (state.isOn(Exhibit.Starmap)) StarMap()
-                            if (state.isOn(Exhibit.Skills)) SkillBoard()
-                            if (state.isOn(Exhibit.Telemetry)) Telemetry(state, budget)
+                            if (!browsing) {
+                                if (state.isOn(Exhibit.Shaders)) ShaderShelf(state)
+                                if (state.isOn(Exhibit.Contacts)) Contacts(state)
+                                if (state.isOn(Exhibit.Tree)) SceneTree(state)
+                                if (state.isOn(Exhibit.Starmap)) StarMap()
+                                if (state.isOn(Exhibit.Skills)) SkillBoard()
+                                if (state.isOn(Exhibit.Telemetry)) Telemetry(state, budget)
+                            }
 
                             // Over the scene and under the panels, which is where a hit happens. The game
                             // fills the pool from its own loop; this only draws it.
@@ -224,32 +247,45 @@ fun ShowcaseUi(
                                 DamageNumberLayer(state.damage, Modifier.fillMaxSize(), projection)
                             }
 
-                            ExhibitPanel(state)
+                            if (!browsing) ExhibitPanel(state)
 
-                            // Along the bottom, where a conversation goes, and over the HUD it covers a
-                            // little of: somebody talking is the thing to read.
-                            if (state.isOn(Exhibit.Dialogue)) CommsChannel(state)
-
-                            // Up the left-hand side, clear of the HUD panel: Enter opens it, Enter sends.
-                            if (state.isOn(Exhibit.Chat)) SquadChat()
+                            // The three that talk. They keep going while a section is open, because a
+                            // section is what drives them — they only move over to the right-hand side,
+                            // which is the half of the screen a section does not take.
+                            if (state.isOn(Exhibit.Comms)) Comms(state, subtitlesAt(browsing))
+                            if (state.isOn(Exhibit.Dialogue)) CommsChannel(state, dialogueAt(browsing))
+                            if (state.isOn(Exhibit.Chat) && !browsing) {
+                                SquadChat(Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 340f))
+                            }
 
                             // Over the HUD and under the menus, because a wheel covers the fight but not
                             // the things that are not part of it.
                             if (state.isOn(Exhibit.Wheel)) WeaponWheel(state)
 
-                            // Over the HUD like the wheel, because a player looking in the hold is not
-                            // flying: the grids want the right-hand side of the screen to themselves.
-                            if (state.isOn(Exhibit.Cargo)) CargoHold(state)
+                            if (!browsing) {
+                                // Over the HUD like the wheel, because a player looking in the hold is not
+                                // flying: the grids want the right-hand side of the screen to themselves.
+                                if (state.isOn(Exhibit.Cargo)) CargoHold(state)
 
-                            // The bench, and over it the card: a drop's card has to be drawn past the
-                            // panel the drop is sitting in, which is why the layer covers the screen.
-                            if (state.isOn(Exhibit.Salvage)) SalvageBench()
+                                // The bench, and over it the card: a drop's card has to be drawn past the
+                                // panel the drop is sitting in, which is why the layer covers the screen.
+                                if (state.isOn(Exhibit.Salvage)) SalvageBench()
+                            }
+
+                            // A module's own page, down the left-hand side. Nothing at all until the
+                            // Modules menu, Control and a number, or the pad's Start button opens one.
+                            ModuleSections(state, budget, windows, console, interfaceRoot)
 
                             // Behind the game's own switch, which is the only place that decision belongs.
+                            // Over on the right while a section has the left-hand side.
                             if (budget.isOn) {
                                 FrameBudgetOverlay(
                                     budget,
-                                    Modifier.align(Alignment.TopStart).padding(left = 28f, top = 220f),
+                                    if (browsing) {
+                                        Modifier.align(Alignment.TopEnd).padding(right = 28f, top = BelowMenus)
+                                    } else {
+                                        Modifier.align(Alignment.TopStart).padding(left = 28f, top = 220f)
+                                    },
                                 )
                             }
 
@@ -258,7 +294,7 @@ fun ShowcaseUi(
                             ShowcaseMenus(state, budget, windows)
 
                             // And after even that, because a console goes over everything. ` opens it.
-                            ShowcaseConsole(state)
+                            DevConsole(console)
                         }
 
                         // Written here, drawn by the host over the lot, and draggable anywhere. F9 puts them
@@ -275,8 +311,25 @@ fun ShowcaseUi(
     }
 }
 
-/** How far down the panels along the top start, clear of the menu bar. */
-private const val BelowMenus = 64f
+/**
+ * Where the subtitle band sits: along the bottom, or out of a section's way on the right.
+ *
+ * A section takes the left-hand side of the screen, and the band is over half the screen wide, so
+ * the two would sit on top of each other. Moving it is one line and keeps one subtitle queue, which
+ * is what makes the settings in the composegl-game section the real ones.
+ */
+private fun subtitlesAt(browsing: Boolean) = if (browsing) {
+    Modifier.align(Alignment.BottomEnd).padding(right = 28f, bottom = 320f)
+} else {
+    Modifier.align(Alignment.BottomCentre).padding(bottom = 168f)
+}
+
+/** The same move for the conversation, which is wider still. */
+private fun dialogueAt(browsing: Boolean) = if (browsing) {
+    Modifier.align(Alignment.BottomEnd).padding(right = 28f, bottom = 28f)
+} else {
+    Modifier.align(Alignment.BottomCentre).padding(bottom = 28f)
+}
 
 /**
  * Two numbers that change every frame, as graphs: the weapon's heat, and what the last frames cost.
@@ -297,8 +350,11 @@ private fun Telemetry(state: ShowcaseState, budget: FrameBudget) {
     val frames = remember(budget) { FloatArray(FrameWindow) }
     var measured by remember { mutableStateOf(0) }
 
-    LaunchedEffect(state, budget) {
-        while (true) {
+    // A sample a frame while the fight is running, and none while it is held: see the same loop in
+    // the composegl-debug section. A graph that samples every frame writes state every frame.
+    val sampling = !state.holdFire
+    LaunchedEffect(state, budget, sampling) {
+        while (sampling) {
             withFrameNanos {
                 heat.add(state.heat)
                 measured = budget.recentFrameMillis(frames)
@@ -338,7 +394,7 @@ private const val FrameWindow = 60
  * the last line, and `help` lists the lot.
  */
 @Composable
-private fun ShowcaseConsole(state: ShowcaseState) {
+private fun showcaseConsole(state: ShowcaseState): DevConsoleState {
     val console = rememberDevConsole {
         command("heat", arg<Float>("level"), help = "How hot the weapon is, 0 to 1") {
             state.heat = it.coerceIn(0f, 1f)
@@ -369,6 +425,18 @@ private fun ShowcaseConsole(state: ShowcaseState) {
                 ?: error("no exhibit called $name")
             if (state.isOn(exhibit) != on) state.toggle(exhibit)
         }
+        command(
+            "section",
+            arg<String>("module", suggest = { Module.entries.map { it.tab } + "none" }),
+            help = "Open a module's section: ui, debug, game, or none",
+        ) { name ->
+            state.section = if (name.equals("none", ignoreCase = true)) {
+                null
+            } else {
+                Module.entries.firstOrNull { it.tab.equals(name, ignoreCase = true) }
+                    ?: error("no module called $name")
+            }
+        }
     }
 
     // Something in it before it is ever opened, so the first thing a player sees is a log rather
@@ -378,7 +446,7 @@ private fun ShowcaseConsole(state: ShowcaseState) {
         console.log("Type help for what this console can do.")
     }
 
-    DevConsole(console)
+    return console
 }
 
 /**
@@ -439,9 +507,30 @@ private fun TuningWindow(state: ShowcaseState) {
 @Composable
 private fun ShowcaseMenus(state: ShowcaseState, budget: FrameBudget, windows: DebugWindowsState) {
     MenuBar(Modifier.align(Alignment.TopStart), padButton = GamepadButton.Back) {
+        // First, because it is the answer to "what is actually in this library". One radio item per
+        // published module, each opening that module's own page down the left-hand side.
+        Menu("&Modules") {
+            Module.entries.forEachIndexed { index, module ->
+                RadioItem(
+                    module.artifact,
+                    selected = state.section == module,
+                    shortcut = Modifiers.Primary + SectionKeys[index],
+                ) { state.section = module }
+            }
+            Separator()
+            Item("&Close the section", shortcut = Modifiers.Primary + Key.Digit0, enabled = state.section != null) {
+                state.section = null
+            }
+        }
         Menu("&Show") {
-            Exhibit.entries.forEach { exhibit ->
-                CheckItem(exhibit.title, checked = state.isOn(exhibit)) { state.toggle(exhibit) }
+            // Grouped by the module the widget comes out of, so the menu answers the same question
+            // the sections do — this time without leaving the fight.
+            Module.entries.forEach { module ->
+                Submenu(module.artifact) {
+                    Exhibit.entries.filter { it.module == module }.forEach { exhibit ->
+                        CheckItem(exhibit.title, checked = state.isOn(exhibit)) { state.toggle(exhibit) }
+                    }
+                }
             }
             Separator()
             Item("Show &everything", shortcut = Modifiers.Primary + Key.E) {
@@ -550,9 +639,15 @@ private fun ShaderTile(label: String, effect: Modifier) {
     }
 }
 
-/** The reticle, the player's own bars, and the readout for whatever is locked. */
+/**
+ * The middle of the screen and its edges: the reticle, the ticks, the arcs and the vignette.
+ *
+ * Apart from the panels because none of these is one. They sit in the centre or round the rim, so a
+ * module section down the left-hand side never covers them — and the composegl-game section's
+ * "land a hit" and "take fire" buttons are pressed to watch exactly these.
+ */
 @Composable
-private fun CombatHud(state: ShowcaseState) {
+private fun CombatOverlays(state: ShowcaseState) {
     val reticle = rememberReticleState()
     val target = state.targets.getOrNull(state.locked)
     reticle.hostile = target != null
@@ -570,6 +665,12 @@ private fun CombatHud(state: ShowcaseState) {
 
     // The ring that closes in as the hull goes. Nothing at all while the hull is healthy.
     LowHealthVignette(state.hull, threshold = 0.3f)
+}
+
+/** The player's own bars, and the readout for whatever is locked. */
+@Composable
+private fun CombatPanels(state: ShowcaseState) {
+    val target = state.targets.getOrNull(state.locked)
 
     Panel(Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 28f).width(280f)) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
@@ -619,25 +720,7 @@ private fun CombatHud(state: ShowcaseState) {
 @Composable
 private fun Objectives(state: ShowcaseState) {
     val notices = rememberNotifications(capacity = 2)
-
-    val quests = buildList {
-        add(
-            ShowcaseQuest(
-                "CLEAR THE SECTOR",
-                listOf(
-                    ShowcaseStep(
-                        "Destroy the drones",
-                        done = state.sectorClear,
-                        progress = ObjectiveProgress(state.dronesDown, state.droneQuota),
-                    ),
-                    ShowcaseStep("Hold the line"),
-                ),
-            ),
-        )
-        if (state.sectorClear) {
-            add(ShowcaseQuest("SALVAGE THE RELAY", listOf(ShowcaseStep("Match the relay's spin"))))
-        }
-    }
+    val quests = showcaseQuests(state)
 
     ObjectiveTracker(
         quests = quests,
@@ -661,13 +744,41 @@ private fun Objectives(state: ShowcaseState) {
 }
 
 /** One objective as the drill holds it: a name and the things still to do. */
-private class ShowcaseQuest(val name: String, val steps: List<ShowcaseStep>)
+internal class ShowcaseQuest(val name: String, val steps: List<ShowcaseStep>)
 
-private class ShowcaseStep(
+internal class ShowcaseStep(
     val text: String,
     val done: Boolean = false,
     val progress: ObjectiveProgress? = null,
 )
+
+/**
+ * What the player is meant to be doing, worked out from the fight rather than kept beside it.
+ *
+ * Built here rather than in either place that draws it, so the tracker in the corner and the one in
+ * the composegl-game section are showing the same two objectives and the same counter.
+ */
+internal fun showcaseQuests(state: ShowcaseState): List<ShowcaseQuest> = buildList {
+    add(
+        ShowcaseQuest(
+            "CLEAR THE SECTOR",
+            listOf(
+                ShowcaseStep(
+                    "Destroy the drones",
+                    done = state.sectorClear,
+                    progress = ObjectiveProgress(state.dronesDown, state.droneQuota),
+                ),
+                ShowcaseStep("Hold the line"),
+            ),
+        ),
+    )
+    if (state.sectorClear) {
+        add(ShowcaseQuest("SALVAGE THE RELAY", listOf(ShowcaseStep("Match the relay's spin"))))
+    }
+}
+
+/** Which key opens which section, beside the primary modifier. In the order the modules are in. */
+private val SectionKeys = listOf(Key.Digit1, Key.Digit2, Key.Digit3)
 
 /** The reticle colours offered as swatches in its picker. */
 private val ReticlePresets = listOf(
@@ -775,13 +886,32 @@ private fun Radar(state: ShowcaseState) {
  */
 @Composable
 private fun Compass(state: ShowcaseState) {
+    CompassStrip(
+        state,
+        Modifier.align(Alignment.BottomCentre).padding(bottom = 100f).width(440f),
+        fieldOfView = 160f,
+    )
+}
+
+/**
+ * The strip itself, wherever it is put and however wide the screen it is on.
+ *
+ * Written apart from [Compass] because the composegl-game section shows the same strip inside its
+ * own column: one piece of arithmetic, two places it is drawn.
+ */
+@Composable
+internal fun CompassStrip(state: ShowcaseState, modifier: Modifier, fieldOfView: Float) {
     CompassBar(
         heading = state.heading,
-        fieldOfView = 160f,
-        Modifier.align(Alignment.BottomCentre).padding(bottom = 100f).width(440f),
+        fieldOfView = fieldOfView,
+        modifier,
         readout = { "${it.roundToInt()}" },
         distanceText = { "${it.roundToInt()}m" },
         fadeRange = 24f,
+        // A live strip is redrawn every frame, because the drones it is pointing at are moving.
+        // Hold fire and nothing in the scene moves, so the strip stops costing a frame a frame —
+        // which is also what makes a still screenshot of it, and a test of it, possible.
+        live = !state.holdFire,
     ) {
         state.targets.forEachIndexed { index, target ->
             pin(
@@ -809,7 +939,7 @@ private fun bearingOf(x: Float, y: Float): Float = atan2(x, y) * 180f / PI.toFlo
  * band answers on the next frame.
  */
 @Composable
-private fun Comms(state: ShowcaseState) {
+private fun Comms(state: ShowcaseState, modifier: Modifier) {
     val subs = rememberSubtitleQueue(capacity = 2, clock = Clock.World)
     val settings = SubtitleSettings(
         size = state.subtitleSize,
@@ -836,12 +966,7 @@ private fun Comms(state: ShowcaseState) {
         }
     }
 
-    Subtitles(
-        subs,
-        Modifier.align(Alignment.BottomCentre).padding(bottom = 168f),
-        settings,
-        speakerColours = CommsCast,
-    )
+    Subtitles(subs, modifier, settings, speakerColours = CommsCast)
 }
 
 /** The drill's chatter, on a loop. A null speaker is a sound rather than a voice. */
@@ -971,11 +1096,22 @@ internal fun CargoHold(state: ShowcaseState) {
                 Text("HOLD", style = "label.dim")
                 Text("LOCKER", style = "label.dim")
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(16f)) {
-                CargoGrid(state.hold)
-                CargoGrid(state.locker)
-            }
+            CargoGrids(state)
         }
+    }
+}
+
+/**
+ * The hold and the locker beside it, wherever they are put.
+ *
+ * Written apart from [CargoHold] so the composegl-game section can show the same two grids in its
+ * own column — and so that dragging a crate between them is the real drag and drop either way.
+ */
+@Composable
+internal fun CargoGrids(state: ShowcaseState, modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(16f)) {
+        CargoGrid(state.hold)
+        CargoGrid(state.locker)
     }
 }
 
@@ -1022,13 +1158,13 @@ private val Rounds = listOf("AP", "HE")
  * and wires them up. Ctrl skips while it is held; Y or the Log button opens what has been said.
  */
 @Composable
-private fun CommsChannel(state: ShowcaseState) {
+private fun CommsChannel(state: ShowcaseState, modifier: Modifier) {
     val line = CommsLines.getOrNull(state.commsAt) ?: state.commsReply
     val asking = state.commsAt == CommsLines.lastIndex
 
     DialogueBox(
         line = line,
-        modifier = Modifier.align(Alignment.BottomCentre).padding(bottom = 28f).width(680f),
+        modifier = modifier.width(680f),
         choices = if (asking) CommsAnswers else emptyList(),
         onChoose = { answer ->
             // The answer goes into the log by itself, against the line that asked for it.
@@ -1095,7 +1231,7 @@ private fun CommsChannel(state: ShowcaseState) {
  * down when its server says it went out, which is what stops a refused message appearing anyway.
  */
 @Composable
-private fun SquadChat() {
+internal fun SquadChat(modifier: Modifier, width: Float = 380f, historyHeight: Float = 140f) {
     val chat = rememberChatState(idleLines = 5, idleMillis = 6_000)
     val clocks = LocalClocks.current
 
@@ -1113,11 +1249,11 @@ private fun SquadChat() {
 
     ChatBox(
         state = chat,
-        modifier = Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 340f),
+        modifier = modifier,
         channels = SquadChannels,
         onSend = { channel, text -> chat.receive(ChatMessage(text, from = "YOU", channel = channel)) },
-        width = 380f,
-        historyHeight = 140f,
+        width = width,
+        historyHeight = historyHeight,
         maxLength = 120,
         nameMenu = { message ->
             Item("Whisper") { chat.open(Whisper) }
@@ -1150,128 +1286,6 @@ private val Chatter = listOf(
 /** How long between two lines of chatter. Long enough to watch one fade before the next arrives. */
 private const val ChatterMillis = 5_000
 
-/**
- * A gun that has dropped, as a game would model one. The toolkit knows nothing about this class.
- *
- * Three of them, one of each tier, so the rarity colour on the card's edge and its name has
- * something to say.
- */
-private class Salvage(
-    val name: String,
-    val tier: String,
-    val damage: Float,
-    val rateOfFire: Float,
-    val mass: Float,
-    val rarity: Colour,
-    val flavour: String,
-)
-
-/** What the player is carrying. Everything on the bench is weighed against this. */
-private val Carried = Salvage(
-    name = "MK II REPEATER",
-    tier = "Standard",
-    damage = 42f,
-    rateOfFire = 3.4f,
-    mass = 5.6f,
-    rarity = Colour.rgb(0x8E9AAB),
-    flavour = "Issued with the ship. Fires until it does not.",
-)
-
-private val Drops = listOf(
-    Salvage(
-        name = "ASHFALL",
-        tier = "Rare",
-        damage = 51f,
-        rateOfFire = 3.1f,
-        mass = 4.9f,
-        rarity = Colour.rgb(0x5B8DEF),
-        flavour = "Pulled out of a wreck that was still warm.",
-    ),
-    Salvage(
-        name = "TIN CARBINE",
-        tier = "Common",
-        damage = 33f,
-        rateOfFire = 4.6f,
-        mass = 6.8f,
-        rarity = Colour.rgb(0x8E9AAB),
-        flavour = "Cheap and loud. Mostly loud.",
-    ),
-    Salvage(
-        name = "SUNBREAKER",
-        tier = "Legendary",
-        damage = 74f,
-        rateOfFire = 1.9f,
-        mass = 9.2f,
-        rarity = Colour.rgb(0xFFB020),
-        flavour = "One shot, and then a long think about the next one.",
-    ),
-)
-
-/**
- * Three drops on a bench, and the card a player actually decides with.
- *
- * The thing to watch is the **arrows**, not the numbers: hold Ctrl, or the pad's left bumper, and
- * every stat says whether taking this would be an improvement. The heaviest gun here hits hardest
- * and is worse in both of the other columns, which is exactly the decision a looter is for.
- *
- * Lighter is better, so the mass line shows a falling number with a rising arrow. That disagreement
- * is deliberate: the sign says which way the number went, the arrow says whether that is good, and
- * a player who cannot tell red from green still reads it.
- */
-@Composable
-private fun SalvageBench() {
-    val bench = remember { Bench() }
-
-    Panel(Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 190f)) {
-        Column(verticalArrangement = Arrangement.spacedBy(8f)) {
-            Text("SALVAGE", style = "label.heading")
-            Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
-                Drops.forEach { drop -> SalvageSlot(drop, bench) }
-            }
-        }
-    }
-
-    // Over everything, because the card has to be drawn past the panel it came out of. It is given
-    // the whole screen and takes what it needs of it.
-    ItemTooltip(
-        item = bench.looking,
-        compareWith = Carried,
-        anchor = bench.anchor,
-        rarity = { it.rarity },
-        compareHint = "Hold Ctrl or LB to compare",
-    ) {
-        title(it.name)
-        subtitle("${it.tier} · Main hand")
-        separator()
-        stat("Damage", it.damage)
-        stat("Rate of fire", it.rateOfFire)
-        stat("Mass", it.mass, higherIsBetter = false)
-        flavour(it.flavour)
-    }
-}
-
-/** What the bench is being looked at with, and where. */
-private class Bench {
-
-    var looking by mutableStateOf<Salvage?>(null)
-
-    /** Where the slot is, for a pad player, who never hovers anything. Null follows the pointer. */
-    var anchor by mutableStateOf<Rect?>(null)
-
-    fun look(drop: Salvage, at: Rect?) {
-        looking = drop
-        anchor = at
-    }
-
-    /** Only if it is still this one: a pointer crossing from one slot to the next arrives in that order. */
-    fun leave(drop: Salvage) {
-        if (looking === drop) {
-            looking = null
-            anchor = null
-        }
-    }
-}
-
 /** The exchange, in order. The last one is the question, which is why it has answers under it. */
 private val CommsLines = listOf(
     DialogueLine("the relay went quiet six hours ago", speaker = "VEGA", portrait = "CALM"),
@@ -1295,53 +1309,6 @@ private val CommsAnswers = listOf(
 private fun repliesTo(answer: DialogueChoice): DialogueLine = when (answer.tag) {
     "hail" -> DialogueLine("channel open. they are listening", speaker = "VEGA", portrait = "CALM")
     else -> DialogueLine("running dark. hold this heading", speaker = "VEGA", portrait = "ALARM")
-}
-
-/** One drop. Hovering it or putting focus on it is what puts its card up. */
-@Composable
-private fun SalvageSlot(drop: Salvage, bench: Bench) {
-    val interaction = remember { InteractionState() }
-    val states = rememberStates(interaction)
-
-    // Written after layout and read only when focus lands here, so a slot moving costs nothing.
-    val box = remember { FloatArray(4) }
-    val placed = remember {
-        PlacedHandler { node ->
-            val at = node.boundsInRoot
-            box[0] = at.left
-            box[1] = at.top
-            box[2] = at.right
-            box[3] = at.bottom
-        }
-    }
-
-    // Focus counts as hovering, which is the whole of the pad story: on a console nothing is ever
-    // pointed at, so focus landing here is what puts the card up — and the card hangs off the slot
-    // rather than off a pointer that has not moved since the game started.
-    val hovered = interaction.isHovered
-    val focused = interaction.isFocused
-    DisposableEffect(hovered, focused, drop) {
-        when {
-            hovered -> bench.look(drop, null)
-            focused -> bench.look(drop, Rect(box[0], box[1], box[2], box[3]))
-            else -> bench.leave(drop)
-        }
-        onDispose { bench.leave(drop) }
-    }
-
-    Box(
-        Modifier.size(56f)
-            .interaction(interaction)
-            // The state has to be handed to `focusable` as well: `interaction` on its own is told
-            // about the pointer, and focus is only ever reported to the state focus itself was
-            // given. Without it `isFocused` is false forever and the pad never puts a card up.
-            .focusable(interaction)
-            .onPlaced(placed)
-            .styled("hotbar.slot", states),
-        contentAlignment = Alignment.Centre,
-    ) {
-        Text(drop.name.take(2), style = "label", colour = drop.rarity)
-    }
 }
 
 /** What an ability does here: start its cooldown and cost something. */

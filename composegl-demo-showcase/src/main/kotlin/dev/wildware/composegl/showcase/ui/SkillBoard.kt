@@ -11,11 +11,14 @@ import dev.wildware.composegl.game.SkillNode
 import dev.wildware.composegl.game.SkillTree
 import dev.wildware.composegl.game.skillTreeBounds
 import dev.wildware.composegl.ui.layout.Alignment
+import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
+import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
+import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.widget.Text
 import dev.wildware.composegl.ui.widget.rememberPanZoomState
 
@@ -56,7 +59,18 @@ private val Links = listOf(
  * rank on.
  */
 @Composable
-fun SkillBoard() {
+fun SkillBoard() = SkillBoardBody(
+    Modifier.align(Alignment.BottomEnd).padding(right = 28f, bottom = 268f).size(360f, 222f),
+)
+
+/**
+ * The board itself, wherever it is put: the heading that counts the points down, and the tree.
+ *
+ * Written apart from [SkillBoard] so the composegl-game section can show the same board inline,
+ * in a column that is not the corner of the screen.
+ */
+@Composable
+internal fun SkillBoardBody(modifier: Modifier = Modifier) {
     val bought = remember { mutableStateMapOf<String, Int>() }
     var points by remember { mutableStateOf(5) }
 
@@ -81,14 +95,12 @@ fun SkillBoard() {
         bounds = remember { skillTreeBounds(Upgrades.map { SkillNode(it.id, it.x, it.y) }, margin = 90f) },
     )
 
-    Column(
-        Modifier.align(Alignment.BottomEnd).padding(right = 28f, bottom = 268f).size(360f, 222f),
-    ) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4f)) {
         Text("Upgrades — hold a node to buy it · $points left", style = "label.dim")
         SkillTree(
             nodes = nodes,
             edges = Links,
-            modifier = Modifier.size(360f, 198f),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             state = camera,
             nodeSize = 44f,
             onActivate = { node ->
