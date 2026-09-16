@@ -2,8 +2,9 @@
 
 The in-play widgets: health bars with a damage trail, a crosshair, damage numbers
 anchored in the world, nameplates and waypoints pinned to points in the world,
-cooldowns, a hotbar, a minimap frame, a compass bar, notifications and
-particles. These are the ones that made this toolkit worth building.
+cooldowns, a hotbar, a weapon wheel, a minimap frame, a compass bar,
+notifications and particles. These are the ones that made this toolkit worth
+building.
 
 ---
 
@@ -38,7 +39,7 @@ text that takes a [[ring|Widgets#outlined-text]] only when there is one,
 
 **Their look is in the skin.** The default and high-contrast [[skins|Skins]]
 already have every style these use (`bar.*`, `reticle.*`, `damage.*`,
-`marker.*`, `cooldown.*`, `hotbar.*`, `minimap.*`, `compass.*`,
+`marker.*`, `cooldown.*`, `hotbar.*`, `wheel.*`, `minimap.*`, `compass.*`,
 `notification.*`), so they look right with no setup. Your own skin file styles
 them by the same names.
 
@@ -326,6 +327,103 @@ under the strip swaps to the other side, but the strip does not — north is in
 the same place in both:
 
 ![two heading strips in the black and white high-contrast skin, one with N and E and a line of English under it on the left, one with the Hebrew names and a line of Hebrew under it on the right, both reading 42 degrees](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-compass-rtl.png)
+
+## The weapon wheel
+
+```kotlin
+var wheelOpen by remember { mutableStateOf(false) }
+
+RadialMenu(
+    open = wheelOpen,
+    items = weapons,
+    selected = equipped,
+    onSelect = { equipped = it },
+    centre = { Text(it?.name ?: "", style = "wheel.label") },
+) { weapon, highlighted ->
+    Image(weapon.icon, Modifier.size(if (highlighted) 44f else 36f))
+}
+```
+
+The point of a wheel, and the reason it is not a ring of buttons: **nothing has to
+be reached**. The stick's *angle* picks a slice however far past the dead zone it
+is pushed, and the mouse picks the slice its *direction from the middle* points
+at, however far away the pointer is. Slamming the stick south-west and letting go
+is the fastest menu input there is, and the only one that works while the player
+is also driving.
+
+`open` is yours, never the wheel's. It never closes itself — it says what
+happened and your game decides. That is what makes hold-to-open work: the button
+being down *is* the state.
+
+```kotlin
+// Hold Q, flick, let go. The wheel is up exactly while the key is down, and the key is
+// heard wherever focus happens to be, because nobody clicks a wheel open first.
+val held = remember {
+    KeyHandler { event ->
+        if (event.key != Key.Q) false
+        else {
+            wheelOpen = event.type == KeyEventType.Down
+            true
+        }
+    }
+}
+Box(Modifier.fillMaxSize().onShortcutKey(held)) {
+    RadialMenu(open = wheelOpen, items = weapons, onSelect = { equipped = it }) { weapon, _ ->
+        Text(weapon.name)
+    }
+}
+```
+
+| | |
+|---|---|
+| `confirm = RadialConfirm.Release` | the weapon wheel: the slice being pointed at is taken when the wheel closes. The default |
+| `confirm = RadialConfirm.Press` | the emote wheel: the wheel stays up, and South, Enter, Space or a click takes the slice. East or Escape backs out |
+| `onCancel` | confirmed with the stick inside its dead zone or the pointer still on the hub, backed out of, or taken off the screen while still open |
+| `onOpenChange` | told when it comes up and goes away. Where you slow or stop the world |
+| `startAngleTurns` | where the first slice's middle sits, clockwise from straight up. Mirrored in a right-to-left language, so the first slice stays where the eye starts |
+| `children` | a category's contents: pointing at it opens a second ring, and pushing the stick to the edge chooses out of that one |
+| `deadZone`, `stick` | how far the stick must travel to count, and which stick aims it. The mouse's dead zone is the hub |
+
+Moving from one slice to the next ticks: `UiSounds.focusMove()` and a
+`Haptic.Tick`, the same pair a pad's focus move makes, and the new slice swells
+into place. Taking one is a `UiSounds.change()` and a `Haptic.LightTap`.
+
+**Slowing the world.** The wheel runs on the interface clock, so it keeps
+animating while the game does not:
+
+```kotlin
+val clocks = LocalClocks.current
+RadialMenu(open = wheelOpen, onOpenChange = { clocks.setRunning(Clock.World, !it) }, …)
+```
+
+See [Animation](Animation.md#clocks) for what a clock is and why there are two.
+
+`onOpenChange(false)` also arrives when the wheel is taken **off the screen** while
+it is still open — a screen swapped, the whole widget switched off — so a world
+clock you stopped for it is always started again. Nothing can leave your game
+paused with no wheel on screen to close.
+
+Going away like that **cancels**: `onCancel` is called and nothing is equipped,
+even on a release wheel. A screen changing underneath a player is not the player
+letting go of the button, and a gun equipped that way is one they never chose and
+cannot undo. Only `open` actually going false takes the slice.
+
+The wheel is **modal** over the pointer, the stick and the pad's South and East
+while it is up, so a click or a pad press cannot reach a button behind it. On a
+release wheel South and East are swallowed and do nothing at all — the choice
+belongs to the button holding the wheel open.
+
+**Nested rings.** A category with two or three children gets a **wider** ring than
+its own slice, because three children inside a quarter turn are thirty degrees
+each and no stick can hit that. So the ring spills over its neighbours, and while
+the stick is out at it the ring belongs to the category that opened it: aiming at
+a child drawn past the parent's edge takes that child, not the slice underneath
+it. Sweeping right round, out of the ring altogether, moves to the next category.
+
+A ring never goes the whole way round, however many children a category has: it
+stops at seven eighths of a turn so that there is always an angle outside it to
+sweep back out through. Past eight children, put them on a second wheel rather
+than a ring.
 
 ## Particles
 

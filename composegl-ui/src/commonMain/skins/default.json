@@ -317,6 +317,19 @@
     "cooldown.flash": { "background": { "fill": "#70FFFFFF" } },
     "cooldown.seconds": { "textColour": "#E8ECF2", "text": { "size": 18 } },
 
+    // The weapon wheel. The backdrop dims the world behind it, because a wheel is modal and a
+    // player choosing a gun is not also aiming. The slice being pointed at is the accent: on a
+    // wheel there is only ever one, so it can afford to be the loudest thing on screen.
+
+    "wheel.backdrop": { "background": { "fill": "#99080A0E" } },
+    "wheel.slice": { "background": { "fill": "#D91A1F28" } },
+    "wheel.slice.selected": { "background": { "fill": "#D92A3342" } },
+    "wheel.slice.highlighted": { "background": { "fill": "#F25B8DEF" } },
+    "wheel.ring": { "background": { "fill": "#D9232A35" } },
+    "wheel.ring.highlighted": { "background": { "fill": "#F27BA5F5" } },
+    "wheel.hub": { "background": { "fill": "#E610131A" } },
+    "wheel.label": { "textColour": "#E8ECF2", "text": { "size": 18 } },
+
     // The crosshair. Off-white rather than white, because a pure white crosshair disappears over
     // a bright sky; the hostile colour is the one thing on screen allowed to be that red.
 
