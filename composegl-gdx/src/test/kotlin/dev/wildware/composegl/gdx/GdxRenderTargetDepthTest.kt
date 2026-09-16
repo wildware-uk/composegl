@@ -128,7 +128,7 @@ class GdxRenderTargetDepthTest {
  * Written against the toolkit's `Gl` binding, so the same scene runs on the suite's GL 2 context and
  * on its GL 3.2 core one.
  */
-private class DepthScene(private val gl: GlBinding) : AutoCloseable {
+internal class DepthScene(private val gl: GlBinding) : AutoCloseable {
 
     private val dialect = GlslDialect.of(gl.profile)
     private val arrays = GlDevice(gl).usesVertexArrays

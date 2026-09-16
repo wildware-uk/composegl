@@ -43,6 +43,19 @@ interface GpuDevice {
     /** …and ours again afterwards, with the target, viewport and scissor re-applied. */
     fun resume()
 
+    /**
+     * Around a game's own drawing inside a scene: its state back while the block runs, as [suspend]
+     * gives it, except that the scene's picture stays bound, the viewport over all of it and the
+     * scissor off, so the drawing lands in the picture…
+     */
+    fun suspendInScene()
+
+    /**
+     * …and ours again afterwards. What the engine left, short of the framebuffer, viewport and
+     * scissor, is what it gets back when the scene ends, as it is after [resume].
+     */
+    fun resumeInScene()
+
     /** A texture this device owns, its pixels undefined until [write]. */
     fun texture(width: Int, height: Int, smooth: Boolean): DeviceTexture
 

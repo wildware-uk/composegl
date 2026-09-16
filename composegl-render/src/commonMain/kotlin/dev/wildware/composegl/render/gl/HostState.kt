@@ -9,9 +9,10 @@ enum class HostState {
     /**
      * Leaves a documented end state and asks the driver almost nothing: the frame's framebuffer,
      * scissor off, blend on with `SRC_ALPHA, ONE_MINUS_SRC_ALPHA`, program 0, vertex array 0,
-     * buffers 0, texture 0 on unit 0, and depth, cull and stencil tests off. A frame drawn into an
-     * offscreen target also gets its framebuffer and viewport put back. For an engine that sets
-     * what it needs before it draws: raw LWJGL, LibGDX, a browser page that owns its context.
+     * buffers 0, texture unit 0 active with texture 0 bound, and depth, cull and stencil tests off.
+     * A frame drawn into an offscreen target — a scene view's picture among them — also gets its
+     * framebuffer and viewport put back. For an engine that sets what it needs before it draws: raw
+     * LWJGL, LibGDX, a browser page that owns its context.
      *
      * One thing it does not put back: clearing a target that has a depth buffer leaves depth
      * writing switched on, which is OpenGL's own default. An engine that turns it off for a pass of
@@ -22,6 +23,14 @@ enum class HostState {
     /**
      * Asks the driver for about twenty values when a frame begins and puts every one back when it
      * ends. For an engine that caches GL state and believes its cache: KorGE, three.js.
+     *
+     * Round a game's own drawing — `raw` in a frame or in a scene — the engine's values go back
+     * while it draws, and what it leaves is saved in their place, so its cache is still true after
+     * the frame. What a scene cannot keep that way: the framebuffer, viewport and scissor are the
+     * picture's while the block runs and the engine's own again when the scene ends. And a value
+     * changed behind the engine's back inside the block is kept as if the engine had set it. An engine
+     * that remembers its viewport or scissor should forget what it remembers after a scene — for
+     * three.js, `renderer.resetState()`. The KorGE frontend makes KorGE forget for you.
      */
     Restore,
 }
@@ -55,11 +64,17 @@ internal class GlSnapshot {
     var activeTexture = GlConst.TEXTURE0
     var texture = 0
 
-    fun capture(gl: Gl, vertexArrays: Boolean) {
-        framebuffer = gl.getInteger(GlConst.FRAMEBUFFER_BINDING)
-        gl.getIntegers(GlConst.VIEWPORT, viewport)
-        gl.getIntegers(GlConst.SCISSOR_BOX, scissorBox)
-        scissorTest = gl.isEnabled(GlConst.SCISSOR_TEST)
+    /**
+     * Saves the engine's state. Without [target] the framebuffer, viewport and scissor are left as
+     * they were saved: inside a scene they are the picture's, not the engine's.
+     */
+    fun capture(gl: Gl, vertexArrays: Boolean, target: Boolean = true) {
+        if (target) {
+            framebuffer = gl.getInteger(GlConst.FRAMEBUFFER_BINDING)
+            gl.getIntegers(GlConst.VIEWPORT, viewport)
+            gl.getIntegers(GlConst.SCISSOR_BOX, scissorBox)
+            scissorTest = gl.isEnabled(GlConst.SCISSOR_TEST)
+        }
         blend = gl.isEnabled(GlConst.BLEND)
         depthTest = gl.isEnabled(GlConst.DEPTH_TEST)
         // Clearing an offscreen picture's depth buffer switches depth writing on, so what the
@@ -87,12 +102,17 @@ internal class GlSnapshot {
      * Puts it all back. The order matters in two places: the vertex array goes back before the
      * element buffer, because that binding belongs to the vertex array; and unit 0's texture goes
      * back before the active unit does.
+     *
+     * Without [target] the framebuffer, viewport and scissor are not touched, so a scene's picture
+     * stays bound.
      */
-    fun restore(gl: Gl, vertexArrays: Boolean) {
-        gl.bindFramebuffer(GlConst.FRAMEBUFFER, framebuffer)
-        gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3])
-        gl.scissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3])
-        set(gl, GlConst.SCISSOR_TEST, scissorTest)
+    fun restore(gl: Gl, vertexArrays: Boolean, target: Boolean = true) {
+        if (target) {
+            gl.bindFramebuffer(GlConst.FRAMEBUFFER, framebuffer)
+            gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3])
+            gl.scissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3])
+            set(gl, GlConst.SCISSOR_TEST, scissorTest)
+        }
         set(gl, GlConst.BLEND, blend)
         set(gl, GlConst.DEPTH_TEST, depthTest)
         gl.depthMask(depthMask)

@@ -1073,8 +1073,8 @@ open class RenderCanvas protected constructor(
      * The device is taken for the picture alone — its framebuffer bound, the viewport over all of
      * it, the scissor off — and given back when [draw] returns, so the state a scene sets (depth
      * test, culling, its own programs) goes no further. A [SceneTarget.raw] block runs with the
-     * picture still bound rather than suspended to the engine's framebuffer: it is the engine's
-     * frame object, pointed at the picture.
+     * engine's state handed back but the picture still bound, rather than the engine's framebuffer:
+     * it is the engine's frame object, pointed at the picture.
      *
      * A picture made by another canvas, or closed, is not reused; the caller gives it back.
      */
@@ -1086,49 +1086,73 @@ open class RenderCanvas protected constructor(
         val picture = mine?.also { it.target.resize(width, height) }
             ?: ScenePicture(RenderTarget(device, width, height, depth = true), device)
 
-        val into = checkNotNull(picture.target.target)
+        renderScene(checkNotNull(picture.target.target), draw)
+        return picture
+    }
+
+    /**
+     * The shared half of [scene], into a target the frontend supplies: the device taken for [into]
+     * alone, the viewport over all of it, the scissor off, [draw] run, and the engine's state handed
+     * back the way the device was told to.
+     *
+     * For a frontend whose engine has to own the framebuffer so that its own drawing lands in it —
+     * KorGE, whose batcher draws into the framebuffer on its render context's stack and nowhere
+     * else. The frontend makes that framebuffer, with depth, adopts it as a [DeviceTarget], and
+     * calls this; everything drawn is still this canvas's. Every other frontend lets [scene] use the
+     * device's own picture.
+     *
+     * [SceneTarget.raw] inside it hands over what [handOver] makes, through [lend], with the engine's
+     * state handed back round it as round a frame's `raw` — but the target stays bound while the game
+     * draws: see [GpuDevice.suspendInScene].
+     */
+    protected fun renderScene(into: DeviceTarget, draw: (SceneTarget) -> Unit) {
+        check(!drawing) { "scene() inside a frame: scenes are rendered before the frame begins, not in the middle of it" }
         val binding = sceneBinding
         device.begin(into)
         try {
-            device.target(into, 0, 0, picture.width, picture.height)
+            device.target(into, 0, 0, into.width, into.height)
             device.noScissor()
-            orthographic(binding.projection, picture.width.toFloat(), picture.height.toFloat())
-            binding.picture = picture
+            orthographic(binding.projection, into.width.toFloat(), into.height.toFloat())
+            binding.into = into
             draw(binding)
         } finally {
-            binding.picture = null
+            binding.into = null
             device.end()
         }
-        return picture
     }
 
     private val sceneBinding = SceneBinding()
 
-    /** What a scene's block is handed. One per canvas, pointed at the picture being rendered. */
+    /** What a scene's block is handed. One per canvas, pointed at the target being rendered. */
     private inner class SceneBinding : SceneTarget {
-        var picture: ScenePicture? = null
+        var into: DeviceTarget? = null
         val projection = FloatArray(16)
 
-        private fun bound(): ScenePicture = checkNotNull(picture) { "a scene target is only good inside scene()" }
+        private fun bound(): DeviceTarget = checkNotNull(into) { "a scene target is only good inside scene()" }
 
         override val width: Int get() = bound().width
 
         override val height: Int get() = bound().height
 
         override fun clear(colour: Colour) {
-            val picture = bound()
+            val into = bound()
             // The game may have moved the viewport or switched a scissor on since the last one.
-            device.target(checkNotNull(picture.target.target), 0, 0, picture.width, picture.height)
+            device.target(into, 0, 0, into.width, into.height)
             device.noScissor()
             val alpha = colour.alphaFraction
             device.clear(colour.red / 255f * alpha, colour.green / 255f * alpha, colour.blue / 255f * alpha, alpha)
         }
 
         override fun raw(block: (Any) -> Unit) {
-            val picture = bound()
+            val into = bound()
             val handed = projection.copyOf()
-            val viewport = Viewport.oneToOne(Size(picture.width.toFloat(), picture.height.toFloat()))
-            lend(handOver(handed, viewport), handed, block)
+            val viewport = Viewport.oneToOne(Size(into.width.toFloat(), into.height.toFloat()))
+            device.suspendInScene()
+            try {
+                lend(handOver(handed, viewport), handed, block)
+            } finally {
+                device.resumeInScene()
+            }
         }
     }
 

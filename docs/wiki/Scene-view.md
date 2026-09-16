@@ -66,9 +66,11 @@ The block is a `SceneDrawScope`:
 | `raw { frame -> }` | your frontend's own drawing object, with the picture bound and the viewport covering all of it |
 
 `raw` hands over the same object `UiCanvas.raw` does on that frontend: a `GlFrame` on
-LWJGL3, a `WebGlFrame` in a browser, the `SpriteBatch` on LibGDX. Inside it, switch on
-the depth test and whatever else your scene needs. The toolkit puts your engine's state
-back when the block ends.
+LWJGL3, a `WebGlFrame` in a browser, the `SpriteBatch` on LibGDX, the `RenderContext`
+on KorGE. Inside it, switch on the depth test and whatever else your scene needs. Round
+the block, the toolkit hands your engine its own state and takes its own back afterwards,
+as it does round `UiCanvas.raw`. See [Frontends](#frontends) for what each one hands over
+and gives back.
 
 The widget interprets nothing. There is no camera, no scene graph and no picking. That
 is your renderer's job.
@@ -320,13 +322,90 @@ use `UiRenderer` at all. Leave out `budget` and nothing is counted.
 
 ## Frontends
 
-| frontend | scene views |
-|---|---|
-| raw OpenGL (LWJGL3) | yes |
-| LibGDX | yes |
-| a browser tab (WebGL) | yes |
-| KorGE | not yet: a `SceneView` shows nothing. `KorgeCanvas.drawsScenes` is false. |
-| your own `RenderCanvas` | yes, through `GpuDevice.offscreen(width, height, depth = true)` |
+The drawing is the shared renderer's, on every frontend. A frontend only hands over its
+own drawing object and gets its state back afterwards, the same way it does for
+`UiCanvas.raw`. Think of lending someone your kitchen: they cook in it, and you find
+every drawer shut when they leave.
+
+| frontend | `raw` hands over | afterwards |
+|---|---|---|
+| raw OpenGL (LWJGL3) | `GlFrame` | the documented end state (below) |
+| a browser tab (WebGL 1 and 2) | `WebGlFrame` | the same, or with `HostState.Restore` your library's own state (below) |
+| LibGDX | your `SpriteBatch`, open on the picture | the documented end state; the batch closed, its projection and colour as you left them |
+| KorGE | the frame's `RenderContext`, with the picture on its framebuffer stack | the GL state KorGE left, and KorGE told to forget what it remembers (below) |
+| your own `RenderCanvas` | whatever its `handOver` makes | whatever its device's `HostState` says |
+
+"The documented end state" is `HostState.Leave`: the framebuffer and viewport you had,
+scissor off, depth test, culling and stencil test off, blending on with
+`SRC_ALPHA, ONE_MINUS_SRC_ALPHA`, no program, no buffers, texture unit 0 active with
+nothing bound. Your block starts in that state too, with the picture bound. A widget
+drawn after a careless scene draws exactly as it would with no scene at all; each
+frontend's tests check that pixel for pixel on a real GPU.
+
+**An engine that remembers GL state** (KorGE, three.js) skips setting a value it thinks
+is already set. So with `HostState.Restore` the block starts with the engine's own
+state, not the toolkit's, and whatever the engine sets in the block is what it has once
+the scene is over. Its memory stays true. Three things are not kept: the framebuffer,
+viewport and scissor are the picture's while the block runs and the engine's own again
+afterwards. Anything you change behind the engine's back inside the block is kept too,
+as if the engine had set it.
+
+For three.js, which remembers its viewport and scissor, call `renderer.resetState()`
+after the frame that rendered a scene. The KorGE frontend does the same for KorGE for
+you: it makes KorGE forget what it remembers before and after your block, so KorGE sets
+everything it needs the next time it draws, as it does at the start of every frame.
+
+**LibGDX.** `ModelBatch` sets up its own depth test, so it draws straight in:
+
+```kotlin
+@Composable
+fun ShipPreview(models: ModelBatch, camera: PerspectiveCamera, ship: ModelInstance, environment: Environment) {
+    val scene = rememberSceneViewState()
+
+    SceneView(scene, Modifier.size(320f, 240f)) {
+        clear(Colour.Black)
+        raw { batch ->
+            // `batch` is the SpriteBatch you gave the canvas, open on the picture.
+            camera.viewportWidth = width.toFloat()
+            camera.viewportHeight = height.toFloat()
+            camera.update()
+            models.begin(camera)
+            models.render(ship, environment)
+            models.end()
+            (batch as SpriteBatch).flush()
+        }
+    }
+}
+```
+
+The batch's projection covers the picture in pixels, y up, like LibGDX's own. A canvas
+made without a `SpriteBatch` refuses `raw`, in a scene as everywhere else, so give
+`GdxBackend` or `GdxCanvas` one.
+
+**KorGE.** The picture is a KorGE framebuffer, with depth and stencil, pushed onto the
+render context's framebuffer stack while your block runs. So anything that draws
+through the context lands in it: `ctx.useBatcher`, or a whole container's `render`:
+
+```kotlin
+@Composable
+fun MiniMap(world: Container) {
+    val scene = rememberSceneViewState()
+
+    SceneView(scene, Modifier.size(200f, 200f).clip(8f)) {
+        clear(Colour.Black)
+        raw { ctx ->
+            world.render(ctx as RenderContext)
+        }
+    }
+}
+```
+
+It comes out the way up KorGE drew it, y down, as KorGE's own render textures do. The
+scene is rendered inside a KorGE render, so `KorgeCanvas.renderContext` must be set for
+the frame, as it must be for drawing at all. `ComposeGlView` sets it for you.
+
+**WebGL 1** has only 16-bit depth buffers, and that is what a scene gets there. WebGL 2
+gets 24 bits, as desktop GL does.
 
 A canvas says whether it can with `UiCanvas.drawsScenes`. The one tests use,
 `RecordingCanvas`, can: it writes each render down in `scenes`, with the size, the
