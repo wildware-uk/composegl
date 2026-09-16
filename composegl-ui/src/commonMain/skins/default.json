@@ -343,6 +343,14 @@
       "focused": { "background": { "fill": "#0B0E14", "border": "#5B8DEF", "borderWidth": 2 } }
     },
 
+    // A scene view is the game's own picture, so the skin draws nothing over it but a ring while it
+    // has focus: see-through inside, so the scene still shows.
+
+    "sceneview": {
+      "background": "none",
+      "focused": { "background": { "fill": "#00000000", "border": "#5B8DEF", "borderWidth": 2 } }
+    },
+
     // A splitter's divider is a quiet bar between two panes that lights up when the pointer finds it,
     // so a player can see there is something to grab before the cursor tells them.
 

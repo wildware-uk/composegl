@@ -1169,7 +1169,9 @@ nothing — because nothing looks exactly like a widget somebody has not written
 ### Your own 3D scene in a panel
 
 `SceneView(state, modifier) { ... }` lays out like a picture and shows your renderer's
-scene inside it, redrawn only when you call `state.invalidate()`. See [[Scene view]].
+scene inside it, redrawn only when you call `state.invalidate()`. Give it `onPointer`,
+`onKey` or `onPad` to orbit, drag or pick: positions arrive in the picture's own pixels,
+with `(0, 0)` at its corner. See [[Scene view]].
 
 ### Sprite-sheet animation
 

@@ -511,6 +511,12 @@
       "focused": { "background": { "fill": "#060A12", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } }
     },
 
+    // A scene view is the game's own picture: nothing over it but a ring while it has focus.
+    "sceneview": {
+      "background": "none",
+      "focused": { "background": { "fill": "#00000000", "corner": 4, "border": "#8ADBFF", "borderWidth": 2 } }
+    },
+
     "colourpicker": {
       "background": { "fill": "#F00A1018", "corner": 6, "border": "#404CC2FF", "padding": 12 }
     },

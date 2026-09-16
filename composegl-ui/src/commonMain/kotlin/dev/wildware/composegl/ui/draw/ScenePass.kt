@@ -76,6 +76,9 @@ class ScenePass(val tree: UiTree, val canvas: UiCanvas) {
         val grown = node.scaleInRoot * state.resolutionScale
         val width = pixels((node.width - padding.left - padding.right) * grown * viewport.scaleX)
         val height = pixels((node.height - padding.top - padding.bottom - node.baselineTop - node.baselineBottom) * grown * viewport.scaleY)
+        // Kept for input, which needs the scale before there is a picture to measure it by.
+        state.pixelsPerUnitX = grown * viewport.scaleX
+        state.pixelsPerUnitY = grown * viewport.scaleY
         // No room: nothing to draw into, and still wanted for when there is.
         if (width <= 0 || height <= 0) return false
 

@@ -6,18 +6,41 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
+import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.SceneSurface
 import dev.wildware.composegl.ui.graphics.SceneTarget
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
+import dev.wildware.composegl.ui.input.GamepadButton
+import dev.wildware.composegl.ui.input.GamepadEvent
+import dev.wildware.composegl.ui.input.GamepadHandler
+import dev.wildware.composegl.ui.input.GamepadId
+import dev.wildware.composegl.ui.input.GamepadNavigator
+import dev.wildware.composegl.ui.input.InteractionState
+import dev.wildware.composegl.ui.input.Key
+import dev.wildware.composegl.ui.input.KeyEvent
+import dev.wildware.composegl.ui.input.KeyEventType
+import dev.wildware.composegl.ui.input.KeyHandler
 import dev.wildware.composegl.ui.input.LocalUiSounds
+import dev.wildware.composegl.ui.input.PointerEvent
+import dev.wildware.composegl.ui.input.PointerHandler
+import dev.wildware.composegl.ui.input.movedTo
 import dev.wildware.composegl.ui.layout.LocalLayoutDirection
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.drawInFront
+import dev.wildware.composegl.ui.modifier.focusable
+import dev.wildware.composegl.ui.modifier.interaction
+import dev.wildware.composegl.ui.modifier.onGamepadEvent
+import dev.wildware.composegl.ui.modifier.onKeyEvent
+import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.node.UiApplier
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.skin.ResolvedStyle
+import dev.wildware.composegl.ui.skin.WidgetState
+import dev.wildware.composegl.ui.skin.rememberStyle
 
 /**
  * A panel with the game's own 3D scene inside it.
@@ -25,7 +48,11 @@ import dev.wildware.composegl.ui.node.UiNode
  * ```kotlin
  * val scene = rememberSceneViewState()
  *
- * SceneView(scene, Modifier.size(480f, 270f)) {
+ * SceneView(
+ *     scene,
+ *     Modifier.size(480f, 270f),
+ *     onPointer = { e -> camera.orbit(e.position); true },   // (0, 0) is the picture's corner
+ * ) {
  *     clear(Colour.Black)
  *     raw { frame -> myRenderer.draw(frame as GlFrame, width, height) }
  * }
@@ -43,11 +70,34 @@ import dev.wildware.composegl.ui.node.UiNode
  * rounded corners and the effect modifiers work on it unchanged, and a scene nobody marked dirty
  * costs a comparison. See [dev.wildware.composegl.ui.draw.ScenePass] for driving that step yourself.
  *
+ * **Input.** A pointer event's position is in the picture's own pixels — the units [draw] is given
+ * its `width` and `height` in — with `(0, 0)` at the picture's top-left corner on screen. That holds
+ * whatever is round the panel: a scrolled column, a splitter, the viewport's design-to-pixel
+ * scaling, a `scale` modifier, padding, [SceneViewState.resolutionScale] and right to left. So the
+ * far corner is `(width, height)`, and a position goes straight into the scene's own unprojection.
+ * A press the handler takes holds the pointer, so a drag that leaves the panel keeps arriving, with
+ * positions below zero or past the size, until the button comes up. Returning false lets an event
+ * carry on to whatever is behind: a click to the card the preview sits on, a wheel to the list.
+ *
  * The widget interprets nothing: no camera, no scene graph, no picking. Right to left moves the
  * panel to the other side like anything else, and does not mirror the picture — a scene is not
  * text. Use one [SceneViewState] per `SceneView`.
  *
  * @param state what owns the picture, its size and whether it needs drawing again.
+ * @param onPointer pointer events over the panel, and every event of a gesture it took the press
+ *   of, positioned in the picture's pixels. Return true to use the event.
+ * @param onKey keys while focus is on the panel. Return true to use the key; false lets Tab and the
+ *   arrows move focus on as usual. A key or button whose down was heard here is not heard coming up
+ *   if focus moved away first: stop what it started when [interaction] loses focus.
+ * @param onPad pad buttons and sticks while focus is on the panel, before the pad navigates. Return
+ *   true to use the event; false lets the d-pad or the stick move focus out. Taking a stick coming
+ *   back to rest does not keep the pad's navigator from letting go of it.
+ * @param focusable whether Tab, the pad and a taken press can put focus here. On whenever there is
+ *   a handler, and off for a picture with none, so a shelf of previews is not a row of tab stops.
+ * @param initialFocus true on the one node a screen should open with focus on.
+ * @param style the skin name drawn over the picture: `"sceneview"`, whose `focused` state is the
+ *   ring a keyboard or pad player sees.
+ * @param interaction the panel's hover, press and focus, for a game that draws its own ring.
  * @param draw fills the picture. Runs only when [state] is dirty or the panel's pixel size
  *   changed, with the picture bound; see [SceneDrawScope].
  */
@@ -55,6 +105,13 @@ import dev.wildware.composegl.ui.node.UiNode
 fun SceneView(
     state: SceneViewState,
     modifier: Modifier = Modifier,
+    onPointer: ((PointerEvent) -> Boolean)? = null,
+    onKey: ((KeyEvent) -> Boolean)? = null,
+    onPad: ((GamepadEvent) -> Boolean)? = null,
+    focusable: Boolean = onPointer != null || onKey != null || onPad != null,
+    initialFocus: Boolean = false,
+    style: String = "sceneview",
+    interaction: InteractionState = remember { InteractionState() },
     draw: SceneDrawScope.() -> Unit,
 ) {
     // After the composition applies and before the prepass reads it, whichever lambda is newest.
@@ -62,6 +119,28 @@ fun SceneView(
     val sounds = LocalUiSounds.current
     val direction = LocalLayoutDirection.current
     val paint = remember(state) { scenePainter(state) }
+
+    // One handler object per state, reading the newest lambdas, so the chain compares equal from one
+    // recomposition to the next and a drag in progress is not lost to a new closure.
+    val input = remember(state) { SceneInput(state) }
+    input.pointer = onPointer
+    input.key = onKey
+    input.pad = onPad
+    val focused = interaction.isFocused
+    // Keys and buttons that went down here and are still down when focus leaves will come up
+    // somewhere else. Forget them, so an up heard after focus comes back is not taken for theirs.
+    SideEffect { if (!focused) input.forgetHeld() }
+    val ring = rememberStyle(style, if (focused) FocusedOnly else NoStates)
+    val front = remember(ring) { ringPainter(ring) }
+    val chain = modifier
+        .then(if (focusable || onPointer != null) Modifier.interaction(interaction) else Modifier)
+        .then(if (focusable) Modifier.focusable(interaction, initial = initialFocus) else Modifier)
+        .then(if (onPointer != null) Modifier.onPointer(input.pointerHandler) else Modifier)
+        .then(if (onKey != null) Modifier.onKeyEvent(input.keyHandler) else Modifier)
+        .then(if (onPad != null) Modifier.onGamepadEvent(input.padHandler) else Modifier)
+        // Last in the chain, so it is inset by the caller's padding and sits on the picture's edge.
+        .then(if (focusable) Modifier.drawInFront(front) else Modifier)
+
     ComposeNode<UiNode, UiApplier>(
         factory = { UiNode("scene view") },
         update = {
@@ -72,11 +151,84 @@ fun SceneView(
             }
             set(sounds) { this.sounds = it }
             set(direction) { this.layoutDirection = it }
-            set(modifier) { this.modifier = it }
+            set(chain) { this.modifier = it }
             set(MeasurePolicy.Empty) { this.measurePolicy = it }
             set(paint) { this.content = it }
         },
     )
+}
+
+private val FocusedOnly = setOf(WidgetState.Focused)
+private val NoStates = emptySet<WidgetState>()
+
+/** The skin's drawing for the panel's state, over the picture: in every shipped skin, a ring while focused and nothing otherwise. */
+private fun ringPainter(style: ResolvedStyle): UiCanvas.(Rect) -> Unit = { bounds ->
+    if (!bounds.isEmpty) style.background.drawInto(this, bounds, style.tint)
+}
+
+/**
+ * The three handlers a [SceneView] puts on its node. Made once per state and reading the newest
+ * lambdas; the pointer's positions go through [SceneViewState.toPicture] on the way.
+ *
+ * One rule on top, and it is not interpretation: a key or pad button coming **up** is offered only
+ * when its going down was offered here too. Focus arrives on the panel on a press — Tab, the
+ * d-pad — whose release lands on the panel. A game handler that takes everything would swallow that
+ * release, and the navigator, still holding the d-pad down, would never move focus again.
+ *
+ * A stick has no down to match, so it has no rule here: [GamepadNavigator] lets go of a stick that
+ * comes back inside its dead zone whoever takes the event, which only it can do, knowing its own
+ * dead zone and what it is holding. And what was down when focus left is forgotten, because its up
+ * lands on whatever has focus by then.
+ */
+private class SceneInput(private val state: SceneViewState) {
+    var pointer: ((PointerEvent) -> Boolean)? = null
+    var key: ((KeyEvent) -> Boolean)? = null
+    var pad: ((GamepadEvent) -> Boolean)? = null
+
+    private val keysDown = HashSet<Key>(4)
+    private val buttonsDown = HashSet<Pair<GamepadId, GamepadButton>>(4)
+
+    /** Focus left: whatever was held will come up somewhere else, and is not the panel's any more. */
+    fun forgetHeld() {
+        keysDown.clear()
+        buttonsDown.clear()
+    }
+
+    val pointerHandler = PointerHandler { event ->
+        val handler = pointer
+        val node = state.node
+        if (handler == null || node == null) false else handler(event.movedTo(state.toPicture(node, event.position)))
+    }
+
+    val keyHandler = KeyHandler { event ->
+        val handler = key
+        when {
+            handler == null -> false
+            event.type == KeyEventType.Down -> {
+                keysDown += event.key
+                handler(event)
+            }
+            keysDown.remove(event.key) -> handler(event)
+            else -> false
+        }
+    }
+
+    val padHandler = GamepadHandler { event ->
+        val handler = pad
+        when {
+            handler == null -> false
+            event is GamepadEvent.ButtonDown -> {
+                buttonsDown += event.gamepadId to event.button
+                handler(event)
+            }
+            event is GamepadEvent.ButtonUp -> buttonsDown.remove(event.gamepadId to event.button) && handler(event)
+            event is GamepadEvent.Disconnected -> {
+                buttonsDown.removeAll { it.first == event.gamepadId }
+                handler(event)
+            }
+            else -> handler(event)
+        }
+    }
 }
 
 /** The picture, stretched over the content box. Nothing before the first render. */
@@ -149,6 +301,42 @@ class SceneViewState(resolutionScale: Float = 1f) {
     internal var askedHeight = 0
 
     internal var node: UiNode? = null
+
+    /**
+     * Real pixels per design unit of the panel, each way, as the prepass last measured it: the
+     * viewport's scale times every `scale` above the panel times [resolutionScale]. What a position
+     * is converted with before there is a picture to measure it by.
+     */
+    internal var pixelsPerUnitX = 0f
+    internal var pixelsPerUnitY = 0f
+
+    /**
+     * A point in [node]'s own coordinates — what the pointer router hands a handler, with every
+     * scroll, scale and mirror above the node already taken out — as a point in the picture.
+     *
+     * The picture is stretched over the content box, so the answer is the content box's corner taken
+     * away and the rest scaled by the picture's pixels over the box's units. That ratio, rather than
+     * the prepass's scale, is what is on screen: it is still right when a small GPU cut the picture
+     * down. Before the first render there is no picture, and the prepass's scale stands in; before
+     * even that, a unit is a pixel.
+     */
+    internal fun toPicture(node: UiNode, local: Offset): Offset {
+        val padding = node.resolved.padding
+        val top = padding.top + node.baselineTop
+        val boxWidth = node.width - padding.left - padding.right
+        val boxHeight = node.height - top - padding.bottom - node.baselineBottom
+        val sx = when {
+            width > 0 && boxWidth > 0f -> width / boxWidth
+            pixelsPerUnitX > 0f -> pixelsPerUnitX
+            else -> 1f
+        }
+        val sy = when {
+            height > 0 && boxHeight > 0f -> height / boxHeight
+            pixelsPerUnitY > 0f -> pixelsPerUnitY
+            else -> 1f
+        }
+        return Offset((local.x - padding.left) * sx, (local.y - top) * sy)
+    }
 
     internal var content: SceneDrawScope.() -> Unit = {}
 

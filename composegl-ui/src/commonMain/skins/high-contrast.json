@@ -331,6 +331,14 @@
       "focused": { "background": { "fill": "#000000", "border": "#FFD600", "borderWidth": 2 } }
     },
 
+    // A scene view keeps the game's picture; focus is the yellow edge over it, thick enough to see
+    // against any scene.
+
+    "sceneview": {
+      "background": "none",
+      "focused": { "background": { "fill": "#00000000", "border": "#FFD600", "borderWidth": 3 } }
+    },
+
     // A splitter's divider is a white bar on the black, yellow while it is held; focus is the yellow
     // edge round it.
 

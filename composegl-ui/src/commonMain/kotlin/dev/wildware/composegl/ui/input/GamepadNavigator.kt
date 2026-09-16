@@ -49,7 +49,7 @@ class GamepadNavigator(
     /** The direction being held, if any. For tests, and for a game that wants to show it. */
     val direction: FocusDirection? get() = held
 
-    fun onGamepad(event: GamepadEvent): Boolean = offered(event) || when (event) {
+    fun onGamepad(event: GamepadEvent): Boolean = offeredAndTaken(event) || when (event) {
         is GamepadEvent.Axis -> axis(event)
         is GamepadEvent.ButtonDown -> down(event.button)
         is GamepadEvent.ButtonUp -> up(event.button)
@@ -96,6 +96,30 @@ class GamepadNavigator(
             node.resolved.gamepadHandlers.forEach { it.onGamepad(event) }
             node = node.parent
         }
+    }
+
+    /**
+     * [offered], and when something took a stick coming back inside the dead zone, the navigator
+     * lets go of it anyway.
+     *
+     * A push the navigator heard can move focus onto something that takes every stick event — a
+     * scene view flying a camera, a pan-and-zoom canvas. The stick coming back lands there, and if
+     * the navigator never heard it, it would go on holding the push and step focus straight back out
+     * on the next repeat. A stick at rest is a fact about the pad rather than a request, so it is
+     * not the node's to keep from the navigator. A push *out* that a node takes stays the node's.
+     */
+    private fun offeredAndTaken(event: GamepadEvent): Boolean {
+        if (!offered(event)) return false
+        if (event is GamepadEvent.Axis && abs(event.value) < deadZone) {
+            when (event.axis) {
+                GamepadAxis.LeftX -> stickX = 0f
+                GamepadAxis.LeftY -> stickY = 0f
+                else -> return true
+            }
+            // Only let go. Starting a new direction is for a push somebody did not take.
+            if (held != null && fromDpad() == null && fromStick() != held) held = null
+        }
+        return true
     }
 
     /**
