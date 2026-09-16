@@ -51,6 +51,11 @@ object KorgeGl {
     @Volatile
     private var broken: Throwable? = null
 
+    /** How many frames the game has drawn. Read it inside [render] to see which frame that is. */
+    @Volatile
+    var drawn = 0L
+        private set
+
     /** The stage of the one game. Touch it only from inside [render]. */
     lateinit var stage: Stage
         private set
@@ -73,7 +78,12 @@ object KorgeGl {
                     ) {
                         this@KorgeGl.stage = this
                         views.onAfterRender { ctx ->
-                            while (true) (work.poll() ?: break).invoke(ctx)
+                            drawn++
+                            // Only the work already waiting. A test posts its next piece of work the
+                            // moment the last one answers; draining until the queue is empty would run
+                            // that in this frame too, so frames(2) could let no frame go by and a
+                            // picture taken after an event could still be the one drawn before it.
+                            repeat(work.size) { (work.poll() ?: return@repeat).invoke(ctx) }
                         }
                         ready.countDown()
                     }
@@ -90,8 +100,8 @@ object KorgeGl {
     }
 
     /**
-     * Runs [block] inside the next frame, on KorGE's render thread, and waits for it. Skips the test
-     * when there is no way to get a context.
+     * Runs [block] inside the next frame, on KorGE's render thread, and waits for it. Each call runs
+     * in a later frame than the call before it. Skips the test when there is no way to get a context.
      */
     fun <T> render(block: (RenderContext) -> T): T {
         assumeTrue(available, "no display and KORGE_HEADLESS is not set; this test needs a real GL context")

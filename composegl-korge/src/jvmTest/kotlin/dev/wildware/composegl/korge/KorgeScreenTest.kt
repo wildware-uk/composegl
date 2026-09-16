@@ -43,6 +43,23 @@ class KorgeScreenTest {
     private val red = Colour.rgb(0xFF0000)
     private val green = Colour.rgb(0x00FF00)
 
+    /**
+     * Every test here dispatches an event and then looks at a later frame. On a busy machine the
+     * harness once ran the next piece of work in the same frame as the last, so the picture after a
+     * click was the one drawn before it.
+     */
+    @Test
+    fun `each piece of work posted to the game runs in a later frame than the one before`() {
+        repeat(200) {
+            val first = KorgeGl.render { KorgeGl.drawn }
+            val second = KorgeGl.render { KorgeGl.drawn }
+            KorgeGl.frames(2)
+            val third = KorgeGl.render { KorgeGl.drawn }
+            assertTrue(second > first, "back-to-back work shared frame $first")
+            assertTrue(third - second >= 3, "frames(2) and one more should be three frames, it was ${third - second}")
+        }
+    }
+
     /** Every size the default skin asks for, under the name it asks for. */
     private fun backend() = KorgeBackend(
         KorgeFonts().also { it.registerTrueType("default", TestFonts.dejaVu(), listOf(12, 13, 14, 16, 18, 22, 26)) },
