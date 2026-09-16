@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import dev.wildware.composegl.effects.blur
 import dev.wildware.composegl.effects.colourGrade
 import dev.wildware.composegl.effects.dissolve
@@ -24,6 +25,9 @@ import dev.wildware.composegl.debug.DebugWindowHost
 import dev.wildware.composegl.debug.DevConsole
 import dev.wildware.composegl.debug.NodeTree
 import dev.wildware.composegl.debug.FrameBudgetOverlay
+import dev.wildware.composegl.debug.Histogram
+import dev.wildware.composegl.debug.Plot
+import dev.wildware.composegl.debug.rememberPlotBuffer
 import dev.wildware.composegl.debug.arg
 import dev.wildware.composegl.debug.rememberDevConsole
 import dev.wildware.composegl.game.Bar
@@ -137,6 +141,7 @@ fun ShowcaseUi(
                     if (state.isOn(Exhibit.Contacts)) Contacts(state)
                     if (state.isOn(Exhibit.Tree)) SceneTree(state)
                     if (state.isOn(Exhibit.Starmap)) StarMap()
+                    if (state.isOn(Exhibit.Telemetry)) Telemetry(state, budget)
 
                     // Over the scene and under the panels, which is where a hit happens. The game
                     // fills the pool from its own loop; this only draws it.
@@ -180,6 +185,57 @@ fun ShowcaseUi(
 
 /** How far down the panels along the top start, clear of the menu bar. */
 private const val BelowMenus = 64f
+
+/**
+ * Two numbers that change every frame, as graphs: the weapon's heat, and what the last frames cost.
+ *
+ * The heat bar in the HUD says what the heat is *now*, which is the wrong question while a player is
+ * firing: the interesting part is how fast it climbed and whether it came back down. A line answers
+ * that, and the rule across it is the point it starts venting.
+ *
+ * Underneath is the same trick on the frame budget's own window, drawn as bars. Both take a value a
+ * frame and neither allocates for it: the ring is written over, not grown.
+ *
+ * Hovering either of them reads the sample under the pointer, which is how the spike two seconds ago
+ * gets a number put on it.
+ */
+@Composable
+private fun Telemetry(state: ShowcaseState, budget: FrameBudget) {
+    val heat = rememberPlotBuffer(capacity = 180)
+    val frames = remember(budget) { FloatArray(FrameWindow) }
+    var measured by remember { mutableStateOf(0) }
+
+    LaunchedEffect(state, budget) {
+        while (true) {
+            withFrameNanos {
+                heat.add(state.heat)
+                measured = budget.recentFrameMillis(frames)
+            }
+        }
+    }
+
+    Panel(
+        Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 28f).width(260f),
+        style = "panel.quiet",
+    ) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
+            Plot(
+                heat,
+                Modifier.fillMaxWidth().height(56f),
+                range = 0f..1f,
+                guides = listOf(VentsAt),
+                label = "heat",
+            )
+            Histogram(frames, Modifier.fillMaxWidth().height(56f), count = measured, label = "frame ms")
+        }
+    }
+}
+
+/** Where the weapon starts venting, and so where the line across the heat graph goes. */
+private const val VentsAt = 0.8f
+
+/** How many frames the telemetry panel's bars cover. */
+private const val FrameWindow = 60
 
 /**
  * The developer console: ` brings it down, Back and the right bumper together do on a pad.

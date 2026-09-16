@@ -608,6 +608,26 @@
       "background": { "fill": "#00000000", "corner": 6, "border": "#FFD600", "borderWidth": 3 }
     },
 
+    // --- live plots ---
+    //
+    // The same graphs in black and white: a white trace on black, a grey rule and a yellow cursor.
+    // The same padding and the same text sizes as the default, so switching skins does not move a
+    // graph or the numbers written in its corners.
+
+    "plot": {
+      "background": { "fill": "#000000", "border": "#FFFFFF", "padding": [6, 4], "borderWidth": 2 },
+      "textColour": "#FFFFFF"
+    },
+
+    "plot.label": { "textColour": "#B0B0B0", "text": { "size": 11 } },
+    "plot.value": { "textColour": "#FFFFFF", "text": { "size": 11 } },
+
+    "plot.line": { "textColour": "#FFFFFF" },
+    "plot.fill": { "textColour": "#40FFFFFF" },
+    "plot.guide": { "textColour": "#B0B0B0" },
+    "plot.cursor": { "textColour": "#FFD600" },
+    "plot.bar": { "textColour": "#FFFFFF" },
+
     // --- the developer console ---
     //
     // The same panel in black and white: white for an ordinary line, yellow for a warning, red for

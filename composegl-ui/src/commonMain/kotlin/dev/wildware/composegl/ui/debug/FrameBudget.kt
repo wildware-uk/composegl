@@ -280,6 +280,30 @@ class FrameBudget(
         return most / 1_000_000f
     }
 
+    /**
+     * The last frames' total times in milliseconds, oldest first, copied into [into].
+     *
+     * The averages beside it say what a frame usually costs; this is the shape of the last [window]
+     * of them, which is where a stutter shows up. It is what a graph of the frame time is drawn
+     * from — `composegl-debug`'s `FrameBudgetOverlay` does exactly that — and it is a copy into an
+     * array the caller already has rather than a list, so asking every frame allocates nothing.
+     *
+     * Returns how many were written: the smaller of [into]'s length and the frames measured so far.
+     * A budget that is switched off has measured none.
+     */
+    fun recentFrameMillis(into: FloatArray): Int {
+        val taken = minOf(into.size, filled)
+        // The ring's oldest sample is the one `at` is about to overwrite, once it has been round.
+        val oldest = if (filled < window) 0 else at
+        for (index in 0 until taken) {
+            // Counting back from the newest, so a short array gets the *last* frames rather than
+            // the first ones the budget happened to see.
+            val from = (oldest + filled - taken + index) % window
+            into[index] = totalNanos[from] / 1_000_000f
+        }
+        return taken
+    }
+
     /** Forgets everything measured so far. What a game calls after loading a level. */
     fun reset() {
         recomposeNanos.fill(0L)

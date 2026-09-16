@@ -270,7 +270,12 @@ open class RenderCanvas protected constructor(
 
     override fun fan(points: FloatArray, colour: Colour) {
         if (state.isHidden || points.size < 6) return
-        val flipped = FloatArray(points.size)
+        // The batch reads the points before this call returns, so the flipped copy is scratch and
+        // one is kept rather than made afresh: a plot hands over the same four corners a segment at
+        // a time, hundreds a frame, and every one of them would otherwise be an array left behind.
+        // The same size every time, because the batch reads the whole of whatever it is given.
+        if (fanScratch.size != points.size) fanScratch = FloatArray(points.size)
+        val flipped = fanScratch
         var at = 0
         while (at < points.size) {
             flipped[at] = state.mapX(points[at])
@@ -279,6 +284,9 @@ open class RenderCanvas protected constructor(
         }
         batch().fan(white(), flipped, colour.inForce())
     }
+
+    /** Where [fan] flips its points into. Scratch: nothing holds on to it past the call. */
+    private var fanScratch = FloatArray(0)
 
     /** The one place a box reaches the batch, and where a pushed transform moves it and grows its thicknesses. */
     @Suppress("LongParameterList")

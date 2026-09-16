@@ -623,6 +623,27 @@
       "background": { "fill": "#00000000", "corner": 6, "border": "#5B8DEF", "borderWidth": 2 }
     },
 
+    // --- live plots ---
+    //
+    // The graphs in composegl-debug: a frame time, a ping, a count per bucket. A dark box with a
+    // bright trace on it, a translucent wash underneath and a dim rule across it at whatever value
+    // the caller asked to be able to see. The box is padded because the readout is written in its
+    // corners, over the graph.
+
+    "plot": {
+      "background": { "fill": "#0E1117", "border": "#2C3545", "padding": [6, 4] },
+      "textColour": "#C9D3E0"
+    },
+
+    "plot.label": { "textColour": "#7C8798", "text": { "size": 11 } },
+    "plot.value": { "textColour": "#E8ECF2", "text": { "size": 11 } },
+
+    "plot.line": { "textColour": "#7FB0FF" },
+    "plot.fill": { "textColour": "#402B7FFF" },
+    "plot.guide": { "textColour": "#4A5567" },
+    "plot.cursor": { "textColour": "#E8A33D" },
+    "plot.bar": { "textColour": "#7FB0FF" },
+
     // --- the developer console ---
     //
     // The drop-down console in composegl-debug: a panel over the top of the game with a log in it,

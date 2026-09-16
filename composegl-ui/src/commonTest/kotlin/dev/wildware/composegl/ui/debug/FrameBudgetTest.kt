@@ -209,6 +209,49 @@ class FrameBudgetTest {
         assertEquals(0, budget.trace.total)
     }
 
+    @Test
+    fun `the frames it hands back are the last ones it measured oldest first`() {
+        // Whole milliseconds put in by hand rather than measured, so the order is readable and the
+        // test does not depend on how fast the machine running it is.
+        val budget = budget()
+        measure(budget, 1, 2, 3, 4, 5, 6)
+
+        val frames = FloatArray(4)
+        assertEquals(4, budget.recentFrameMillis(frames), "a full window once the ring has been round")
+        assertEquals(listOf(3f, 4f, 5f, 6f), frames.toList(), "the four still held, oldest first")
+
+        val fewer = FloatArray(2)
+        assertEquals(2, budget.recentFrameMillis(fewer), "only what fits when less is asked for")
+        assertEquals(listOf(5f, 6f), fewer.toList(), "and the last two rather than the first two")
+
+        val roomier = FloatArray(6)
+        assertEquals(4, budget.recentFrameMillis(roomier), "and only what it has when more is asked for")
+        assertEquals(listOf(3f, 4f, 5f, 6f), roomier.take(4), "written from the start of the array")
+    }
+
+    @Test
+    fun `before the ring has been round it hands back the frames there are`() {
+        val budget = budget()
+        measure(budget, 7, 8)
+
+        val frames = FloatArray(4)
+        assertEquals(2, budget.recentFrameMillis(frames), "two frames measured is two frames to give")
+        assertEquals(listOf(7f, 8f), frames.take(2), "still oldest first")
+    }
+
+    @Test
+    fun `a budget that has measured nothing hands back nothing`() {
+        assertEquals(0, budget().recentFrameMillis(FloatArray(4)))
+    }
+
+    /** Closes off one frame per entry, each costing that many whole milliseconds of draw. */
+    private fun measure(budget: FrameBudget, vararg millis: Int) {
+        millis.forEach {
+            budget.addDraw(it * 1_000_000L)
+            budget.endFrame()
+        }
+    }
+
     private var sink = 0
 
     /** A little real work, so that a phase has something to measure. */
