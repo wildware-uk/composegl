@@ -23,6 +23,7 @@ import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.KeyHandler
 import dev.wildware.composegl.ui.input.PointerIcon
 import dev.wildware.composegl.ui.input.PointerHandler
+import dev.wildware.composegl.ui.input.PointerWatcher
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Baseline
@@ -451,6 +452,9 @@ const val DefaultDoubleClickMillis = 300
 
 /** Raw pointer events for this node, in its own coordinates. See [PointerHandler]. */
 data class PointerInputElement(val handler: PointerHandler) : Modifier.Element
+
+/** Pointer events this node watches without ever taking them. See [watchPointer]. */
+data class PointerWatchElement(val watcher: PointerWatcher) : Modifier.Element
 
 /**
  * The node can be dragged. See [draggable].
@@ -1521,6 +1525,24 @@ fun Modifier.repeatingClickable(
 )
 
 fun Modifier.onPointer(handler: PointerHandler) = then(PointerInputElement(handler))
+
+/**
+ * The node hears the pointer without standing in front of anything.
+ *
+ * ```kotlin
+ * val where = remember { PointerWatcher { if (it is PointerEvent.Move) at = it.position } }
+ * Box(Modifier.fillMaxSize().watchPointer(where)) { … }
+ * ```
+ *
+ * A full-screen layer with [onPointer] on it is the topmost thing the pointer finds, so everything
+ * under it stops being hovered even when the handler takes nothing. This is the other half of that:
+ * the node is found by the pointer and told what it did, but it is never hovered, never pressed and
+ * can never consume — so a bag slot beneath a card layer lights up exactly as it did before the
+ * layer was there.
+ *
+ * `remember` the watcher, as with [onPointer]. See [PointerWatcher].
+ */
+fun Modifier.watchPointer(watcher: PointerWatcher) = then(PointerWatchElement(watcher))
 
 /**
  * How far a pointer may wander, in the node's own units, before a press becomes a drag.

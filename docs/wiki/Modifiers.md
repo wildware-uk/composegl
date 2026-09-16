@@ -424,11 +424,23 @@ Modifier.dragSource(payload = item) { ItemIcon(item) } // inside a DragAndDropHo
 Modifier.dropTarget<Item>(accepts = { it.fits(slot) }, onDrop = { move(it, slot) })
 Modifier.onActivate { pickUp(); true }    // South or Enter, before the click
 Modifier.onPointer(handler)               // raw pointer events
+Modifier.watchPointer(watcher)            // the same events, in front of nothing
 Modifier.onKeyEvent(handler)
 Modifier.onTextEvent(handler)
 Modifier.hitShape { it.x >= 20f }         // which points inside the box are really yours
 Modifier.pointerHoverIcon(PointerIcon.Hand) // the mouse cursor's shape over it
 ```
+
+**A note on `watchPointer`.** A full-screen layer with `onPointer` on it is the topmost
+thing the pointer finds, so everything under it stops being hovered — even when the
+handler consumes nothing. That is right for a scrim over a dialogue and wrong for a
+layer that only wants to know where the mouse is: an item card hanging beside the
+cursor, a cursor a game draws itself. `watchPointer` is the other half of the pair. The
+node is found and told exactly what a handler would be told, but it is never hovered,
+never pressed and cannot consume, so the bag slot underneath lights up as if the layer
+were not there. Capture does not apply either: a press the slot takes, the moves while
+it is dragging and the release that ends it are all still reported, and so is the `Exit`
+when the mouse leaves the window.
 
 **A note on `hitShape`.** Hit testing is rectangles, because nearly everything is a
 rectangle and rectangles are cheap. A round button, a diamond or a honeycomb cell is

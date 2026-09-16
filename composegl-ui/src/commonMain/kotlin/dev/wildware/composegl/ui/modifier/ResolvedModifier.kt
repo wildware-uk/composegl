@@ -14,6 +14,7 @@ import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.KeyHandler
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.input.PointerIcon
+import dev.wildware.composegl.ui.input.PointerWatcher
 import dev.wildware.composegl.ui.input.TextHandler
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Padding
@@ -181,6 +182,11 @@ class ResolvedModifier private constructor(
     val interactions: List<InteractionState>,
     /** Raw pointer handlers, in chain order. Asked deepest-first, first to consume wins. */
     val handlers: List<PointerHandler>,
+    /**
+     * Watchers, in chain order. Told what the node was told and never allowed to take it, which is
+     * why they do not make the node hoverable. See [dev.wildware.composegl.ui.modifier.watchPointer].
+     */
+    val pointerWatchers: List<PointerWatcher>,
     /** Key handlers, in chain order. Asked from the focused node outwards, first to consume wins. */
     val keyHandlers: List<KeyHandler>,
     /** Text handlers, in chain order. Only ever asked on the focused node itself. */
@@ -262,16 +268,26 @@ class ResolvedModifier private constructor(
     val watchesLayout: Boolean get() = sizeChanged.isNotEmpty() || placed.isNotEmpty() || placement != null
 
     /**
-     * Whether a pointer can find this node at all.
+     * Whether this node stands in front of what is under it: hovered when the pointer is over it,
+     * and asked before anything below.
      *
-     * A node that watches, handles or clicks is hit-testable; everything else is scenery the
-     * pointer passes straight through, which is what makes hit testing cheap on a tree that is
-     * mostly panels and labels.
+     * A node with an interaction state, a handler or a click is in front; everything else is
+     * scenery the pointer passes straight through, which is what makes hit testing cheap on a tree
+     * that is mostly panels and labels. A node that only watches is scenery too — see [hearsPointer].
      */
     val isInteractive: Boolean
         get() = interactions.isNotEmpty() || handlers.isNotEmpty() || click != null || drag != null ||
             focusable?.enabled == true || hoverIcon != null || pointerFocus != null ||
             contextMenu?.enabled == true
+
+    /**
+     * Whether the pointer has anything to say to this node at all.
+     *
+     * Wider than [isInteractive] by exactly the watchers: a node that only watches is found and
+     * told, but it is not in front of anything, so hover and presses carry on to whatever is under
+     * it. See [dev.wildware.composegl.ui.modifier.watchPointer].
+     */
+    val hearsPointer: Boolean get() = isInteractive || pointerWatchers.isNotEmpty()
 
     companion object {
 
@@ -324,6 +340,7 @@ class ResolvedModifier private constructor(
             val inFront = mutableListOf<PaintOp>()
             val interactions = mutableListOf<InteractionState>()
             val handlers = mutableListOf<PointerHandler>()
+            val pointerWatchers = mutableListOf<PointerWatcher>()
             val keyHandlers = mutableListOf<KeyHandler>()
             val textHandlers = mutableListOf<TextHandler>()
             val gamepadHandlers = mutableListOf<GamepadHandler>()
@@ -473,6 +490,7 @@ class ResolvedModifier private constructor(
                     is DrawInFrontElement, is DebugBoundsElement -> inFront += PaintOp(element, padding)
                     is InteractionElement -> interactions += element.state
                     is PointerInputElement -> handlers += element.handler
+                    is PointerWatchElement -> pointerWatchers += element.watcher
                     is KeyInputElement -> keyHandlers += element.handler
                     is TextInputElement -> textHandlers += element.handler
                     is GamepadInputElement -> gamepadHandlers += element.handler
@@ -521,7 +539,7 @@ class ResolvedModifier private constructor(
                 perspective, perspectiveOrigin,
                 blend, zIndex, tint, clip, clipBehind, clipInFront, hitShape, hoverIcon, effects.toList(),
                 behind.toList(), inFront.toList(),
-                interactions.toList(), handlers.toList(),
+                interactions.toList(), handlers.toList(), pointerWatchers.toList(),
                 keyHandlers.toList(), textHandlers.toList(), gamepadHandlers.toList(), click, drag,
                 focusable, pointerFocus, focusRequester, focusOrder, focusDirections.toList(), activations.toList(),
                 reveals.toList(), focusWithin.toList(), focusTrap, testTag,

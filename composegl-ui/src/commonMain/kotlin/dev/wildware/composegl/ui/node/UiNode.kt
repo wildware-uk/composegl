@@ -26,6 +26,7 @@ import dev.wildware.composegl.ui.layout.SizeAnimation
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.modifier.MarqueeRun
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.PointerWatchElement
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.modifier.resolve
 
@@ -99,6 +100,7 @@ class UiNode(var name: String = "node") {
             if (field == value) return
             field = value
             cachedResolution = null
+            pointerWatching = value.any { it is PointerWatchElement }
             watcher?.invoke()
             // The parent's pile may have a different order now. Asked again next time rather than
             // worked out here, because a chain changing almost never changes a zIndex.
@@ -429,6 +431,21 @@ class UiNode(var name: String = "node") {
     internal var marquee: MarqueeRun? = null
 
     private var cachedResolution: ResolvedModifier? = null
+
+    /**
+     * Whether this node's chain has a `watchPointer` on it.
+     *
+     * Read off the chain rather than off [resolved], because resolving is lazy and this has to be
+     * known without forcing it. It is what keeps the tree's register of watchers up to date: see
+     * [UiTree.pointerWatchers]. False on all but a handful of nodes in any interface.
+     */
+    internal var pointerWatching: Boolean = false
+        private set(value) {
+            if (field == value) return
+            field = value
+            val tree = tree ?: return
+            if (value) tree.watchPointer(this) else tree.stopWatchingPointer(this)
+        }
 
     /** The chain read into the answers layout and drawing ask, computed once per change. */
     val resolved: ResolvedModifier
@@ -891,6 +908,12 @@ class UiNode(var name: String = "node") {
         // A marquee waits on its tree's frames, and a node leaving must stop it waiting there. It
         // starts again from rest when layout next reaches the node, wherever that is.
         marquee?.stop()
+        // A watching node is on a register kept by the tree it is in, so the register has to
+        // follow it from one tree to the other — and off both when it is removed for good.
+        if (pointerWatching) {
+            this.tree?.stopWatchingPointer(this)
+            tree?.watchPointer(this)
+        }
         this.tree = tree
         onTreeChanged?.invoke()
         if (tree == null) {
@@ -1134,6 +1157,29 @@ class UiTree(val root: UiNode = UiNode("root")) {
     internal fun watched(event: PointerEvent.Press) {
         if (watchers.isEmpty()) return
         watchers.toList().forEach { it.onPress(event) }
+    }
+
+    /**
+     * Every node on this tree with a `watchPointer` on it. Empty in all but a handful of interfaces.
+     *
+     * Two jobs, and both of them matter. It is how `PointerRouter` tells a watcher that the pointer
+     * has *left* — an event whose position is by definition outside the node, so hit testing for it
+     * finds nothing. And it is how the router knows, in one comparison, that a tree has no watchers
+     * at all, so the walk a watcher needs is never paid for by the overwhelming majority of games
+     * that have none.
+     *
+     * Kept by [UiNode.pointerWatching] as chains change and as nodes come and go.
+     */
+    internal val pointerWatchers: List<UiNode> get() = watchingPointer
+
+    private val watchingPointer = ArrayList<UiNode>(0)
+
+    internal fun watchPointer(node: UiNode) {
+        if (node !in watchingPointer) watchingPointer += node
+    }
+
+    internal fun stopWatchingPointer(node: UiNode) {
+        watchingPointer -= node
     }
 
     override fun toString(): String = root.debugTree()

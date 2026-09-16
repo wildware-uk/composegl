@@ -435,6 +435,33 @@
     "wheel.hub": { "background": { "fill": "#E610131A" } },
     "wheel.label": { "textColour": "#E8ECF2", "text": { "size": 18 } },
 
+    // The item card a looter reads on every pickup, and the equipped one beside it. The frame has
+    // an edge because the edge is where the rarity colour goes; the card the new item is being
+    // weighed against is the same box, sunk a shade, so the eye knows which of the two is the new
+    // one without reading either.
+    //
+    // Green and red are the answer players expect, and the widget also draws an arrow and a sign,
+    // so the colours here are reinforcement rather than the only thing carrying the meaning.
+
+    "itemtip": {
+      "background": { "fill": "#1A1F28", "corner": 5, "border": "#39445A", "borderWidth": 2, "padding": [10, 8] },
+      "textColour": "#C7D0DC",
+      "text": { "size": 13 }
+    },
+    "itemtip.compare": {
+      "background": { "fill": "#10131A", "corner": 5, "border": "#2C3545", "borderWidth": 2, "padding": [10, 8] }
+    },
+    "itemtip.rarity": { "background": { "fill": "#5B8DEF" } },
+    "itemtip.title": { "textColour": "#E8ECF2", "text": { "size": 16 } },
+    "itemtip.subtitle": { "textColour": "#9AA4B2", "text": { "size": 12 } },
+    "itemtip.label": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "itemtip.value": { "textColour": "#E8ECF2", "text": { "size": 13 } },
+    "itemtip.better": { "textColour": "#5ED17A", "text": { "size": 13 } },
+    "itemtip.worse": { "textColour": "#F0787C", "text": { "size": 13 } },
+    "itemtip.same": { "textColour": "#8E9AAB", "text": { "size": 13 } },
+    "itemtip.flavour": { "textColour": "#8E9AAB", "text": { "size": 12 } },
+    "itemtip.hint": { "textColour": "#7C8798", "text": { "size": 12 } },
+
     // The crosshair. Off-white rather than white, because a pure white crosshair disappears over
     // a bright sky; the hostile colour is the one thing on screen allowed to be that red.
 

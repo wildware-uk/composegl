@@ -426,6 +426,30 @@
     "wheel.hub": { "background": { "fill": "#FFFFFFFF" } },
     "wheel.label": { "textColour": "#000000", "text": { "size": 18 } },
 
+    // The item card. The same sizes and padding as the default's, so switching skins does not
+    // rewrap a line of flavour text. Both cards are black here: the difference between the new item
+    // and the equipped one is carried by the caption over the second one and by the arrows, which
+    // is what it is carried by for a colour-blind player in the standard skin too.
+
+    "itemtip": {
+      "background": { "fill": "#000000", "corner": 5, "border": "#FFFFFF", "borderWidth": 2, "padding": [10, 8] },
+      "textColour": "#FFFFFF",
+      "text": { "size": 13 }
+    },
+    "itemtip.compare": {
+      "background": { "fill": "#000000", "corner": 5, "border": "#B0B0B0", "borderWidth": 2, "padding": [10, 8] }
+    },
+    "itemtip.rarity": { "background": { "fill": "#FFD600" } },
+    "itemtip.title": { "textColour": "#FFD600", "text": { "size": 16 } },
+    "itemtip.subtitle": { "textColour": "#FFFFFF", "text": { "size": 12 } },
+    "itemtip.label": { "textColour": "#FFFFFF", "text": { "size": 13 } },
+    "itemtip.value": { "textColour": "#FFFFFF", "text": { "size": 13 } },
+    "itemtip.better": { "textColour": "#00E060", "text": { "size": 13 } },
+    "itemtip.worse": { "textColour": "#FF5050", "text": { "size": 13 } },
+    "itemtip.same": { "textColour": "#FFFFFF", "text": { "size": 13 } },
+    "itemtip.flavour": { "textColour": "#FFFFFF", "text": { "size": 12 } },
+    "itemtip.hint": { "textColour": "#FFFFFF", "text": { "size": 12 } },
+
     // The crosshair. Off-white rather than white, because a pure white crosshair disappears over
     // a bright sky; the hostile colour is the one thing on screen allowed to be that red.
 

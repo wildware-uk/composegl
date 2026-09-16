@@ -536,6 +536,25 @@ Modifier.onPointer { event ->
 }
 ```
 
+A layer that only wants to *know* what the pointer did asks with `watchPointer` instead:
+
+```kotlin
+val where = remember { PointerWatcher { if (it is PointerEvent.Move) at = it.position } }
+Box(Modifier.fillMaxSize().watchPointer(where)) { … }
+```
+
+The difference is what it cannot do. A full-screen `onPointer` is the topmost thing the
+pointer finds, so nothing under it is hovered any more even when the handler returns
+false — right for a scrim over a dialogue, wrong for a card that hangs beside the
+cursor. A watcher is told the same events in the same coordinates and is never hovered,
+never pressed and can never consume, so the slots underneath carry on as before.
+
+Capture does not apply to it. A press a button underneath takes, every move while that
+button holds the gesture, the release that ends it and the `Exit` when the mouse leaves
+the window all reach the watcher — it is not competing for the event, so there is
+nothing for a capture to keep from it. A card that hangs beside the cursor is still
+beside it half way through a drag, and knows to put itself away when the mouse has gone.
+
 A pad does not bubble through widgets on its own: the navigator turns South into a
 press and the d-pad into a focus move. A control that wants the raw buttons — a
 key binding button waiting for "any button" — asks for them first:

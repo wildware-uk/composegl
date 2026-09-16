@@ -49,6 +49,7 @@ import dev.wildware.composegl.game.HotbarSlot
 import dev.wildware.composegl.game.HotbarState
 import dev.wildware.composegl.game.InventoryGrid
 import dev.wildware.composegl.game.InventoryState
+import dev.wildware.composegl.game.ItemTooltip
 import dev.wildware.composegl.game.LowHealthVignette
 import dev.wildware.composegl.game.MinimapFrame
 import dev.wildware.composegl.game.ParticleLayer
@@ -77,7 +78,11 @@ import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.input.InteractionState
+import dev.wildware.composegl.ui.modifier.focusable
+import dev.wildware.composegl.ui.modifier.interaction
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -95,6 +100,7 @@ import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.skin.ProvideSkin
 import dev.wildware.composegl.ui.skin.Skin
+import dev.wildware.composegl.ui.skin.rememberStates
 import dev.wildware.composegl.ui.skin.styled
 import dev.wildware.composegl.ui.text.FontProvider
 import dev.wildware.composegl.ui.text.TextRange
@@ -208,6 +214,10 @@ fun ShowcaseUi(
                         // Over the HUD like the wheel, because a player looking in the hold is not
                         // flying: the grids want the right-hand side of the screen to themselves.
                         if (state.isOn(Exhibit.Cargo)) CargoHold(state)
+
+                        // The bench, and over it the card: a drop's card has to be drawn past the
+                        // panel the drop is sitting in, which is why the layer covers the screen.
+                        if (state.isOn(Exhibit.Salvage)) SalvageBench()
 
                         // Behind the game's own switch, which is the only place that decision belongs.
                         if (budget.isOn) {
@@ -960,6 +970,128 @@ private fun CommsChannel(state: ShowcaseState) {
     }
 }
 
+/**
+ * A gun that has dropped, as a game would model one. The toolkit knows nothing about this class.
+ *
+ * Three of them, one of each tier, so the rarity colour on the card's edge and its name has
+ * something to say.
+ */
+private class Salvage(
+    val name: String,
+    val tier: String,
+    val damage: Float,
+    val rateOfFire: Float,
+    val mass: Float,
+    val rarity: Colour,
+    val flavour: String,
+)
+
+/** What the player is carrying. Everything on the bench is weighed against this. */
+private val Carried = Salvage(
+    name = "MK II REPEATER",
+    tier = "Standard",
+    damage = 42f,
+    rateOfFire = 3.4f,
+    mass = 5.6f,
+    rarity = Colour.rgb(0x8E9AAB),
+    flavour = "Issued with the ship. Fires until it does not.",
+)
+
+private val Drops = listOf(
+    Salvage(
+        name = "ASHFALL",
+        tier = "Rare",
+        damage = 51f,
+        rateOfFire = 3.1f,
+        mass = 4.9f,
+        rarity = Colour.rgb(0x5B8DEF),
+        flavour = "Pulled out of a wreck that was still warm.",
+    ),
+    Salvage(
+        name = "TIN CARBINE",
+        tier = "Common",
+        damage = 33f,
+        rateOfFire = 4.6f,
+        mass = 6.8f,
+        rarity = Colour.rgb(0x8E9AAB),
+        flavour = "Cheap and loud. Mostly loud.",
+    ),
+    Salvage(
+        name = "SUNBREAKER",
+        tier = "Legendary",
+        damage = 74f,
+        rateOfFire = 1.9f,
+        mass = 9.2f,
+        rarity = Colour.rgb(0xFFB020),
+        flavour = "One shot, and then a long think about the next one.",
+    ),
+)
+
+/**
+ * Three drops on a bench, and the card a player actually decides with.
+ *
+ * The thing to watch is the **arrows**, not the numbers: hold Shift, or the pad's left bumper, and
+ * every stat says whether taking this would be an improvement. The heaviest gun here hits hardest
+ * and is worse in both of the other columns, which is exactly the decision a looter is for.
+ *
+ * Lighter is better, so the mass line shows a falling number with a rising arrow. That disagreement
+ * is deliberate: the sign says which way the number went, the arrow says whether that is good, and
+ * a player who cannot tell red from green still reads it.
+ */
+@Composable
+private fun SalvageBench() {
+    val bench = remember { Bench() }
+
+    Panel(Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 190f)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8f)) {
+            Text("SALVAGE", style = "label.heading")
+            Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
+                Drops.forEach { drop -> SalvageSlot(drop, bench) }
+            }
+        }
+    }
+
+    // Over everything, because the card has to be drawn past the panel it came out of. It is given
+    // the whole screen and takes what it needs of it.
+    ItemTooltip(
+        item = bench.looking,
+        compareWith = Carried,
+        anchor = bench.anchor,
+        rarity = { it.rarity },
+        compareHint = "Hold Shift or LB to compare",
+    ) {
+        title(it.name)
+        subtitle("${it.tier} · Main hand")
+        separator()
+        stat("Damage", it.damage)
+        stat("Rate of fire", it.rateOfFire)
+        stat("Mass", it.mass, higherIsBetter = false)
+        flavour(it.flavour)
+    }
+}
+
+/** What the bench is being looked at with, and where. */
+private class Bench {
+
+    var looking by mutableStateOf<Salvage?>(null)
+
+    /** Where the slot is, for a pad player, who never hovers anything. Null follows the pointer. */
+    var anchor by mutableStateOf<Rect?>(null)
+
+    fun look(drop: Salvage, at: Rect?) {
+        looking = drop
+        anchor = at
+    }
+
+    /** Only if it is still this one: a pointer crossing from one slot to the next arrives in that order. */
+    fun leave(drop: Salvage) {
+        if (looking === drop) {
+            looking = null
+            anchor = null
+        }
+    }
+}
+
 /** The exchange, in order. The last one is the question, which is why it has answers under it. */
 private val CommsLines = listOf(
     DialogueLine("the relay went quiet six hours ago", speaker = "VEGA", portrait = "CALM"),
@@ -983,6 +1115,50 @@ private val CommsAnswers = listOf(
 private fun repliesTo(answer: DialogueChoice): DialogueLine = when (answer.tag) {
     "hail" -> DialogueLine("channel open. they are listening", speaker = "VEGA", portrait = "CALM")
     else -> DialogueLine("running dark. hold this heading", speaker = "VEGA", portrait = "ALARM")
+}
+
+/** One drop. Hovering it or putting focus on it is what puts its card up. */
+@Composable
+private fun SalvageSlot(drop: Salvage, bench: Bench) {
+    val interaction = remember { InteractionState() }
+    val states = rememberStates(interaction)
+
+    // Written after layout and read only when focus lands here, so a slot moving costs nothing.
+    val box = remember { FloatArray(4) }
+    val placed = remember {
+        PlacedHandler { node ->
+            val at = node.boundsInRoot
+            box[0] = at.left
+            box[1] = at.top
+            box[2] = at.right
+            box[3] = at.bottom
+        }
+    }
+
+    // Focus counts as hovering, which is the whole of the pad story: on a console nothing is ever
+    // pointed at, so focus landing here is what puts the card up — and the card hangs off the slot
+    // rather than off a pointer that has not moved since the game started.
+    val hovered = interaction.isHovered
+    val focused = interaction.isFocused
+    DisposableEffect(hovered, focused, drop) {
+        when {
+            hovered -> bench.look(drop, null)
+            focused -> bench.look(drop, Rect(box[0], box[1], box[2], box[3]))
+            else -> bench.leave(drop)
+        }
+        onDispose { bench.leave(drop) }
+    }
+
+    Box(
+        Modifier.size(56f)
+            .interaction(interaction)
+            .focusable()
+            .onPlaced(placed)
+            .styled("hotbar.slot", states),
+        contentAlignment = Alignment.Centre,
+    ) {
+        Text(drop.name.take(2), style = "label", colour = drop.rarity)
+    }
 }
 
 /** What an ability does here: start its cooldown and cost something. */
