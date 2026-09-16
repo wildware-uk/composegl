@@ -145,6 +145,9 @@ class ShowcaseState {
 
     val targets = mutableStateListOf<TargetReadout>()
 
+    /** The views into the world the composegl-ui section shows: an editor, previews and a live feed. */
+    val views = SceneViews()
+
     /** Which drone the reticle is on, or -1. Drives the target panel and the reticle's colour. */
     var locked by mutableIntStateOf(0)
 

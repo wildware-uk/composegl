@@ -17,6 +17,7 @@ import dev.wildware.composegl.showcase.Exhibit
 import dev.wildware.composegl.showcase.Module
 import dev.wildware.composegl.showcase.Pace
 import dev.wildware.composegl.showcase.ShowcaseState
+import dev.wildware.composegl.showcase.WorldViews
 import dev.wildware.composegl.showcase.TargetReadout
 import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.animation.Easings
@@ -154,6 +155,8 @@ import kotlin.math.roundToInt
  *
  * @param projection the game's camera, as one function: where on screen is this point in the world.
  * @param budget what the frame cost, shown in the corner. F3 puts it away.
+ * @param world the game drawing its own world into the scene views: the editor window, the previews
+ *   and the picture in picture.
  */
 @Composable
 fun ShowcaseUi(
@@ -162,6 +165,7 @@ fun ShowcaseUi(
     skin: Skin,
     projection: WorldProjection,
     budget: FrameBudget,
+    world: WorldViews = WorldViews.None,
 ) {
     CompositionLocalProvider(LocalFonts provides fonts) {
         ProvideSkin(skin) {
@@ -274,7 +278,10 @@ fun ShowcaseUi(
 
                             // A module's own page, down the left-hand side. Nothing at all until the
                             // Modules menu, Control and a number, or the pad's Start button opens one.
-                            ModuleSections(state, budget, windows, console, interfaceRoot)
+                            ModuleSections(state, budget, windows, console, interfaceRoot, world)
+
+                            // A live feed of the fight, over it. Stays when the section closes.
+                            PictureInPicture(state, world)
 
                             // Behind the game's own switch, which is the only place that decision belongs.
                             // Over on the right while a section has the left-hand side.
@@ -304,6 +311,9 @@ fun ShowcaseUi(
                         // Outside the Box above on purpose: the tree walks that Box, so a window written
                         // here is not something it can find, and it never lists the tool looking at it.
                         if (state.isOn(Exhibit.Nodes)) NodeWindow(state, interfaceRoot)
+
+                        // The level editor's view of the world, in a window of its own.
+                        SceneWindow(state, world)
                     }
                 }
             }

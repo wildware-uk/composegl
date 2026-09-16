@@ -5,9 +5,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import dev.wildware.composegl.debug.DebugWindowsState
 import dev.wildware.composegl.showcase.Exhibit
 import dev.wildware.composegl.showcase.Module
 import dev.wildware.composegl.showcase.ShowcaseState
+import dev.wildware.composegl.showcase.WorldViews
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
@@ -55,11 +57,12 @@ internal const val UiPlaneTag = "showcase.ui.plane"
  *
  * Nothing on this page is a sample. The menu bar changes the weapon the wheel equipped, the tree
  * and the table both pick the drone the HUD's reticle is on, the slider is the weapon's heat, and
- * the two swatches are the colours the reticle and the hit sparks are drawn in. Close the section
+ * the two swatches are the colours the reticle and the hit sparks are drawn in. The scene views are
+ * the fight itself, seen from a camera you steer, from behind a drone, and one drone at a time. Close the section
  * and every one of those changes is still there, because the section never had state of its own.
  */
 @Composable
-internal fun UiSection(state: ShowcaseState) {
+internal fun UiSection(state: ShowcaseState, windows: DebugWindowsState, world: WorldViews) {
     Group(
         "Menu bar and context menus",
         "A bar of its own, and a right-click on anything at all.",
@@ -102,6 +105,10 @@ internal fun UiSection(state: ShowcaseState) {
             Text("right-click me — ammo is ${state.ammo}", style = "label.dim")
         }
     }
+
+    // Second, because it is the most demonstrable thing in the module: the game's own world inside
+    // a panel, three ways. See SceneViews.kt.
+    SceneViewsGroup(state, windows, world)
 
     Group("Tree, table and splitter", "Two views of the same drones, either side of a draggable bar.") {
         var split by remember { mutableStateOf(0.45f) }
