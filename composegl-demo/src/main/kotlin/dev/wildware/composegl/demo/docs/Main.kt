@@ -108,7 +108,7 @@ fun main() {
         "hebrew",
         typeface,
         everySize,
-        StbFonts.codepointsOf("אפשרויותמוזיקהשםברוךשובךעדהצחנן" + HebrewSubtitles),
+        StbFonts.codepointsOf("אפשרויותמוזיקהשםברוךשובךעדהצחנן" + HebrewSubtitles + HebrewDialogue),
     )
     fonts.fallBackTo(listOf("cjk", "korean", "hebrew", "emoji"))
 
@@ -204,6 +204,15 @@ private const val HebrewSubtitles =
         "דלת נטרקת למטה" +
         "אז הם יודעים שאנחנו כאן. שניים במדרגות, אחד על המשטח." +
         "מירה אנדר"
+
+/**
+ * Every letter the Hebrew dialogue picture says, including the box's own three words.
+ *
+ * The sentences themselves, taken from where the picture says them, so that changing what the
+ * warden says in Hebrew cannot leave a blank box behind in the picture.
+ */
+private val HebrewDialogue =
+    HebrewWarden + HebrewWarningText + HebrewAnswerOne + HebrewAnswerTwo + "אוטומטידלגיומן"
 
 /** The window every picture is drawn inside. Bigger than the biggest of them. */
 private const val Window = 640

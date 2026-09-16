@@ -58,6 +58,12 @@ import dev.wildware.composegl.game.BarThreshold
 import dev.wildware.composegl.game.CompassBar
 import dev.wildware.composegl.game.DamageDirectionLayer
 import dev.wildware.composegl.game.DamageDirections
+import dev.wildware.composegl.game.DialogueBox
+import dev.wildware.composegl.game.DialogueChoice
+import dev.wildware.composegl.game.DialogueHistory
+import dev.wildware.composegl.game.DialogueLine
+import dev.wildware.composegl.game.DialogueLog
+import dev.wildware.composegl.game.rememberDialogueLog
 import dev.wildware.composegl.game.HitKind
 import dev.wildware.composegl.game.HitMarker
 import dev.wildware.composegl.game.HitMarkerState
@@ -274,6 +280,7 @@ internal fun docShots(): List<DocShot> = buildList {
     wheels()
     firefight()
     subtitleScenes()
+    dialogueScenes()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -5842,3 +5849,322 @@ private fun LocalisedSubtitles(caption: String, direction: LayoutDirection, scri
         ProvideLayoutDirection(direction) { Subtitles(rememberScript(script), Modifier.width(560f)) }
     }
 }
+
+// ---------------------------------------------------------------- dialogue
+
+/**
+ * A conversation with the bridge warden, driven rather than posed.
+ *
+ * Every picture here hands the box the game's own beat and then lets go. The line types itself out
+ * on the interface clock, the answers turn up when it has finished, focus lands on the first of them
+ * by itself, and where the highlight has got to is where a real push on a real pad put it. Nothing
+ * is set on the widget to make it look a particular way.
+ */
+private fun MutableList<DocShot>.dialogueScenes() {
+    // The question, with a thumb on the stick. The line has typed itself out, the answers have come
+    // up, the box has put focus on the first one that can be taken — and then one push down moves
+    // the highlight to the second, through the same navigator a pad drives a menu with. The third
+    // answer is there and greyed out, saying why, which is the whole point of a disabled answer.
+    add(
+        DocShot(
+            "game-dialogue-choices", DialogueWidth, 330,
+            stock = true,
+            focus = true,
+            padded = listOf(Padding.Wait(DialogueTyped), Padding.Push(0f, 1f), Padding.Wait(DialogueRest)),
+        ) {
+            Frame {
+                DialogueGround {
+                    WardenTalk(
+                        TollQuestion,
+                        Modifier.align(Alignment.BottomCentre).padding(bottom = 18f),
+                        timerMillis = 9_000,
+                    )
+                }
+            }
+        },
+    )
+
+    // The log, with something real in it. A hand at the keyboard plays the conversation: Enter
+    // finishes the first line and Enter again moves on, Down walks to the second answer and Enter
+    // takes it. What the panel shows is what the box wrote down as that happened — the lines as they
+    // started, and under the question the answer the player really gave.
+    add(
+        DocShot(
+            "game-dialogue-log", DialogueWidth, 440,
+            stock = true,
+            typed = listOf(
+                Typing.Wait(40),
+                Typing.Press(Key.Enter),
+                Typing.Wait(6),
+                Typing.Press(Key.Enter),
+                Typing.Wait(DialogueTyped),
+                Typing.Press(Key.Down),
+                Typing.Wait(6),
+                Typing.Press(Key.Enter),
+                Typing.Wait(DialogueTyped),
+            ),
+        ) {
+            Frame {
+                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
+                    val log = rememberDialogueLog()
+                    SampleCaption("DialogueHistory: everything said so far, and what was said back")
+                    Panel(Modifier.fillMaxWidth().weight(1f)) {
+                        DialogueHistory(log, Modifier.fillMaxSize())
+                    }
+                    WardenTalk(TollScript, Modifier.fillMaxWidth(), log = log)
+                }
+            }
+        },
+    )
+
+    // The high-contrast skin, and a paragraph too long for one line, in both directions. The English
+    // wraps where the text stack breaks it; the Hebrew is the same box with nothing set on it, laid
+    // out right to left by the layout — the face on the right, the name and the answers starting
+    // there, and Auto, Skip and Log in the player's own language.
+    add(
+        DocShot("game-dialogue-rtl", DialogueWidth, 520, seconds = DialogueSettled) {
+            ProvideSkin(Skin.HighContrast) {
+                Frame {
+                    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
+                        LocalisedDialogue("English, read left to right", LayoutDirection.Ltr, LongWarning)
+                        LocalisedDialogue("Hebrew, read right to left", LayoutDirection.Rtl, HebrewWarning)
+                    }
+                }
+            }
+        },
+    )
+
+    // The whole exchange as a moving picture, each frame the same conversation photographed a little
+    // later: the line arriving a character at a time, the little arrow coming up when it is done,
+    // `auto` moving on by itself, the next line typing, the answers appearing under it and the timer
+    // draining while nobody answers. Only when asked for, because they are frames to be joined into
+    // a GIF rather than pictures of their own: `COMPOSEGL_DOC_FRAMES=1`, then join
+    // `game-dialogue-run-frame-*.png` in order, 0.15 s each, which is the speed it really ran.
+    if (System.getenv("COMPOSEGL_DOC_FRAMES") != null) {
+        repeat(DialogueRunFrames) { i ->
+            val name = "game-dialogue-run-frame-${i.toString().padStart(2, '0')}"
+            add(
+                DocShot(name, DialogueWidth, 330, stock = true, seconds = i * DialogueRunStep) {
+                    Frame {
+                        DialogueGround {
+                            WardenTalk(
+                                TollScript,
+                                Modifier.align(Alignment.BottomCentre).padding(bottom = 18f),
+                                auto = true,
+                                timerMillis = 6_000,
+                            )
+                        }
+                    }
+                },
+            )
+        }
+    }
+}
+
+/** How wide every picture of the box is. */
+private const val DialogueWidth = 600
+
+/** Frames enough for a line of this length to finish typing itself out. */
+private const val DialogueTyped = 150
+
+/** Frames after a push, so what it moved has settled where it moved to. */
+private const val DialogueRest = 20
+
+/**
+ * Long enough that the longest line in a still has finished typing itself out and the answers to it
+ * have come up. A paragraph at the widget's own forty-five characters a second takes a while.
+ */
+private const val DialogueSettled = 6f
+
+/** One frame of the GIF every this long, for as long as the exchange takes. */
+private const val DialogueRunStep = 0.15f
+private const val DialogueRunFrames = 44
+
+/** One beat of the warden's script: what he says, and the answers to it. */
+private class Beat(val line: DialogueLine, val answers: List<DialogueChoice> = emptyList())
+
+/**
+ * The bridge warden, from the first line to the answer the player gives him.
+ *
+ * Lines are built once, up here, because a line's identity is the object rather than the words: one
+ * rebuilt every pass would be a new line every frame and the box would start typing it again.
+ */
+private val TollScript = listOf(
+    Beat(
+        DialogueLine(
+            "Nobody crosses after dark. Not since the barge went down and took half the watch with it.",
+            speaker = "Bridge Warden",
+            portrait = "wary",
+        ),
+    ),
+    Beat(
+        DialogueLine("So. What is it to be?", speaker = "Bridge Warden", portrait = "flat"),
+        listOf(
+            DialogueChoice("Ask what happened to the barge", tag = "barge"),
+            DialogueChoice("Say you are expected on the other side", tag = "expected"),
+            DialogueChoice(
+                "Pay the toll — 200 crowns",
+                enabled = false,
+                reason = "you have 40 crowns",
+                tag = "pay",
+            ),
+        ),
+    ),
+    Beat(
+        DialogueLine(
+            "It was carrying more than grain, and it did not go down on its own. Ask at the ford.",
+            speaker = "Bridge Warden",
+            portrait = "wary",
+        ),
+    ),
+)
+
+/** The same conversation opened at the question, for the picture of the answers. */
+private val TollQuestion = TollScript.drop(1)
+
+/** One line far too long for the box, for the picture of a paragraph wrapping. */
+private val LongWarning = listOf(
+    Beat(
+        DialogueLine(
+            "The last three who went over at this hour came back with nothing to say for themselves, " +
+                "and the fourth did not come back at all, so think about it before you put a boot on my bridge.",
+            speaker = "Bridge Warden",
+            portrait = "wary",
+        ),
+        listOf(
+            DialogueChoice("Ask what he means by nothing to say"),
+            DialogueChoice("Turn back and take the ford"),
+        ),
+    ),
+)
+
+/** The same warning in the player's own language, for the picture of a right-to-left box. */
+private val HebrewWarning = listOf(
+    Beat(
+        DialogueLine(HebrewWarningText, speaker = HebrewWarden, portrait = "wary"),
+        listOf(DialogueChoice(HebrewAnswerOne), DialogueChoice(HebrewAnswerTwo)),
+    ),
+)
+
+/**
+ * The box's own three words in Hebrew, so the picture shows them looked up rather than fallen back.
+ *
+ * Only the three: everything else on the box is the game's own text, already in the player's
+ * language before it reaches the widget.
+ */
+private val HebrewDialogueWords = Strings(
+    mapOf(
+        Locale("he") to mapOf(
+            "dialogue.auto" to "אוטומטי",
+            "dialogue.skip" to "דלג",
+            "dialogue.log" to "יומן",
+        ),
+    ),
+)
+
+/** The one conversation, in one language, laid out the way that language runs. */
+@Composable
+private fun LocalisedDialogue(caption: String, direction: LayoutDirection, script: List<Beat>) {
+    ProvideLocale(if (direction == LayoutDirection.Rtl) Locale("he") else Locale.English, HebrewDialogueWords) {
+        ProvideLayoutDirection(direction) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(5f)) {
+                // English either way: a caption on the picture rather than anything the box says.
+                ProvideLayoutDirection(LayoutDirection.Ltr) { SampleCaption(caption) }
+                WardenTalk(script, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+/**
+ * A stand-in for the game the conversation happens over.
+ *
+ * A box slightly see-through over black is a box nobody has checked: the default skin's dialogue
+ * background lets the scene through on purpose, and this is what there is to let through.
+ */
+@Composable
+private fun DialogueGround(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier.fillMaxSize()
+                .background(Brush.vertical(Colour.rgb(0x1A2436), Colour.rgb(0x40372C))),
+        )
+        content()
+    }
+}
+
+/**
+ * The warden's side of it: the box handed one beat at a time, and told what the player did.
+ *
+ * The script is the game's and the position in it is the game's — the widget is handed a line and
+ * says what happened to it, which is all a dialogue box ever does.
+ */
+@Composable
+private fun WardenTalk(
+    script: List<Beat>,
+    modifier: Modifier = Modifier,
+    log: DialogueLog? = null,
+    auto: Boolean = false,
+    timerMillis: Int = 0,
+) {
+    var at by remember(script) { mutableStateOf(0) }
+    var automatic by remember(script) { mutableStateOf(auto) }
+    var skipping by remember(script) { mutableStateOf(false) }
+    val beat = script.getOrNull(at)
+
+    DialogueBox(
+        line = beat?.line,
+        modifier = modifier,
+        choices = beat?.answers.orEmpty(),
+        onChoose = { at++ },
+        onAdvance = { at++ },
+        log = log,
+        auto = automatic,
+        onAutoChange = { automatic = it },
+        skipping = skipping,
+        onSkippingChange = { skipping = it },
+        onHistory = {},
+        timerMillis = if (beat?.answers.orEmpty().isEmpty()) 0 else timerMillis,
+        portrait = { WardenFace(it.portrait) },
+    )
+}
+
+/**
+ * The face, which this example has no art for, so it draws one.
+ *
+ * Two expressions, which is enough for the slot to be a slot: what a game puts here is a picture, an
+ * animation or a panel of its own, and the box only ever hands it the line whose face is showing.
+ */
+@Composable
+private fun WardenFace(expression: Any?) {
+    val wary = expression == "wary"
+    Box(
+        Modifier.size(78f).background(Colour.rgb(0x232A35), corner = 6f).border(Steel, corner = 6f),
+        contentAlignment = Alignment.Centre,
+    ) {
+        Box(Modifier.size(46f).background(Colour.rgb(0xC9A27E), corner = 23f)) {
+            Box(Modifier.align(Alignment.Centre).offset(-10f, -5f).size(6f).background(Ink, corner = 3f))
+            Box(Modifier.align(Alignment.Centre).offset(10f, -5f).size(6f).background(Ink, corner = 3f))
+            // A flat mouth or a narrow one: the only difference between the two faces, and the thing
+            // that fades from one to the other when the line changes which it asks for.
+            Box(
+                Modifier.align(Alignment.Centre).offset(0f, 12f)
+                    .size(if (wary) 12f else 22f, 3f)
+                    .background(Ink, corner = 2f),
+            )
+        }
+    }
+}
+
+/**
+ * The Hebrew the right-to-left picture says.
+ *
+ * Kept up here as whole sentences so the font registration can be handed exactly what the picture
+ * needs: a letter missed there is a blank box in the picture and nobody notices which one it was.
+ */
+internal const val HebrewWarden = "שומר הגשר"
+internal const val HebrewWarningText =
+    "שלושת האחרונים שעברו בשעה הזאת חזרו בלי מילה אחת להגיד, והרביעי לא חזר בכלל, " +
+        "אז תחשוב טוב לפני שאתה שם רגל על הגשר שלי."
+internal const val HebrewAnswerOne = "לשאול למה הוא מתכוון"
+internal const val HebrewAnswerTwo = "לחזור ולעבור במעבר הרדוד"
