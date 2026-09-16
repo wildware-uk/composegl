@@ -89,7 +89,10 @@ things actually are.
 ## Focus
 
 Focus is the cursor for anybody without a cursor. It moves by geometry: press down
-and the nearest focusable thing below takes it.
+and the nearest focusable thing below takes it. A direction never lands on a box that
+already holds the focused widget — a focusable panel, a scrolling area, a pan-and-zoom
+canvas — because that is where the player already is, not somewhere to move to. Say
+`focusOrder` if you want a direction to reach the box around you anyway.
 
 ```kotlin
 Button("LAUNCH", onClick = { }, initialFocus = true)

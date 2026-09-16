@@ -11,6 +11,8 @@ import androidx.compose.runtime.withFrameNanos
 import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.focus.FocusDirection
+import dev.wildware.composegl.ui.focus.FocusManager
+import dev.wildware.composegl.ui.focus.FocusSearch
 import dev.wildware.composegl.ui.focus.FocusWithinHandler
 import dev.wildware.composegl.ui.focus.RevealHandler
 import dev.wildware.composegl.ui.geometry.Offset
@@ -59,7 +61,6 @@ import dev.wildware.composegl.ui.node.ContentCamera
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.skin.WidgetState
 import dev.wildware.composegl.ui.skin.styled
-import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -660,13 +661,16 @@ internal class PanZoomInput(private val state: PanZoomState) {
      * A direction with the canvas itself focused: to the nearest focusable node that way from the
      * middle of the view, or a pan step when there is none. False at an edge with nothing further,
      * so a press can carry focus out of the canvas.
+     *
+     * Only asked when the canvas itself holds the focus. Walking node to node inside it is the
+     * toolkit's own directional search, unchanged — the canvas has no say in it.
      */
     private fun direction(direction: FocusDirection): Boolean {
         val canvas = state.node ?: return false
-        val target = nearest(canvas, direction)
-        if (target != null) {
-            val manager = rootOf(canvas).focusManager ?: return false
-            return manager.focusOn(target)
+        val manager = rootOf(canvas).focusManager
+        if (manager != null) {
+            val target = nearest(canvas, manager, direction)
+            if (target != null) return manager.focusOn(target)
         }
         val stepX = state.viewport.width * PanStep
         val stepY = state.viewport.height * PanStep
@@ -683,40 +687,44 @@ internal class PanZoomInput(private val state: PanZoomState) {
         return true
     }
 
-    private fun nearest(canvas: UiNode, direction: FocusDirection): UiNode? {
-        val view = canvas.boundsInRoot
-        val fromX = (view.left + view.right) / 2f
-        val fromY = (view.top + view.bottom) / 2f
+    /**
+     * The node inside the canvas that a direction from the middle of the view reaches, scored by
+     * the same [FocusSearch] the rest of the screen uses — so a press picks the same winner here as
+     * it would anywhere else, and a screen that replaced the search gets its own rule honoured.
+     *
+     * The middle of the view stands in for the source rectangle, because nothing inside the canvas
+     * has focus yet: that makes it a point, and anything that way from it is a candidate.
+     */
+    private fun nearest(canvas: UiNode, manager: FocusManager, direction: FocusDirection): UiNode? {
+        val middle = canvas.boundsInRoot.centre
+        val source = Rect(middle.x, middle.y, middle.x, middle.y)
+        val search = manager.focusSearch
         var best: UiNode? = null
-        var bestScore = Float.MAX_VALUE
-        fun visit(node: UiNode) {
-            for (child in node.children) {
-                if (child.resolved.alpha <= 0f) continue
-                if (child.resolved.focusable?.enabled == true) {
-                    val box = child.boundsInRoot
-                    if (!box.isEmpty) {
-                        val dx = (box.left + box.right) / 2f - fromX
-                        val dy = (box.top + box.bottom) / 2f - fromY
-                        val (along, across) = when (direction) {
-                            FocusDirection.Left -> -dx to dy
-                            FocusDirection.Right -> dx to dy
-                            FocusDirection.Up -> -dy to dx
-                            FocusDirection.Down -> dy to dx
-                            else -> return
-                        }
-                        // Along the direction counts far more than across it, as focus search does.
-                        val score = along + abs(across) * AcrossWeight
-                        if (along > 0f && score < bestScore) {
-                            best = child
-                            bestScore = score
-                        }
-                    }
+        var bestBounds = Rect.Zero
+        for (candidate in manager.reachable()) {
+            if (candidate === canvas || !candidate.isInside(canvas)) continue
+            val bounds = candidate.boundsInRoot
+            if (bounds.isEmpty) continue
+            if (best == null) {
+                if (search.accepts(direction, source, bounds)) {
+                    best = candidate
+                    bestBounds = bounds
                 }
-                visit(child)
+            } else if (search.beats(direction, source, bounds, bestBounds)) {
+                best = candidate
+                bestBounds = bounds
             }
         }
-        visit(canvas)
         return best
+    }
+
+    private fun UiNode.isInside(ancestor: UiNode): Boolean {
+        var walk: UiNode? = parent
+        while (walk != null) {
+            if (walk === ancestor) return true
+            walk = walk.parent
+        }
+        return false
     }
 
     private fun rootOf(node: UiNode): UiNode {
@@ -731,7 +739,6 @@ internal class PanZoomInput(private val state: PanZoomState) {
         const val KeyZoom = 1.25f
         const val PanStep = 0.25f
         const val Smoothing = 0.4f
-        const val AcrossWeight = 2f
     }
 }
 

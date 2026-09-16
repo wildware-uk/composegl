@@ -919,9 +919,12 @@ about 1.15× and with a ceiling at 4096 pixels. A camera has neither.
   started, `PanZoomReset.Fit` fits the whole world in view.
 - **The pad**, while focus is on the canvas or inside it: the left stick pans, the right
   trigger zooms in and the left one out, and `resetButton` (R3 by default) resets. The
-  d-pad walks focus from node to node and the camera eases to keep the focused node in
-  view. With the canvas itself focused, a direction goes to the nearest node that way and
-  pans a step when there is none.
+  d-pad walks focus from node to node — the toolkit's ordinary directional focus, so a
+  neighbour up and to the right is reached the same way it would be anywhere else — and
+  the camera eases to keep the focused node in view. A direction with nothing that way
+  leaves focus exactly where it is, and focus never falls onto the canvas itself.
+  With the canvas itself focused, a direction goes to the nearest node that way from the
+  middle of the view, scored the same way, and pans a step when there is none.
 - **Keys**, the same way: `=` zooms in, `-` zooms out, `0` resets, and the arrows move
   focus as the d-pad does.
 
