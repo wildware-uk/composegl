@@ -561,7 +561,7 @@ The card a looter lives in: what this drop is, and how it compares with what is
 already equipped. Players do not read the numbers — they read the green and red
 arrows and decide in about a third of a second.
 
-![a bag of three guns with the mouse on the last one, and its card hanging under the pointer: SUNBREAKER in gold, its tier, three numbers, a line of flavour text and "Hold Shift to compare"](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-item-card.png)
+![a bag of three guns with the mouse on the last one, and its card hanging under the pointer: SUNBREAKER in gold, its tier, three numbers, a line of flavour text and "Hold Ctrl to compare"](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-item-card.png)
 
 A real mouse on a real bag. The square under the pointer is still lit, which is
 the thing to notice: the card is a layer over the whole picture, and it only
@@ -573,7 +573,7 @@ ItemTooltip(
     item = hovered,                      // what the pointer or focus is on; null draws nothing
     compareWith = equipped[slot],        // what the player has on now
     rarity = { it.rarity.colour },       // the card's edge and its title
-    compareHint = "Hold Shift to compare",
+    compareHint = "Hold Ctrl to compare",
 ) {
     title(it.name)
     subtitle("Rare · Main hand")
@@ -592,9 +592,9 @@ A stat the other item has not got simply has nothing beside it.
 
 ### The arrows carry the answer, not the colours
 
-![the same card with Shift held: Damage 74 +32 with a green up arrow, Rate of fire 1.9 -1.5 with a red down arrow, Mass 9.2 +3.6 with a red down arrow, and the equipped MK II REPEATER on a sunken card beside it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-item-card-compare.png)
+![the same card with Ctrl held: Damage 74 +32 with a green up arrow, Rate of fire 1.9 -1.5 with a red down arrow, Mass 9.2 +3.6 with a red down arrow, and the equipped MK II REPEATER on a sunken card beside it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-item-card-compare.png)
 
-The same bag with Shift really held down, on the gun that is the actual decision:
+The same bag with Ctrl really held down, on the gun that is the actual decision:
 it hits half as hard again and is worse at everything else. Mass reads `+3.6 ▼` —
 the number went up, and that is bad — which is what `higherIsBetter = false` is
 for.
@@ -623,10 +623,16 @@ ItemTooltip(
     item = hovered,
     compareWith = equipped,
     compare = ItemCompare.Held,          // the default: while the key or the pad button is down
-    compareKey = Key.Shift,
+    compareKey = Key.Control,
     compareButton = GamepadButton.LeftBumper,
 ) { … }
 ```
+
+**Ctrl and not Shift**, which is the one place these two widgets could have got
+in each other's way. Shift held as a pile is picked up is what splits a stack in
+half, here and in every game that has a bag, so a card over a bag that also
+wanted Shift would mean a player who held it to read the arrows walked off with
+three of their five rings. Ctrl is what Diablo compares with, and it is free.
 
 `ItemCompare.Held` is Diablo's Ctrl and Destiny's trigger. `Always` is for an
 inventory screen with nothing going on behind it, `Toggled` is a press on and a
@@ -665,11 +671,35 @@ being cut off at an edge. **On a pad nothing is ever hovered**, so pass the
 focused slot instead and the card follows focus:
 
 ```kotlin
+val interaction = remember { InteractionState() }
 var slot by remember { mutableStateOf<Rect?>(null) }
 
-Slot(Modifier.onPlaced { node -> slot = node.boundsInRoot })
-ItemTooltip(item = focusedItem, anchor = slot) { … }
+// The state has to go to `focusable` as well: `interaction` on its own is told
+// about the pointer, and focus is only reported to the state focus was given.
+Slot(
+    Modifier
+        .interaction(interaction)
+        .focusable(interaction)
+        .onPlaced { node -> slot = node.boundsInRoot },
+)
+ItemTooltip(item = if (interaction.isFocused) item else null, anchor = slot) { … }
 ```
+
+Out of an [[inventory grid|#the-inventory-grid]] it is two lines, because the
+grid already knows which square the ring is on and where that square is:
+
+```kotlin
+val focus = rememberInventoryFocus()
+
+InventoryGrid(state = bag, focus = focus) { item -> Image(art(item.kind)) }
+ItemTooltip(item = focus.item, anchor = focus.bounds, compareWith = equipped) { … }
+```
+
+`focus.cell` and `focus.item` are state, so the card follows the ring on its own.
+`focus.bounds` is not — where a square *is* changes on every layout, and a
+rectangle that recomposed the screen each time one moved would be a scroll that
+never settles — so it is read at the moment the card is laid out, which is the
+moment it is wanted.
 
 ![three guns against the right-hand edge with the focus ring on the last one, and the two cards below it slid back from the edge so neither is cut off](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-item-card-pad.png)
 
@@ -1101,11 +1131,27 @@ same way a mouse drags it.
 | `enabled` | a bag that can be read but not rearranged: nothing can be picked up or dropped, and the grid drops its own three menu entries, since all three rearrange it |
 | `splitKey`, `splitButton`, `rotateKey`, `rotateButton` | the bindings, any of them null for none |
 | `rotating` | false for a bag where nothing turns: no R, no bumper, and no "Rotate" in the menu |
+| `focus` | which square the ring is on, what is on it, and where it is. For a pad, where nothing is ever hovered |
 | `style` | the skin names: `inventory.cell`, `inventory.item`, `inventory.count`, `inventory.footprint`, `inventory.footprint.invalid`, `inventory.split` |
 
 **Item tooltips** are the ordinary [[tooltip|Widgets#tooltips-and-prompts]] modifier on what
 you draw in a square — the grid does not own the inside of a square, so nothing
 special is needed.
+
+**An [[item card|#item-cards]] on a pad** wants `focus` instead. A console hovers
+nothing, so the card has to hang off the square the ring is on, and that is the
+one thing a grid knows and a game cannot work out:
+
+```kotlin
+val focus = rememberInventoryFocus()
+
+InventoryGrid(state = bag, focus = focus) { item -> Image(art(item.kind)) }
+ItemTooltip(item = focus.item, anchor = focus.bounds, compareWith = equipped[slot]) { … }
+```
+
+`focus.cell` is the square, `focus.item` the pile on it — null for an empty
+square, which a pad stops on too — and `focus.bounds` its rectangle in the root's
+coordinates, which is exactly what `anchor` takes.
 
 Its own menu entries read `inventory.split.half`, `inventory.split.some`,
 `inventory.rotate`, `inventory.split.title`, `inventory.split.confirm` and

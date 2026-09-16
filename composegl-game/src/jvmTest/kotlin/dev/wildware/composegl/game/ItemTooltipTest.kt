@@ -168,7 +168,7 @@ class ItemTooltipTest {
 
     /** Whether the widget swallowed the key, which is half of what the tests below are about. */
     private fun key(type: KeyEventType): Boolean {
-        val taken = router.onKey(KeyEvent(Key.Shift, type))
+        val taken = router.onKey(KeyEvent(Key.Control, type))
         frames()
         return taken
     }
@@ -536,13 +536,13 @@ class ItemTooltipTest {
     fun `the hint only appears while there is something to compare against`() {
         hovered = found
         equipped = null
-        card(hint = "Hold Shift to compare")
+        card(hint = "Hold Ctrl to compare")
         move(120f, 120f)
-        assertNull(text("Hold Shift"), "telling a player about a comparison they cannot make")
+        assertNull(text("Hold Ctrl"), "telling a player about a comparison they cannot make")
 
         equipped = worn
         frames()
-        assertNotNull(text("Hold Shift"), "and now there is one")
+        assertNotNull(text("Hold Ctrl"), "and now there is one")
     }
 
     @Test
@@ -717,7 +717,7 @@ class ItemTooltipTest {
         equipped = worn
         card()
 
-        assertFalse(key(KeyEventType.Down), "Shift is the game's while nothing is being looked at")
+        assertFalse(key(KeyEventType.Down), "the key is the game's while nothing is being looked at")
         assertFalse(bumper(down = true), "and so is the bumper")
 
         hovered = found
@@ -738,7 +738,7 @@ class ItemTooltipTest {
         assertNotNull(text("Equipped"), "and the card that came up next sees it held")
 
         // Half a key is worse than none: whoever was handed the press has to be handed the release,
-        // or a game is left holding a Shift that never comes up.
+        // or a game is left holding a key that never comes up.
         assertFalse(key(KeyEventType.Up), "so the release is the game's too")
         assertNull(text("Equipped"), "even though letting go still takes the comparison down")
     }

@@ -105,14 +105,22 @@ class StbFonts private constructor(
         /**
          * What gets made: printable ASCII, Latin-1 and the punctuation an interface actually uses,
          * the ellipsis among it.
+         *
+         * **Every character a widget draws by default has to be in here**, or a game that changed
+         * nothing gets an empty box where the widget meant to say something. That is checked rather
+         * than remembered: `DefaultGlyphsTest` asks every shipped default what it draws and fails if
+         * this list cannot make it.
          */
         val Codepoints: List<IntRange> = listOf(
             0x20..0x7E,
             0xA0..0xFF,
+            0x20AC..0x20AC, // € — a key on the on-screen keyboard's symbol page
             0x2010..0x2027,
+            0x2212..0x2212, // − the minus sign, which is what a Nintendo pad's Back button says
             // The shapes a prompt draws, one at a time rather than by the block.
             0x25A0..0x25A1, // ■ □
             0x25B2..0x25B3, // ▲ △
+            0x25BC..0x25BD, // ▼ ▽ — the item card's "this is worse", and the pair of the two above
             0x25CB..0x25CB, // ○
             0x25CF..0x25CF, // ●
             0x2630..0x2630, // ☰

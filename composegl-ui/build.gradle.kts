@@ -97,6 +97,19 @@ kotlin {
 }
 
 /**
+ * The example's skin is read off disk by `ExampleSkinTest`, so editing it runs the tests again.
+ *
+ * Named here rather than depended on: composegl-demo is an application, and a library module that
+ * depended on one would be the wrong way round. This is the one thread between them, and it is an
+ * input rather than a dependency.
+ */
+tasks.named<Test>("jvmTest") {
+    inputs.file(rootProject.layout.projectDirectory.file("composegl-demo/src/main/resources/ui/demo.skin.json"))
+        .withPropertyName("exampleSkin")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
+/**
  * The promise this module exists to keep, checked rather than remembered.
  *
  * Two direct dependencies, and everything below is what those two drag in. Anything else — an

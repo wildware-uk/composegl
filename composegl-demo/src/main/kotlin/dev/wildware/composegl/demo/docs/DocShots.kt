@@ -4878,7 +4878,7 @@ private fun MutableList<DocShot>.itemCards() {
         DocShot("game-item-card", 380, 250, pointer = Offset(156f, 40f), stock = true) { DocLootBag() },
     )
 
-    // The same bag with Shift held down, on the gun that is the actual decision: it hits half as
+    // The same bag with Ctrl held down, on the gun that is the actual decision: it hits half as
     // hard again and is worse at everything else. Each difference is written three ways — the sign
     // says which way the number moved, the arrow says whether that is an improvement, the colour
     // says it again — so the mass line reads "+3.6 ▼" and the player knows without reading a word.
@@ -4889,7 +4889,7 @@ private fun MutableList<DocShot>.itemCards() {
             250,
             pointer = Offset(156f, 40f),
             stock = true,
-            typed = listOf(Typing.Hold(Key.Shift), Typing.Wait(3)),
+            typed = listOf(Typing.Hold(Key.Control), Typing.Wait(3)),
         ) { DocLootBag() },
     )
 
@@ -5022,7 +5022,7 @@ private class DocBench {
 private fun DocItemCard(
     bench: DocBench,
     compare: ItemCompare = ItemCompare.Held,
-    hint: String? = "Hold Shift to compare",
+    hint: String? = "Hold Ctrl to compare",
 ) {
     ItemTooltip(
         item = bench.looking,
@@ -5050,7 +5050,7 @@ private fun DocItemCard(
  * picture rather than something inside the bag, because it has to be drawn past the bag's edge.
  */
 @Composable
-private fun DocLootBag(hint: String? = "Hold Shift to compare") {
+private fun DocLootBag(hint: String? = "Hold Ctrl to compare") {
     val bench = remember { DocBench() }
     Box(Modifier.fillMaxSize()) {
         Frame {

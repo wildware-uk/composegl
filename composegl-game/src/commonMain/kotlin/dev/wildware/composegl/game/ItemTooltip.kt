@@ -212,7 +212,12 @@ interface ItemCardScope {
  * @param compareKey the key that turns it on for [ItemCompare.Held] and [ItemCompare.Toggled].
  *   Heard wherever focus is, because a player holding it is not first clicking on anything. Only
  *   swallowed while a card with something to compare against is actually up, so the rest of the
- *   game keeps its Shift the other ninety-nine per cent of the time.
+ *   game keeps its Ctrl the other ninety-nine per cent of the time.
+ *
+ *   **Ctrl and not Shift**, which is the question a card over a bag asks. Shift held as a pile is
+ *   picked up is what splits a stack in half, in this toolkit's own [InventoryGrid] and in every
+ *   game that has a bag; one key doing both means a player who held it to read the arrows walks
+ *   away with three of their five rings. Ctrl is the key Diablo compares with, and it is free.
  * @param compareButton the pad button that does the same. A bumper by default: the triggers are
  *   usually the game's.
  * @param sideBySide whether the equipped item gets a card of its own next to this one. False keeps
@@ -221,7 +226,7 @@ interface ItemCardScope {
  *   which is against an edge.
  * @param comparedLabel the caption over the equipped card. English by default; a game that is
  *   translated passes its own, the way it does every other string it shows a player.
- * @param compareHint a line at the foot of the card saying how to see the comparison — "Hold Shift
+ * @param compareHint a line at the foot of the card saying how to see the comparison — "Hold Ctrl
  *   to compare". Null draws none, which is what a game with its own [PromptGlyph] row wants.
  * @param marks the glyphs that say better and worse without using colour. See [ItemMarks].
  * @param width how wide one card is. Fixed rather than grown to fit, because a column of numbers
@@ -239,7 +244,7 @@ fun <T : Any> ItemTooltip(
     anchor: Rect? = null,
     rarity: (T) -> Colour? = { null },
     compare: ItemCompare = ItemCompare.Held,
-    compareKey: Key = Key.Shift,
+    compareKey: Key = Key.Control,
     compareButton: GamepadButton = GamepadButton.LeftBumper,
     sideBySide: Boolean = true,
     comparedLabel: String = "Equipped",
@@ -593,7 +598,7 @@ private class ItemCardInput {
 
     // --- what the composition tells it, once a pass ---
     var mode: ItemCompare = ItemCompare.Held
-    var key: Key = Key.Shift
+    var key: Key = Key.Control
     var button: GamepadButton = GamepadButton.LeftBumper
 
     /** Whether there is anything to compare against. Nothing is swallowed when there is not. */
@@ -651,7 +656,7 @@ private class ItemCardInput {
      * The key is **followed whether or not it is taken**. Those are two different questions: a
      * player holding the key already when they hover the next sword expects the arrows on it
      * straight away, so the key going down with nothing on screen still has to be noticed — while
-     * swallowing it there would take Shift from the rest of the game for the sake of a card that is
+     * swallowing it there would take the key from the rest of the game for the sake of a card that is
      * not up. So the state follows the key always, and only the answer depends on there being a
      * card and something to compare it with.
      *
@@ -713,7 +718,7 @@ private class ItemCardInput {
      * Whether this key event is this widget's to swallow, the state having already followed it.
      *
      * A press is swallowed only while the card is doing something a player can see: with no card up
-     * — or nothing equipped to compare it against — Shift stays the rest of the game's. The release
+     * — or nothing equipped to compare it against — the key stays the rest of the game's. The release
      * then goes the same way as its press whatever has happened in between, because a game handed
      * half a key is left holding one that never comes up. A repeat is part of the press it repeats.
      */

@@ -301,6 +301,83 @@
     "inventory.footprint.invalid": { "background": { "fill": "#80E5484D", "corner": 6, "border": "#E5484D" } },
     "inventory.split": { "background": { "fill": "#F0141B24", "corner": 8, "border": "#4CC2FF" } },
 
+    // --- the item card ---
+    //
+    // Darker than a panel, because it is drawn over the bag it came out of and has to read against
+    // it. The edge written here is only the fallback: the widget re-edges the card in the item's
+    // own tier colour, and "itemtip.rarity" is the tier colour for a game that names none.
+    //
+    // The card beside it — what is equipped now — is sunk rather than raised, so the eye lands on
+    // the new thing first. Better and worse are a colour *and* a mark, and the mark is what a
+    // player who cannot tell those two colours apart reads.
+
+    "itemtip": {
+      "background": { "fill": "#F00B1119", "corner": 6, "border": "#2A3440", "borderWidth": 2, "padding": [10, 8] },
+      "textColour": "#C9D3E0",
+      "text": { "size": 13 }
+    },
+    "itemtip.compare": {
+      "background": { "fill": "#F0070A0F", "corner": 6, "border": "#1C242E", "borderWidth": 2, "padding": [10, 8] }
+    },
+    "itemtip.rarity": { "background": { "fill": "#4CC2FF" } },
+    "itemtip.title": { "textColour": "#E6EAF2", "text": { "size": 16 } },
+    "itemtip.subtitle": { "textColour": "#9AA4B2", "text": { "size": 12 } },
+    "itemtip.label": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "itemtip.value": { "textColour": "#E6EAF2", "text": { "size": 13 } },
+    "itemtip.better": { "textColour": "#7BE08A", "text": { "size": 13 } },
+    "itemtip.worse": { "textColour": "#FF8080", "text": { "size": 13 } },
+    "itemtip.same": { "textColour": "#8E9AAB", "text": { "size": 13 } },
+    "itemtip.flavour": { "textColour": "#8E9AAB", "text": { "size": 12 } },
+    "itemtip.hint": { "textColour": "#7C8798", "text": { "size": 12 } },
+
+    // --- the skill tree ---
+    //
+    // Four states a node can be in, and each one is a different edge as well as a different fill:
+    // locked is grey and sunk, available is lit in the accent, owned is green, maxed is gold. The
+    // lines between them say the same thing again, so the shape of what is unlocked reads from
+    // across the room without any node being clicked on.
+
+    "skilltree.plane": {
+      "background": { "fill": "#080B10" },
+      "focused": { "background": { "fill": "#080B10", "border": "#4CC2FF", "borderWidth": 2 } }
+    },
+    "skilltree.node.locked": {
+      "background": { "fill": "#0B1119", "corner": 8, "border": "#243140" },
+      "textColour": "#6E8093",
+      "hovered": { "background": { "fill": "#141B24", "corner": 8, "border": "#2A3440" } },
+      "focused": { "background": { "fill": "#141B24", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#4A5A6A", "tint": "#90FFFFFF" }
+    },
+    "skilltree.node.available": {
+      "background": { "fill": "#14283A", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 },
+      "textColour": "#E6EAF2",
+      "hovered": { "background": { "fill": "#1B3550", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#21405F", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#1B3550", "corner": 8, "border": "#8ADBFF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#4A5A6A", "tint": "#90FFFFFF" }
+    },
+    "skilltree.node.owned": {
+      "background": { "fill": "#123324", "corner": 8, "border": "#46A758", "borderWidth": 2 },
+      "textColour": "#E6EAF2",
+      "hovered": { "background": { "fill": "#18452F", "corner": 8, "border": "#7BE08A", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#1D5238", "corner": 8, "border": "#7BE08A", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#18452F", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#4A5A6A", "tint": "#90FFFFFF" }
+    },
+    "skilltree.node.maxed": {
+      "background": { "fill": "#40340F", "corner": 8, "border": "#F2C94C", "borderWidth": 2 },
+      "textColour": "#FFF2D6",
+      "hovered": { "background": { "fill": "#524218", "corner": 8, "border": "#FFE9A8", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#524218", "corner": 8, "border": "#4CC2FF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#9A8560", "tint": "#90FFFFFF" }
+    },
+    "skilltree.hold": { "background": { "fill": "#804CC2FF" } },
+    "skilltree.rank": { "textColour": "#9AA4B2", "text": { "size": 12 } },
+    "skilltree.edge.locked": { "background": { "fill": "#66243140" } },
+    "skilltree.edge.available": { "background": { "fill": "#CC4CC2FF" } },
+    "skilltree.edge.owned": { "background": { "fill": "#CC46A758" } },
+    "skilltree.edge.fill": { "background": { "fill": "#FFB9F5CE" } },
+
     // --- abilities ---
 
     "cooldown.sweep": { "background": { "fill": "#B0060A12" } },
@@ -713,6 +790,58 @@
     },
     "subtitle.speaker": { "textColour": "#4CC2FF", "text": { "size": 16 } },
     "subtitle.caption": { "textColour": "#C7D0DC", "text": { "size": 16 } },
+
+    // --- somebody talking to you ---
+    //
+    // The box is the only thing on screen while it is up, so it is nearly opaque and the answers
+    // under it are ordinary buttons: a player walks them with a pad and the focused one is the one
+    // with the lit edge. An answer that cannot be chosen keeps its reason under it in a quieter
+    // colour rather than being hidden, because "you need 40 in Persuade" is worth knowing.
+
+    "dialogue": {
+      "background": { "fill": "#E6141B24", "corner": 8, "border": "#2A3440", "padding": [16, 14] }
+    },
+    "dialogue.speaker": { "textColour": "#F2C94C", "text": { "size": 18 } },
+    "dialogue.text": { "textColour": "#E6EAF2" },
+    "dialogue.choice": {
+      "background": { "fill": "#1B222C", "corner": 5, "border": "#243140", "padding": [12, 8] },
+      "hovered": { "background": { "fill": "#243140", "corner": 5, "border": "#3A4756" } },
+      "focused": { "background": { "fill": "#1C2632", "corner": 5, "border": "#4CC2FF" } },
+      "pressed": {
+        "background": { "fill": "#141B24", "corner": 5, "border": "#243140" },
+        "contentOffset": [0, 1]
+      },
+      "disabled": { "textColour": "#4A5A6A", "tint": "#A0FFFFFF" }
+    },
+    "dialogue.choice.reason": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+    "dialogue.timer.track": { "background": { "fill": "#0B1119", "corner": 2, "border": "#243140" } },
+    "dialogue.timer.fill": { "background": { "fill": "#F2C94C", "corner": 2 } },
+    "dialogue.control": {
+      "background": { "fill": "#141B24", "corner": 4, "border": "#243140", "padding": [10, 4] },
+      "textColour": "#9AA4B2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#243140", "corner": 4, "border": "#3A4756" } },
+      "focused": { "background": { "fill": "#1C2632", "corner": 4, "border": "#4CC2FF" } },
+      "pressed": {
+        "background": { "fill": "#0B1119", "corner": 4, "border": "#243140" },
+        "contentOffset": [0, 1]
+      }
+    },
+    "dialogue.control.on": {
+      "background": { "fill": "#2A6B8C", "corner": 4, "border": "#4CC2FF", "padding": [10, 4] },
+      "textColour": "#E6EAF2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#3A87AF", "corner": 4, "border": "#8ADBFF" } },
+      "focused": { "background": { "fill": "#2A6B8C", "corner": 4, "border": "#8ADBFF" } },
+      "pressed": {
+        "background": { "fill": "#1E4D66", "corner": 4, "border": "#2A6B8C" },
+        "contentOffset": [0, 1]
+      }
+    },
+    "dialogue.advance": { "textColour": "#4CC2FF" },
+    "dialogue.history.speaker": { "textColour": "#F2C94C", "text": { "size": 14 } },
+    "dialogue.history.line": { "textColour": "#E6EAF2", "text": { "size": 14 } },
+    "dialogue.history.answer": { "textColour": "#4CC2FF", "text": { "size": 14 } },
 
     // The weapon wheel. The backdrop dims the world, because a wheel is modal; every other piece
     // has to stand clear of that backdrop or the wheel is a hole in the screen.

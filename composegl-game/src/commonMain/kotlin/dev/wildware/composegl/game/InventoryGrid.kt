@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.focus.FocusWithinHandler
 import dev.wildware.composegl.ui.focus.focusOnNode
+import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.input.ActivateHandler
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.GamepadEvent
@@ -143,6 +144,78 @@ class InventoryDrag internal constructor(
 private val EmptyItem = InventoryItem(id = Unit, kind = Unit)
 
 /**
+ * Which square the focus ring is on, and where on the screen that square is.
+ *
+ * **This is the pad's half of an item card.** Nothing is ever hovered on a console, so a game that
+ * wants a card to follow the ring has to know which square has it and what rectangle to hang the
+ * card off — and a grid that only draws the ring leaves a game with no way to ask:
+ *
+ * ```kotlin
+ * val focus = rememberInventoryFocus()
+ *
+ * InventoryGrid(state = bag, focus = focus) { item -> Image(art(item.kind)) }
+ * ItemTooltip(item = focus.item, anchor = focus.bounds, compareWith = equipped) { … }
+ * ```
+ *
+ * [cell] and [item] are state, so a card written like that follows the ring on its own. [bounds] is
+ * not: where a square *is* changes on every layout, and a rectangle that recomposed the screen each
+ * time one moved would be a scroll that never settles. It is read at the moment the card is laid
+ * out, which is the moment it is wanted.
+ */
+@Stable
+class InventoryFocus {
+
+    /** The square the ring is on, or null while the ring is not in this grid at all. */
+    var cell: InventoryCell? by mutableStateOf(null)
+        private set
+
+    /** The pile standing on that square, or null for an empty one. */
+    var item: InventoryItem? by mutableStateOf(null)
+        private set
+
+    /**
+     * How to find the node the ring is drawn on. Asked each time rather than written down, because
+     * the ring can land on a square that has not been laid out yet — the frame a pile arrives from
+     * a chest is one — and because a square that scrolls is the same node somewhere else.
+     */
+    private var node: (() -> UiNode?)? = null
+
+    /**
+     * Where that square is **in the root's coordinates** — the rectangle [ItemTooltip]'s `anchor`
+     * takes, and what every other widget here means by a position.
+     *
+     * Null while nothing in this grid has focus, and for the one pass before the grid has been laid
+     * out, when there is nothing to draw a card beside anyway.
+     */
+    val bounds: Rect? get() = node?.invoke()?.boundsInRoot
+
+    /** A square saying the ring has landed on it. */
+    internal fun arrived(cell: InventoryCell, item: InventoryItem?, node: () -> UiNode?) {
+        this.cell = cell
+        this.item = item
+        this.node = node
+    }
+
+    /**
+     * And a square saying it has gone.
+     *
+     * Only if the ring has not already been claimed by somewhere else: focus moving from one square
+     * to the next arrives in whichever order the two squares happen to recompose in, and a blur
+     * handled after the focus it caused would otherwise wipe out the answer.
+     */
+    internal fun left(cell: InventoryCell) {
+        if (this.cell != cell) return
+        this.cell = null
+        this.item = null
+        this.node = null
+    }
+}
+
+/** An [InventoryFocus] that lives as long as the screen it is on. */
+@Composable
+fun rememberInventoryFocus(): InventoryFocus = remember { InventoryFocus() }
+
+/**
  * The bag: squares, the things in them, and every way a player moves one.
  *
  * ```kotlin
@@ -194,6 +267,9 @@ private val EmptyItem = InventoryItem(id = Unit, kind = Unit)
  *   shows, since a read-only bag may still have an "Examine" worth offering.
  * @param lazy builds only the rows in view, for a stash of a thousand squares. It scrolls, so the
  *   grid takes the height it is given rather than the height of all its rows.
+ * @param focus which square the ring is on and where it is, for a game that hangs an item card off
+ *   it. See [InventoryFocus]: on a pad this is the only way a card can follow the player, because
+ *   nothing on a console is ever hovered.
  * @param slot what one pile looks like: the picture, the name, whatever the game draws. The count
  *   and the frame are the grid's.
  */
@@ -219,6 +295,7 @@ fun InventoryGrid(
     lazy: Boolean = false,
     scroll: ScrollState = rememberScrollState(),
     overscan: Int = 2,
+    focus: InventoryFocus = rememberInventoryFocus(),
     menu: (MenuScope.(InventoryItem) -> Unit)? = null,
     slot: @Composable (InventoryItem) -> Unit,
 ) {
@@ -318,6 +395,7 @@ fun InventoryGrid(
             splitting = { splitting },
             rotating = rotating,
             labels = labels,
+            focus = focus,
             menu = menu,
             onTake = onTake,
             onPutBack = onPutBack,
@@ -390,6 +468,28 @@ private fun rotateCarried(drag: InventoryDrag?, rotating: Boolean): Boolean {
 /** Where one pile's square ended up, kept out of the composition because nothing draws it. */
 private class KnownNode {
     var node: UiNode? = null
+}
+
+/**
+ * One square telling [focus] when the ring arrives and when it leaves.
+ *
+ * Both kinds of square do it, because a pad stops on an empty one too and an item card that went
+ * blank over a gap in the bag would flicker its way along a row. `isFocused` is already read by
+ * every square to pick its own style, so following it here costs nothing but the effect.
+ */
+@Composable
+private fun ReportFocus(
+    interaction: InteractionState,
+    focus: InventoryFocus,
+    cell: InventoryCell,
+    item: InventoryItem?,
+    known: KnownNode,
+) {
+    val focused = interaction.isFocused
+    DisposableEffect(focus, focused, cell, item) {
+        if (focused) focus.arrived(cell, item) { known.node } else focus.left(cell)
+        onDispose { focus.left(cell) }
+    }
 }
 
 /** The squares a drop would land on, drawn under the hand: where they are, and whether it fits. */
@@ -591,6 +691,7 @@ private fun Board(
     splitting: () -> Boolean,
     rotating: Boolean,
     labels: InventoryLabels,
+    focus: InventoryFocus,
     menu: (MenuScope.(InventoryItem) -> Unit)?,
     onTake: (InventoryItem, Int) -> InventoryItem?,
     onPutBack: (InventoryItem) -> Unit,
@@ -638,7 +739,7 @@ private fun Board(
                 // apart, in case a game names an item after a cell.
                 key(item.item != null, item.item?.id ?: item.cell) {
                     if (item.item == null) {
-                        FreeSquare(item.cell, states[index], grid, style, enabled, gutter)
+                        FreeSquare(item.cell, states[index], grid, style, enabled, gutter, focus)
                     } else {
                         ItemSquare(
                             item = item.item,
@@ -655,6 +756,7 @@ private fun Board(
                             splitting = splitting,
                             rotating = rotating,
                             labels = labels,
+                            focus = focus,
                             menu = menu,
                             onTake = onTake,
                             onPutBack = onPutBack,
@@ -686,12 +788,17 @@ private fun FreeSquare(
     style: String,
     enabled: Boolean,
     gutter: Padding,
+    focus: InventoryFocus,
 ) {
     val interaction = remember { InteractionState() }
     val resolved = rememberStyle("$style.cell", rememberStates(interaction, enabled))
+    val known = remember { KnownNode() }
+    val placed = remember { PlacedHandler { known.node = it } }
+    ReportFocus(interaction, focus, cell, item = null, known = known)
     Box(
         Modifier
             .testTag("inventory.cell.${cell.x},${cell.y}")
+            .onPlaced(placed)
             .interaction(interaction)
             .dropTarget<InventoryDrag>(
                 state = target,
@@ -723,6 +830,7 @@ private fun ItemSquare(
     splitting: () -> Boolean,
     rotating: Boolean,
     labels: InventoryLabels,
+    focus: InventoryFocus,
     menu: (MenuScope.(InventoryItem) -> Unit)?,
     onTake: (InventoryItem, Int) -> InventoryItem?,
     onPutBack: (InventoryItem) -> Unit,
@@ -747,6 +855,7 @@ private fun ItemSquare(
     val known = remember(grid, item.id) { KnownNode() }
     val placed = remember(grid, item.id) { PlacedHandler { known.node = it; grid.placed(item.id, it) } }
     DisposableEffect(grid, item.id) { onDispose { grid.forget(item.id, known.node) } }
+    ReportFocus(interaction, focus, cell, item, known)
 
     // What the hand takes hold of is settled as the pile is pressed, not while it is in the air:
     // letting go of the split key halfway across the bag does not change what is being carried.

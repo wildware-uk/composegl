@@ -33,6 +33,7 @@ import dev.wildware.composegl.ui.widget.Text
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -86,6 +87,7 @@ class InventoryGridUiTest {
         enabled: Boolean = true,
         matches: (InventoryItem) -> Boolean = { true },
         menu: (MenuScope.(InventoryItem) -> Unit)? = null,
+        focus: InventoryFocus? = null,
     ) {
         ProvideLayoutDirection(if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr) {
             PopupHost {
@@ -102,6 +104,7 @@ class InventoryGridUiTest {
                             enabled = enabled,
                             matches = matches,
                             lazy = lazy,
+                            focus = focus ?: rememberInventoryFocus(),
                             menu = menu,
                             slot = { Art(it) },
                         )
@@ -441,6 +444,150 @@ class InventoryGridUiTest {
 
         assertEquals(InventoryCell(1, 1), bag.item("sword")?.at)
         ui.assertFocused("inventory.item.sword")
+    }
+
+    // --- which square has the ring ----------------------------------------------------------------
+    //
+    // The pad's half of an item card. Nothing on a console is ever hovered, so a game that hangs a
+    // card off the focused square can only do it if the grid says which square that is and where it
+    // is — which is the rectangle `ItemTooltip`'s `anchor` takes.
+
+    @Test
+    fun `the grid says which pile the ring is on and where that square is`() {
+        val focus = InventoryFocus()
+        val bag = bag(item("sword"), item("coin", x = 3, y = 3))
+        val ui = open { Screen(bag, focus = focus) }
+        ui.assertFocused("inventory.item.sword")
+
+        assertEquals(InventoryCell(0, 0), focus.cell)
+        assertEquals("sword", focus.item?.id)
+        assertEquals(ui.node("inventory.item.sword").boundsInRoot, focus.bounds)
+    }
+
+    @Test
+    fun `it says so for an empty square too with no pile on it`() {
+        val focus = InventoryFocus()
+        val bag = bag(item("sword"))
+        val ui = open { Screen(bag, focus = focus) }
+        ui.assertFocused("inventory.item.sword")
+
+        ui.pad(GamepadButton.DpadRight)
+
+        ui.assertFocused("inventory.cell.1,0")
+        assertEquals(InventoryCell(1, 0), focus.cell)
+        assertNull(focus.item, "an empty square has nothing on it")
+        assertEquals(ui.node("inventory.cell.1,0").boundsInRoot, focus.bounds)
+    }
+
+    @Test
+    fun `the answer follows the ring rather than going blank as it crosses the bag`() {
+        val focus = InventoryFocus()
+        val bag = bag(item("sword"), item("coin", x = 1, y = 0))
+        val ui = open { Screen(bag, focus = focus) }
+        ui.assertFocused("inventory.item.sword")
+
+        // One square along is the other pile. The square being left and the square being arrived at
+        // are told in whichever order they recompose in, and a card must not flicker off in between.
+        ui.pad(GamepadButton.DpadRight)
+
+        assertEquals("coin", focus.item?.id)
+        assertEquals(InventoryCell(1, 0), focus.cell)
+    }
+
+    @Test
+    fun `the rectangle follows a pile that moved rather than where it used to be`() {
+        val focus = InventoryFocus()
+        val bag = bag(item("sword"), item("coin", x = 3, y = 3))
+        val ui = open { Screen(bag, focus = focus) }
+        val before = focus.bounds
+
+        ui.drag(ui.pile("sword"), ui.square(2, 1))
+
+        ui.assertFocused("inventory.item.sword")
+        assertEquals(InventoryCell(2, 1), focus.cell)
+        assertEquals(ui.node("inventory.item.sword").boundsInRoot, focus.bounds)
+        assertTrue(focus.bounds != before, "the pile is somewhere else now")
+    }
+
+    // --- a bag with an item card over it -----------------------------------------------------------
+    //
+    // The two widgets a looter puts together, at their own defaults. They each listen for a held key
+    // wherever focus is, so a key both of them wanted would be one key doing two jobs: the player
+    // holds it to read the arrows and walks off with half their arrows as well.
+
+    /** A bag with a card hanging off whichever square has the ring: the pad's whole story. */
+    @Composable
+    private fun BagWithCard(state: InventoryState, focus: InventoryFocus) {
+        PopupHost {
+            DragAndDropHost {
+                Box(Modifier.fillMaxSize()) {
+                    InventoryGrid(
+                        state = state,
+                        modifier = Modifier.testTag("bag").size(
+                            state.columns * pitch - spacing,
+                            state.rows * pitch - spacing,
+                        ),
+                        cellSize = cell,
+                        spacing = spacing,
+                        focus = focus,
+                        slot = { Art(it) },
+                    )
+                    // Compared against a pile of its own, so the second card — the one captioned
+                    // "Equipped" — is what says whether the comparison is on.
+                    ItemTooltip(
+                        item = focus.item,
+                        anchor = focus.bounds,
+                        compareWith = item("worn", kind = "arrow"),
+                    ) {
+                        stat("Damage", 4f)
+                    }
+                }
+            }
+        }
+    }
+
+    /** Whether the card's second half is on screen, which is the comparison being switched on. */
+    private fun UiTest.comparing(): Boolean =
+        nodesNamed("itemtooltip").any { "Equipped" in wordsOf(it) }
+
+    @Test
+    fun `the bag's split key does not also turn the card's comparison on`() {
+        val focus = InventoryFocus()
+        val bag = bag(item("arrow", count = 6, stackLimit = 20))
+        val ui = open { BagWithCard(bag, focus) }
+        ui.assertFocused("inventory.item.arrow")
+
+        ui.keyDown(Key.Shift)
+
+        assertFalse(ui.comparing(), "Shift splits a stack; it must not be the compare key as well")
+        ui.keyUp(Key.Shift)
+    }
+
+    @Test
+    fun `the card's own key does turn it on`() {
+        val focus = InventoryFocus()
+        val bag = bag(item("arrow", count = 6, stackLimit = 20))
+        val ui = open { BagWithCard(bag, focus) }
+        ui.assertFocused("inventory.item.arrow")
+
+        ui.keyDown(Key.Control)
+
+        assertTrue(ui.comparing(), "Ctrl is what the card compares with:\n" + ui.dump())
+        ui.keyUp(Key.Control)
+    }
+
+    @Test
+    fun `and the bag's split key still splits one while a card is up`() {
+        val focus = InventoryFocus()
+        val bag = bag(item("arrow", count = 6, stackLimit = 20))
+        val ui = open { BagWithCard(bag, focus) }
+        ui.assertFocused("inventory.item.arrow")
+
+        ui.keyDown(Key.Shift)
+        ui.pad(GamepadButton.South)
+
+        assertTrue("3" in ui.text("inventory.carried"), "half of it:\n" + ui.dump())
+        ui.keyUp(Key.Shift)
     }
 
     // --- turning ---------------------------------------------------------------------------------
