@@ -93,6 +93,11 @@ has a small one built in; this is the standalone widget, with a shape as well as
 a colour per kind — four ticks for an ordinary hit, eight for a critical, and the
 four with a diamond inside for a kill — and a hook for your own sound.
 
+![three hit markers: four ticks for a hit, eight for a critical, and four round a diamond for a kill](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-hit-markers.png)
+
+Each was taken a moment after a real hit, so all three are already on their way
+out — which is why the kill, the one worth looking at, is still the brightest.
+
 ```kotlin
 val marker = rememberHitMarkerState()
 HitMarker(marker, onHit = { kind -> audio.play(if (kind == HitKind.Kill) killSound else tick) })
@@ -114,6 +119,11 @@ Arcs round the middle of the screen saying where the hits are coming from. Sever
 stack, each fading on its own, so being shot at from two sides looks like being
 shot at from two sides.
 
+![a game screen with two damage arcs at once, one on the right and one behind-left, over a kill marker on the crosshair](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-damage-direction.png)
+
+One shooter off to the right and another behind your left shoulder, who is not on
+the screen at all. That is the whole job: the arc is how you know to turn.
+
 ```kotlin
 val incoming = rememberDamageDirections()
 DamageDirectionLayer(incoming)
@@ -131,6 +141,19 @@ half in [[split-screen|Split-screen]]. They do not swap sides in a right-to-left
 interface: an arc is about the world, not about reading order. An arc is timed from
 the hit rather than from the frame it is first drawn on, so a pool held above a HUD
 the player can hide does not save the hidden minutes up and show them all at once.
+
+![the same fight running: hits land, arcs come and go, markers flash, and the health bar drops behind each hit](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-firefight.gif)
+
+Both widgets are about timing, so here is the fight itself. Nothing in it is
+posed: shots land and hits arrive on the frames the game says, and how faded each
+arc is, how bright each marker is and where the health bar's trail has got to is
+whatever the widgets themselves had reached.
+
+![the same two arcs in a left-to-right interface and a right-to-left one: the arcs stay put, the line of text under them swaps sides](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/game-damage-rtl.png)
+
+The high-contrast [[skin|Skins]], in English and in Hebrew. The arcs are in the
+same places in both. The row of text under them is an ordinary row, and that one
+does mirror.
 
 ## Low-health vignette
 
