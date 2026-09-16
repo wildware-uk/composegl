@@ -84,8 +84,14 @@ class Showcase : ApplicationAdapter() {
     private val projection = WorldProjection { point, _, onto ->
         val projected = Vector3(point.x, point.y, point.z)
         scene.camera.project(projected)
-        // LibGDX projects with y up from the bottom; an interface measures down from the top.
-        onto.set(projected.x, Gdx.graphics.height - projected.y)
+        // LibGDX projects with y up from the bottom; an interface measures down from the top. The
+        // third number is how far away it is, in the game's own units — metres here — which is
+        // what the marker layer fades tags by and stacks them in.
+        onto.set(
+            projected.x,
+            Gdx.graphics.height - projected.y,
+            scene.camera.position.dst(point.x, point.y, point.z),
+        )
         projected.z <= 1f
     }
 
@@ -192,6 +198,10 @@ class Showcase : ApplicationAdapter() {
             // The radar is the world from above, with north up; the frame turns it.
             readout.mapX = drone.position.x
             readout.mapY = drone.position.z
+            // And where it really is, for the tag pinned to it: the layer does its own projecting.
+            readout.worldX = drone.position.x
+            readout.worldY = drone.position.y
+            readout.worldZ = drone.position.z
         }
 
         // Whatever is nearest the middle of the screen is what the reticle is on.

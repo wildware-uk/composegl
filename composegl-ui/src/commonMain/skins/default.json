@@ -266,6 +266,13 @@
     "damage": { "textColour": "#FFE9A8", "text": { "size": 18 } },
     "damage.critical": { "textColour": "#FF7A45", "text": { "size": 26 } },
 
+    // A marker pinned to a point in the world: a nameplate, a health bar over an enemy, a
+    // waypoint. What is inside one is the game's own interface, so the only thing the layer draws
+    // itself is the little triangle beside a marker it is holding at the edge of the screen,
+    // turned to point at where the thing really is.
+
+    "marker.arrow": { "background": { "fill": "#E8ECF2" } },
+
     // --- the hotbar ---
     //
     // An empty slot is a hole in the bar: no fill, a dashed-looking groove, nothing in it. A slot

@@ -1300,15 +1300,15 @@ the whole string up front, so the box does not grow as the words appear.
 
 # Game widgets
 
-Bars, the reticle, damage numbers, cooldowns, the hotbar, the minimap frame,
-notifications and particles live in their own module, `composegl-game`. They
-have **[[their own page|Game-widgets]]**.
+Bars, the reticle, damage numbers, world markers, cooldowns, the hotbar, the
+minimap frame, notifications and particles live in their own module,
+`composegl-game`. They have **[[their own page|Game-widgets]]**.
 
 ---
 
 ## What next
 
-- **[[Game widgets]]** — bars, reticle, damage numbers, cooldowns, hotbar, minimap, particles
+- **[[Game widgets]]** — bars, reticle, damage numbers, world markers, cooldowns, hotbar, minimap, particles
 - **[[Skins]]** — how all of these get their look
 - **[[Input]]** — focus, pads, and keyboard
 - **[[Shaders]]** — blurring, outlining or dissolving any of the above

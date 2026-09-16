@@ -1,8 +1,9 @@
 # Game widgets
 
 The in-play widgets: health bars with a damage trail, a crosshair, damage numbers
-anchored in the world, cooldowns, a hotbar, a minimap frame, notifications and
-particles. These are the ones that made this toolkit worth building.
+anchored in the world, nameplates and waypoints pinned to points in the world,
+cooldowns, a hotbar, a minimap frame, notifications and particles. These are the
+ones that made this toolkit worth building.
 
 ---
 
@@ -37,8 +38,8 @@ text that takes a [[ring|Widgets#outlined-text]] only when there is one,
 
 **Their look is in the skin.** The default and high-contrast [[skins|Skins]]
 already have every style these use (`bar.*`, `reticle.*`, `damage.*`,
-`cooldown.*`, `hotbar.*`, `minimap.*`, `notification.*`), so they look right
-with no setup. Your own skin file styles them by the same names.
+`marker.*`, `cooldown.*`, `hotbar.*`, `minimap.*`, `notification.*`), so they
+look right with no setup. Your own skin file styles them by the same names.
 
 `Typewriter`, `PromptGlyph` and `ProvidePrompts` stay in `composegl-ui`: they
 are not only for games. See [[Widgets]].
@@ -94,6 +95,87 @@ numbers.show("148", WorldAnchor.at(enemy.x, enemy.y + 2f, enemy.z), critical = t
 
 They float, fade, and are placed in the world through the same `WorldProjection`
 your camera already provides.
+
+## World markers
+
+Nameplates, health bars over enemies, quest waypoints, interaction prompts, ping
+markers — interface that belongs to a point in the world rather than to a corner
+of the screen.
+
+```kotlin
+WorldMarkerLayer(projection = camera, maxVisible = 12) {
+    enemies.forEach { enemy ->
+        marker(
+            key = enemy.id,
+            position = { it.set(enemy.x, enemy.y + 2f, enemy.z) },
+            fadeDistance = 30f..40f,
+            anchor = Alignment.BottomCentre,
+        ) {
+            Column {
+                Text(enemy.name)
+                Bar(enemy.health, Modifier.width(60f), thickness = 4f)
+            }
+        }
+    }
+
+    marker(
+        key = "objective",
+        x = objective.x, y = objective.y, z = objective.z,
+        offScreen = OffScreen.ClampToEdge(arrow = true, inset = 24f),
+        priority = 1f,
+    ) {
+        WaypointIcon(player.distanceTo(objective))
+    }
+}
+```
+
+A marker is a real node, so what goes in one is any interface at all — a bar, a
+portrait, a button — and it is clicked, hovered and reached by a pad the same way
+anything else is.
+
+**Moving a marker does not recompose it.** Your `position` is asked where it is
+once a frame and the answer *places* the node, which is the cheap half of layout:
+a hundred nameplates following a hundred running enemies recompose nothing.
+
+**Off the edge** is `OffScreen.Hide` (the default), `OffScreen.Show`, or
+`OffScreen.ClampToEdge`, which holds the whole marker just inside the layer and
+draws a triangle beside it turned towards the thing. It is the marker's whole box
+that is measured against the edge, so a wide nameplate starts sliding in while its
+point is still on screen instead of jumping half its own width when the point
+crosses over. The triangle is held inside too — an arrow off the edge tells nobody
+anything — so asking for one costs about another `arrowSize` of room on top of
+your `inset`. Something *behind* the
+camera is held at the edge the player has to turn towards, with `OffScreen.Show`
+as well: a projection mirrors a point behind the lens, so there is no "where it
+landed" to leave it at. Say which points are behind by writing a negative depth:
+
+```kotlin
+val camera = WorldProjection { point, view, onto ->
+    val p = scene.camera.project(point)
+    onto.set(p.x, view.height - p.y, distanceTo(point))   // negative when behind
+    true
+}
+```
+
+That third number is the depth, in whatever units your game measures distance in.
+It is what `fadeDistance` and `scaleDistance` compare against, and what decides
+which markers draw on top: nearer over further, always. The minus sign only says
+*behind*; how far away counts the same either way, so a waypoint fifty metres
+behind the player fades like one fifty metres in front, and never covers — or
+takes the place of — something they can actually see.
+
+**When there are too many**, `maxVisible` keeps the best of them and `declutter =
+true` drops any that would sit on top of one already kept. Best means the highest
+`priority`, and among equal priorities the nearest — so the objective survives and
+the sixteenth nameplate does not. A marker that is not shown is drawn at nothing,
+which means it is not clickable and focus cannot land on it either.
+
+**The skin** supplies `marker.arrow`, the colour of those off-screen triangles.
+Everything else about a marker is whatever you put inside it.
+
+`scaleDistance` is the one thing to be careful with: scaling draws through an
+offscreen picture, so it is crisp shrinking and soft growing — see
+[[Modifiers]].
 
 ## Cooldowns, hotbars, minimaps, notifications
 
