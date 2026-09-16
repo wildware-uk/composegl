@@ -827,6 +827,33 @@
     "debugwindow.value": { "textColour": "#FFFFFF", "text": { "size": 14 } },
     "debugwindow.grip": { "background": { "fill": "#FFFFFF", "corner": 2 } },
 
+    // The tabs of a docked pane: the one showing filled blue like the lit title bar, the rest black
+    // with white words, and focus the yellow edge it is everywhere else.
+
+    "debugwindow.tab": {
+      "background": { "fill": "#000000", "corner": 3, "border": "#FFFFFF", "padding": [8, 2], "borderWidth": 2 },
+      "textColour": "#FFFFFF",
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#333333", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#333333", "corner": 3, "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#333333", "corner": 3, "border": "#FFD600", "borderWidth": 2 } }
+    },
+    "debugwindow.tab.selected": {
+      "background": { "fill": "#2C6BD6", "corner": 3, "border": "#FFFFFF", "padding": [8, 2], "borderWidth": 2 },
+      "textColour": "#FFFFFF",
+      "text": { "size": 14 },
+      "hovered": { "background": { "fill": "#2C6BD6", "corner": 3, "border": "#FFD600", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#2C6BD6", "corner": 3, "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#2C6BD6", "corner": 3, "border": "#FFD600", "borderWidth": 2 } }
+    },
+
+    // The drop squares are white plates on the black; the one under the pointer, and the patch showing
+    // where the window would land, are the yellow everything chosen is here.
+
+    "debugwindow.dock": { "background": { "fill": "#59FFD600", "corner": 4, "border": "#FFD600", "borderWidth": 2 } },
+    "debugwindow.dock.target": { "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+    "debugwindow.dock.target.active": { "background": { "fill": "#FFD600", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+
     // --- trees ---
     //
     // Rows are black with white words, the chosen one filled in blue, and focus is the yellow edge it

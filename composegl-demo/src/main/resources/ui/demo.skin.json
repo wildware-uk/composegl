@@ -961,6 +961,30 @@
     "debugwindow.value": { "textColour": "#E6EAF2", "text": { "size": 13 } },
     "debugwindow.grip": { "background": { "fill": "#40FFFFFF", "corner": 2 } },
 
+    // A docked pane wears tabs instead of a title: the one showing lit like the lit title bar, the
+    // rest as quiet as the unlit one. Under them, where a dragged window would land and the squares
+    // it is dropped on.
+
+    "debugwindow.tab": {
+      "background": { "fill": "#18FFFFFF", "corner": 5, "padding": [8, 2] },
+      "textColour": "#9AA4B2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#284CC2FF", "corner": 5 }, "textColour": "#FFFFFF" },
+      "focused": { "background": { "fill": "#284CC2FF", "corner": 5, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#404CC2FF", "corner": 5 } }
+    },
+    "debugwindow.tab.selected": {
+      "background": { "fill": "#404CC2FF", "corner": 5, "padding": [8, 2] },
+      "textColour": "#E6F4FF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#584CC2FF", "corner": 5 } },
+      "focused": { "background": { "fill": "#404CC2FF", "corner": 5, "border": "#FFFFFF", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#584CC2FF", "corner": 5 } }
+    },
+    "debugwindow.dock": { "background": { "fill": "#404CC2FF", "corner": 6, "border": "#4CC2FF" } },
+    "debugwindow.dock.target": { "background": { "fill": "#D9131820", "corner": 5, "border": "#4CC2FF" } },
+    "debugwindow.dock.target.active": { "background": { "fill": "#F24CC2FF", "corner": 5, "border": "#FFFFFF" } },
+
     // A live graph: a dark box with a bright trace on it, a wash underneath, and a dim rule across
     // it wherever the caller asked to be able to see.
 

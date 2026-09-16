@@ -79,6 +79,8 @@ val StyleNames = listOf(
     // the tools that sit over a game
     "debugwindow", "debugwindow.active", "debugwindow.title", "debugwindow.title.active",
     "debugwindow.button", "debugwindow.body", "debugwindow.label", "debugwindow.value", "debugwindow.grip",
+    "debugwindow.tab", "debugwindow.tab.selected",
+    "debugwindow.dock", "debugwindow.dock.target", "debugwindow.dock.target.active",
     "plot", "plot.label", "plot.value", "plot.line", "plot.fill", "plot.guide", "plot.cursor", "plot.bar",
     "console", "console.title", "console.prompt",
     "console.line", "console.line.debug", "console.line.info", "console.line.warn",

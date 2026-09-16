@@ -2,7 +2,7 @@ package dev.wildware.composegl.debug
 
 /**
  * Where debug windows remember where they were: position, size, whether each is folded to its title
- * bar, and which sections inside them are open.
+ * bar, which sections inside them are open, and the dock layout the docked ones share.
  *
  * ```kotlin
  * DebugWindowHost(state = rememberDebugWindowsState(store = MemoryDebugWindowStore())) { Game() }
