@@ -3,7 +3,11 @@ package dev.wildware.composegl.demo.docs
 import dev.wildware.composegl.ui.modifier.testTag
 import dev.wildware.composegl.ui.modifier.blend
 import dev.wildware.composegl.ui.graphics.BlendMode
+import dev.wildware.composegl.debug.DebugWindow
+import dev.wildware.composegl.debug.DebugWindowHost
 import dev.wildware.composegl.debug.FrameBudgetOverlay
+import dev.wildware.composegl.debug.MemoryDebugWindowStore
+import dev.wildware.composegl.debug.rememberDebugWindowsState
 import dev.wildware.composegl.ui.debug.FrameBudget
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -1777,6 +1781,25 @@ private fun MutableList<DocShot>.modifiers() {
         }
     })
 
+    // A tuning window over a game, through the toolkit's own skin, since that is the one that names
+    // the window's styles. Nothing is clicked: this is what a game gets for writing seven lines.
+    add(DocShot("debug-window", 420, 300, stock = true) {
+        val physics = remember { DocPhysics() }
+        Box(Modifier.fillMaxSize().background(Colour.rgb(0x0B0E13))) {
+            DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+                Box(Modifier.fillMaxSize())
+                DebugWindow("Physics", initialPosition = Offset(16f, 16f), onClose = {}) {
+                    tweak("Gravity", physics::gravity, 0f..50f, step = 0.1f)
+                    tweak("Enemies", physics::enemies, 0..40)
+                    toggle("God mode", physics::godMode)
+                    choice("Difficulty", physics::difficulty, DocDifficulty.entries)
+                    colour("Fog", physics::fog, alpha = false)
+                    button("Spawn wave") {}
+                }
+            }
+        }
+    })
+
     // Clicked on the APPLY button's edge, so the picture shows a pinned button rather than its label.
     add(DocShot("inspector", 640, 460, pointer = Offset(46f, 94f), click = true) {
         Inspector(enabled = true) {
@@ -3037,6 +3060,7 @@ private fun WorkingScene() {
         }
     }
 }
+
 /** Six team colours, for the colour picker pictures. */
 private val DocTeamColours = listOf(
     Colour.rgb(0xE5484D), Colour.rgb(0x5B8DEF), Colour.rgb(0x46A758),
@@ -3054,3 +3078,14 @@ private val DocLampColours = listOf(
     Colour.rgb(0xFFC53D), Colour.rgb(0xFF6B3D), Colour.rgb(0x6BD5FF),
     Colour.argb(0x9946A758), Colour.argb(0x99B06CF0), Colour.rgb(0xFFFFFF),
 )
+
+/** What the debug window's picture tunes: ordinary properties, as a game's own systems have. */
+private class DocPhysics {
+    var gravity by mutableStateOf(9.8f)
+    var enemies by mutableStateOf(12)
+    var godMode by mutableStateOf(true)
+    var difficulty by mutableStateOf(DocDifficulty.Normal)
+    var fog by mutableStateOf(Colour.rgb(0x4A7FD4))
+}
+
+private enum class DocDifficulty { Easy, Normal, Hard }

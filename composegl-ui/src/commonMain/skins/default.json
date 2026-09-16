@@ -534,6 +534,36 @@
       "disabled": { "tint": "#80FFFFFF" }
     },
 
+    // --- debug windows ---
+    //
+    // The floating tool windows from composegl-debug. Smaller type than a game's screens, because they
+    // sit over the game and are read up close. The window focus is in lights its edge and its title bar,
+    // so a player with three open can see which one the keys are going to.
+
+    "debugwindow": { "background": { "fill": "#EE1A1F28", "corner": 5, "border": "#39445A", "padding": 1 } },
+    "debugwindow.active": { "background": { "fill": "#F21A1F28", "corner": 5, "border": "#5B8DEF", "padding": 1 } },
+    "debugwindow.title": {
+      "background": { "fill": "#232A35", "corner": 4, "padding": [6, 4] },
+      "textColour": "#9BA6B6",
+      "text": { "size": 14 }
+    },
+    "debugwindow.title.active": {
+      "background": { "fill": "#2F53A8", "corner": 4, "padding": [6, 4] },
+      "textColour": "#E8ECF2",
+      "text": { "size": 14 }
+    },
+    "debugwindow.button": {
+      "background": { "fill": "#00000000", "corner": 3, "padding": 3 },
+      "textColour": "#C5CDD8",
+      "hovered": { "background": { "fill": "#39445A", "corner": 3 }, "textColour": "#FFFFFF" },
+      "focused": { "background": { "fill": "#39445A", "corner": 3, "border": "#5B8DEF" }, "textColour": "#FFFFFF" },
+      "pressed": { "background": { "fill": "#4A5670", "corner": 3 } }
+    },
+    "debugwindow.body": { "padding": [8, 6] },
+    "debugwindow.label": { "textColour": "#9BA6B6", "text": { "size": 14 } },
+    "debugwindow.value": { "textColour": "#E8ECF2", "text": { "size": 14 } },
+    "debugwindow.grip": { "background": { "fill": "#39445A", "corner": 2 } },
+
     // --- trees ---
     //
     // Rows as quiet as a list's until they are hovered or chosen. The arrow is dimmer than the words,

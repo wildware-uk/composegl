@@ -523,6 +523,32 @@
       "disabled": { "tint": "#B0FFFFFF" }
     },
 
+    // --- debug windows ---
+
+    "debugwindow": { "background": { "fill": "#000000", "corner": 5, "border": "#FFFFFF", "padding": 1, "borderWidth": 2 } },
+    "debugwindow.active": { "background": { "fill": "#000000", "corner": 5, "border": "#FFD600", "padding": 1, "borderWidth": 2 } },
+    "debugwindow.title": {
+      "background": { "fill": "#000000", "corner": 4, "padding": [6, 4] },
+      "textColour": "#FFFFFF",
+      "text": { "size": 14 }
+    },
+    "debugwindow.title.active": {
+      "background": { "fill": "#0033AA", "corner": 4, "padding": [6, 4] },
+      "textColour": "#FFFFFF",
+      "text": { "size": 14 }
+    },
+    "debugwindow.button": {
+      "background": { "fill": "#000000", "corner": 3, "padding": 3 },
+      "textColour": "#FFFFFF",
+      "hovered": { "background": { "fill": "#333333", "corner": 3 } },
+      "focused": { "background": { "fill": "#000000", "corner": 3, "border": "#FFD600", "borderWidth": 2 }, "textColour": "#FFD600" },
+      "pressed": { "background": { "fill": "#333333", "corner": 3, "border": "#FFD600", "borderWidth": 2 } }
+    },
+    "debugwindow.body": { "padding": [8, 6] },
+    "debugwindow.label": { "textColour": "#FFFFFF", "text": { "size": 14 } },
+    "debugwindow.value": { "textColour": "#FFFFFF", "text": { "size": 14 } },
+    "debugwindow.grip": { "background": { "fill": "#FFFFFF", "corner": 2 } },
+
     // --- trees ---
     //
     // Rows are black with white words, the chosen one filled in blue, and focus is the yellow edge it

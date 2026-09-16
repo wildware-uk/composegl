@@ -1,9 +1,10 @@
 # Debugging
 
-The tools for finding out why a screen looks or costs what it does: an overlay for the layout,
-an inspector to point at one widget, a console for typing commands at a running game, and
-overlays for overdraw, draw calls, focus, redraws and the lines inside text. Each one is drawn
-by the toolkit itself, so it looks the same on every backend.
+The tools for finding out why a screen looks or costs what it does, and for changing the game
+while it runs: floating windows of controls wired straight to your own properties, an overlay
+for the layout, an inspector to point at one widget, a console for typing commands at a running
+game, and overlays for overdraw, draw calls, focus, redraws and the lines inside text. Each one
+is drawn by the toolkit itself, so it looks the same on every backend.
 
 For one widget, `Modifier.debugBounds()` stays in `composegl-ui`; see
 [Modifiers](Modifiers.md). For the tree as text, `dump`, see
@@ -31,6 +32,8 @@ wants the overlays in every build, behind a key, uses `implementation`.
 It is the same targets as `composegl-ui`: the JVM, Linux, iOS and the browser.
 
 ```kotlin
+import dev.wildware.composegl.debug.DebugWindow
+import dev.wildware.composegl.debug.DebugWindowHost
 import dev.wildware.composegl.debug.DevConsole
 import dev.wildware.composegl.debug.FocusOverlay
 import dev.wildware.composegl.debug.FrameBudgetOverlay
@@ -45,6 +48,118 @@ In 0.5.0 these were in `composegl-ui`, in `dev.wildware.composegl.ui.debug`. Mov
 What the renderer measures is still in `composegl-ui`, in `dev.wildware.composegl.ui.debug`:
 `FrameBudget`, `DrawCallTrace`, `OverdrawMap` and `measureOverdraw`, so a test can hold a screen to
 a budget with no debug module at all.
+
+---
+
+## Tweaking values while the game runs
+
+Tuning gravity, spawning a wave, turning god mode on. A `DebugWindow` is a floating window
+of controls over the game, and each line of it is one of your own properties:
+
+```kotlin
+DebugWindowHost {                       // round the whole game, once, outside everything else
+    Game()
+
+    DebugWindow("Physics", initialPosition = Offset(20f, 20f)) {
+        tweak("Gravity", physics::gravity, 0f..50f)
+        tweak("Friction", physics::friction, 0f..1f, step = 0.05f)
+        tweak("Enemies", spawner::enemies, 0..40)
+        toggle("God mode", cheats::godMode)
+        choice("Difficulty", game::difficulty, Difficulty.entries)
+        colour("Fog", world::fogColour)
+        button("Spawn wave") { spawnWave() }
+        text("Alive", alive.toString())
+        CollapsingHeader("Advanced") { tweak("Air", physics::air, 0f..1f) }
+    }
+}
+```
+
+![a floating window titled Physics over a dark game, with sliders for gravity and enemies, a god mode switch, a difficulty dropdown, a fog colour swatch and a spawn wave button](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/debug-window.png)
+
+| Line | Control | For |
+|---|---|---|
+| `tweak(label, property, range, step)` | `Slider` and a readout | a `Float` or an `Int` |
+| `toggle(label, property)` | `Toggle` | a `Boolean` |
+| `choice(label, property, options)` | `Dropdown` | one of a list — an enum's `entries` |
+| `colour(label, property)` | a swatch that opens a `ColourPicker` | a `Colour` |
+| `button(label) { … }` | `Button` | something to do |
+| `text(label, value)` | a line of text | a number to watch |
+| `row(label) { … }` | whatever you put in it | a control of your own |
+| `CollapsingHeader(title) { … }` | a heading that folds | a group of lines |
+
+Each line takes either a property — `physics::gravity` — or a value and what to do with a
+new one, `tweak("Gravity", gravity, { gravity = it }, 0f..50f)`, which is what a local `var`
+needs, since Kotlin cannot take a reference to one. A property backed by `mutableStateOf`
+shows a change made anywhere in the game the moment it happens.
+
+The controls are the toolkit's own, so the keyboard and a pad work them as they do on any
+screen, and the skin draws them. The labels sit in a column `labelWidth` wide, so the
+controls line up.
+
+### Driving the window
+
+| Do this | And you get |
+|---|---|
+| drag the title bar | the window moves |
+| drag an edge or a corner | the window resizes, down to `minSize`; the cursor says which way |
+| click anywhere on it | it comes to the front |
+| the triangle, or a double click on the title | it folds to its title bar, and back |
+| the cross | `onClose`, so the game stops composing it — like a `Dialog` |
+| Ctrl and an arrow, with focus inside | it moves. With Shift too, it resizes |
+| F9 | every debug window is put away, and brought back |
+| F6, or the pad's right stick click | focus moves to the next window, then back to the game |
+| the pad's right stick, with focus inside | the window moves, and stops as soon as focus leaves it |
+| both sticks clicked together | every window is put away, as F9 does |
+
+Every key and button there is an argument of `DebugWindowHost` — `hideShortcut`,
+`hideChord`, `cycleShortcut`, `cycleButton` — and all of them are shortcuts, so a field
+that wants F6 keeps it. F6 and the right stick click with nothing to cycle to — no windows,
+or all of them put away with F9 — are not used either, press and release both, so a game that
+reads that key or that button in its own loop still gets it.
+
+A window is never dragged or resized past the top of the screen, and one still the size of
+what is in it is only ever as tall as the room under it, so its bottom edge and the grip in
+the corner stay somewhere you can reach them.
+
+A window can carry its own menus, and holds anything else you compose in it:
+
+```kotlin
+DebugWindow("Physics", menuBar = { Menu("&Presets") { Item("&Moon") { gravity = 1.6f } } }) { … }
+```
+
+### Where a window remembers being
+
+Position, size, whether it is folded and which sections in it are open are kept by a
+`DebugWindowStore` and come back the next time the game runs. On the desktop — the JVM and
+Linux native both — that is a file called `composegl-debug-windows.txt` beside the game, the
+way imgui keeps `imgui.ini`; on iOS and in the browser it lasts as long as the run, because
+neither has a place to write that the game has not chosen (on iOS, hand in a
+`FileDebugWindowStore` pointing at the app's Documents directory). A game with a save system
+of its own writes four lines:
+
+```kotlin
+class MyStore : DebugWindowStore {
+    override fun load(): Map<String, String> = settings.readMap("debug-windows")
+    override fun save(values: Map<String, String>) = settings.writeMap("debug-windows", values)
+}
+
+DebugWindowHost(state = rememberDebugWindowsState(MyStore())) { Game() }
+```
+
+`DebugWindowsState` is also how a game reads and changes the windows from elsewhere:
+`windows` names them from the back to the front, `hidden` puts them away, `bringToFront`,
+`position`, `size`, `isCollapsed`, `setCollapsed`, `focusNextWindow`, and `resetLayout()`
+to put every window back where the code puts it.
+
+Unlike the overlays below, a window is an ordinary part of the interface and takes the
+mouse, the keyboard and the pad. It is skinned like every other widget: `"debugwindow"`
+and `"debugwindow.active"` for the frame, `"debugwindow.title"` and
+`"debugwindow.title.active"`, `"debugwindow.button"`, `"debugwindow.body"`,
+`"debugwindow.label"`, `"debugwindow.value"` and `"debugwindow.grip"`. The default and
+high-contrast skins name all of them, and a colour line wears the picker's own
+`"colourswatch"` and `"colourpicker"`.
+
+The showcase demo has one over its scene: `Fight`, in the Debug menu.
 
 ---
 
