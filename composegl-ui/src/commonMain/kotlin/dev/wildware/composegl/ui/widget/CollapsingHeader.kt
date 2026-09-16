@@ -62,8 +62,9 @@ import dev.wildware.composegl.ui.skin.rememberStyle
  * The header is one control, the width it is given, with a small triangle at its start and the
  * title after it. A click, Enter, Space or the pad's South opens it or closes it, and the contents
  * grow out from under it and shrink back with `animateContentSize`, so the rows below slide rather
- * than jump. Closed, the contents are not composed at all: nothing in them can be focused, clicked
- * or reached with a pad, and they cost nothing.
+ * than jump. The contents are a column: each thing put in them goes under the one before. Closed,
+ * the contents are not composed at all: nothing in them can be focused, clicked or reached with a
+ * pad, and they cost nothing.
  *
  * Whether it is open is kept with `rememberSaveable`, so a section the player opened is still open
  * when they come back to the screen. A game that wants to hold the answer itself uses the overload
@@ -215,7 +216,9 @@ fun CollapsingHeader(
             name = "$style.body",
             content = {
                 if (composed) {
-                    Box(Modifier.fillMaxWidth().styled(bodyStyle)) { content() }
+                    // A column, so a section's rows stand one under another rather than on top of
+                    // each other.
+                    Column(Modifier.fillMaxWidth().styled(bodyStyle)) { content() }
                 }
             },
             measurePolicy = if (expanded) BodyPolicy.Open else BodyPolicy.Closing,
