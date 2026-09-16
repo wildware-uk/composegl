@@ -3,8 +3,9 @@
 The in-play widgets: health bars with a damage trail, a crosshair, hit markers and
 damage direction arcs, a low-health vignette, damage numbers anchored in the world,
 nameplates and waypoints pinned to points in the world, cooldowns, a hotbar, a
-weapon wheel, a minimap frame, a compass bar, notifications, timed subtitles and
-particles. These are the ones that made this toolkit worth building.
+weapon wheel, a minimap frame, a compass bar, a dialogue box with answers and a
+log, notifications, timed subtitles and particles. These are the ones that made
+this toolkit worth building.
 
 ---
 
@@ -40,12 +41,13 @@ text that takes a [[ring|Widgets#outlined-text]] only when there is one,
 **Their look is in the skin.** The default and high-contrast [[skins|Skins]]
 already have every style these use (`bar.*`, `reticle.*`, `hitmarker.*`,
 `damage.*`, `vignette`, `marker.*`, `cooldown.*`, `hotbar.*`, `wheel.*`,
-`minimap.*`, `compass.*`, `notification.*`, `subtitle.*`), so they look right with
-no setup. Your own skin file styles
+`minimap.*`, `compass.*`, `dialogue.*`, `notification.*`, `subtitle.*`), so they
+look right with no setup. Your own skin file styles
 them by the same names.
 
 `Typewriter`, `PromptGlyph` and `ProvidePrompts` stay in `composegl-ui`: they
-are not only for games. See [[Widgets]].
+are not only for games, and the [dialogue box](#dialogue) here is built on the
+first of them. See [[Widgets]].
 
 ## Bars
 
@@ -65,6 +67,11 @@ Bar(
 
 The trail is the thing: a hit drops the bar instantly and leaves a pale tail that
 catches up a moment later, which is how a player sees *how much* they just lost.
+
+In a right-to-left language a horizontal bar turns round with everything else: it
+fills from the right and drains towards the left. A bar that must not turn round
+— a timeline, a media scrubber — goes inside a `ProvideLayoutDirection` of its
+own.
 
 A bar shows a known amount. For "working on it" with no amount to show, use
 `IndeterminateBar` or `Spinner` from the core toolkit: see
@@ -674,6 +681,133 @@ of its own for a shout or a radio voice, and the name over it follows: give the
 skin a `radio.speaker` beside `radio` and a radio line gets a radio-voice name
 too. A line style with no `.speaker` of its own leaves the name as the band
 draws it.
+
+## Dialogue
+
+```kotlin
+// A beat of your own script. The widget never sees this type: it is handed the line and the
+// answers separately, because a line is a line whoever wrote the script around it.
+class Beat(val line: DialogueLine, val answers: List<DialogueChoice> = emptyList())
+
+val log = rememberDialogueLog()
+val beat = script.getOrNull(at)            // null when the conversation is over
+
+DialogueBox(
+    line = beat?.line,
+    choices = beat?.answers.orEmpty(),
+    onChoose = { branch(it.tag) },
+    onAdvance = { at++ },
+    log = log,
+    auto = settings.auto,
+    onAutoChange = { settings.auto = it },
+    onHistory = { logOpen = true },
+    portrait = { Image(it.portrait as String, Modifier.size(96f)) },
+)
+
+if (logOpen) Panel { DialogueHistory(log) }
+```
+
+A speaker, a face, a line that types itself out with
+[[Typewriter|Widgets#typewriter]], and the answers to it. The conversation stays
+yours: there is no script, no state machine and no "next" inside the widget,
+because every game already has its own and none of them agree.
+
+A line is `DialogueLine(text, speaker, portrait, runs, speakerStyle)`, and **its
+identity is the object, not the words** — a second `…` in an awkward silence is a
+second line, and it types itself out again rather than sitting there already
+finished.
+
+**One press does two things**, which is the rule every player already knows:
+while the line is still arriving it shows the rest of it at once, and once it has
+arrived it moves on. A click on the box, Space, Enter or the pad's South all do
+it.
+
+**Answers** appear when the line has finished, never over the top of it:
+
+```kotlin
+DialogueChoice("pay the toll", tag = "pay")
+DialogueChoice("pay the toll", enabled = false, reason = "you have 40 credits", tag = "pay")
+```
+
+Focus moves to the first answer that can be taken the moment the answers appear,
+so a pad or a keyboard can answer without touching anything else — even if the
+player was last on the box's own Auto button; `1` to `9` take one straight off
+the number row; focus stays inside the box while a question is up, so it cannot
+be tabbed away from. A disabled answer is **shown rather than hidden**, with its
+reason under it — that is the whole point of having one, because a choice quietly
+left off the list tells the player nothing.
+
+A question with *every* answer disabled is a wall rather than a question. It is
+still drawn, reasons and all, but focus is not trapped on it and a press moves
+the conversation on as it would on a line with no answers at all — otherwise the
+player would be stuck in front of it with nothing to press.
+
+| | |
+|---|---|
+| `timerMillis`, `onTimeout` | a bar under the answers that drains while the player thinks. Silence is an answer and your game decides what it means |
+| `auto`, `onAutoChange` | waits `autoMillis` on a finished line and then moves on. The button appears when you pass the callback |
+| `skipping`, `onSkippingChange` | lines arrive whole and move on after `skipMillis`. **Stops at a question** — reading past a line the player has seen is one thing, answering for them is another. Holding Ctrl skips while it is held |
+| `onHistory` | the Log button, and the pad's North. Your game opens `DialogueHistory` where it wants it |
+| `log` | the box writes each line down as it starts and each answer as the player gives it, for that history |
+| `indicator` | what says the line is done: a small blinking arrow by default, and the place to put a [[PromptGlyph|Widgets#tooltips-and-prompts]] |
+| `effect` | a per-character `TypewriterEffect` — a letter that shakes as it lands, a word that fades up |
+
+**The portrait swaps when the expression does.** The face fades out and the new
+one fades in, so a change from calm to furious is something the player sees
+happen; two lines from the same speaker with the same `portrait` do not blink
+between them. The slot is yours — a picture, a panel, an animation — and it is
+called with the line whose face is showing, which during a swap is still the old
+one.
+
+**Names in colour** come from the same styled runs an ordinary label takes:
+
+```kotlin
+DialogueLine(
+    "whatever is out there is using VEGA codes",
+    speaker = "VEGA",
+    runs = listOf(TextRun(TextRange(30, 34), colour = gold)),
+)
+```
+
+A run's *colour* is applied as the characters arrive. A run's *underline* is not:
+a typewriter draws letter by letter and does not know where a line breaks, so
+decorations appear in the log, where the line is an ordinary `Text`. See
+[[styled runs|Widgets#styled-runs-an-underlined-term-a-struck-word-a-value-in-colour]].
+
+**The log** is a lazy list, so a conversation a thousand lines long costs a
+screenful. `DialogueLog` is the game's — the box goes away while the player reads
+the log, and comes back with the same log behind it:
+
+```kotlin
+val log = rememberDialogueLog(limit = 200)
+DialogueHistory(log, Modifier.fillMaxSize())     // opens at the newest line
+
+log.say(line)                                    // only for lines the box never saw
+log.answer("say nothing")                        // and answers it never heard
+log.clear()                                      // a new conversation
+```
+
+Pass `log` to the box and it writes both halves down by itself — the line as it
+starts, the answer as it is given — so `say` and `answer` are only for a game
+putting something into the log the box was not showing.
+
+**Its own words are localised.** Auto, Skip and Log are looked up as
+`dialogue.auto`, `dialogue.skip` and `dialogue.log`, falling back to the English
+words rather than showing the key — the same bargain the [compass
+points](#the-names-are-the-players-language) make. Everything else on the box is
+your text, already in the player's language before it arrives. In Arabic the
+whole box is mirrored: the portrait is on the right, so is where the words and
+the answers start, and the timer bar drains the other way.
+
+The skin names every part: `dialogue`, `dialogue.speaker`, `dialogue.text`,
+`dialogue.choice` and `dialogue.choice.reason`, `dialogue.timer.track` and
+`dialogue.timer.fill`, `dialogue.control` and `dialogue.control.on`,
+`dialogue.advance`, and `dialogue.history.speaker`, `.line` and `.answer`.
+
+**It costs nothing when it is not talking.** A null `line` draws nothing, composes
+nothing and asks for no frames. A finished line asks for one thing only: the
+small arrow breathing to say it is waiting for the player. Pass an `indicator` of
+your own — a static glyph, a prompt — and even that goes.
 
 ## Particles
 

@@ -108,6 +108,60 @@
     "subtitle.speaker": { "textColour": "#5B8DEF", "text": { "size": 16 } },
     "subtitle.caption": { "textColour": "#C7D0DC", "text": { "size": 16 } },
 
+    // A conversation: the box, the name over the line, the line itself, the answers to it, the bar
+    // that runs out while the player thinks, the small Auto / Skip / Log buttons and the arrow that
+    // says the line has finished. The box is slightly see-through, because a conversation happens
+    // somewhere and the somewhere should still be there.
+    "dialogue": {
+      "background": { "fill": "#E61A1F28", "corner": 8, "border": "#39445A", "padding": [16, 14] }
+    },
+    "dialogue.speaker": { "textColour": "#F2C94C", "text": { "size": 18 } },
+    "dialogue.text": { "textColour": "#E8ECF2" },
+
+    "dialogue.choice": {
+      "background": { "fill": "#232A35", "corner": 5, "border": "#2C3545", "padding": [12, 8] },
+      "hovered": { "background": { "fill": "#39445A", "corner": 5, "border": "#4A5670" } },
+      "focused": { "background": { "fill": "#2A3342", "corner": 5, "border": "#5B8DEF" } },
+      "pressed": {
+        "background": { "fill": "#1A1F28", "corner": 5, "border": "#2C3545" },
+        "contentOffset": [0, 1]
+      },
+      "disabled": { "textColour": "#5E6B7E", "tint": "#A0FFFFFF" }
+    },
+    "dialogue.choice.reason": { "textColour": "#9AA4B2", "text": { "size": 13 } },
+
+    "dialogue.timer.track": { "background": { "fill": "#10131A", "corner": 2, "border": "#2C3545" } },
+    "dialogue.timer.fill": { "background": { "fill": "#F2C94C", "corner": 2 } },
+
+    "dialogue.control": {
+      "background": { "fill": "#1A1F28", "corner": 4, "border": "#2C3545", "padding": [10, 4] },
+      "textColour": "#9BA6B6",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#2C3545", "corner": 4, "border": "#4A5670" } },
+      "focused": { "background": { "fill": "#2A3342", "corner": 4, "border": "#5B8DEF" } },
+      "pressed": {
+        "background": { "fill": "#10131A", "corner": 4, "border": "#2C3545" },
+        "contentOffset": [0, 1]
+      }
+    },
+    "dialogue.control.on": {
+      "background": { "fill": "#3F6BD6", "corner": 4, "border": "#5B8DEF", "padding": [10, 4] },
+      "textColour": "#E8ECF2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#5B8DEF", "corner": 4, "border": "#7BA5F5" } },
+      "focused": { "background": { "fill": "#3F6BD6", "corner": 4, "border": "#7BA5F5" } },
+      "pressed": {
+        "background": { "fill": "#2C4C99", "corner": 4, "border": "#3F6BD6" },
+        "contentOffset": [0, 1]
+      }
+    },
+    "dialogue.advance": { "textColour": "#5B8DEF" },
+
+    // The log a player opens when they were not paying attention.
+    "dialogue.history.speaker": { "textColour": "#F2C94C", "text": { "size": 14 } },
+    "dialogue.history.line": { "textColour": "#E8ECF2", "text": { "size": 14 } },
+    "dialogue.history.answer": { "textColour": "#5B8DEF", "text": { "size": 14 } },
+
     // --- text ---
 
     "label": {

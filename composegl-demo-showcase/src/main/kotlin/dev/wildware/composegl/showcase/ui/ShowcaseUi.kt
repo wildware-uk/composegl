@@ -39,6 +39,10 @@ import dev.wildware.composegl.game.CompassBar
 import dev.wildware.composegl.game.Cooldown
 import dev.wildware.composegl.game.DamageDirectionLayer
 import dev.wildware.composegl.game.DamageNumberLayer
+import dev.wildware.composegl.game.DialogueBox
+import dev.wildware.composegl.game.DialogueChoice
+import dev.wildware.composegl.game.DialogueHistory
+import dev.wildware.composegl.game.DialogueLine
 import dev.wildware.composegl.game.HitMarker
 import dev.wildware.composegl.game.Hotbar
 import dev.wildware.composegl.game.HotbarSlot
@@ -65,6 +69,7 @@ import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.layout.HorizontalAlignment
 import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.Row
+import dev.wildware.composegl.ui.layout.Spacer
 import dev.wildware.composegl.ui.layout.VerticalAlignment
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
@@ -82,12 +87,15 @@ import dev.wildware.composegl.ui.modifier.onShortcutKey
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.modifier.tint
+import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.skin.ProvideSkin
 import dev.wildware.composegl.ui.skin.Skin
 import dev.wildware.composegl.ui.skin.styled
 import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.text.TextRange
+import dev.wildware.composegl.ui.text.TextRun
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.GamepadEvent
 import dev.wildware.composegl.ui.input.GamepadHandler
@@ -97,6 +105,7 @@ import dev.wildware.composegl.ui.input.KeyHandler
 import dev.wildware.composegl.ui.input.KeyShortcut
 import dev.wildware.composegl.ui.input.Modifiers
 import dev.wildware.composegl.ui.input.plus
+import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.CollapsingHeader
 import dev.wildware.composegl.ui.widget.ColourPickerButton
 import dev.wildware.composegl.ui.widget.LocalFonts
@@ -179,6 +188,10 @@ fun ShowcaseUi(
                     }
 
                     ExhibitPanel(state)
+
+                    // Along the bottom, where a conversation goes, and over the HUD it covers a
+                    // little of: somebody talking is the thing to read.
+                    if (state.isOn(Exhibit.Dialogue)) CommsChannel(state)
 
                     // Over the HUD and under the menus, because a wheel covers the fight but not
                     // the things that are not part of it.
@@ -810,6 +823,98 @@ private fun WeaponWheel(state: ShowcaseState) {
 private val Guns = listOf("PULSE", "RIFLE", "LANCE", "MINES")
 
 private val Rounds = listOf("AP", "HE")
+
+/**
+ * A conversation over the comms channel: a name, a face, a line that types itself out, and answers.
+ *
+ * The whole exchange is the game's — three lines, a question, and a different answer back depending
+ * on what the player said. The widget is handed one line at a time and says what the player did
+ * about it, which is all a dialogue box ever has to do.
+ *
+ * Auto, Skip and Log are the showcase's own state, offered to the box so that it draws the buttons
+ * and wires them up. Ctrl skips while it is held; Y or the Log button opens what has been said.
+ */
+@Composable
+private fun CommsChannel(state: ShowcaseState) {
+    val line = CommsLines.getOrNull(state.commsAt) ?: state.commsReply
+    val asking = state.commsAt == CommsLines.lastIndex
+
+    DialogueBox(
+        line = line,
+        modifier = Modifier.align(Alignment.BottomCentre).padding(bottom = 28f).width(680f),
+        choices = if (asking) CommsAnswers else emptyList(),
+        onChoose = { answer ->
+            // The answer goes into the log by itself, against the line that asked for it.
+            state.commsReply = repliesTo(answer)
+            state.commsAt++
+        },
+        onAdvance = {
+            // Past the end the exchange starts again, so the exhibit can be watched twice.
+            if (state.commsAt >= CommsLines.size) {
+                state.commsAt = 0
+                state.commsReply = null
+            } else {
+                state.commsAt++
+            }
+        },
+        log = state.commsLog,
+        auto = state.commsAuto,
+        onAutoChange = { state.commsAuto = it },
+        skipping = state.commsSkipping,
+        onSkippingChange = { state.commsSkipping = it },
+        onHistory = { state.commsLogOpen = true },
+        onTimeout = { state.commsAt = 0 },
+        timerMillis = if (asking) 12_000 else 0,
+        portrait = { at ->
+            // No art in this demo, so the face is a box with the expression written in it — which
+            // is enough to see the swap when the line changes it.
+            Box(Modifier.size(72f).styled("dialogue.portrait"), contentAlignment = Alignment.Centre) {
+                Text(at.portrait?.toString() ?: "", style = "label.tag")
+            }
+        },
+    )
+
+    if (state.commsLogOpen) {
+        Panel(
+            Modifier.align(Alignment.Centre).width(560f).height(320f),
+            style = "panel",
+        ) {
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10f)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = VerticalAlignment.Centre) {
+                    Text("CHANNEL LOG", style = "label.title")
+                    Spacer(Modifier.weight(1f))
+                    Button("Close", { state.commsLogOpen = false })
+                }
+                DialogueHistory(state.commsLog, Modifier.fillMaxWidth().weight(1f))
+            }
+        }
+    }
+}
+
+/** The exchange, in order. The last one is the question, which is why it has answers under it. */
+private val CommsLines = listOf(
+    DialogueLine("the relay went quiet six hours ago", speaker = "VEGA", portrait = "CALM"),
+    DialogueLine(
+        "whatever is out there is using VEGA codes to talk to it",
+        speaker = "VEGA",
+        portrait = "ALARM",
+        // A name in its own colour, through the same styled runs an ordinary label takes.
+        runs = listOf(TextRun(TextRange(30, 34), colour = Colour.rgb(0xFFC24C))),
+    ),
+    DialogueLine("what do you want to do about it", speaker = "VEGA", portrait = "ASK"),
+)
+
+/** Three answers: two the player has and one they have not, with why under it. */
+private val CommsAnswers = listOf(
+    DialogueChoice("hail them on the open channel", tag = "hail"),
+    DialogueChoice("say nothing and close in", tag = "close"),
+    DialogueChoice("decode the traffic", enabled = false, reason = "no decoder aboard", tag = "decode"),
+)
+
+private fun repliesTo(answer: DialogueChoice): DialogueLine = when (answer.tag) {
+    "hail" -> DialogueLine("channel open. they are listening", speaker = "VEGA", portrait = "CALM")
+    else -> DialogueLine("running dark. hold this heading", speaker = "VEGA", portrait = "ALARM")
+}
 
 /** What an ability does here: start its cooldown and cost something. */
 private fun use(cooldown: Cooldown, state: ShowcaseState) {

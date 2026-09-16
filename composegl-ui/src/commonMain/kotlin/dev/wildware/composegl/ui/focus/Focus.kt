@@ -12,6 +12,32 @@ import kotlin.math.abs
 /** Which way the player asked focus to go. [Next] and [Previous] are Tab and Shift-Tab. */
 enum class FocusDirection { Up, Down, Left, Right, Next, Previous }
 
+/** The focus manager over the tree [this] is in, or null for a tree nobody built one over. */
+fun UiNode.focusManagerOrNull(): FocusManager? {
+    var walk: UiNode? = this
+    while (walk != null) {
+        walk.focusManager?.let { return it }
+        walk = walk.parent
+    }
+    return null
+}
+
+/**
+ * Puts focus on [node], and says whether it landed.
+ *
+ * The other half of `initialFocus`, which is only a tie-break for a screen that has focus nowhere:
+ * this is for something that appears while focus is already somewhere else and has to take it — the
+ * answers under a line of dialogue, the first row of a panel that just opened. A node that is not
+ * in a tree, or cannot hold focus, is left alone and the answer is false.
+ *
+ * A widget gets the node from [dev.wildware.composegl.ui.modifier.onPlaced], so this is worth
+ * asking again on the next frame: a node that has just been composed has not been placed yet.
+ */
+fun focusOnNode(node: UiNode?): Boolean {
+    val manager = node?.focusManagerOrNull() ?: return false
+    return manager.focusOn(node)
+}
+
 /**
  * Asked to bring a rectangle into view.
  *

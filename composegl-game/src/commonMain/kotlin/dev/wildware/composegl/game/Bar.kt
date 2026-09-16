@@ -15,6 +15,7 @@ import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.wait
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.Layout
+import dev.wildware.composegl.ui.layout.LayoutDirection
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
@@ -50,6 +51,11 @@ data class BarThreshold(val below: Float, val style: String)
  *
  * It costs nothing while the value is steady. The trail's animation unsubscribes when it arrives,
  * and a bar with no pulse and no movement on it asks for no frames at all.
+ *
+ * **In a right-to-left language a horizontal bar turns round**: it fills from the right and drains
+ * towards the left, the way the words beside it are read. One that must not turn round — a
+ * timeline, a media scrubber — goes inside a
+ * [ProvideLayoutDirection][dev.wildware.composegl.ui.layout.ProvideLayoutDirection] of its own.
  *
  * ```kotlin
  * Bar(health, thresholds = listOf(BarThreshold(0.25f, "bar.fill.critical")), pulseBelow = 0.25f)
@@ -223,6 +229,16 @@ private class BarPolicy(
             val at = span * (index - 2) / segments.toFloat() - SegmentWidth / 2f
             placements[index * 2] = if (horizontal) at else 0f
             placements[index * 2 + 1] = if (horizontal) 0f else at
+        }
+
+        // Everything above is worked out left to right, and a right-to-left screen turns it round
+        // here: in Arabic a bar fills from the right and drains towards the left, the same way the
+        // words on it are read. A vertical bar has nothing to mirror — up is up in every language.
+        if (horizontal && layoutDirection == LayoutDirection.Rtl) {
+            for (index in 0 until count) {
+                val piece = placeables[index] ?: continue
+                placements[index * 2] = width - placements[index * 2] - piece.width
+            }
         }
 
         return layout(width, height, count)

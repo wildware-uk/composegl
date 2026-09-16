@@ -1299,21 +1299,28 @@ Typewriter(line, charactersPerSecond = 40f, onFinished = { showChoices = true })
 ```
 
 Text that arrives a letter at a time, skipping to the end on a press. It measures
-the whole string up front, so the box does not grow as the words appear.
+the whole string up front, so the box does not grow as the words appear. Sending
+the same line back to the beginning with `line.restart()` types it out again,
+even when the words have not changed.
+
+For a whole conversation — a speaker, a portrait, answers, skip, auto and a
+scrollable log — see the [[dialogue box|Game-widgets#dialogue]], which is built
+on this.
 
 ---
 
 # Game widgets
 
 Bars, the reticle, damage numbers, world markers, cooldowns, the hotbar, the
-minimap frame, the compass bar, notifications, subtitles and particles live in
-their own module, `composegl-game`. They have **[[their own page|Game-widgets]]**.
+minimap frame, the compass bar, the dialogue box, notifications, subtitles and
+particles live in their own module, `composegl-game`. They have
+**[[their own page|Game-widgets]]**.
 
 ---
 
 ## What next
 
-- **[[Game widgets]]** — bars, reticle, damage numbers, world markers, cooldowns, hotbar, minimap, compass bar, subtitles, particles
+- **[[Game widgets]]** — bars, reticle, damage numbers, world markers, cooldowns, hotbar, minimap, compass bar, dialogue, subtitles, particles
 - **[[Skins]]** — how all of these get their look
 - **[[Input]]** — focus, pads, and keyboard
 - **[[Shaders]]** — blurring, outlining or dissolving any of the above

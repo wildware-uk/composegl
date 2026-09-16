@@ -81,10 +81,22 @@ class TypewriterState internal constructor(text: String, val clock: Clock) {
         revealed = text.length
     }
 
+    /**
+     * How many times this line has started from the beginning.
+     *
+     * What the widget's typing is keyed on. The text alone is not enough: a line that says exactly
+     * what the one before it said — a second "…" in a conversation, a [restart] of the same
+     * sentence — has nothing in it that changed, and the typing would never start again. This does
+     * change, every time, so it does.
+     */
+    internal var generation by mutableStateOf(0)
+        private set
+
     /** Back to the beginning of the same line. */
     fun restart() {
         revealed = 0
         nextAt = NotStarted
+        generation++
     }
 
     internal fun replace(value: String) {
@@ -263,7 +275,10 @@ fun Typewriter(
     val ink = colour ?: resolved.textColour
 
     // Only while there is more to show. A finished line asks the runtime for nothing at all.
-    LaunchedEffect(state, state.text, charactersPerSecond, pauses, effect) {
+    //
+    // Keyed on the generation rather than on the text, so that a line sent back to the beginning
+    // types again even when the words are the same as last time. See [TypewriterState.generation].
+    LaunchedEffect(state, state.generation, charactersPerSecond, pauses, effect) {
         clocks.register(state.clock)
         val perCharacter = (1_000_000_000f / charactersPerSecond.coerceAtLeast(1f)).toLong()
         while (state.tick(clocks.time(state.clock), perCharacter, pauses)) {

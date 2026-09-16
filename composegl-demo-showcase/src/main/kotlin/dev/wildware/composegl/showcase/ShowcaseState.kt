@@ -8,6 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.game.DamageDirections
 import dev.wildware.composegl.game.DamageNumbers
+import dev.wildware.composegl.game.DialogueLine
+import dev.wildware.composegl.game.DialogueLog
 import dev.wildware.composegl.game.HitMarkerState
 import dev.wildware.composegl.game.ParticleEmitter
 import dev.wildware.composegl.game.ParticleStyle
@@ -31,6 +33,7 @@ enum class Exhibit(val title: String, val blurb: String) {
     Telemetry("Live plots", "Heat and frame time as graphs"),
     Wheel("Weapon wheel", "Hold Q or LB and flick a stick"),
     Comms("Subtitles", "Timed lines, captions and the player's settings"),
+    Dialogue("Comms channel", "A conversation with answers and a log"),
 }
 
 /** How often the fight fires, as a debug window offers it. */
@@ -103,6 +106,27 @@ class ShowcaseState {
 
     /** How far the camera has turned, for the radar's compass. */
     var heading by mutableFloatStateOf(0f)
+
+    // --- the conversation on the comms channel ----------------------------------------------------
+    //
+    // A conversation is the game's, never the widget's: this is where it is kept, and the dialogue
+    // box is handed one line at a time.
+
+    /** Which line of the exchange is being said. */
+    var commsAt by mutableIntStateOf(0)
+
+    /** What VEGA said back to the answer the player gave, made when they answered. */
+    var commsReply by mutableStateOf<DialogueLine?>(null)
+
+    /** Whether the conversation is running itself, and whether the player is holding skip. */
+    var commsAuto by mutableStateOf(false)
+    var commsSkipping by mutableStateOf(false)
+
+    /** Whether the log is up over the channel. */
+    var commsLogOpen by mutableStateOf(false)
+
+    /** Everything said so far, which outlives the box: the log is readable with the box gone. */
+    val commsLog = DialogueLog()
 
     /**
      * How far through the dissolve the shader shelf is, 0 to 1 and back.
