@@ -375,6 +375,35 @@
     "hotbar.prompt": { "textColour": "#FFFFFF", "text": { "size": 12 } },
     "hotbar.charges": { "textColour": "#FFFFFF", "text": { "size": 12 } },
 
+    // --- the inventory grid ---
+    //
+    // An empty square is a hole to put something in, and a square with something in it is a tile
+    // over that hole. Here the difference is the edge rather than the fill, since everything is
+    // black: a free square is outlined in grey and a full one in white. The two footprints keep
+    // the green and the red of the standard skin, at full strength — "it goes here" and "it does
+    // not" are the one pair a colour-blind player is told by the shape underneath as well.
+
+    "inventory.cell": {
+      "background": { "fill": "#000000", "corner": 4, "border": "#808080", "borderWidth": 2 },
+      "hovered": { "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#000000", "corner": 4, "border": "#FFD600", "borderWidth": 2 } }
+    },
+
+    "inventory.item": {
+      "background": { "fill": "#000000", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 },
+      "hovered": { "background": { "fill": "#333333", "corner": 4, "border": "#FFFFFF", "borderWidth": 2 } },
+      "focused": { "background": { "fill": "#333333", "corner": 4, "border": "#FFD600", "borderWidth": 2 } },
+      "disabled": { "textColour": "#B0B0B0", "tint": "#90FFFFFF" }
+    },
+
+    "inventory.count": { "textColour": "#FFFFFF", "text": { "size": 12 } },
+    "inventory.footprint": { "background": { "fill": "#8033CC33", "corner": 4, "border": "#33CC33", "borderWidth": 2 } },
+    "inventory.footprint.invalid": { "background": { "fill": "#80FF3333", "corner": 4, "border": "#FF3333", "borderWidth": 2 } },
+
+    "inventory.split": {
+      "background": { "fill": "#000000", "corner": 6, "border": "#FFFFFF", "borderWidth": 2 }
+    },
+
     // An ability on cooldown. The wedge is a dark sheet over the icon rather than a colour of its
     // own, so it works over whatever art a game puts underneath it.
 

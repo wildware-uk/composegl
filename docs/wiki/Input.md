@@ -514,6 +514,10 @@ South reaches a slot through `Modifier.onActivate { … }`, which you can use yo
 is asked when South or Enter comes up on the focused node, before the click. Return
 true and there is no click.
 
+A whole bag of these — squares, stacks that merge and split, items bigger than one
+square, and a chest to drag them into — is
+[[InventoryGrid|Game-widgets#the-inventory-grid]], built on exactly this.
+
 ---
 
 ## Raw events

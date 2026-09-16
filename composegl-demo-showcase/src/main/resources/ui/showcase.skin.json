@@ -146,6 +146,31 @@
     "hotbar.prompt": { "textColour": "#6E8093", "text": { "size": 13 } },
     "hotbar.charges": { "textColour": "#FFFFFF", "text": { "size": 13 } },
 
+    // --- the cargo grid ---
+    //
+    // An empty square is a hole in the hold and a square with something in it is a plate over that
+    // hole, so the two read apart at a glance. The two footprints are the answer to "will it go
+    // here?", given while the crate is still in the air.
+
+    "inventory.cell": {
+      "background": { "fill": "#400A1018", "corner": 3, "border": "#20FFFFFF" },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 3, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#400A1018", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "inventory.item": {
+      "background": { "fill": "#900A1018", "corner": 3, "border": "#404CC2FF" },
+      "textColour": "#DCE6F2",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#304CC2FF", "corner": 3, "border": "#4CC2FF" } },
+      "focused": { "background": { "fill": "#900A1018", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } }
+    },
+
+    "inventory.count": { "textColour": "#FFFFFF", "text": { "size": 12 } },
+    "inventory.footprint": { "background": { "fill": "#5046A758", "corner": 3, "border": "#46A758" } },
+    "inventory.footprint.invalid": { "background": { "fill": "#50E5484D", "corner": 3, "border": "#E5484D" } },
+    "inventory.split": { "background": { "fill": "#F00A1018", "corner": 4, "border": "#4CC2FF" } },
+
     "cooldown.sweep": { "background": { "fill": "#B0060A12" } },
     "cooldown.flash": { "background": { "fill": "#804CC2FF" } },
     "cooldown.seconds": { "textColour": "#FFFFFF", "text": { "size": 16 } },

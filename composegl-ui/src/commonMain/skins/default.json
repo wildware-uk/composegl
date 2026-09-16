@@ -387,6 +387,34 @@
     "hotbar.prompt": { "textColour": "#9BA6B6", "text": { "size": 12 } },
     "hotbar.charges": { "textColour": "#E8ECF2", "text": { "size": 12 } },
 
+    // --- the inventory grid ---
+    //
+    // An empty square is a hole to put something in, and a square with something in it is a tile
+    // over that hole, so the two read as different things at a glance rather than as one thing
+    // with and without a picture. The two footprints are the answer to "will it go here?", given
+    // before the player lets go: they are drawn over the squares, so both are see-through.
+
+    "inventory.cell": {
+      "background": { "fill": "#0C0F15", "corner": 4, "border": "#1F2630" },
+      "hovered": { "background": { "fill": "#141922", "corner": 4, "border": "#39445A" } },
+      "focused": { "background": { "fill": "#141922", "corner": 4, "border": "#5B8DEF", "borderWidth": 2 } }
+    },
+
+    "inventory.item": {
+      "background": { "fill": "#1A1F28", "corner": 4, "border": "#2C3545" },
+      "hovered": { "background": { "fill": "#232A35", "corner": 4, "border": "#39445A" } },
+      "focused": { "background": { "fill": "#232A35", "corner": 4, "border": "#5B8DEF", "borderWidth": 2 } },
+      "disabled": { "textColour": "#5E6B7E", "tint": "#90FFFFFF" }
+    },
+
+    "inventory.count": { "textColour": "#E8ECF2", "text": { "size": 12 } },
+    "inventory.footprint": { "background": { "fill": "#5946A758", "corner": 4, "border": "#46A758" } },
+    "inventory.footprint.invalid": { "background": { "fill": "#59E5484D", "corner": 4, "border": "#E5484D" } },
+
+    "inventory.split": {
+      "background": { "fill": "#141922", "corner": 6, "border": "#39445A" }
+    },
+
     // An ability on cooldown. The wedge is a dark sheet over the icon rather than a colour of its
     // own, so it works over whatever art a game puts underneath it.
 

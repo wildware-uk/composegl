@@ -78,6 +78,7 @@ class HighContrastSkinTest {
         "tree.row" to null, "tree.row.selected" to null, "tree.toggle" to null, "tree.toggle.open" to null,
         "hotbar.prompt" to "hotbar.slot", "hotbar.charges" to "hotbar.slot",
         "cooldown.seconds" to null,
+        "inventory.count" to "inventory.item",
         // A wheel's own words are written in the middle, on the hub, and on the slice being pointed
         // at. Both, because a skin that reads on one and not the other is half a skin.
         "wheel.label" to "wheel.hub", "wheel.label" to "wheel.slice.highlighted",
