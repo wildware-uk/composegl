@@ -26,6 +26,13 @@ enum class Exhibit(val title: String, val blurb: String) {
     Starmap("Star map", "A plane to drag and zoom"),
 }
 
+/** How often the fight fires, as a debug window offers it. */
+enum class Pace(val seconds: Float) {
+    Calm(1.2f),
+    Brisk(0.45f),
+    Frantic(0.12f),
+}
+
 /** What one of the scene's drones looks like to the interface. */
 class TargetReadout(val callsign: String) {
     var shield by mutableFloatStateOf(1f)
@@ -94,6 +101,32 @@ class ShowcaseState {
      * `damage.show(...)` from its own loop, and the interface only draws what is in the pool.
      */
     val damage = DamageNumbers(capacity = 96, clock = Clock.World)
+
+    // --- what the tuning window changes ---------------------------------------------------------
+    //
+    // Ordinary properties the game's own loop reads. The debug window writes them through
+    // `state::pace` and the rest; nothing here knows a window exists.
+
+    /** Whether the tuning window is on show. The Debug menu's tick and its cross both set it. */
+    var tuningOpen by mutableStateOf(true)
+
+    /** How often something is shot at. */
+    var pace by mutableStateOf(Pace.Brisk)
+
+    /** Nothing is shot at while this is on, so a screenshot can be taken of a still fight. */
+    var holdFire by mutableStateOf(false)
+
+    /** Shoot at something on the next frame, whatever the pace says. */
+    var fireNow by mutableStateOf(false)
+
+    /** Every damage number multiplied by this, for seeing what four figures looks like. */
+    var damageScale by mutableFloatStateOf(1f)
+
+    /** How many sparks an ordinary hit throws off. */
+    var sparkBurst by mutableIntStateOf(24)
+
+    /** What colour those sparks start. */
+    var sparkTint by mutableStateOf(Colour.rgb(0xFFD48A))
 
     /**
      * The sparks that come off a hit.

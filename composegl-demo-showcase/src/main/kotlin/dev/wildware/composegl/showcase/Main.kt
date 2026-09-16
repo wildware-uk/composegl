@@ -214,13 +214,17 @@ class Showcase : ApplicationAdapter() {
     private fun fireAtSomething(delta: Float) {
         if (!state.isOn(Exhibit.Damage)) return
         sinceHit += delta
-        if (sinceHit < 0.45f) return
+        // Everything about the rate is the tuning window's, and "now" is its button.
+        val now = state.fireNow
+        if (now) state.fireNow = false
+        if (!now && (state.holdFire || sinceHit < state.pace.seconds)) return
         sinceHit = 0f
 
         val index = random.nextInt(scene.drones.size)
         val drone = scene.drones[index]
         val critical = random.nextInt(5) == 0
-        val amount = if (critical) random.nextInt(180, 340) else random.nextInt(20, 90)
+        val rolled = if (critical) random.nextInt(180, 340) else random.nextInt(20, 90)
+        val amount = (rolled * state.damageScale).toInt()
         // An anchor rather than a position: the drone is moving, and the number should follow it.
         state.damage.show(
             if (critical) "$amount!" else "$amount",
@@ -232,7 +236,8 @@ class Showcase : ApplicationAdapter() {
         if (state.isOn(Exhibit.Sparks)) {
             val readout = state.targets[index]
             if (readout.onScreen) {
-                state.sparks.burst(if (critical) 44 else 24, readout.screenX, readout.screenY, HitSparks)
+                val burst = if (critical) state.sparkBurst * 2 else state.sparkBurst
+                state.sparks.burst(burst, readout.screenX, readout.screenY, HitSparks.copy(colour = state.sparkTint))
             }
         }
 

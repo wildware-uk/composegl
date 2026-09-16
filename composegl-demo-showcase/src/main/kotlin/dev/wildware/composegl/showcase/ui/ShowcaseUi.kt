@@ -12,12 +12,15 @@ import dev.wildware.composegl.effects.colourGrade
 import dev.wildware.composegl.effects.dissolve
 import dev.wildware.composegl.effects.outline
 import dev.wildware.composegl.showcase.Exhibit
+import dev.wildware.composegl.showcase.Pace
 import dev.wildware.composegl.showcase.ShowcaseState
 import dev.wildware.composegl.showcase.TargetReadout
 import dev.wildware.composegl.ui.animation.Easings
 import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.animateFloatAsState
 import dev.wildware.composegl.ui.debug.FrameBudget
+import dev.wildware.composegl.debug.DebugWindow
+import dev.wildware.composegl.debug.DebugWindowHost
 import dev.wildware.composegl.debug.DevConsole
 import dev.wildware.composegl.debug.FrameBudgetOverlay
 import dev.wildware.composegl.debug.arg
@@ -46,6 +49,7 @@ import dev.wildware.composegl.ui.layout.VerticalAlignment
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.alpha
+import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.fillMaxSize
@@ -70,7 +74,6 @@ import dev.wildware.composegl.ui.widget.CollapsingHeader
 import dev.wildware.composegl.ui.widget.ColourPickerButton
 import dev.wildware.composegl.ui.widget.LocalFonts
 import dev.wildware.composegl.ui.widget.MenuBar
-import dev.wildware.composegl.ui.widget.PopupHost
 import dev.wildware.composegl.ui.widget.Splitter
 import dev.wildware.composegl.ui.widget.Spinner
 import dev.wildware.composegl.ui.widget.IndeterminateBar
@@ -108,8 +111,9 @@ fun ShowcaseUi(
             // every widget rather than by whatever happens to have focus.
             val hotbar = remember { HotbarState() }
 
-            // The menu bar's menus and the target panel's context menu drop through this.
-            PopupHost {
+            // The windows go over everything, and the host is a PopupHost too, so the menu bar's
+            // menus and the target panel's context menu drop through it.
+            DebugWindowHost {
                 Box(Modifier.fillMaxSize().onKeyEvent(hotbar::onKey)) {
                     if (state.isOn(Exhibit.Hud)) {
                         CombatHud(state)
@@ -152,6 +156,10 @@ fun ShowcaseUi(
                     // And after even that, because a console goes over everything. ` opens it.
                     ShowcaseConsole(state)
                 }
+
+                // Written here, drawn by the host over the lot, and draggable anywhere. F9 puts it
+                // away with every other debug window; the Debug menu brings it back.
+                if (state.tuningOpen) TuningWindow(state)
             }
         }
     }
@@ -213,6 +221,47 @@ private fun ShowcaseConsole(state: ShowcaseState) {
 }
 
 /**
+ * The fight's knobs, in a floating window: the thing a developer opens instead of writing a screen.
+ *
+ * Every line is a property of [ShowcaseState] that the game's own loop already reads —
+ * `state::pace`, `state::sparkTint` — so nothing in the game knows the window exists. Drag it by its
+ * title, pull an edge, fold it with the triangle, and it opens where it was left the next time the
+ * demo runs.
+ */
+@Composable
+private fun TuningWindow(state: ShowcaseState) {
+    DebugWindow(
+        "Fight",
+        initialPosition = Offset(28f, 96f),
+        onClose = { state.tuningOpen = false },
+        menuBar = {
+            Menu("&Presets") {
+                Item("&Quiet") {
+                    state.pace = Pace.Calm
+                    state.sparkBurst = 12
+                    state.damageScale = 1f
+                }
+                Item("&Bullet hell") {
+                    state.pace = Pace.Frantic
+                    state.sparkBurst = 60
+                    state.damageScale = 4f
+                }
+            }
+        },
+    ) {
+        choice("Pace", state::pace, Pace.entries)
+        toggle("Hold fire", state::holdFire)
+        tweak("Damage", state::damageScale, 0.1f..8f, step = 0.1f)
+        button("Hit something now") { state.fireNow = true }
+        CollapsingHeader("Sparks", initiallyExpanded = true) {
+            tweak("Per hit", state::sparkBurst, 0..80)
+            colour("Tint", state::sparkTint, alpha = false)
+        }
+        text("Panel redraws", state.holoDraws.toString())
+    }
+}
+
+/**
  * The menu bar across the top: what is on show, which drone is locked, and the frame budget.
  *
  * Every item is state the rest of the screen already reads, so the bar is only another way of
@@ -243,6 +292,7 @@ private fun ShowcaseMenus(state: ShowcaseState, budget: FrameBudget) {
         Menu("&Debug") {
             // F3 itself is the game's, answered before the interface sees it; the item says so.
             CheckItem("Frame &budget", checked = budget.isOn, shortcut = KeyShortcut(Key.F3)) { budget.toggle() }
+            CheckItem("&Fight window", checked = state.tuningOpen) { state.tuningOpen = it }
             Submenu("Set &heat") {
                 listOf("Cold" to 0f, "Warm" to 0.5f, "Overheating" to 0.95f).forEach { (name, heat) ->
                     Item(name) { state.heat = heat }
