@@ -336,6 +336,31 @@ class ShowcaseUiTest {
     }
 
     @Test
+    fun `the graphics section's rows stand one under another and do not overlap, both ways round`() {
+        Directions.forEach { direction ->
+            showcase(direction = direction) { ui, state ->
+                state.goTo(Section.Tools)
+                ui.advanceBy(600)
+
+                val fold = ui.node("fold-graphics")
+                val body = mutableListOf<UiNode>().also { found -> fold.forEach { if (it.name == "collapsingheader.body") found += it } }.single()
+                // The body holds one container, styled "collapsingheader.body", and the rows are what is in it.
+                val rows = body.children.single().children
+                assertTrue(rows.size >= 2, "$direction: the graphics section has ${rows.size} rows:\n" + ui.dump())
+
+                val bloom = rows.single { "Bloom" in ui.wordsOf(it) }.boundsInRoot
+                val shadow = rows.single { "Shadow quality" in ui.wordsOf(it) }.boundsInRoot
+                assertFalse(bloom.overlaps(shadow), "$direction: Bloom $bloom is drawn over Shadow quality $shadow:\n" + ui.dump())
+                rows.forEachIndexed { i, a ->
+                    rows.drop(i + 1).forEach { b ->
+                        assertFalse(a.boundsInRoot.overlaps(b.boundsInRoot), "$direction: rows overlap, ${a.boundsInRoot} and ${b.boundsInRoot}:\n" + ui.dump())
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     fun `the hud page marks hits, turns the view, picks from the wheel and plays subtitles`() = showcase { ui, state ->
         state.goTo(Section.Hud)
         ui.advanceBy(400)

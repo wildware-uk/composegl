@@ -170,6 +170,32 @@ class CollapsingHeaderTest {
     }
 
     @Test
+    fun `rows put straight in the contents stand one under another both ways round`() {
+        listOf(LayoutDirection.Ltr, LayoutDirection.Rtl).forEach { direction ->
+            val ui = open {
+                ProvideLayoutDirection(direction) {
+                    Column(Modifier.width(300f)) {
+                        CollapsingHeader("Graphics", Modifier.fillMaxWidth().testTag("graphics"), initiallyExpanded = true) {
+                            Box(Modifier.size(90f, 22f).testTag("bloom"))
+                            Box(Modifier.size(180f, 36f).testTag("shadows"))
+                            Box(Modifier.size(120f, 20f).testTag("fog"))
+                        }
+                        Button("BELOW", onClick = {}, modifier = Modifier.fillMaxWidth().testTag("below"))
+                    }
+                }
+            }
+            val rows = listOf("bloom", "shadows", "fog").map { ui.node(it).boundsInRoot }
+            rows.zipWithNext().forEach { (above, under) ->
+                assertFalse(above.overlaps(under), "$direction: $above and $under overlap:\n" + ui.dump())
+                assertEquals(above.bottom, under.top, "$direction: each row starts where the one above ends")
+            }
+            val start = if (direction == LayoutDirection.Ltr) rows.map { it.left } else rows.map { it.right }
+            assertEquals(1, start.distinct().size, "$direction: the rows line up at the start: $rows")
+            assertTrue(ui.node("below").boundsInRoot.top >= rows.last().bottom, "$direction: the section is as tall as all its rows")
+        }
+    }
+
+    @Test
     fun `opened again while it is still closing it turns round and keeps its contents`() {
         val ui = open { Physics(initiallyExpanded = true) }
         val full = ui.body().height
