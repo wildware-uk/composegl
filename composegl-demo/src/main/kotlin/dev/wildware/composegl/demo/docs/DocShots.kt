@@ -108,6 +108,9 @@ import dev.wildware.composegl.debug.DevConsole
 import dev.wildware.composegl.debug.arg
 import dev.wildware.composegl.debug.rememberDevConsole
 import dev.wildware.composegl.debug.Inspector
+import dev.wildware.composegl.debug.NodeTree
+import dev.wildware.composegl.debug.rememberInspectorState
+import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.debug.LayoutOverlay
 import dev.wildware.composegl.debug.OverdrawOverlay
 import dev.wildware.composegl.debug.FocusOverlay
@@ -237,6 +240,7 @@ internal fun docShots(): List<DocShot> = buildList {
     console()
     debugWindows()
     plots()
+    nodeTree()
 }
 
 // ---------------------------------------------------------------- whole screens
@@ -3854,3 +3858,217 @@ private const val ShotDownEvery = 14
 /** What a frame costs with nothing on the screen, and what each drone adds to it. */
 private const val BaseMillis = 4.6f
 private const val MillisPerDrone = 0.42f
+
+// ---------------------------------------------------------------- the live node tree
+
+/**
+ * The whole screen as a tree you can browse, over a game that has something worth finding in it.
+ *
+ * All three are taken over the same paused raid: a HUD, a card of buttons, and an autosave spinner
+ * turning in the corner, which is what puts a redraw count on a row and keeps it glowing. The
+ * pointer and the keyboard in them are real, so the row that is chosen is a row something really
+ * chose and the letters in the filter box are letters somebody really typed.
+ */
+private fun MutableList<DocShot>.nodeTree() {
+    // A real click on the OPTIONS button, through an inspector the tree shares its state with. One
+    // click does the lot: the node is pinned, so it is outlined on the screen and the inspector's
+    // panel is filled in; the rows opened down to it on the way, leaving the branches beside it
+    // folded; and the row for it is the one drawn chosen.
+    add(
+        DocShot(
+            "node-tree",
+            NodeShotWidth,
+            NodeShotHeight,
+            stock = true,
+            pointer = Offset(195f, 248f),
+            click = true,
+            seconds = 1f,
+        ) {
+            val inspection = rememberInspectorState()
+            DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+                // The card up where the inspector's panel down the right side is not over it, and the
+                // window under it, which is where a hand drags a window it wants out of the way.
+                Inspector(enabled = true, state = inspection) { NodeScene(Offset(-74f, -87f)) }
+                DebugWindow("UI tree", initialPosition = Offset(14f, 340f), onClose = {}) {
+                    NodeTree(inspection, Modifier.width(300f).height(250f))
+                }
+            }
+        },
+    )
+
+    // `#` typed into the filter box for real — the box was clicked first, which is why it has the
+    // focus ring — so the rows left are the nodes somebody gave a test tag and the nodes above them,
+    // opened so there is a way down to each one. That is how a widget is found by its tag.
+    add(
+        DocShot(
+            "node-tree-filter",
+            TreeShotWidth,
+            TreeShotHeight,
+            stock = true,
+            pointer = Offset(400f, 62f),
+            click = true,
+            typed = listOf(Typing.Write("#"), Typing.Wait(24)),
+        ) {
+            // The card moved out from under the window, so the game it is over is still a game.
+            NodeTreeOverGame(Offset(330f, 14f), cardOffset = Offset(-150f, 0f))
+        },
+    )
+
+    // The high-contrast skin reading from the right: the window is measured from the top-right
+    // corner, the filter box and the `0x0` switch swap sides, and the rows step in from the right,
+    // with each node's size before its name rather than after it.
+    add(
+        DocShot(
+            "node-tree-rtl",
+            TreeShotWidth,
+            TreeShotHeight,
+            pointer = Offset(230f, 62f),
+            click = true,
+            typed = listOf(Typing.Write("#"), Typing.Wait(24)),
+        ) {
+            ProvideSkin(Skin.HighContrast) {
+                ProvideLayoutDirection(LayoutDirection.Rtl) {
+                    // The window is measured from the other corner in this direction, so it lands on
+                    // the left and the card goes the other way to stay out from under it.
+                    NodeTreeOverGame(Offset(330f, 14f), mirrored = true, cardOffset = Offset(150f, 0f))
+                }
+            }
+        },
+    )
+}
+
+/** How wide and tall the picture with the inspector beside the tree is. */
+private const val NodeShotWidth = 640
+private const val NodeShotHeight = 640
+
+/** How wide and tall the pictures of the tree on its own are. */
+private const val TreeShotWidth = 640
+private const val TreeShotHeight = 400
+
+/**
+ * The tree in a window over the game, pointed at the game's own root rather than at an inspector.
+ *
+ * The second way the page shows: a `PlacedHandler` keeps the node the game is composed into, and the
+ * window is written outside it, so the tree lists the game and never the tool looking at it.
+ *
+ * @param mirrored whether the game under it is put back the right way round, for the right-to-left
+ *   picture: a game's scene is drawn where its own code puts it, and it is the interface over it
+ *   that reads from the right.
+ * @param cardOffset where the game's card sits, so the window is not over it.
+ */
+@Composable
+private fun NodeTreeOverGame(at: Offset, mirrored: Boolean = false, cardOffset: Offset = Offset(0f, 0f)) {
+    var root by remember { mutableStateOf<UiNode?>(null) }
+    val placed = remember { PlacedHandler { root = it } }
+    DebugWindowHost(state = rememberDebugWindowsState(MemoryDebugWindowStore())) {
+        Box(Modifier.fillMaxSize().onPlaced(placed)) {
+            if (mirrored) {
+                ProvideLayoutDirection(LayoutDirection.Ltr) { NodeScene(cardOffset) }
+            } else {
+                NodeScene(cardOffset)
+            }
+        }
+        DebugWindow("UI tree", initialPosition = at, onClose = {}) {
+            // Tall enough for every row the filter leaves, so the picture is the whole answer rather
+            // than the top of it.
+            NodeTree(root, Modifier.width(275f).height(300f))
+        }
+    }
+}
+
+/**
+ * The game every node-tree picture is taken over: a raid, paused, with a card of buttons on it.
+ *
+ * Written the way a game writes a screen — a HUD in one corner, a card in the middle, an autosave
+ * in another — and tagged the way a game tags what its tests reach for, because a tag is what the
+ * rows show after the name and what the filter box searches.
+ */
+@Composable
+private fun NodeScene(cardOffset: Offset = Offset(0f, 0f)) {
+    // A number a game really does tick over: it goes up every few frames, which is what puts a
+    // rebuild count on one row and leaves it red when the shutter goes.
+    val salvage = remember { DocSalvage() }
+    LaunchedEffect(salvage) {
+        var frames = 0
+        while (true) {
+            withFrameNanos { }
+            frames++
+            // Read and written here rather than in the composition, so only the line showing it is
+            // built again: a screen where everything is red says nothing about what costs anything.
+            if (frames % SalvageEvery == 0) salvage.amount += 5
+        }
+    }
+
+    Box(Modifier.fillMaxSize().background(Brush.vertical(Colour.rgb(0x141B2E), Colour.rgb(0x33253F)))) {
+        // A ridge and a floor, so the picture reads as a place rather than a swatch.
+        Box(
+            Modifier.align(Alignment.BottomStart).offset(-40f, 0f).size(300f, 190f)
+                .background(Colour.rgb(0x1C2540), corner = 110f),
+        )
+        Box(
+            Modifier.align(Alignment.BottomEnd).offset(40f, 0f).size(320f, 210f)
+                .background(Colour.rgb(0x18203A), corner = 120f),
+        )
+        Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(44f).background(Colour.rgb(0x10141F)))
+
+        // The raid itself, a rank of drones across the top.
+        Row(
+            Modifier.align(Alignment.TopCentre).offset(0f, 86f).testTag("raid"),
+            horizontalArrangement = Arrangement.spacedBy(22f),
+        ) {
+            repeat(4) { Box(Modifier.size(34f, 15f).background(Colour.rgb(0xE8A33D), corner = 7f)) }
+        }
+
+        // The HUD in the corner, the part of a screen a player reads without looking at it.
+        Column(
+            Modifier.align(Alignment.TopStart).padding(14f).testTag("hud"),
+            verticalArrangement = Arrangement.spacedBy(6f),
+        ) {
+            Text("WAVE 3", style = "label.heading")
+            Text("RAID · 4 DRONES", style = "label.dim")
+            Box(Modifier.size(118f, 8f).background(Colour.rgb(0x222B3C), corner = 4f).testTag("health")) {
+                Box(Modifier.size(82f, 8f).background(Colour.rgb(0x46A758), corner = 4f))
+            }
+        }
+
+        // What the pictures point at: three buttons a test would reach for by tag. A width of its
+        // own, or a column of buttons told to fill it is a card as wide as the screen.
+        Column(
+            Modifier.align(Alignment.Centre).offset(cardOffset.x, cardOffset.y).width(152f)
+                .background(Colour.rgb(0x1A1F28), corner = 8f)
+                .border(Colour.rgb(0x2E3644), width = 1f, corner = 8f)
+                .padding(16f).testTag("pause"),
+            verticalArrangement = Arrangement.spacedBy(8f),
+            horizontalAlignment = HorizontalAlignment.Centre,
+        ) {
+            Text("PAUSED", style = "label.heading")
+            Button("RESUME", onClick = {}, modifier = Modifier.fillMaxWidth().testTag("resume"))
+            Button("OPTIONS", onClick = {}, modifier = Modifier.fillMaxWidth().testTag("options"))
+            Button("QUIT", onClick = {}, modifier = Modifier.fillMaxWidth().testTag("quit"))
+        }
+
+        // Two things that keep costing frames, written straight into the screen rather than tucked
+        // inside a row, so their rows are top ones and the picture has the counts on it without
+        // anything being opened first: a spinner that only ever redraws, and a number that is
+        // rebuilt every few frames.
+        Spinner(Modifier.align(Alignment.BottomEnd).offset(-78f, -16f).size(14f, 14f).testTag("saving"))
+        Text("SAVING", Modifier.align(Alignment.BottomEnd).offset(-16f, -15f), style = "label.dim")
+        // Beside the card rather than always in the middle, so a window parked over the middle of
+        // a narrow picture does not cut it in half.
+        Salvage(salvage, Modifier.align(Alignment.TopCentre).offset(cardOffset.x, 16f).testTag("salvage"))
+    }
+}
+
+/** How many frames go by between one tick of the salvage counter and the next. */
+private const val SalvageEvery = 8
+
+/** A number the game keeps changing. Its own object, so ticking it rebuilds one line and not a screen. */
+private class DocSalvage {
+    var amount by mutableStateOf(1240)
+}
+
+/** The line that shows it, and the only thing that reads it, so it is the only thing rebuilt. */
+@Composable
+private fun Salvage(state: DocSalvage, modifier: Modifier) {
+    Text("SALVAGE ${state.amount}", modifier, style = "label.heading")
+}

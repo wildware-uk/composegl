@@ -270,6 +270,13 @@ Inspector(enabled = debug, state = inspection) { Game() }
 NodeTree(inspection, Modifier.width(300f).height(320f))
 ```
 
+![a paused game with a UI tree window under it and the inspector's panel down the right side; the OPTIONS button is outlined on the screen and its row is the one picked out in the tree](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/node-tree.png)
+
+One real click on that button did all of it: the rows opened down to it and the branches beside
+it stayed folded, its row is the one chosen, it is outlined on the screen, and the panel on the
+right is filled in. The red `c7` near the bottom is a line of the game's own HUD that keeps
+being rebuilt.
+
 Sharing one `rememberInspectorState()` is what joins the two: the rows open down to whatever
 the pointer is over, and choosing a row pins that node — outlined in orange on the screen,
 with the inspector's panel filled in. Without an inspector, point it at a node yourself:
@@ -284,7 +291,7 @@ Box(Modifier.fillMaxSize().onPlaced(placed)) {
 }
 ```
 
-Each row says what the node is (`button #play`), how big it is, and what it has cost:
+Each row says what the node is (`box #play`), how big it is, and what it has cost:
 
 | On a row | What it means |
 |---|---|
@@ -297,11 +304,17 @@ counting is turned on while the tree is composed and off again when it goes.
 
 | Do this | And you get |
 |---|---|
-| type in the box | every node whose name or tag has that text in it, and the nodes above them so there is a way down. `#play` finds it by tag, `button` by name |
+| type in the box | every node whose name or tag has that text in it, and the nodes above them so there is a way down. `#play` finds it by tag, `spinner` by name |
 | clear the box | the rows back the way you had them before the first letter |
 | tick `0x0` | nodes with no width or no height left out, except where something showing sits under one |
 | click a row | that node chosen — pinned, with an inspector sharing its state |
 | up and down, right and left, Enter or the pad's South | the tree's own keys: move, open or go in, close or go out, choose. Mirrored in a right-to-left screen |
+
+![the same window with a hash typed in its filter box, so the rows left are the tagged nodes and the nodes above them, each with its size and its change counts](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/node-tree-filter.png)
+
+A `#` on its own is every node anybody gave a tag to, which is a quick way to see what your own
+tests can reach for. `r27` beside `spinner #saving` is a spinner redrawing every frame; `c3` in
+red beside `text #salvage` is a number that was rebuilt a moment before the picture.
 
 It is a [[Widgets|TreeView]] underneath, so only the rows you can see are built and a screen of
 ten thousand nodes costs a screenful; and unlike the inspector it is skinned like any other
@@ -318,6 +331,12 @@ DebugWindow("UI tree") {
     NodeTree(interfaceRoot, Modifier.width(280f).height(320f))
 }
 ```
+
+It mirrors like anything else the toolkit draws. In the high-contrast skin reading from the
+right, the window is measured from the other corner, the filter box and the `0x0` switch swap
+sides, the rows step in from the right, and each node's size comes before its name:
+
+![the same tree in the high-contrast skin reading from the right, its rows stepping in from the right edge and each size before its name](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/node-tree-rtl.png)
 
 ---
 
