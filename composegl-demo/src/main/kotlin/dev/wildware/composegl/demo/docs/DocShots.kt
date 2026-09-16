@@ -3358,8 +3358,8 @@ private fun MutableList<DocShot>.debugWindows() {
         },
     )
 
-    // Two at once, and the one behind being carried: the pointer took Spawns by its title bar and is
-    // still holding it over Physics, so it is the window in front and the one with the lit title bar.
+    // Two at once, and one of them being carried: the pointer took Physics by its title bar and is
+    // still holding it over Spawns, so it is the window in front and the one with the lit title bar.
     add(
         DocShot(
             "debug-window-two",
