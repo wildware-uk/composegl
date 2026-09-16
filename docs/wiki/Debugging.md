@@ -665,6 +665,20 @@ uiTest(budget = budget) { Hud() }.use { ui ->
 Every built-in canvas traces: LibGDX, raw OpenGL, WebGL and KorGE all draw through the same
 shared renderer. The headless one does not batch, so it lists nothing.
 
+A test that wants to assert on the *times* rather than the counts hands the budget a clock it
+moves itself, so a frame costs the milliseconds the test said instead of whatever the machine
+managed that second:
+
+```kotlin
+var now = 0L
+val budget = FrameBudget(publishEveryMillis = 0, nanoTime = { now })
+budget.draw { now += 5_000_000 }   // five milliseconds of drawing, exactly
+budget.endFrame()
+assertEquals(5f, budget.reading.drawMillis)
+```
+
+Left out, `nanoTime` is the machine's own monotonic clock, which is what a game wants.
+
 ---
 
 ## Focus and clicks, on the screen
