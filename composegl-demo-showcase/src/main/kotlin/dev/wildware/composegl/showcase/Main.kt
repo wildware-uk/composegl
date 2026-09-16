@@ -98,7 +98,9 @@ class Showcase : ApplicationAdapter() {
     override fun create() {
         fonts = GdxFonts()
         val file = Gdx.files.internal("fonts/DejaVuSans.ttf")
-        fonts.registerTrueType("body", file, listOf(13, 16, 20))
+        // Every size the skin file asks for. A size nobody registered is not a smaller word, it is
+        // a showcase that will not start, so the list has to follow the skin.
+        fonts.registerTrueType("body", file, listOf(13, 16, 18, 20))
         fonts.registerTrueType("display", file, listOf(34))
 
         skin = showcaseSkin(fonts)

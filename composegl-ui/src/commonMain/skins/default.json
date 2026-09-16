@@ -81,6 +81,17 @@
     "minimap.marker": { "background": { "fill": "#F2C94C" } },
     "minimap.compass": { "textColour": "#9AA4B2", "text": { "size": 12 } },
 
+    // The heading strip: the ruler it is drawn on, the names of the points, the line down the
+    // middle saying which way the player is facing, and a pin with its distance under it.
+    "compass": {
+      "background": { "fill": "#141922", "corner": 4, "border": "#4A5568", "padding": [10, 5] }
+    },
+    "compass.tick": { "background": { "fill": "#6B7686" } },
+    "compass.label": { "textColour": "#E8ECF2", "text": { "size": 13 } },
+    "compass.marker": { "background": { "fill": "#5B8DEF" } },
+    "compass.pin": { "background": { "fill": "#F2C94C" }, "textColour": "#9AA4B2", "text": { "size": 12 } },
+    "compass.readout": { "textColour": "#5B8DEF", "text": { "size": 13 } },
+
     // --- text ---
 
     "label": {

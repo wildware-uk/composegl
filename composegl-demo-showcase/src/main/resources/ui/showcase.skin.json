@@ -172,6 +172,16 @@
     "minimap.marker": { "background": { "fill": "#4CC2FF" } },
     "minimap.compass": { "textColour": "#7E8DA3", "text": { "size": 13 } },
 
+    "compass": {
+      "background": { "fill": "#B00A1018", "corner": 4, "border": "#404CC2FF", "padding": [10, 5] }
+    },
+    "compass.tick": { "background": { "fill": "#5A6B80" } },
+    "compass.label": { "textColour": "#E6F4FF", "text": { "size": 13 } },
+    "compass.marker": { "background": { "fill": "#4CC2FF" } },
+    "compass.pin": { "background": { "fill": "#7E8DA3" }, "textColour": "#7E8DA3", "text": { "size": 13 } },
+    "compass.pin.locked": { "background": { "fill": "#FF5A4F" }, "textColour": "#FF5A4F", "text": { "size": 13 } },
+    "compass.readout": { "textColour": "#4CC2FF", "text": { "size": 13 } },
+
     "focusRing": {
       "background": { "fill": "#00000000", "corner": 5, "border": "#FFFFFF", "padding": 3 }
     },

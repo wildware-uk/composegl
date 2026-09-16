@@ -32,6 +32,7 @@ import dev.wildware.composegl.debug.arg
 import dev.wildware.composegl.debug.rememberDevConsole
 import dev.wildware.composegl.game.Bar
 import dev.wildware.composegl.game.BarThreshold
+import dev.wildware.composegl.game.CompassBar
 import dev.wildware.composegl.game.Cooldown
 import dev.wildware.composegl.game.DamageNumberLayer
 import dev.wildware.composegl.game.Hotbar
@@ -94,6 +95,9 @@ import dev.wildware.composegl.ui.widget.Text
 import dev.wildware.composegl.ui.widget.Toggle
 import dev.wildware.composegl.ui.widget.TreeView
 import dev.wildware.composegl.ui.widget.rememberTreeState
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.roundToInt
 
 /**
  * The showcase's interface: a combat HUD over a 3D scene.
@@ -132,6 +136,7 @@ fun ShowcaseUi(
                     if (state.isOn(Exhibit.Hud)) {
                         CombatHud(state)
                         Radar(state)
+                        Compass(state)
                         Abilities(state, hotbar)
                     }
 
@@ -576,6 +581,37 @@ private fun Radar(state: ShowcaseState) {
         range = 12f,
     )
 }
+
+/**
+ * The heading strip above the hotbar: where the ship is pointing, and which way the drones are.
+ *
+ * The bearings are the game's own arithmetic — the radar's coordinates as an angle — and they are
+ * read while the strip draws rather than kept in state, so a drone moving costs the interface
+ * nothing. The one that is locked on wears a style of its own.
+ */
+@Composable
+private fun Compass(state: ShowcaseState) {
+    CompassBar(
+        heading = state.heading,
+        fieldOfView = 160f,
+        Modifier.align(Alignment.BottomCentre).padding(bottom = 100f).width(440f),
+        readout = { "${it.roundToInt()}" },
+        distanceText = { "${it.roundToInt()}m" },
+        fadeRange = 24f,
+    ) {
+        state.targets.forEachIndexed { index, target ->
+            pin(
+                bearing = bearingOf(target.mapX, target.mapY),
+                distance = target.distance,
+                fadeWithDistance = true,
+                style = if (index == state.locked) "compass.pin.locked" else null,
+            )
+        }
+    }
+}
+
+/** A point on the radar as a bearing: north is up and east is right, which is not how a screen is. */
+private fun bearingOf(x: Float, y: Float): Float = atan2(x, y) * 180f / PI.toFloat()
 
 /** Four abilities on cooldown rings, pressed with the number keys or the pointer. */
 @Composable
