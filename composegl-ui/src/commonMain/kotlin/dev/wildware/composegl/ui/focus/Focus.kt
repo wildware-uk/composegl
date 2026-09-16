@@ -464,6 +464,14 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         var bestBounds = Rect.Zero
         focusable.forEach { candidate ->
             if (candidate === from) return@forEach
+            // A box that already holds the focused node is not somewhere to move to: it is where
+            // the player already is. Its rectangle wraps the one they are on, so it looks like a
+            // neighbour in every direction at once, and a focusable one — a pan-and-zoom canvas, a
+            // scrolling area — would steal the press the moment its child hung over an edge, which
+            // is what a world bigger than the window does all the time. A screen that really does
+            // want a direction to reach the box around it says so with `focusOrder`, which is asked
+            // before any of this.
+            if (from.isInside(candidate)) return@forEach
             val bounds = candidate.boundsInRoot
             // A node with a position but no area — a collapsed panel, one part way through being
             // inserted, one animating in — has nothing to draw a ring round and nothing to press,

@@ -80,6 +80,31 @@ class PanZoomCanvasTest {
         }
     }
 
+    /** The crafting graph from the wiki: a chain whose steps sit up and down from each other. */
+    private val graphWorld = Rect(0f, 0f, 700f, 300f)
+
+    private fun graphState() = PanZoomState(1f, 0.5f, 2.5f, graphWorld, Offset(350f, 150f))
+
+    /**
+     * A crafting graph, laid out like the one in the wiki: every neighbour is a diagonal one, and
+     * `ore` starts off the left of the view. Screen places at the starting camera, which looks at
+     * world (350, 150) with the view's middle at (200, 112): `ore` at x -115..-65, `dust` at
+     * x 15..65 y 20..44, `ingot` at x 15..65 y 180..204.
+     */
+    @Composable
+    private fun Graph(camera: PanZoomState) {
+        PanZoomCanvas(camera, Modifier.fillMaxSize().testTag("plane")) {
+            Node("ore", 60f, 150f)
+            Node("dust", 190f, 70f)
+            Node("ingot", 190f, 230f)
+            Node("plate", 330f, 150f)
+            Node("rod", 330f, 235f)
+            Node("armour", 470f, 75f)
+            Node("gear", 470f, 220f)
+            Node("engine", 620f, 150f)
+        }
+    }
+
     @Composable
     private fun Node(tag: String, x: Float, y: Float) {
         Box(
@@ -350,6 +375,107 @@ class PanZoomCanvasTest {
         ui.assertFocused("left")
         val box = ui.node("left").boundsInRoot
         assertTrue(box.left >= 0f && box.right <= 400f, "the camera should have brought it into view: $box")
+    }
+
+    /**
+     * Focus on `ore` with the camera panned back to the middle of the world, which leaves the
+     * focused node hanging off the left of the view — a pan or a fling away from the focused node
+     * is all it takes. The plane's own rectangle then wraps it on every side.
+     */
+    private fun graphWithOreOffTheLeft(camera: PanZoomState): UiTest {
+        val ui = open { Graph(camera) }
+        ui.focus.focusOn(ui.node("ore"))
+        ui.settle()
+        camera.snapTo(Offset(350f, 150f), 1f)
+        ui.settle()
+        assertTrue(ui.node("ore").boundsInRoot.left < 0f, "the test wants the focused node off the edge")
+        return ui
+    }
+
+    @Test
+    fun `the d-pad walks on from a node hanging off the edge of the view`() {
+        val camera = graphState()
+        val ui = graphWithOreOffTheLeft(camera)
+
+        ui.pad(GamepadButton.DpadRight)
+        ui.advanceBy(600)
+
+        ui.assertFocused("plate")
+        val box = ui.node("plate").boundsInRoot
+        assertTrue(box.left >= 0f && box.right <= 400f, "the camera should have brought it into view: $box")
+    }
+
+    @Test
+    fun `the d-pad reaches a neighbour that is up and to the right`() {
+        val camera = graphState()
+        val ui = graphWithOreOffTheLeft(camera)
+
+        ui.pad(GamepadButton.DpadUp)
+        ui.advanceBy(600)
+
+        ui.assertFocused("dust")
+    }
+
+    @Test
+    fun `walking on twice never drops focus onto the plane`() {
+        val camera = graphState()
+        val ui = graphWithOreOffTheLeft(camera)
+
+        ui.pad(GamepadButton.DpadRight)
+        ui.advanceBy(600)
+        ui.pad(GamepadButton.DpadRight)
+        ui.advanceBy(600)
+
+        ui.assertFocused("engine")
+    }
+
+    @Test
+    fun `a direction with nothing that way leaves focus where it is`() {
+        val camera = graphState()
+        val ui = open { Graph(camera) }
+        ui.focus.focusOn(ui.node("engine"))
+        ui.advanceBy(600)
+        val centre = camera.centre
+
+        ui.pad(GamepadButton.DpadRight)
+        ui.advanceBy(600)
+
+        ui.assertFocused("engine")
+        near(centre.x, camera.centre.x, "the camera should not have wandered off")
+    }
+
+    @Test
+    fun `with the plane focused a direction takes what is straight ahead`() {
+        val camera = graphState()
+        val ui = open { Graph(camera) }
+        ui.focus.focusOn(ui.node("plane"))
+        ui.settle()
+
+        ui.pad(GamepadButton.DpadRight)
+        ui.advanceBy(600)
+
+        // `gear` is nearer, but it is off to one side; `engine` is level with the middle of the
+        // view, and straight ahead wins here exactly as it does anywhere else on the screen.
+        ui.assertFocused("engine")
+    }
+
+    @Test
+    fun `with nothing focusable inside the pad still pans the plane`() {
+        val camera = state()
+        val ui = open {
+            PanZoomCanvas(camera, Modifier.fillMaxSize().testTag("plane")) {
+                Box(Modifier.size(40f, 20f).worldPosition(500f, 400f, anchor = Alignment.Centre).testTag("scenery"))
+            }
+        }
+        ui.focus.focusOn(ui.node("plane"))
+        ui.settle()
+        val centre = camera.centre
+
+        ui.pad(GamepadButton.DpadRight)
+        ui.advanceBy(600)
+
+        ui.assertFocused("plane")
+        assertTrue(camera.centre.x > centre.x + 10f, "right should have panned the world: ${camera.centre}")
     }
 
     @Test
