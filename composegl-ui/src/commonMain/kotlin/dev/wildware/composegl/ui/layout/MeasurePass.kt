@@ -323,15 +323,17 @@ internal class OnceMeasurable(private val node: UiNode) : Measurable {
      */
     fun refresh(): OnceMeasurable {
         // Rebuilt only when it actually differs, which for almost every node is never: a weight,
-        // an alignment and an id are written in a modifier chain and then stay there.
+        // an alignment, an id and a world point are written in a modifier chain and then stay there.
         val resolved = node.resolved
         if (data.weight != resolved.weight || data.alignment != resolved.alignment ||
-            data.layoutId != resolved.layoutId
+            data.layoutId != resolved.layoutId || data.worldPosition != resolved.worldPosition
         ) {
-            data = if (resolved.weight == null && resolved.alignment == null && resolved.layoutId == null) {
+            data = if (resolved.weight == null && resolved.alignment == null &&
+                resolved.layoutId == null && resolved.worldPosition == null
+            ) {
                 LayoutData.None
             } else {
-                LayoutData(resolved.weight, resolved.alignment, resolved.layoutId)
+                LayoutData(resolved.weight, resolved.alignment, resolved.layoutId, resolved.worldPosition)
             }
         }
         return this

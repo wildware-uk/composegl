@@ -123,6 +123,7 @@ fun ShowcaseUi(
 
                     if (state.isOn(Exhibit.Contacts)) Contacts(state)
                     if (state.isOn(Exhibit.Tree)) SceneTree(state)
+                    if (state.isOn(Exhibit.Starmap)) StarMap()
 
                     // Over the scene and under the panels, which is where a hit happens. The game
                     // fills the pool from its own loop; this only draws it.

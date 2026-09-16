@@ -505,9 +505,13 @@ open class AtlasFonts(
             )
         }
 
-        /** [codepoint] made for a screen [quarter] quarters the design size, or null to draw it as it is. */
+        /**
+         * [codepoint] made for a screen [quarter] quarters the design size, or null to draw it as it is.
+         * Smaller than one is a zoomed-out plane's, and is made too: a glyph shrunk on the GPU with no
+         * smaller copy to sample from shimmers.
+         */
         fun sharp(codepoint: Int, quarter: Int): Glyph? {
-            if (quarter <= SharpGlyphs.One) return null
+            if (quarter == SharpGlyphs.One || quarter <= 0) return null
             if (madeIn != sharp.generation) {
                 sharpGlyphs.clear()
                 sharpFaces.clear()
@@ -523,7 +527,7 @@ open class AtlasFonts(
 
         private fun makeSharp(codepoint: Int, quarter: Int): Glyph? {
             val pixels = SharpGlyphs.pixelsFor(size, quarter)
-            if (pixels <= size) return null
+            if (pixels == size || pixels <= 0) return null
             if (pictures != null) return sharpPicture(codepoint, pixels, quarter)
             val raster = sharpFaces[pixels] ?: rasteriser.face(family, size, pixels)?.also { sharpFaces[pixels] = it } ?: return null
             if (!raster.has(codepoint) || !raster.draw(codepoint, bitmap)) return null
@@ -548,7 +552,7 @@ open class AtlasFonts(
         private fun sharpPicture(codepoint: Int, pixels: Int, quarter: Int): Glyph? {
             val source = pictureSources[family]?.get(codepoint) ?: return null
             val tall = minOf(pixels, source.height)
-            if (tall <= size) return null
+            if (tall == size || tall <= 0) return null
             val wide = (source.width * tall / source.height.toFloat()).roundToInt().coerceAtLeast(1)
             val spot = sharp.place(quarter, wide, tall) ?: return null
             spot.page.writeRgba(spot.x, spot.y, wide, tall, shrink(source.pixels, source.width, source.height, wide, tall))

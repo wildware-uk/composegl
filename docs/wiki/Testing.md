@@ -128,6 +128,7 @@ back stack, so `OnBack` and prompts work as they do in a game.
 | Call | What it does |
 |---|---|
 | `click(tag)` · `click(tag, PointerButton.Secondary)` · `press(tag)` · `dragTo(at)` · `release()` · `moveTo(tag)` · `scroll(tag, delta)` | the mouse, at the middle of the node; `dragTo` moves it with the button held |
+| `flick(from, to)` | a fast drag and let go. The others stamp every event at time zero, so nothing measures a speed; this one times its moves, which is what makes a list or a pan-and-zoom plane fling |
 | `key(Key.Tab)` · `key(Key.Tab, Modifiers.Shift)` · `keyDown` · `keyDown(key, repeat = true)` · `keyUp` | a key, to the focused widget first |
 | `type("Ada")` | text to the focused widget, one character at a time |
 | `pad(GamepadButton.South)` · `padDown` · `padUp` · `stick(x, y)` | a pad; `stick(x, y, horizontal = RightX, vertical = RightY)` for the right stick |

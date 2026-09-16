@@ -164,6 +164,12 @@ fun describe(element: Modifier.Element): String = when (element) {
     is WeightElement -> "weight(${describeNumber(element.weight)})"
     is AlignElement -> "align(${alignment(element.alignment)})"
     is LayoutIdElement -> "layoutId(${element.layoutId})"
+    is dev.wildware.composegl.ui.widget.WorldPositionElement -> buildString {
+        append("worldPosition(").append(describeNumber(element.x)).append(",").append(describeNumber(element.y))
+        if (!element.scaleWithZoom) append(" fixed size")
+        append(")")
+    }
+    is CameraElement -> "camera"
     is BackgroundElement -> "background(${colour(element.colour)}${corners(element.corners)})"
     is BorderElement ->
         "border(${colour(element.colour)} ${describeNumber(element.width)}${corners(element.corners)}${style(element.style)})"

@@ -454,6 +454,55 @@ interface UiCanvas {
     val tints: Boolean get() = false
 
     /**
+     * Everything drawn until the matching [popTransform] is grown by [scale] and moved by
+     * [translateX] and [translateY]: a point at (x, y) lands at (x × scale + translateX,
+     * y × scale + translateY) in the coordinates in force before the push.
+     *
+     * The camera a pan-and-zoom canvas is built on. It is not a picture: every rectangle, glyph and
+     * picture is placed where the transform puts it and drawn at that size, so a zoomed-in skill
+     * tree has sharp edges and a map bigger than the screen has no ceiling, which is the difference
+     * from `Modifier.scale`. Thicknesses scale too — a border, a corner, a shadow's spread — because
+     * a border is part of the thing being zoomed.
+     *
+     * Nests by composition, inner first: pushed twice, a point goes through the inner one and then
+     * the outer one. A clip pushed inside is the transformed rectangle, so `pushClip` keeps meaning
+     * "this box, where I am drawing". [layer] takes a picture of the transformed area at the
+     * screen's own resolution and carries the transform in, so an effect on a zoomed node is as
+     * sharp as the node.
+     *
+     * No flush: the multiply happens to each position as it is queued, so a thousand nodes each
+     * pushing their own transform are still one draw call.
+     *
+     * Both do nothing by default, and then everything is drawn where it was asked, unmoved and at
+     * its own size. Ask [transforms] first: a canvas answering no cannot show a zoom at all.
+     */
+    fun pushTransform(scale: Float, translateX: Float, translateY: Float) = Unit
+
+    /**
+     * The same, saying the [textScale] glyphs should be made for.
+     *
+     * Glyphs are pictures made at one pixel size, so text zoomed past its size goes soft. A canvas
+     * that can make them again does so at [TextZoom.snap] of the total text scale, one of a handful
+     * of steps, and stretches the nearest copy between steps. Passing a text scale that lags behind
+     * [scale] while a gesture is under way — the one a pan-and-zoom canvas passes — keeps the glyphs
+     * already made on screen during a pinch and makes new ones once the hand stops, rather than a
+     * new set every time the zoom crosses a step.
+     *
+     * The default body ignores it and pushes [scale], which is right for a canvas that never makes
+     * glyphs again.
+     */
+    fun pushTransform(scale: Float, translateX: Float, translateY: Float, textScale: Float) =
+        pushTransform(scale, translateX, translateY)
+
+    fun popTransform() = Unit
+
+    /**
+     * Whether [pushTransform] really moves and grows what is drawn. Same shape as [tints] and
+     * [supports]: a question with an honest default.
+     */
+    val transforms: Boolean get() = false
+
+    /**
      * Draws [block] into an offscreen picture the size of [bounds] instead of onto the screen, and
      * hands the picture back.
      *

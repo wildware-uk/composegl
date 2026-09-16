@@ -179,6 +179,26 @@ class SharpTextTest {
     }
 
     @Test
+    fun `a panel and its label on a zoomed-out plane are one draw call`() {
+        val fonts = Fonts()
+        val device = RecordingDevice()
+        val canvas = RenderCanvas(device, fonts)
+        val layout = fonts.measure("Hi", style)
+        // Twice round, because the page the small copies go on is made by the first copy asked for.
+        // The frame that matters is any after that, which is every frame a player sees.
+        repeat(2) {
+            canvas.begin(scaled(1f))
+            canvas.pushTransform(0.5f, 0f, 0f, textScale = 0.5f)
+            canvas.rect(Rect.of(0f, 0f, 40f, 20f), Colour.Blue)
+            canvas.text(layout, 4f, 16f, Colour.White)
+            canvas.popTransform()
+            canvas.end()
+        }
+
+        assertEquals(1, canvas.drawCalls, "solid colour comes off the page the small glyphs are on")
+    }
+
+    @Test
     fun `a picture is made from its source at the screen's size and fills the same box`() {
         val source = RgbaImage(64, 64, ByteArray(64 * 64 * 4) { -1 })
         fun draw(scale: Float): Pair<RecordingDevice, AtlasFonts> {

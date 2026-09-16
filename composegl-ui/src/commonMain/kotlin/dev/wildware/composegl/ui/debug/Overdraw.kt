@@ -206,12 +206,14 @@ internal class OverdrawCanvas(private val map: OverdrawMap, private val like: Ui
         collect(root, nodes)
         val scaled = BooleanArray(nodes.size) { nodes[it].scaleApplied }
         val mirrored = BooleanArray(nodes.size) { nodes[it].mirrorApplied }
+        val zoomed = BooleanArray(nodes.size) { nodes[it].cameraApplied }
         try {
             DrawPass(this).draw(root)
         } finally {
             for (index in nodes.indices) {
                 nodes[index].scaleApplied = scaled[index]
                 nodes[index].mirrorApplied = mirrored[index]
+                nodes[index].cameraApplied = zoomed[index]
             }
         }
     }
@@ -224,15 +226,20 @@ internal class OverdrawCanvas(private val map: OverdrawMap, private val like: Ui
 
     // --- counting --------------------------------------------------------------------------------
 
-    private fun box(rect: Rect) {
-        if (state.isHidden || rect.isEmpty) return
+    // Both take what they are handed in the coordinates being drawn in, and count it where a pushed
+    // transform puts it: the map is of the screen.
+    private fun box(asked: Rect) {
+        if (state.isHidden || asked.isEmpty) return
+        val rect = state.map(asked)
         val clip = state.clip
         map.fill(max(rect.left, clip.left), max(rect.top, clip.top), min(rect.right, clip.right), min(rect.bottom, clip.bottom))
     }
 
     private fun shape(points: FloatArray) {
         if (state.isHidden) return
-        map.fillFan(points, state.clip)
+        val drawn = if (!state.isTransformed) points
+        else FloatArray(points.size) { if (it % 2 == 0) state.mapX(points[it]) else state.mapY(points[it]) }
+        map.fillFan(drawn, state.clip)
     }
 
     /** A picture's four corners, turned [degrees] clockwise about a pivot given as a fraction of it. */
@@ -307,7 +314,7 @@ internal class OverdrawCanvas(private val map: OverdrawMap, private val like: Ui
     override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? {
         if (!drawsLayers) return null
         val outer = state
-        state = outer.forLayer(bounds)
+        state = outer.forLayer(outer.map(bounds))
         try {
             block()
         } finally {
@@ -379,6 +386,14 @@ internal class OverdrawCanvas(private val map: OverdrawMap, private val like: Ui
 
     override fun popTint() = state.popTint()
 
+    override fun pushTransform(scale: Float, translateX: Float, translateY: Float) =
+        state.pushTransform(scale, translateX, translateY)
+
+    override fun pushTransform(scale: Float, translateX: Float, translateY: Float, textScale: Float) =
+        state.pushTransform(scale, translateX, translateY, textScale)
+
+    override fun popTransform() = state.popTransform()
+
     /** Whatever a game draws through the hatch is its own, and not seen here: the block is not run. */
     override fun raw(block: (Any) -> Unit) = Unit
 
@@ -389,6 +404,7 @@ internal class OverdrawCanvas(private val map: OverdrawMap, private val like: Ui
     override val rotatesImages: Boolean get() = like?.rotatesImages ?: true
     override fun supports(mode: BlendMode): Boolean = like?.supports(mode) ?: true
     override val tints: Boolean get() = like?.tints ?: true
+    override val transforms: Boolean get() = like?.transforms ?: true
     override val drawsLayers: Boolean get() = like?.drawsLayers ?: true
     override val turnsLayers: Boolean get() = like?.turnsLayers ?: true
     override val cutsLayers: Boolean get() = like?.cutsLayers ?: true

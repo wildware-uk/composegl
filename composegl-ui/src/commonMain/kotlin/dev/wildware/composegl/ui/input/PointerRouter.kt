@@ -8,6 +8,10 @@ import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.modifier.DraggableElement
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.node.childOffsetX
+import dev.wildware.composegl.ui.node.childOffsetY
+import dev.wildware.composegl.ui.node.childScale
+import dev.wildware.composegl.ui.node.showsChild
 import dev.wildware.composegl.ui.modifier.DefaultDragSlop
 import dev.wildware.composegl.ui.widget.canOpenContextMenu
 import dev.wildware.composegl.ui.widget.openContextMenu
@@ -428,8 +432,28 @@ class PointerRouter(
 
         // The draw pass's own list, walked the other way, so a lifted card takes the press.
         val children = node.drawOrder
-        for (index in children.indices.reversed()) {
-            collect(children[index], innerX, innerY, innerScaleX, innerScaleY, pointX, pointY, into)
+        if (resolved.camera == null) {
+            for (index in children.indices.reversed()) {
+                collect(children[index], innerX, innerY, innerScaleX, innerScaleY, pointX, pointY, into)
+            }
+        } else {
+            // A camera over the children: each is found where it shows them, and one it does not
+            // show — off the edge of the view — is not found at all. See ContentCamera.
+            for (index in children.indices.reversed()) {
+                val child = children[index]
+                if (!node.showsChild(child)) continue
+                val grow = node.childScale(child)
+                collect(
+                    child,
+                    innerX + node.childOffsetX(child) * innerScaleX,
+                    innerY + node.childOffsetY(child) * innerScaleY,
+                    innerScaleX * grow,
+                    innerScaleY * grow,
+                    pointX,
+                    pointY,
+                    into,
+                )
+            }
         }
         // The rectangle said yes; a node with a shape of its own now gets to say no. Turning it
         // down here rather than at the top leaves the children alone and lets the event carry on
