@@ -52,6 +52,9 @@ import dev.wildware.composegl.game.InventoryState
 import dev.wildware.composegl.game.ItemTooltip
 import dev.wildware.composegl.game.LowHealthVignette
 import dev.wildware.composegl.game.MinimapFrame
+import dev.wildware.composegl.game.Notifications
+import dev.wildware.composegl.game.ObjectiveProgress
+import dev.wildware.composegl.game.ObjectiveTracker
 import dev.wildware.composegl.game.ParticleLayer
 import dev.wildware.composegl.game.RadialMenu
 import dev.wildware.composegl.game.MinimapMarker
@@ -63,6 +66,7 @@ import dev.wildware.composegl.game.OffScreen
 import dev.wildware.composegl.game.WorldMarkerLayer
 import dev.wildware.composegl.game.WorldProjection
 import dev.wildware.composegl.game.rememberCooldown
+import dev.wildware.composegl.game.rememberNotifications
 import dev.wildware.composegl.game.rememberReticleState
 import dev.wildware.composegl.game.rememberSubtitleQueue
 import dev.wildware.composegl.ui.layout.Alignment
@@ -183,6 +187,7 @@ fun ShowcaseUi(
                                 Radar(state)
                                 Compass(state)
                                 Abilities(state, hotbar)
+                                Objectives(state)
                             }
 
                             if (state.isOn(Exhibit.Comms)) Comms(state)
@@ -567,6 +572,67 @@ private fun CombatHud(state: ShowcaseState) {
 
     if (target != null) TargetPanel(target, state) else ScanningPanel()
 }
+
+/**
+ * What the drill is for, pinned under the target panel: the objectives, and the toasts they raise.
+ *
+ * The quests are built from the fight's own numbers rather than kept beside them, which is the
+ * point — the counter climbs as hits land, the step ticks itself off and slides away when the
+ * sector is clear, and clearing it is what puts the second objective on the list, sliding in with a
+ * toast of its own. J, or the left stick pressed in, folds the extra objectives out.
+ */
+@Composable
+private fun Objectives(state: ShowcaseState) {
+    val notices = rememberNotifications(capacity = 2)
+
+    val quests = buildList {
+        add(
+            ShowcaseQuest(
+                "CLEAR THE SECTOR",
+                listOf(
+                    ShowcaseStep(
+                        "Destroy the drones",
+                        done = state.sectorClear,
+                        progress = ObjectiveProgress(state.dronesDown, state.droneQuota),
+                    ),
+                    ShowcaseStep("Hold the line"),
+                ),
+            ),
+        )
+        if (state.sectorClear) {
+            add(ShowcaseQuest("SALVAGE THE RELAY", listOf(ShowcaseStep("Match the relay's spin"))))
+        }
+    }
+
+    ObjectiveTracker(
+        quests = quests,
+        modifier = Modifier.align(Alignment.TopEnd).padding(right = 28f, top = BelowMenus + 232f),
+        keyOf = { it.name },
+        maxVisible = 1,
+        notify = notices,
+        expandKey = Key.J,
+        expandButton = GamepadButton.LeftStick,
+        width = 240f,
+    ) { quest ->
+        title(quest.name)
+        quest.steps.forEach { step(it.text, done = it.done, progress = it.progress) }
+    }
+
+    Notifications(
+        notices,
+        Modifier.align(Alignment.TopEnd).padding(right = 28f, top = BelowMenus + 400f),
+        width = 240f,
+    )
+}
+
+/** One objective as the drill holds it: a name and the things still to do. */
+private class ShowcaseQuest(val name: String, val steps: List<ShowcaseStep>)
+
+private class ShowcaseStep(
+    val text: String,
+    val done: Boolean = false,
+    val progress: ObjectiveProgress? = null,
+)
 
 /** The reticle colours offered as swatches in its picker. */
 private val ReticlePresets = listOf(

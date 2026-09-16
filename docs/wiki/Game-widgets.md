@@ -4,9 +4,9 @@ The in-play widgets: health bars with a damage trail, a crosshair, hit markers a
 damage direction arcs, a low-health vignette, damage numbers anchored in the world,
 nameplates and waypoints pinned to points in the world, cooldowns, a hotbar, a
 weapon wheel, an inventory grid, a minimap frame, a compass bar, a dialogue box
-with answers and a log, a skill tree, notifications, timed subtitles, item cards
-that compare a drop against what is equipped, and particles. These are the ones
-that made this toolkit worth building.
+with answers and a log, a skill tree, an objective tracker, notifications, timed
+subtitles, item cards that compare a drop against what is equipped, and
+particles. These are the ones that made this toolkit worth building.
 
 ---
 
@@ -43,8 +43,8 @@ text that takes a [[ring|Widgets#outlined-text]] only when there is one,
 already have every style these use (`bar.*`, `reticle.*`, `hitmarker.*`,
 `damage.*`, `vignette`, `marker.*`, `cooldown.*`, `hotbar.*`, `wheel.*`,
 `inventory.*`, `minimap.*`, `compass.*`, `dialogue.*`, `skilltree.*`,
-`notification.*`, `subtitle.*`, `itemtip.*`), so they look right with no setup.
-Your own skin file styles them by the same names.
+`objective.*`, `notification.*`, `subtitle.*`, `itemtip.*`), so they look right
+with no setup. Your own skin file styles them by the same names.
 
 `Typewriter`, `PromptGlyph` and `ProvidePrompts` stay in `composegl-ui`: they
 are not only for games, and the [dialogue box](#dialogue) here is built on the
@@ -1001,6 +1001,109 @@ The skin names every part: `dialogue`, `dialogue.speaker`, `dialogue.text`,
 nothing and asks for no frames. A finished line asks for one thing only: the
 small arrow breathing to say it is waiting for the player. Pass an `indicator` of
 your own — a static glyph, a prompt — and even that goes.
+
+## The objective tracker
+
+What the player is meant to be doing, pinned in a corner of the HUD. A step that
+gets finished is ticked, has a line struck through it and slides away; a quest
+that arrives slides in and can raise a toast.
+
+```kotlin
+val notices = rememberNotifications()
+
+ObjectiveTracker(
+    quests = tracked,
+    modifier = Modifier.align(Alignment.TopEnd).padding(20f),
+    keyOf = { it.id },
+    visible = !inCutscene,
+    notify = notices,
+) { quest ->
+    title(quest.name)
+    quest.steps.forEach { step(it.text, done = it.done, progress = it.progress) }
+}
+```
+
+The block is the same shape as a world marker layer's above: it is **declared,
+not composed**, so it runs only when something it reads changes, and a step that
+has not moved keeps its node — and its half-played animation — from one frame to
+the next.
+
+`step(...)` takes a `progress` for the counter beside the words:
+
+```kotlin
+step("Kill the wolves", progress = ObjectiveProgress(have = 3, need = 5))   // draws "3 / 5"
+```
+
+`ObjectiveProgress` is two counts rather than a fraction, because two counts is
+what the player reads. `fraction` is there for anything that wants a bar, and
+counting past the end is finished rather than more than finished. The counter
+gives a small jump the moment its number changes, which is the news.
+
+### Finishing a step
+
+Turning a step's `done` from false to true plays the whole thing: the tick is
+drawn stroke by stroke, a line is struck through the words, it stays up long
+enough to read, and then it slides away with the list closing up over it.
+
+A step that is **already** `done` the first time it is declared is history, and
+is not drawn at all — so loading a save does not replay its own quest log.
+`keepCompleted = true` keeps finished steps on the list instead, struck through,
+which is what a quest log rather than a HUD wants.
+
+**A step finished where nobody could see it plays when they can.** A quest folded
+behind the "+2 more" row, or a whole tracker hidden for a cutscene, is not drawn
+at all, so its step waits: it comes up un-ticked and plays the tick, the line and
+the slide the moment the player opens the fold or the cutscene ends.
+
+`step(style = ...)` gives one line a look of its own, and it keeps it when it is
+finished: a step styled `"main"` takes `"main.done"` where the skin has one, and
+the tracker's own `objective.step.done` where it has not.
+
+**Taking something back is allowed, mid-animation and all.** Set `done` back to
+false, or hand a dropped quest back to `quests`, and the row comes back to full
+height from wherever the way out had got to rather than sticking there. That is
+what a game does when a step is failed again, or when a save is loaded over one
+that had just been finished.
+
+### What it says out loud
+
+Given a `notify` queue, the tracker raises the ordinary `Notifications` toasts:
+
+| | |
+|---|---|
+| a quest arrives | "New objective", with its name under it |
+| its last step is done | "Objective complete" |
+
+The quests that are there when the tracker first appears say nothing, so opening
+a save is not five toasts at once.
+
+### The rest of the parameters
+
+| | |
+|---|---|
+| `keyOf` | what a quest *is*, so a row keeps its node and its animations while the list changes. The quest itself by default. One key per quest: two quests answering it the same are one quest here, and only the first is drawn |
+| `maxVisible` | how many quests are on the list at once; the rest fold behind a "+2 more" row |
+| `visible` | false fades the whole thing away for a cutscene, and once gone it composes nothing, draws nothing and asks for no frames |
+| `focusable` | lets the fold row take a turn in the focus order. Off by default: a HUD that focus stops on during a fight is worse than one you have to click |
+| `expandKey`, `expandButton` | fold the extra quests in and out from anywhere, without taking focus. Claimed only while there is a fold row to open; with nothing folded away the press is the game's |
+| `width` | how wide the list is. Zero is as wide as its longest line; a width puts every counter in a column down the end |
+| `slide` | how far a row travels as it arrives. It comes in from the side the language ends on — the right in English, the left in Arabic |
+| `clock` | which clock the animations and the pause before a step leaves run on |
+
+The skin names every part: `objective` for the panel, `objective.title`,
+`objective.step` and `objective.step.done`, `objective.bullet` with
+`objective.tick` drawn in it, `objective.count` and `objective.more`.
+
+Its own words read `objective.progress` (`{0} / {1}`), `objective.more`,
+`objective.fewer`, `objective.added` and `objective.completed` from your
+[[strings|Localisation]], and keep their English where a key has not been
+translated.
+
+**Nothing on it is a control except the fold row.** The list takes no turn in the
+focus order and swallows no click, so a tracker over a fight can never be the
+thing that ate the button press. Even `expandKey` and `expandButton` only take
+the press while there is really something folded away.
+
 ## The inventory grid
 
 The bag: squares, the things in them, stacks that merge and split, and items

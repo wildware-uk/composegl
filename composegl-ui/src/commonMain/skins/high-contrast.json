@@ -153,6 +153,27 @@
     "dialogue.history.line": { "textColour": "#FFFFFF", "text": { "size": 14 } },
     "dialogue.history.answer": { "textColour": "#FFD600", "text": { "size": 14 } },
 
+    // The objective list. Solid rather than see-through here, for the reason the dialogue box is:
+    // words over a moving scene are the hardest thing on the screen to read. A finished step is
+    // still the dimmest thing on the list, and still well above the readable bar.
+    "objective": {
+      "background": { "fill": "#000000", "corner": 5, "border": "#FFFFFF", "padding": [12, 10], "borderWidth": 2 }
+    },
+    "objective.title": { "textColour": "#FFD600", "text": { "size": 15 } },
+    "objective.step": { "textColour": "#FFFFFF", "text": { "size": 14 } },
+    "objective.step.done": { "textColour": "#B0B0B0", "text": { "size": 14 } },
+    "objective.bullet": { "background": { "fill": "#000000", "corner": 3, "border": "#FFFFFF", "borderWidth": 2 } },
+    "objective.tick": { "background": { "fill": "#00E060" } },
+    "objective.count": { "textColour": "#FFFFFF", "text": { "size": 13 } },
+    "objective.more": {
+      "background": { "fill": "#00000000", "corner": 4, "padding": [4, 2] },
+      "textColour": "#FFFFFF",
+      "text": { "size": 13 },
+      "hovered": { "background": { "fill": "#333333", "corner": 4 }, "textColour": "#FFFFFF" },
+      "focused": { "background": { "fill": "#000000", "corner": 4, "border": "#FFD600", "borderWidth": 2 } },
+      "pressed": { "background": { "fill": "#000000", "corner": 4 }, "contentOffset": [0, 1] }
+    },
+
     // --- text ---
 
     "label": {

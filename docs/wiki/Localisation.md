@@ -43,7 +43,10 @@ ProvideLocale(Locale("he"), strings) {
   `dialogue.skip` and `dialogue.log` for the [[dialogue box|Game-widgets#dialogue]]'s own
   buttons; and `inventory.split.half`, `inventory.split.some`, `inventory.rotate`,
   `inventory.split.title`, `inventory.split.confirm` and `inventory.cancel` for the
-  [[inventory grid|Game-widgets#the-inventory-grid]]'s own menu and split prompt.
+  [[inventory grid|Game-widgets#the-inventory-grid]]'s own menu and split prompt; and
+  `objective.progress` (`{0} / {1}`), `objective.more`, `objective.fewer`,
+  `objective.added` and `objective.completed` for the
+  [[objective tracker|Game-widgets#the-objective-tracker]]'s counter, fold row and toasts.
   One you have not translated keeps its English word rather than showing the key.
 
 Changing the locale — a player picking a language on the options screen — recomposes the screen

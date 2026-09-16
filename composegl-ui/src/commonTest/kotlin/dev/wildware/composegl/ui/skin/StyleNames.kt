@@ -34,6 +34,8 @@ val StyleNames = listOf(
     "itemtip", "itemtip.compare", "itemtip.rarity", "itemtip.title", "itemtip.subtitle",
     "itemtip.label", "itemtip.value", "itemtip.better", "itemtip.worse", "itemtip.same",
     "itemtip.flavour", "itemtip.hint",
+    "objective", "objective.title", "objective.step", "objective.step.done",
+    "objective.bullet", "objective.tick", "objective.count", "objective.more",
     // text
     "label", "label.title", "label.heading", "label.dim", "label.danger", "label.good",
     // buttons

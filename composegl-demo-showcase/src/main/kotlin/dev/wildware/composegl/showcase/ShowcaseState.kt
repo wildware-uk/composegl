@@ -169,6 +169,21 @@ class ShowcaseState {
     /** How many hit markers have sounded. A game would play a tick here; this one counts them. */
     var hitsMarked by mutableIntStateOf(0)
 
+    // --- what the player is meant to be doing -----------------------------------------------------
+    //
+    // Worked out from the fight rather than kept beside it, so the objective tracker is showing the
+    // game's own numbers: land enough hits and the sector is clear, which is what puts the second
+    // objective on the list.
+
+    /** How many drones the drill wants seen off. */
+    val droneQuota = 6
+
+    /** How many are down, counted off the hit markers that have sounded. */
+    val dronesDown: Int get() = (hitsMarked / HitsPerDrone).coerceAtMost(droneQuota)
+
+    /** Whether the first objective is finished. */
+    val sectorClear: Boolean get() = dronesDown >= droneQuota
+
     // --- what the tuning window changes ---------------------------------------------------------
     //
     // Ordinary properties the game's own loop reads. The debug window writes them through
@@ -252,6 +267,9 @@ class ShowcaseState {
         newId = { "pile${++piles}" },
     )
 }
+
+/** How many hit markers one drone is worth, so the objective counter climbs at a readable pace. */
+private const val HitsPerDrone = 5
 
 /** What a hit throws off: a short, fast, cooling burst. */
 val HitSparks = ParticleStyle(
