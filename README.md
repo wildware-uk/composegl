@@ -85,7 +85,7 @@ You need `composegl-ui` and exactly one backend. The library draws the interface
 | `composegl-lwjgl3` | raw OpenGL on a GLFW window, desktop only. The reference thin backend |
 | `composegl-webgl` | the browser: WebGL, the page's fonts, mouse, touch, keys, pads and input methods |
 | `composegl-korge` | the KorGE backend: a screen as a view on a KorGE stage, with KorGE's input. JVM for now |
-| `composegl-kool` | the Kool backend: a screen as a Kool scene, with Kool's pointer. Desktop JVM for now; not in a release yet |
+| `composegl-kool` | the Kool backend: a screen as a Kool scene, with Kool's pointer. The desktop and Android; not in a release yet |
 | `composegl-android` | on a phone: what the keyboard covers, the platform's own typing, and haptics |
 | `composegl-robovm` | the same, on an iPhone, through UIKit |
 | `composegl-effects` | blur, outline, colour grade, dissolve. Optional |

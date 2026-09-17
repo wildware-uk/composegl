@@ -194,3 +194,40 @@ jobs:
           path: |
             **/build/reports/tests/**
             **/build/screenshots/**
+
+  # The Kool frontend on Android, where Kool's OpenGL ES only exists on a device: an emulator with
+  # SwiftShader's GPU, Kool's own GLSurfaceView, the shared scenes against the raw OpenGL backend's
+  # goldens, and a finger delivered through Kool's touch listener. `build` compiles this module for
+  # Android on the jvm leg; only here does any of it draw.
+  android:
+    name: Kool on an Android emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      # The emulator needs hardware virtualisation, which a runner has but does not grant by default.
+      - name: Let the emulator use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Kool's Android frontend on a device
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          disable-animations: true
+          script: ./gradlew :composegl-kool:connectedAndroidDeviceTest --stacktrace
+      - name: Keep what went wrong
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-output
+          path: composegl-kool/build/reports/**

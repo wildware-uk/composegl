@@ -2,7 +2,7 @@ package dev.wildware.composegl.kool
 
 import de.fabmax.kool.KoolContext
 import de.fabmax.kool.KoolSystem
-import dev.wildware.composegl.lwjgl3.StbFonts
+import dev.wildware.composegl.render.AtlasFonts
 import dev.wildware.composegl.render.FrameTarget
 import dev.wildware.composegl.render.RenderCanvas
 import dev.wildware.composegl.render.gl.GlDevice
@@ -26,7 +26,7 @@ class KoolFrame(val ctx: KoolContext, val projection: FloatArray, val viewport: 
  * The shared renderer, inside a Kool frame.
  *
  * All the drawing is [RenderCanvas]'s. This class says which GL to call ([KoolGl], on Kool's desktop
- * context), which textures it can draw ([KoolTexture]) and what a game gets from `raw` ([KoolFrame]) —
+ * OpenGL or Android OpenGL ES context), which textures it can draw ([KoolTexture]) and what a game gets from `raw` ([KoolFrame]) —
  * and it keeps Kool's renderer honest. Kool remembers the GL state it last set and believes it: the
  * program it bound, whether depth testing and writing are on, which faces it culls. So the device
  * hands the context back with [HostState.Restore]: it saves what Kool left when a frame begins, and
@@ -40,10 +40,11 @@ class KoolFrame(val ctx: KoolContext, val projection: FloatArray, val viewport: 
  *
  * @param fonts where text is measured, and where solid colour is sampled from.
  */
-class KoolCanvas(fonts: StbFonts? = null) : RenderCanvas(GlDevice(KoolGl, HostState.Restore), fonts, KoolTexture.Resolver) {
+class KoolCanvas(fonts: AtlasFonts? = null) : RenderCanvas(GlDevice(KoolGl, HostState.Restore), fonts, KoolTexture.Resolver) {
 
     /**
-     * Yes: Kool's OpenGL backend is OpenGL 3.3 core or later, which always has framebuffers. Answered
+     * Yes: Kool's OpenGL backend is OpenGL 3.3 core or later on the desktop and OpenGL ES 3 on Android,
+     * both of which always have framebuffers. Answered
      * without asking the driver, so it can be asked on any thread.
      */
     override val drawsScenes: Boolean get() = true

@@ -42,6 +42,9 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * }
  * ```
  *
+ * On Android the fonts are an `AndroidFonts` with a `Typeface` registered, and Kool's context is a
+ * `KoolContextAndroid`, which always renders with OpenGL ES.
+ *
  * Kool draws its scenes in the order they were added, one after another into the same framebuffer. This
  * one clears nothing, so it draws on top of the scenes before it and under the scenes after it. The
  * design size is fitted into the scene's view by [policy], exactly as a `Viewport` fits one onto a
@@ -52,11 +55,12 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * hands Kool its state back afterwards (see [KoolCanvas]), so the scenes Kool draws next draw as they
  * would with no interface at all.
  *
- * **Input.** Kool updates the game on a thread of its own while it renders the frame before, so a
- * pointer listener on Kool's [InputStack] takes each frame's pointers as values and this scene hands
- * them to the toolkit at the start of the next render, on the one thread the toolkit is ever touched
- * on. Mouse and touches go to the toolkit's pointer router. Kool's keys and gamepads are not translated yet; a game that
- * translates them hands them to [player].
+ * **Input.** On the desktop Kool updates the game on a thread of its own while it renders the frame
+ * before; on Android both happen on the `GLSurfaceView`'s thread. So a pointer listener on Kool's
+ * [InputStack] takes each frame's pointers as values, and this scene hands them to the toolkit at the
+ * start of the next render, on the one thread the toolkit is ever touched on. Mouse and touches go to
+ * the toolkit's pointer router. Kool's keys and gamepads are not translated yet; a game that translates
+ * them hands them to [player].
  *
  * @param backend where the canvas and fonts come from. Not closed here: it is the game's.
  * @param design the size the screen is designed at.
@@ -177,7 +181,8 @@ class ComposeGlScene(
  * Adds a ComposeGL screen to this context, on top of the scenes already added, and shows [content] in it.
  *
  * The one line a Kool game writes; [ComposeGlScene] is there for everything else. Kool has to be
- * rendering with OpenGL: `KoolConfigJvm(renderBackend = RenderBackendGl)`.
+ * rendering with OpenGL: on the desktop, `KoolConfigJvm(renderBackend = RenderBackendGl)`. On Android it
+ * always is.
  */
 fun KoolContext.composeGl(
     backend: KoolBackend,
