@@ -1,7 +1,5 @@
 package dev.wildware.composegl.kool
 
-import org.lwjgl.opengl.GL11
-
 /**
  * The GL state Kool remembers that the device's own hand-back does not cover: which depth comparison
  * is in force, which faces culling drops, and the line width.
@@ -14,16 +12,19 @@ import org.lwjgl.opengl.GL11
 internal class KoolState private constructor(private val depthFunc: Int, private val cullFace: Int, private val lineWidth: Float) {
 
     fun restore() {
-        GL11.glDepthFunc(depthFunc)
-        GL11.glCullFace(cullFace)
-        GL11.glLineWidth(lineWidth)
+        ContextGl.depthFunc(depthFunc)
+        ContextGl.cullFace(cullFace)
+        ContextGl.lineWidth(lineWidth)
     }
 
     companion object {
+        private const val DEPTH_FUNC = 0x0B74
+        private const val CULL_FACE_MODE = 0x0B45
+
         fun save() = KoolState(
-            GL11.glGetInteger(GL11.GL_DEPTH_FUNC),
-            GL11.glGetInteger(GL11.GL_CULL_FACE_MODE),
-            GL11.glGetFloat(GL11.GL_LINE_WIDTH),
+            ContextGl.getInteger(DEPTH_FUNC),
+            ContextGl.getInteger(CULL_FACE_MODE),
+            ContextGl.currentLineWidth(),
         )
     }
 }

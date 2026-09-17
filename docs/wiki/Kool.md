@@ -6,8 +6,8 @@ it, and the mouse reaches it through Kool's own input.
 
 ![a Kool world of three cubes with a ComposeGL panel on top: a button, a click count and a scene view that turned red after the click](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/kool-demo-clicked.png)
 
-**Desktop JVM only, pointer only, for now.** Built on Kool 0.19.0 and run on desktop
-Linux. See [the limits](#limits) before you start.
+**The desktop and Android, pointer only, for now; not the browser.** Built on Kool 0.19.0,
+run on desktop Linux and on an Android emulator. See [the limits](#limits) before you start.
 
 ---
 
@@ -27,9 +27,14 @@ dependencies {
 }
 ```
 
-It brings `composegl-ui`, `composegl-render`, `composegl-lwjgl3` and Kool 0.19.0 with it.
+The same line on the desktop and on Android: Gradle picks `composegl-kool-jvm` or
+`composegl-kool-android` for you. It brings `composegl-ui`, `composegl-render` and Kool
+0.19.0 with it, and on the desktop `composegl-lwjgl3` too.
+
 On the desktop Kool's OpenGL is LWJGL, so the GL calls and the fonts are the raw OpenGL
-backend's: `StbFonts` and stb_truetype. Kool asks for LWJGL 3.3.6; this module moves every
+backend's: `StbFonts` and stb_truetype. On Android Kool draws with OpenGL ES 3 on its own
+`GLSurfaceView`, so the GL calls are `android.opengl`'s and the glyphs are Android's own
+text drawing: `AndroidFonts`. Kool asks for LWJGL 3.3.6; this module moves every
 LWJGL module up to the one ComposeGL is built on, which Kool draws correctly on.
 
 ---
@@ -71,6 +76,52 @@ The demo is all of this in one file: `./gradlew :composegl-demo-kool:run`.
 
 ---
 
+## On Android
+
+The same `composeGl`, on the context Kool makes for your activity. The fonts are an
+`AndroidFonts`, registered from a `Typeface`:
+
+```kotlin
+import android.app.Activity
+import android.graphics.Typeface
+import android.os.Bundle
+import de.fabmax.kool.KoolConfigAndroid
+import de.fabmax.kool.KoolSystem
+import de.fabmax.kool.platform.KoolContextAndroid
+import de.fabmax.kool.createKoolContext
+import dev.wildware.composegl.kool.AndroidFonts
+import dev.wildware.composegl.kool.KoolBackend
+import dev.wildware.composegl.kool.composeGl
+import dev.wildware.composegl.ui.geometry.Size
+
+class GameActivity : Activity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val ctx = createKoolContext(KoolConfigAndroid(applicationContext))
+        ctx.addScene(myWorld)
+
+        val fonts = AndroidFonts().apply {
+            register("default", Typeface.createFromAsset(assets, "fonts/DejaVuSans.ttf"), listOf(16, 24))
+        }
+        ctx.composeGl(KoolBackend(fonts), Size(1280f, 720f)) { MainMenu() }
+        setContentView(ctx.surfaceView)
+    }
+
+    override fun onPause() { super.onPause(); KoolSystem.requireContext().let { it as KoolContextAndroid }.onPause() }
+    override fun onResume() { super.onResume(); KoolSystem.requireContext().let { it as KoolContextAndroid }.onResume() }
+}
+```
+
+Kool on Android always renders with OpenGL ES, so there is no backend to choose. A glyph is
+drawn the first time a label asks for it; a character the typeface does not have is drawn
+with the system's font for it, as Android draws any text.
+
+A finger reaches the screen through Kool's own touch listener, as the mouse does on the
+desktop. Kool 0.19.0 reported no press for a finger that lifted after a single Kool frame
+when we tested it; a tap held for two frames clicks.
+
+---
+
 ## Pictures
 
 Wrap a Kool texture in `KoolTexture` and draw it like any picture:
@@ -95,8 +146,9 @@ of it back when the frame ends and around `raw`. Kool's next scene draws as it w
 no interface at all; the tests check that pixel for pixel with a Kool mesh drawn after a
 careless scene.
 
-Kool updates the game on a thread of its own while it renders. The mouse is read there and
-handed to the toolkit at the start of the next render, so the toolkit is only ever touched
+On the desktop Kool updates the game on a thread of its own while it renders; on Android it
+does both on the `GLSurfaceView`'s thread. Either way the pointer is read where Kool updates
+and handed to the toolkit at the start of the next render, so the toolkit is only ever touched
 on the render thread.
 
 ---
@@ -131,8 +183,12 @@ sets the comparison it wants; the picture's depth is cleared to 1.
 
 Honest ones:
 
-- **JVM desktop only.** Kool is multiplatform; the browser and Android are the next step
-  and are not built or tested yet.
+- **Not the browser.** Kool 0.19.0 publishes a Kotlin/JS build for the web and no
+  WebAssembly one, and ComposeGL in the browser is WebAssembly. Gradle finds no `wasm`
+  variant of `kool-core:0.19.0` to build against, so there is no browser target until Kool
+  releases one.
+- **Desktop and Android, tested on Linux and one emulator.** Android is tested on an API 35
+  x86_64 emulator with SwiftShader's OpenGL ES, not on a phone.
 - **Pointer only.** The mouse and touches are translated. Kool's keys, typed text and pads
   are not yet; a game that translates them hands them to `ComposeGlScene.player`.
 - **No clipboard, soft keyboard, cursor shapes or haptics.** They are the toolkit's

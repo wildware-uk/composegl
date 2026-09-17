@@ -11,7 +11,7 @@ Five ship. None is required: the toolkit names no engine anywhere.
 | `composegl-lwjgl3` | Raw OpenGL and stb_truetype. Desktop only. |
 | `composegl-webgl` | WebGL in a browser tab, from WebAssembly. The page's own fonts and input. |
 | `composegl-korge` | KorGE 6. A screen is a view on the stage (`Container.composeGl`), with KorGE's input. Desktop JVM for now; try `./gradlew :composegl-demo-korge:run`. See [[KorGE]]. |
-| `composegl-kool` | Kool. A screen is a Kool scene (`KoolContext.composeGl`), with Kool's pointer. Desktop JVM for now; try `./gradlew :composegl-demo-kool:run`. See [[Kool]]. |
+| `composegl-kool` | Kool. A screen is a Kool scene (`KoolContext.composeGl`), with Kool's pointer. The desktop and Android; not the browser, which Kool 0.19.0 has no WebAssembly build for. Try `./gradlew :composegl-demo-kool:run`. See [[Kool]]. |
 | `composegl-android` | Not a backend — the things about an Android phone LibGDX cannot answer. |
 | `composegl-robovm` | The same, for an iPhone, through UIKit. |
 
@@ -32,15 +32,18 @@ TrueType reader, and hands KorGE its cached GL state back after every frame. And
 the WebGL backend: `WebGl` over the page's WebGL 2 or WebGL 1 context, glyphs from the
 browser's 2D canvas, and the DOM's input. The Kool backend is the thinnest of all: on the
 desktop Kool's OpenGL is LWJGL, so it reuses the raw OpenGL backend's binding and glyphs,
-draws while Kool renders one of its scenes, and hands Kool its cached GL state back. How
+draws while Kool renders one of its scenes, and hands Kool its cached GL state back. On
+Android it is the same code on an `android.opengl` binding, with glyphs from Android's own
+text drawing. How
 they got there is
 `docs/superpowers/specs/2026-09-15-shared-gl-renderer.md`.
 
 Each backend has its own golden images, and CI checks each backend against its own.
 The LibGDX, WebGL and KorGE backends go one step further: besides their own goldens,
 their scenes with no text in them must also match the LWJGL3 goldens. The Kool backend
-has no goldens of its own: its glyphs are stb_truetype's too, so every scene, text
-included, must match the LWJGL3 goldens. Scenes with text
+has no goldens of its own: on the desktop its glyphs are stb_truetype's too, so every scene,
+text included, must match the LWJGL3 goldens, and on an Android emulator its scenes with no
+text in them must. Scenes with text
 are never compared across backends by a test — FreeType, stb_truetype and the others
 never agree on a glyph pixel for pixel — so that comparison is one a person makes by
 looking at the sets.
