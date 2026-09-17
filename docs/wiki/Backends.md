@@ -3,7 +3,7 @@
 A backend is the bit that turns "draw a rounded box here" into actual OpenGL, and
 "how wide is this word?" into a number.
 
-Four ship. None is required: the toolkit names no engine anywhere.
+Five ship. None is required: the toolkit names no engine anywhere.
 
 | module | what it is |
 |---|---|
@@ -11,6 +11,7 @@ Four ship. None is required: the toolkit names no engine anywhere.
 | `composegl-lwjgl3` | Raw OpenGL and stb_truetype. Desktop only. |
 | `composegl-webgl` | WebGL in a browser tab, from WebAssembly. The page's own fonts and input. |
 | `composegl-korge` | KorGE 6. A screen is a view on the stage (`Container.composeGl`), with KorGE's input. Desktop JVM for now; try `./gradlew :composegl-demo-korge:run`. See [[KorGE]]. |
+| `composegl-kool` | Kool. A screen is a Kool scene (`KoolContext.composeGl`), with Kool's pointer. Desktop JVM for now; try `./gradlew :composegl-demo-kool:run`. See [[Kool]]. |
 | `composegl-android` | Not a backend — the things about an Android phone LibGDX cannot answer. |
 | `composegl-robovm` | The same, for an iPhone, through UIKit. |
 
@@ -29,12 +30,17 @@ glyph rasteriser and a window. The LibGDX backend is a thin wrapper too: `GdxGl`
 it binds the `KmlGl` of the frame KorGE is drawing, rasterises glyphs with KorGE's
 TrueType reader, and hands KorGE its cached GL state back after every frame. And so is
 the WebGL backend: `WebGl` over the page's WebGL 2 or WebGL 1 context, glyphs from the
-browser's 2D canvas, and the DOM's input. How they got there is
+browser's 2D canvas, and the DOM's input. The Kool backend is the thinnest of all: on the
+desktop Kool's OpenGL is LWJGL, so it reuses the raw OpenGL backend's binding and glyphs,
+draws while Kool renders one of its scenes, and hands Kool its cached GL state back. How
+they got there is
 `docs/superpowers/specs/2026-09-15-shared-gl-renderer.md`.
 
 Each backend has its own golden images, and CI checks each backend against its own.
 The LibGDX, WebGL and KorGE backends go one step further: besides their own goldens,
-their scenes with no text in them must also match the LWJGL3 goldens. Scenes with text
+their scenes with no text in them must also match the LWJGL3 goldens. The Kool backend
+has no goldens of its own: its glyphs are stb_truetype's too, so every scene, text
+included, must match the LWJGL3 goldens. Scenes with text
 are never compared across backends by a test — FreeType, stb_truetype and the others
 never agree on a glyph pixel for pixel — so that comparison is one a person makes by
 looking at the sets.

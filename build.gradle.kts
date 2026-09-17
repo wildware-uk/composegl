@@ -123,6 +123,7 @@ val published = setOf(
     "composegl-debug",
     "composegl-gdx",
     "composegl-korge",
+    "composegl-kool",
     "composegl-lwjgl3",
     "composegl-webgl",
     "composegl-android",

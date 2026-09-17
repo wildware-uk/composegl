@@ -127,12 +127,16 @@ jobs:
       #                                  shaders.
       #   :composegl-korge:jvmTest     — the KorGE backend in KorGE's own AWT window on Xvfb, the
       #                                  way a desktop game opens it.
+      #   :composegl-kool:jvmTest      — the Kool frontend inside a hidden Kool window: the shared
+      #                                  scenes against the raw OpenGL backend's goldens, and a
+      #                                  SceneView with Kool drawing after it on Kool's cached state.
+      #   :composegl-demo-kool:test    — the Kool demo, clicked through Kool's own GLFW callbacks.
       #   :composegl-preview:test      — the live @Preview window: a preview loaded, drawn into
       #                                  the window, reloaded and drawn again, read back as pixels.
       #
       # --rerun-tasks and --no-build-cache are the point of this job: a test result cached from the
       # headless legs was produced with no GL context at all, and must never stand in for these.
-      - name: The renderer on a real GL context — GL 2, GL 3.2 core, ES 3, ES 2, and inside KorGE
+      - name: The renderer on a real GL context — GL 2, GL 3.2 core, ES 3, ES 2, and inside KorGE and Kool
         env:
           LIBGL_ALWAYS_SOFTWARE: '1'
           GALLIUM_DRIVER: llvmpipe
@@ -142,6 +146,7 @@ jobs:
           :composegl-lwjgl3:test :composegl-lwjgl3:testGl30
           :composegl-lwjgl3:testGles3 :composegl-lwjgl3:testGles2
           :composegl-korge:jvmTest
+          :composegl-kool:jvmTest :composegl-demo-kool:test
           :composegl-preview:test
           --rerun-tasks --no-build-cache --no-parallel --stacktrace
 
