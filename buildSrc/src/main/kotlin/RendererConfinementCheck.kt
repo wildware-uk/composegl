@@ -24,7 +24,7 @@ import org.gradle.api.tasks.TaskAction
  * 1. shader text appears anywhere — shaders live in `composegl-render`;
  * 2. a draw, shader, blend, vertex-layout or framebuffer call appears outside the binding file (and
  *    any file named as also allowed, such as an engine's state-restore file);
- * 3. the binding file is missing, does not implement `Gl`, or is longer than [maxBindingLines] — a
+ * 3. the binding file is missing, does not implement `Gl` (itself or by delegation), or is longer than [maxBindingLines] — a
  *    sign that logic crept into it.
  *
  * Switched on per backend with one line: `confineRenderer("LwjglGl.kt")`.
@@ -75,7 +75,8 @@ abstract class RendererConfinementCheck : DefaultTask() {
             if (lines > maxBindingLines.get()) {
                 offences += "  ${file.name} is $lines lines, over ${maxBindingLines.get()}: logic has crept into the binding"
             }
-            if (!Regex(""":\s*Gl\s*\{""").containsMatchIn(text)) {
+            // Written out a call a line, or delegated to another frontend's binding for the same context.
+            if (!Regex(""":\s*Gl\s*(\{|by\s)""").containsMatchIn(text)) {
                 offences += "  ${file.name} does not implement dev.wildware.composegl.render.gl.Gl"
             }
         }

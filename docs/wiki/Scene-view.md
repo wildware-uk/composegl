@@ -348,6 +348,7 @@ every drawer shut when they leave.
 | a browser tab (WebGL 1 and 2) | `WebGlFrame` | the same, or with `HostState.Restore` your library's own state (below) |
 | LibGDX | your `SpriteBatch`, open on the picture | the documented end state; the batch closed, its projection and colour as you left them |
 | KorGE | the frame's `RenderContext`, with the picture on its framebuffer stack | the GL state KorGE left, and KorGE told to forget what it remembers (below) |
+| Kool | `KoolFrame`: Kool's `ctx`, the projection and the viewport | Kool's own GL state back, whatever the block left (below) |
 | your own `RenderCanvas` | whatever its `handOver` makes | whatever its device's `HostState` says |
 
 "The documented end state" is `HostState.Leave`: the framebuffer and viewport you had,
@@ -369,6 +370,12 @@ For three.js, which remembers its viewport and scissor, call `renderer.resetStat
 after the frame that rendered a scene. The KorGE frontend does the same for KorGE for
 you: it makes KorGE forget what it remembers before and after your block, so KorGE sets
 everything it needs the next time it draws, as it does at the start of every frame.
+
+**Kool** cannot be told to forget, and draws only through its own passes, so anything a
+block draws with is behind Kool's back. So the Kool frontend does not keep what the block
+leaves: when the block returns, Kool's own state goes back, depth comparison and culled
+faces included. The block starts in Kool's state — reversed depth, so not `LESS`, on a
+context with clip control. See [[Kool]].
 
 **LibGDX.** `ModelBatch` sets up its own depth test, so it draws straight in:
 

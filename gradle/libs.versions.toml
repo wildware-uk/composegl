@@ -13,6 +13,9 @@ gdxControllers = "2.2.3"
 lwjgl = "3.4.3"
 # KorGE, as a plain library: no KorGE Gradle plugin, which would want to own the whole build.
 korge = "6.0.0"
+# Kool, as a plain library. 0.19.0 is built on LWJGL 3.3.6; composegl-kool moves every LWJGL module
+# it brings up to `lwjgl` above, which Kool was measured to draw correctly on (Udea #210).
+kool = "0.19.0"
 jspecify = "1.0.0"
 robovm = "2.3.26"
 junit = "5.14.0"
@@ -43,6 +46,8 @@ gdx-controllers = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-
 gdx-controllers-desktop = { module = "com.badlogicgames.gdx-controllers:gdx-controllers-desktop", version.ref = "gdxControllers" }
 korge = { module = "com.soywiz.korge:korge", version.ref = "korge" }
 lwjgl = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
+lwjgl-bom = { module = "org.lwjgl:lwjgl-bom", version.ref = "lwjgl" }
+kool-core = { module = "de.fabmax.kool:kool-core", version.ref = "kool" }
 # LWJGL 3.4 puts @Nullable on its return types. Kotlin refuses to infer a type whose
 # annotation it cannot see, so the annotations have to be on the compile classpath —
 # they are not needed at runtime, which is what compileOnly says.
