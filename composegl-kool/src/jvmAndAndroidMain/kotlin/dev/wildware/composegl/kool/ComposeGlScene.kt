@@ -7,6 +7,7 @@ import de.fabmax.kool.pipeline.ClearColorLoad
 import de.fabmax.kool.pipeline.ClearDepthLoad
 import de.fabmax.kool.pipeline.backend.gl.RenderBackendGl
 import de.fabmax.kool.scene.Scene
+import de.fabmax.kool.util.Time
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
@@ -55,12 +56,13 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * hands Kool its state back afterwards (see [KoolCanvas]), so the scenes Kool draws next draw as they
  * would with no interface at all.
  *
- * **Input.** On the desktop Kool updates the game on a thread of its own while it renders the frame
- * before; on Android both happen on the `GLSurfaceView`'s thread. So a pointer listener on Kool's
- * [InputStack] takes each frame's pointers as values, and this scene hands them to the toolkit at the
- * start of the next render, on the one thread the toolkit is ever touched on. Mouse and touches go to
- * the toolkit's pointer router. Kool's keys and gamepads are not translated yet; a game that translates
- * them hands them to [player].
+ * **Input.** The toolkit is only ever touched on Kool's render thread. With Kool's default,
+ * `asyncSceneUpdate = true`, the desktop updates the game on a thread of its own while it renders the
+ * frame before; with `asyncSceneUpdate = false`, and always on Android, both happen on one thread. Either
+ * way a pointer listener on Kool's [InputStack] takes each frame's pointers as values, and this scene
+ * hands them to the toolkit at the start of the next render. Mouse and touches go to the toolkit's
+ * pointer router, and [onPointerUsed] says which of them it used. Kool's keys and gamepads are not
+ * translated yet; a game that translates them hands them to [player], on the render thread.
  *
  * @param backend where the canvas and fonts come from. Not closed here: it is the game's.
  * @param design the size the screen is designed at.
@@ -99,6 +101,11 @@ class ComposeGlScene(
      * This screen's end of the input contract, in design units: the routers and navigators behind one
      * [SourceAware]. Kool's pointers arrive here by themselves; a game that translates Kool's keys or
      * pads hands them here too.
+     *
+     * **Call it on Kool's render thread only**, where the toolkit lays out and draws: in a scene's
+     * `onUpdate` with `asyncSceneUpdate = false`, or on Android. Under Kool's default the game's update
+     * runs on another thread, and a key handed here from there races the frame being drawn; queue it and
+     * hand it over from the render thread instead.
      */
     val player: InputSink = SourceAware(
         source,
@@ -128,11 +135,34 @@ class ComposeGlScene(
         }
     }
 
+    /**
+     * Told, once for each of Kool's pointers in each of Kool's frames, whether the interface used it:
+     * so a game can leave alone a click that landed on a button. A pointer that lifted or left is
+     * reported once more, in the frame it went.
+     *
+     * **Called on Kool's render thread**, at the start of this scene's render, before the interface is
+     * drawn. That is where the toolkit handles pointers and where the verdict first exists, so it never
+     * arrives in the same step as the pointer: Kool polls the pointer, updates the game, then renders.
+     * With `asyncSceneUpdate = false`, and on Android, the verdict for a frame arrives after the game's
+     * update for that frame has run. Under Kool's default the game updates on another thread alongside
+     * the render, so the verdict can arrive before, during or after that update, and this callback runs
+     * on a different thread from the game's update. Either way, match [PointerUse.frame] against the
+     * frame the game read the pointer in, not against when the verdict arrives.
+     *
+     * Kool's own `Pointer.isConsumed()` is not set: by the time the verdict exists, Kool's pointer has
+     * moved on.
+     */
+    @Volatile
+    var onPointerUsed: ((PointerUse) -> Unit)? = null
+
+    /** One of Kool's frames of pointers, taken on Kool's update thread. */
+    private class PointerFrame(val number: Int, val pointers: List<KoolPointerInput.Sample>)
+
     /** Pointer frames taken on Kool's update thread, waiting for the render thread. */
-    private val pointerFrames = ConcurrentLinkedQueue<List<KoolPointerInput.Sample>>()
+    private val pointerFrames = ConcurrentLinkedQueue<PointerFrame>()
 
     private val listener = InputStack.PointerListener { state, _ ->
-        pointerFrames += state.pointers.filter { it.isValid }.map { pointerInput.sample(it) }
+        pointerFrames += PointerFrame(Time.frameCount, state.pointers.filter { it.isValid }.map { pointerInput.sample(it) })
     }
 
     private val input = InputStack.InputHandler("composegl").also { it.pointerListeners += listener }
@@ -166,7 +196,11 @@ class ComposeGlScene(
             policy = policy,
             area = Rect.of(view.x.toFloat(), view.y.toFloat(), view.width.toFloat(), view.height.toFloat()),
         )
-        while (true) pointerInput.onFrame(pointerFrames.poll() ?: break)
+        while (true) {
+            val frame = pointerFrames.poll() ?: break
+            val uses = pointerInput.onFrame(frame.pointers, frame.number)
+            onPointerUsed?.let { report -> uses.forEach(report) }
+        }
         renderer.render(viewport, clock())
     }
 

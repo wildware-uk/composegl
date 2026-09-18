@@ -40,27 +40,31 @@ internal class KoolPointerInput(
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
 
-    private class Seen(var at: Offset, val held: MutableSet<PointerButton> = mutableSetOf())
+    private class Seen(val kool: Int, var at: Offset, val held: MutableSet<PointerButton> = mutableSetOf())
 
     /** Every pointer seen in the last frame, by the toolkit's id. */
     private val seen = LinkedHashMap<PointerId, Seen>()
 
     /**
-     * One frame of pointers, as plain values taken with [sample]: the ones not listed have gone.
-     * Returns whether any event was used. [ComposeGlScene] takes the values on Kool's update thread and
-     * hands them over here on its render thread.
+     * One of Kool's frames of pointers, as plain values taken with [sample]: the ones not listed have
+     * gone. Returns, for every pointer listed and every one that went, whether the interface used any
+     * event made from it, in the order they were handled. [ComposeGlScene] takes the values on Kool's
+     * update thread and hands them over here on its render thread.
+     *
+     * @param frame Kool's frame the pointers were read in, carried into each [PointerUse].
      */
-    fun onFrame(pointers: List<Sample>): Boolean {
+    fun onFrame(pointers: List<Sample>, frame: Int = 0): List<PointerUse> {
         val now = clock()
-        var used = false
+        val uses = mutableListOf<PointerUse>()
         val present = HashSet<PointerId>()
         pointers.forEach { pointer ->
+            var used = false
             val id = if (pointer.id == PointerInput.MOUSE_POINTER_ID) PointerId.Mouse else PointerId(1L + pointer.id)
             val type = if (id == PointerId.Mouse) PointerType.Mouse else PointerType.Touch
             present += id
             val at = viewport().toDesign(Offset(pointer.x, pointer.y))
             val last = seen[id]
-            val seenNow = last ?: Seen(at).also { seen[id] = it }
+            val seenNow = last ?: Seen(pointer.id, at).also { seen[id] = it }
             if (last == null || last.at != at) {
                 seenNow.at = at
                 used = sink.onPointer(PointerEvent.Move(id, at, seenNow.held.toSet(), type, now)) || used
@@ -83,21 +87,23 @@ internal class KoolPointerInput(
             if (pointer.scrollX != 0f || pointer.scrollY != 0f) {
                 used = sink.onPointer(PointerEvent.Scroll(id, at, Offset(turned(pointer.scrollX), turned(pointer.scrollY)), type, now)) || used
             }
+            uses += PointerUse(pointer.id, frame, used)
         }
         seen.keys.filter { it !in present }.forEach { id ->
             val gone = checkNotNull(seen.remove(id))
             val type = if (id == PointerId.Mouse) PointerType.Mouse else PointerType.Touch
             // A mouse that left the window ends hover, not a drag; Kool drops what was held with it, so
             // the drag is abandoned rather than finished. A finger that lifted is a release.
-            used = when {
+            val used = when {
                 gone.held.isNotEmpty() && type == PointerType.Mouse ->
                     sink.onPointer(PointerEvent.Cancel(id, gone.at, type, now)) or sink.onPointer(PointerEvent.Exit(id, gone.at, type, now))
                 gone.held.isNotEmpty() -> gone.held.toList().map { sink.onPointer(PointerEvent.Release(id, gone.at, it, type, now)) }.any { it }
                 type == PointerType.Mouse -> sink.onPointer(PointerEvent.Exit(id, gone.at, type, now))
                 else -> false
-            } || used
+            }
+            uses += PointerUse(gone.kool, frame, used)
         }
-        return used
+        return uses
     }
 
     /** One of Kool's pointers in one frame. */

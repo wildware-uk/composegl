@@ -24,10 +24,13 @@ class KoolPointerInputTest {
 
     private val events = mutableListOf<PointerEvent>()
 
+    /** Whether the sink uses an event; every one, unless a test says otherwise. */
+    private var uses: (PointerEvent) -> Boolean = { true }
+
     private val sink = object : InputSink {
         override fun onPointer(event: PointerEvent): Boolean {
             events += event
-            return true
+            return uses(event)
         }
 
         override fun onKey(event: KeyEvent) = false
@@ -137,5 +140,28 @@ class KoolPointerInputTest {
         events.clear()
         input.onFrame(listOf(Sample(mouse, 0f, 0f, 0, 0)))
         assertEquals(listOf("release Primary Offset(x=20.0, y=20.0)"), describe())
+    }
+
+    @Test
+    fun `each pointer is reported with whether the interface used it and the frame it was read in`() {
+        // The interface covers the left half of the design: anything at x under 200 is used.
+        uses = { it.position.x < 200f }
+        val report = input.onFrame(listOf(Sample(mouse, 600f, 100f, left, left), Sample(3, 40f, 40f, left, left)), frame = 7)
+        assertEquals(listOf(PointerUse(mouse, 7, false), PointerUse(3, 7, true)), report)
+    }
+
+    @Test
+    fun `a pointer that did nothing is reported as not used`() {
+        input.onFrame(listOf(Sample(mouse, 200f, 100f, 0, 0)), frame = 1)
+        assertEquals(listOf(PointerUse(mouse, 2, false)), input.onFrame(listOf(Sample(mouse, 200f, 100f, 0, 0)), frame = 2))
+    }
+
+    @Test
+    fun `a finger that lifted is reported in the frame it went`() {
+        input.onFrame(listOf(Sample(5, 40f, 40f, left, left)), frame = 1)
+        assertEquals(listOf(PointerUse(5, 2, true)), input.onFrame(emptyList(), frame = 2))
+        uses = { false }
+        input.onFrame(listOf(Sample(5, 40f, 40f, left, left)), frame = 3)
+        assertEquals(listOf(PointerUse(5, 4, false)), input.onFrame(emptyList(), frame = 4))
     }
 }

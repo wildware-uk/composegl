@@ -68,15 +68,21 @@ that renders with anything else, and says so.
 The design size is fitted into the scene's view by a `ScalePolicy`, exactly as a
 `Viewport` fits one onto a window on the other backends.
 
-`composeGl` returns the `ComposeGlScene`: its Kool `scene` (to remove it later), and
-`player`, the input sink a game hands its own keys or pads to. `close()` stops listening to
-Kool's pointer and lets go of the composition; the backend is yours to close.
+`composeGl` returns the `ComposeGlScene`: its Kool `scene` (to remove it later),
+`player`, the input sink a game hands its own keys or pads to, and `onPointerUsed`, which
+says which clicks the interface took (see [below](#did-the-interface-take-that-click)).
+`close()` stops listening to Kool's pointer and lets go of the composition; the backend is
+yours to close.
 
 The demo is all of this in one file: `./gradlew :composegl-demo-kool:run`.
 
 ---
 
 ## On Android
+
+Set `android.useAndroidX=true` in the game's `gradle.properties`. The toolkit brings the
+Compose runtime, which is an androidx library, and without that line an Android build does
+not resolve.
 
 The same `composeGl`, on the context Kool makes for your activity. The fonts are an
 `AndroidFonts`, registered from a `Typeface`:
@@ -146,10 +152,44 @@ of it back when the frame ends and around `raw`. Kool's next scene draws as it w
 no interface at all; the tests check that pixel for pixel with a Kool mesh drawn after a
 careless scene.
 
-On the desktop Kool updates the game on a thread of its own while it renders; on Android it
-does both on the `GLSurfaceView`'s thread. Either way the pointer is read where Kool updates
-and handed to the toolkit at the start of the next render, so the toolkit is only ever touched
-on the render thread.
+The toolkit is only ever touched on Kool's render thread. Whether that is also the thread
+the game updates on depends on Kool's settings:
+
+- **Kool's default on the desktop** (`asyncSceneUpdate = true`): the game updates on a
+  thread of its own while the frame before renders.
+- **`asyncSceneUpdate = false`, and always on Android:** update and render take turns on
+  one thread.
+
+Either way the pointer is read where Kool updates and handed to the toolkit at the start of
+the next render. Anything a game hands to `player` itself — keys, typed text, pads — must be
+handed over on the render thread too. With `asyncSceneUpdate = false` a scene's `onUpdate`
+already is; under the default, queue the events and hand them over from the render thread.
+
+---
+
+## Did the interface take that click?
+
+A click on a button should not also fire the game's gun. `onPointerUsed` tells you, once for
+each of Kool's pointers in each of Kool's frames, whether the interface used it:
+
+```kotlin
+val takenByUi = ConcurrentHashMap.newKeySet<Int>()   // Kool frames whose mouse the interface took
+
+val ui = ctx.composeGl(KoolBackend(fonts), Size(1280f, 720f)) { Hud() }
+ui.onPointerUsed = { use ->
+    if (use.used && use.pointer == PointerInput.MOUSE_POINTER_ID) takenByUi += use.frame
+}
+```
+
+- **It runs on the render thread**, at the start of the interface's render — the only place
+  the answer exists.
+- **It comes late.** Kool reads the pointer, updates the game, then renders, so the game has
+  already seen the frame's pointer when the answer arrives. `use.frame` is `Time.frameCount`
+  from when Kool read it: match on that, and skip the click a frame later.
+- **Every pointer, every frame,** `used` or not, and once more in the frame a finger lifts or
+  the mouse leaves.
+- Kool's own `Pointer.isConsumed()` stays false: by the time the answer exists, Kool's
+  pointer has moved on.
 
 ---
 
@@ -190,7 +230,10 @@ Honest ones:
 - **Desktop and Android, tested on Linux and one emulator.** Android is tested on an API 35
   x86_64 emulator with SwiftShader's OpenGL ES, not on a phone.
 - **Pointer only.** The mouse and touches are translated. Kool's keys, typed text and pads
-  are not yet; a game that translates them hands them to `ComposeGlScene.player`.
+  are not yet; a game that translates them hands them to `ComposeGlScene.player`, on the
+  render thread.
+- **Which clicks the interface took is known a frame late**, not in the frame itself; see
+  [above](#did-the-interface-take-that-click).
 - **No clipboard, soft keyboard, cursor shapes or haptics.** They are the toolkit's
   do-nothing ones.
 - **OpenGL only.** Kool's Vulkan backend is refused.
