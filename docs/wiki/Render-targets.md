@@ -19,9 +19,13 @@ for a screen, or `ONE, ONE` for a hologram. No shader of your own is needed.
 val target = GlRenderTarget(512, 256)
 
 // In the game loop: redraw only when the panel changed.
-if (panel.needsRedraw(now)) target.draw(canvas) { panel.draw(canvas) }
+if (panel.needsRedraw(now)) panel.draw(canvas) { tree -> target.draw(canvas) { tree() } }
 scene.drawQuad(target.texture)
 ```
+
+The panel opens the target's frame itself, through the block. That way it can render
+any [[Scene view]] inside it first, before the frame opens. A panel with no scene view
+in it can also be drawn the older way, `target.draw(canvas) { panel.draw(canvas) }`.
 
 To show a 3D scene inside a panel of your interface, you usually want [[Scene view]]
 instead: it makes the target, sizes it to the panel, and redraws it only when asked.

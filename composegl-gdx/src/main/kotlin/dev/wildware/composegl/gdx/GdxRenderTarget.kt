@@ -24,7 +24,7 @@ import dev.wildware.composegl.ui.layout.Viewport
  *
  * ```kotlin
  * val target = GdxRenderTarget(512, 256)
- * if (panel.needsRedraw(now)) target.draw(canvas) { panel.draw(canvas) }
+ * if (panel.needsRedraw(now)) panel.draw(canvas) { tree -> target.draw(canvas) { tree() } }
  * scene.drawQuad(target.texture)
  * ```
  *

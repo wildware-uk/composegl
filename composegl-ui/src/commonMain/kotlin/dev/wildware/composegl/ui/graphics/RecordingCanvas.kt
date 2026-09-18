@@ -715,7 +715,10 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
      * to [SceneTarget.raw] is not run, for the reason [handsOverRaw] gives.
      */
     override fun scene(surface: SceneSurface?, width: Int, height: Int, draw: (SceneTarget) -> Unit): SceneSurface? {
-        check(!drawing) { "scene() inside a frame: scenes are rendered before the frame begins" }
+        check(!drawing) {
+            "scene() inside a frame: scenes are rendered before the frame begins. " +
+                "A WorldPanel with a SceneView in it opens its frame itself: panel.draw(canvas) { tree -> target.draw(canvas) { tree() } }"
+        }
         if (width <= 0 || height <= 0) return surface
         val reused = (surface as? RecordedSceneSurface)?.takeIf { !it.closed && it.width == width && it.height == height }
         val picture = reused ?: RecordedSceneSurface(width, height)

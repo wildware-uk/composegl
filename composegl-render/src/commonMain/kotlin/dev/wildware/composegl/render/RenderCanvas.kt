@@ -1079,7 +1079,10 @@ open class RenderCanvas protected constructor(
      * A picture made by another canvas, or closed, is not reused; the caller gives it back.
      */
     override fun scene(surface: SceneSurface?, width: Int, height: Int, draw: (SceneTarget) -> Unit): SceneSurface? {
-        check(!drawing) { "scene() inside a frame: scenes are rendered before the frame begins, not in the middle of it" }
+        check(!drawing) {
+            "scene() inside a frame: scenes are rendered before the frame begins, not in the middle of it. " +
+                "A WorldPanel with a SceneView in it opens its frame itself: panel.draw(canvas) { tree -> target.draw(canvas) { tree() } }"
+        }
         if (width <= 0 || height <= 0) return surface
         if (!device.limits.offscreen) return null
         val mine = (surface as? ScenePicture)?.takeIf { !it.closed && it.device === device }
@@ -1106,7 +1109,10 @@ open class RenderCanvas protected constructor(
      * draws: see [GpuDevice.suspendInScene].
      */
     protected fun renderScene(into: DeviceTarget, draw: (SceneTarget) -> Unit) {
-        check(!drawing) { "scene() inside a frame: scenes are rendered before the frame begins, not in the middle of it" }
+        check(!drawing) {
+            "scene() inside a frame: scenes are rendered before the frame begins, not in the middle of it. " +
+                "A WorldPanel with a SceneView in it opens its frame itself: panel.draw(canvas) { tree -> target.draw(canvas) { tree() } }"
+        }
         val binding = sceneBinding
         device.begin(into)
         try {

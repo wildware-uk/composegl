@@ -15,7 +15,9 @@ import kotlin.math.ceil
  * The prepass: renders every dirty `SceneView` on [tree] into its own picture, through [canvas].
  *
  * [UiRenderer][dev.wildware.composegl.ui.host.UiRenderer] runs one of these for you, after layout
- * and before the frame begins, and that is what nearly every game wants. **Driving it yourself is
+ * and before the frame begins, and that is what nearly every game wants. A
+ * [WorldPanel][dev.wildware.composegl.ui.world.WorldPanel] runs one too, the same way, for the
+ * scene views on a panel in the world. **Driving it yourself is
  * the exception**, for a game that has to put scene rendering between passes of its own — a shadow
  * map the preview shares, say:
  *
@@ -49,9 +51,12 @@ import kotlin.math.ceil
  * A clean scene view costs a comparison. A tree with none costs one.
  *
  * @param budget where each render's time and count go. A [UiRenderer][dev.wildware.composegl.ui.host.UiRenderer]
- *   hands over its own. Null counts nothing.
+ *   hands over its own; a world panel hands over whatever its `budget` is set to. Null counts nothing.
  */
-class ScenePass(val tree: UiTree, val canvas: UiCanvas, val budget: FrameBudget? = null) {
+class ScenePass(val tree: UiTree, val canvas: UiCanvas, budget: FrameBudget? = null) {
+
+    /** Where each render's time and count go, or null for nowhere. Settable, for a world panel's. */
+    var budget: FrameBudget? = budget
 
     /**
      * Told, once per `SceneViewState`, that a scene was cut down to fit the device. Prints by
