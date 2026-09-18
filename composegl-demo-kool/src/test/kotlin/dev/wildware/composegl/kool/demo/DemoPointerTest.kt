@@ -86,6 +86,14 @@ class DemoPointerTest {
         kool.invoke(handle, GLFW.GLFW_MOUSE_BUTTON_LEFT, action, 0)
     }
 
+    /** Kool's own callback for the mouse entering or leaving the window. */
+    private fun cursorEnters(entered: Boolean) = late { ctx ->
+        val handle = window(ctx)
+        val kool = checkNotNull(GLFW.glfwSetCursorEnterCallback(handle, null)) { "Kool installed no cursor enter callback" }
+        GLFW.glfwSetCursorEnterCallback(handle, kool)
+        kool.invoke(handle, entered)
+    }
+
     @Test
     fun `the mouse hovers and clicks a ComposeGL button over a Kool world`() {
         assumeTrue(!System.getenv("DISPLAY").isNullOrBlank(), "no display; this test opens a Kool window")
@@ -167,5 +175,21 @@ class DemoPointerTest {
         assertTrue(onWorld.isNotEmpty(), "the mouse is still reported every frame")
         assertTrue(onWorld.none { it.used }, "a click on the world is not the interface's: $onWorld")
         assertEquals(1, demo.state.clicks, "and it clicked nothing in the interface")
+
+        // Pressed on the button, dragged out of the window, let go outside, and back in over the button.
+        // Kool forgets the mouse when it leaves; the one that comes back is new to the toolkit.
+        moveTo(button.x + button.width / 2, button.y + button.height / 2)
+        frames(3)
+        button(GLFW.GLFW_PRESS)
+        frames(2)
+        cursorEnters(false)
+        frames(2)
+        button(GLFW.GLFW_RELEASE)
+        frames(2)
+        cursorEnters(true)
+        moveTo(button.x + button.width / 2, button.y + button.height / 2)
+        frames(5)
+        shot("5-back-in")
+        assertEquals(1, demo.state.clicks, "a mouse coming back over the button does not click it")
     }
 }
