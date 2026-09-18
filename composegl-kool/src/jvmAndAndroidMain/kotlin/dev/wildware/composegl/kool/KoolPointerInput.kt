@@ -22,7 +22,9 @@ import dev.wildware.composegl.ui.layout.Viewport
  * frame. So this compares a frame with the one before. Kool already splits a press and a release that
  * arrived in the same frame into one click, and leaves the button marked as changed with the same
  * state either side; that is read back as a press followed by a release, so a quick click is still a
- * click.
+ * click. A pointer seen for the first time is read by which buttons are down, not by what changed:
+ * Kool reuses a pointer's slot, and a mouse coming back into the window can carry the changed bits of
+ * a button let go outside it, which would otherwise click whatever it came back over.
  *
  * **Coordinates.** Kool's pointer positions are the framebuffer's pixels, top-left origin — the pixels a
  * [Viewport] is measured in — so they go through [Viewport.toDesign] and nothing else.
@@ -72,7 +74,7 @@ internal class KoolPointerInput(
             Buttons.forEach { (mask, button) ->
                 val wasDown = button in seenNow.held
                 val isDown = pointer.buttons and mask != 0
-                val changed = pointer.changed and mask != 0
+                val changed = last != null && pointer.changed and mask != 0
                 fun press() = sink.onPointer(PointerEvent.Press(id, at, button, type, now)).also { seenNow.held += button }
                 fun release() = sink.onPointer(PointerEvent.Release(id, at, button, type, now)).also { seenNow.held -= button }
                 used = when {

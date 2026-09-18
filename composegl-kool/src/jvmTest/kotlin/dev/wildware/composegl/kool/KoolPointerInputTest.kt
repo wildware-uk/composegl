@@ -164,4 +164,20 @@ class KoolPointerInputTest {
         input.onFrame(listOf(Sample(5, 40f, 40f, left, left)), frame = 3)
         assertEquals(listOf(PointerUse(5, 4, false)), input.onFrame(emptyList(), frame = 4))
     }
+
+    @Test
+    fun `a mouse coming back with a stale changed bit does not click`() {
+        input.onFrame(listOf(Sample(mouse, 0f, 0f, left, left)))
+        input.onFrame(emptyList())
+        events.clear()
+        // Kool's reused slot still says the left button changed, though it was let go outside.
+        input.onFrame(listOf(Sample(mouse, 200f, 100f, buttons = 0, changed = left)))
+        assertEquals(listOf("move Offset(x=100.0, y=50.0) []"), describe())
+    }
+
+    @Test
+    fun `a pointer that arrives with a button down is pressed once`() {
+        input.onFrame(listOf(Sample(mouse, 200f, 100f, buttons = left, changed = left)))
+        assertEquals(listOf("move Offset(x=100.0, y=50.0) []", "press Primary Offset(x=100.0, y=50.0)"), describe())
+    }
 }
