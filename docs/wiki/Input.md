@@ -84,6 +84,11 @@ GdxGamepadInput(input).start()
 Call `input.frame(...)` once a frame, after layout — focus is worked out from where
 things actually are.
 
+Hand events over on the thread the interface lays out and draws on. The routers are not
+thread-safe, and a key handed over from a game-update thread races the frame being drawn.
+Most engines update and draw on one thread, so there is nothing to do; Kool on the desktop
+does not, by default — see [[Kool]].
+
 ---
 
 ## Focus

@@ -9,9 +9,12 @@ import de.fabmax.kool.pipeline.ClearColorLoad
 import de.fabmax.kool.pipeline.ClearDepthLoad
 import de.fabmax.kool.platform.Lwjgl3Context
 import de.fabmax.kool.platform.glfw.GlfwWindow
+import de.fabmax.kool.input.PointerInput
 import de.fabmax.kool.scene.Scene
+import dev.wildware.composegl.kool.PointerUse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.lwjgl.glfw.GLFW
@@ -114,6 +117,11 @@ class DemoPointerTest {
         }, "kool-demo").apply { isDaemon = true }.start()
         val demo = checkNotNull(started.poll(120, TimeUnit.SECONDS)) { "the demo never started" }.getOrThrow()
 
+        // Set on the render thread, where the report is made, so no frame is half-reported.
+        val uses = ConcurrentLinkedQueue<PointerUse>()
+        late { demo.ui.onPointerUsed = { uses += it } }
+        fun mouseUses() = generateSequence { uses.poll() }.filter { it.pointer == PointerInput.MOUSE_POINTER_ID }.toList()
+
         val button = KoolDemo.ButtonAt
         val sceneAt = 200 to 418
         frames(10)
@@ -132,15 +140,32 @@ class DemoPointerTest {
         )
         assertEquals(0, demo.state.clicks)
 
+        mouseUses()
         button(GLFW.GLFW_PRESS)
         frames(2)
         shot("3-pressed")
         button(GLFW.GLFW_RELEASE)
         frames(5)
         val clicked = shot("4-clicked")
+        val onButton = mouseUses()
+        assertTrue(onButton.count { it.used } >= 2, "the press and the release on the button are reported used: $onButton")
+        assertEquals(onButton.map { it.frame }.sorted(), onButton.map { it.frame }, "reported in the order Kool read them")
 
         assertEquals(1, demo.state.clicks, "one press and release over the button is one click")
         assertEquals(DemoState.Palette[1].argb and 0xFFFFFF, clicked.getRGB(sceneAt.first, sceneAt.second) and 0xFFFFFF, "the scene view drew its new colour")
         assertEquals(before.getRGB(1100, 600), clicked.getRGB(1100, 600), "Kool's world outside the panel did not change")
+
+        // A click on Kool's world, away from the panel: the game's, and reported so.
+        moveTo(1100, 600)
+        frames(5)
+        mouseUses()
+        button(GLFW.GLFW_PRESS)
+        frames(2)
+        button(GLFW.GLFW_RELEASE)
+        frames(5)
+        val onWorld = mouseUses()
+        assertTrue(onWorld.isNotEmpty(), "the mouse is still reported every frame")
+        assertTrue(onWorld.none { it.used }, "a click on the world is not the interface's: $onWorld")
+        assertEquals(1, demo.state.clicks, "and it clicked nothing in the interface")
     }
 }
