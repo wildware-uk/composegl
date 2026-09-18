@@ -16,7 +16,7 @@ import dev.wildware.composegl.ui.graphics.Colour
  * ```kotlin
  * val target = GlRenderTarget(512, 256)
  * // in the game loop:
- * if (panel.needsRedraw(now)) target.draw(canvas) { panel.draw(canvas) }
+ * if (panel.needsRedraw(now)) panel.draw(canvas) { tree -> target.draw(canvas) { tree() } }
  * scene.drawQuad(target.texture)
  * ```
  *

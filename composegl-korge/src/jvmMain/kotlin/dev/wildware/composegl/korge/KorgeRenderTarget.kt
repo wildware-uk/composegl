@@ -33,8 +33,13 @@ import korlibs.math.geom.slice.RectSlice
  * val target = KorgeRenderTarget(512, 256)
  * addUpdater { /* each frame, in a render: */ }
  * stage.addChild(KorgeRenderTargetView(target))
- * // inside a render, with the frame's RenderContext:
- * target.draw(canvas, ctx) { panel.draw(canvas) }
+ * // inside a render, with the frame's RenderContext, which a SceneView in the panel renders through:
+ * canvas.renderContext = ctx
+ * try {
+ *     panel.draw(canvas) { tree -> target.draw(canvas, ctx) { tree() } }
+ * } finally {
+ *     canvas.renderContext = null
+ * }
  * ```
  */
 class KorgeRenderTarget(width: Int, height: Int) : AutoCloseable {

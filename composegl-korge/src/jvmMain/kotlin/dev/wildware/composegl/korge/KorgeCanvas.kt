@@ -187,7 +187,10 @@ class KorgeCanvas private constructor(
      * context comes out in the panel the way it drew it.
      */
     override fun scene(surface: SceneSurface?, width: Int, height: Int, draw: (SceneTarget) -> Unit): SceneSurface? {
-        check(this.context == null) { "scene() inside a frame: scenes are rendered before the frame begins, not in the middle of it" }
+        check(this.context == null) {
+            "scene() inside a frame: scenes are rendered before the frame begins, not in the middle of it. " +
+                "A WorldPanel with a SceneView in it opens its frame itself: panel.draw(canvas) { tree -> target.draw(canvas) { tree() } }"
+        }
         if (width <= 0 || height <= 0) return surface
         val context = checkNotNull(renderContext) {
             "this canvas renders scenes inside a KorGE render: set renderContext for the frame, or use ComposeGlView"

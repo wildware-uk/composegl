@@ -89,7 +89,7 @@ class HoloStand(
         plane.place(transform)
 
         if (!panel.needsRedraw(nanos)) return false
-        target.draw(canvas) { panel.draw(canvas) }
+        panel.draw(canvas) { tree -> target.draw(canvas) { tree() } }
         return true
     }
 

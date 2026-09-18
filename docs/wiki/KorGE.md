@@ -276,7 +276,15 @@ val target = KorgeRenderTarget(320, 180)
 // An invisible view just before the picture: it gets the frame's RenderContext first.
 object : View() {
     override fun renderInternal(ctx: RenderContext) {
-        if (panel.needsRedraw(System.nanoTime())) target.draw(backend.canvas, ctx) { panel.draw(backend.canvas) }
+        if (!panel.needsRedraw(System.nanoTime())) return
+        val canvas = backend.canvas
+        // The panel renders any SceneView in it first, then opens the target's frame itself.
+        canvas.renderContext = ctx
+        try {
+            panel.draw(canvas) { tree -> target.draw(canvas, ctx) { tree() } }
+        } finally {
+            canvas.renderContext = null
+        }
     }
 }.addTo(post)
 
@@ -290,6 +298,11 @@ back. What comes out is premultiplied, as KorGE expects. A world panel takes no 
 of its own: only your game knows where a click landed on it. Like every KorGE
 framebuffer it has a depth and stencil buffer, cleared with the colour, so your own 3D
 drawing can go into it too — see [[Render targets]].
+
+A `SceneView` inside the panel works. That is why the canvas is handed `ctx` around
+the draw: KorGE renders a scene through the frame's `RenderContext`, before the
+target's frame opens. A live scene view makes the whole panel redraw every frame; see
+[[Scene view]].
 
 ---
 

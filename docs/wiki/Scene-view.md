@@ -50,6 +50,7 @@ holds it, and the interface hangs the frame on the wall.
 3. **It runs before the interface is drawn.** `UiRenderer.render` lays the tree out,
    then renders every dirty scene view, then draws the interface. So the size is always
    known, and your GL state changes never land in the middle of the interface's batch.
+   A `WorldPanel` does the same for a panel in the world.
 4. **The interface draws the picture as an image.** So `clip`, rounded corners, `alpha`
    and the shader effects all work on it, with no extra code.
 
@@ -335,6 +336,47 @@ use `UiRenderer` at all. Leave out `budget` and nothing is counted.
 
 ---
 
+## Inside a panel in the world
+
+A `SceneView` works inside a `WorldPanel` too: a monitor on a wall showing a security
+camera, a spinning ship on a shop terminal. The panel runs the same prepass a screen
+does, after its layout and before its frame opens.
+
+That is why the panel opens the frame itself. Hand `draw` a block that opens the
+target's frame and runs what it is given:
+
+```kotlin
+val panel = WorldPanel(320f, 180f)
+panel.setContent { ShopTerminal(ship) }
+
+// In the game loop:
+if (panel.needsRedraw(now)) panel.draw(canvas) { tree -> target.draw(canvas) { tree() } }
+```
+
+Called the old way, inside a frame that is already open, a panel with a dirty scene view
+fails with an error that says so. A scene cannot be rendered in the middle of a frame.
+
+**The cost.** A world panel draws only when something in it changed. Marking a scene
+view dirty counts as a change. So a live scene view, one marked dirty every frame, makes
+its whole panel redraw every frame: every widget on it, not just the scene. Keep a live
+panel small, or give the live scene a panel of its own. A still preview costs nothing
+after its first render, as it does on a screen.
+
+The rest holds as on a screen. One design unit is one pixel of the target, so a scene
+view of 120 by 80 gets a 120 by 80 picture. The picture is capped at the GPU's biggest
+texture, and `panel.warn` gets the warning. The scene's `nanos` is the time you last
+passed to `needsRedraw`. To count the panel's scenes in the frame budget, hand it your
+screen's budget, and draw the panel before `ui.render` so they land in that frame:
+
+```kotlin
+panel.budget = ui.budget
+```
+
+On KorGE, the canvas renders scenes through the frame's `RenderContext`, so set
+`canvas.renderContext = ctx` around the panel's draw. See [[KorGE]].
+
+---
+
 ## Frontends
 
 The drawing is the shared renderer's, on every frontend. A frontend only hands over its
@@ -590,7 +632,5 @@ if (pipOpen) pip.invalidate()
 
 - No camera, scene graph or picking helper.
 - No multisampling yet.
-- A `SceneView` inside a `WorldPanel` is not rendered yet: `WorldPanel` draws inside a
-  frame and has no prepass.
 
 See also [[Render targets]] for drawing into a picture by hand.

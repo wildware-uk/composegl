@@ -65,8 +65,10 @@ import dev.wildware.composegl.ui.skin.rememberStyle
  *
  * The scene is not drawn while the tree is. The state owns an offscreen picture with a depth
  * buffer, sized to the panel's real pixels; a prepass run by
- * [UiRenderer][dev.wildware.composegl.ui.host.UiRenderer] after layout and before the frame fills
- * every dirty one by calling [draw]; and then the tree draws the picture as an image. So clipping,
+ * [UiRenderer][dev.wildware.composegl.ui.host.UiRenderer] — or by a
+ * [WorldPanel][dev.wildware.composegl.ui.world.WorldPanel], for one on a panel in the world — after
+ * layout and before the frame fills every dirty one by calling [draw]; and then the tree draws the
+ * picture as an image. So clipping,
  * rounded corners and the effect modifiers work on it unchanged, and a scene nobody marked dirty
  * costs a comparison. See [dev.wildware.composegl.ui.draw.ScenePass] for driving that step yourself.
  *
