@@ -642,6 +642,20 @@ painted underneath it and never seen.
 draw. A multi-stop gradient is baked into a 64-pixel strip of the same atlas a flat
 colour comes from, so a gradient button batches with flat panels too.
 
+**How far this goes.** Both pictures below are a bought art sheet of casual-game
+pieces, drawn again with these modifiers and no art at all — no texture, no
+nine-patch. The only thing drawn by hand is the tick, which is two lines, and the
+banner with pointed ends, which is a polygon behind the node because `borderOutside`
+follows a rounded box.
+
+![wooden bars, coloured capsules, square buttons, plates and a banner, all drawn from modifiers](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/art-sheet-buttons.png)
+
+![progress bars, checkboxes, radio buttons, switches and slider knobs, all drawn from modifiers](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/art-sheet-controls.png)
+
+What a sheet like that still has and this does not: wood grain, and knobs shaped like
+gems and strawberries. Those are pictures, and pictures are what `Image` and
+`ninePatch` are for.
+
 ---
 
 ## Rule 1: order matters, and it is visible
