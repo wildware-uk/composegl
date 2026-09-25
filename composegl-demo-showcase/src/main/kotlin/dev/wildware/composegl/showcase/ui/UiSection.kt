@@ -166,6 +166,14 @@ internal fun UiSection(state: ShowcaseState, windows: DebugWindowsState, world: 
     Group("What this module draws", "The exhibits composegl-ui owns, over the scene behind.") {
         Exhibit.entries.filter { it.module == Module.Ui }.forEach { ExhibitSwitch(state, it) }
     }
+
+    Group(
+        "Chunky buttons, no art",
+        "The casual-game look — heavy outline, moulded edge, shine — from modifiers alone.",
+    ) {
+        MouldedButtons()
+        Text("A fill, a bevel, a gloss and an outline. One draw call for the lot.", style = "label.dim")
+    }
 }
 
 /** The drones as a tree: a branch that opens, and choosing a row moves the lock. */

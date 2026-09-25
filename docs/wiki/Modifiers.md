@@ -99,6 +99,10 @@ Modifier.border(accent, width = 2f, style = BorderStyle.Dashed(on = 6f, off = 4f
 Modifier.border(accent, width = 2f, corner = 8f, style = BorderStyle.Dotted)
 Modifier.border(bottom = BorderSide(1f, divider))   // one edge: a divider, a tab's underline
 Modifier.shadow(Colour.argb(0x80000000), spread = 12f, corner = 6f)
+Modifier.borderOutside(almostBlack, width = 3f, corner = 12f)   // an outline outside the box
+Modifier.innerShade(black, depth = 6f, corner = 12f)            // shade falling in from the edge
+Modifier.bevel(depth = 6f, corner = 12f)                        // light on top, dark below
+Modifier.gloss(fraction = 0.45f, corner = 12f)                  // a shine across the top
 Modifier.ninePatch(frame)          // skin art, stretched properly
 Modifier.background(Accent, Corners.top(8f))  // …with a radius per corner
 Modifier.clip()                    // children cannot draw outside
@@ -551,6 +555,21 @@ flat; `canvas.drawsGradients` says which you have.
 
 ![a sky panel, a green-to-red health bar, a vignette and a fade](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-gradients.png)
 
+**More than two colours.** `Brush.Ramp` runs through as many as you like:
+
+```kotlin
+Brush.evenly(listOf(gold, amber, bronze))                 // spaced out, top to bottom
+Brush.evenly(listOf(gold, amber, bronze), degrees = 45f)
+Brush.ramp(Brush.Stop(0f, white), Brush.Stop(0.2f, sky), Brush.Stop(1f, navy), degrees = 90f)
+Brush.radialRamp(Brush.Stop(0f, clear), Brush.Stop(0.6f, clear), Brush.Stop(1f, black))
+```
+
+`evenly` spaces the colours out — three colours put the middle one halfway. `ramp`
+puts each colour where you say, as a fraction of the run from 0 at the start to 1 at
+the end, and `radialRamp` runs outwards from the middle instead. The ends are held:
+anything before the first stop is the first colour, anything after the last is the
+last. A run costs no more than two colours do — see *They cost one draw call* below.
+
 **Borders can be one-sided, dashed or dotted.** `BorderSide(width, colour, style)` is
 one edge, and `Modifier.border(left =, top =, right =, bottom =)` takes any of the four;
 a side left out is not drawn. The edges meet in square corners, top and bottom running
@@ -567,6 +586,61 @@ plain rectangles and lines, so every backend gets them without doing anything.
 And what `padding` does to what is inside it:
 
 ![the same blue box inside a dark one, without and with padding](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-padding.png)
+
+---
+
+## The look of a game button
+
+Four modifiers that turn a flat box into a moulded one. They are meant to be used
+together, and each one is a thin layer painted over what came before it:
+
+```kotlin
+Modifier
+    .background(Brush.evenly(listOf(leafLight, leaf, leafDark)), corner = 12f)
+    .bevel(depth = 6f, corner = 12f)
+    .gloss(fraction = 0.45f, corner = 12f, inset = 3f)
+    .borderOutside(almostBlack, width = 3f, corner = 12f)
+    .padding(horizontal = 24f, vertical = 12f)
+```
+
+**`borderOutside` draws outside the box.** A `border` is drawn inside the node's
+bounds, so a 3px dark line eats 3px off the fill it frames. `borderOutside` sits
+outside it instead and the node keeps every pixel it was given — so leave room for
+it, or it paints over its neighbours. A click still only counts inside the node, as
+it does with a shadow.
+
+**`innerShade` is shade falling inwards from the edge.** `depth` is how far in it
+reaches, and `offset` is which way it gathers: an offset downwards gathers the shade
+along the *top* inside edge, as though the light came from below. With no offset it
+rings the whole edge, which is what a socket looks like.
+
+```kotlin
+Modifier.background(steel, corner = 12f)
+    .innerShade(black.scaleAlpha(0.35f), depth = 6f, corner = 12f, offset = Offset(0f, -4f))
+```
+
+**`bevel` is two of those, written once**: light along the top inside edge, dark
+along the bottom, lit from above, which is where light comes from in nearly every
+interface. The defaults are `Colour.White.scaleAlpha(0.35f)` and
+`Colour.Black.scaleAlpha(0.35f)`; pass `light` and `dark` when the button's own
+colour wants something warmer.
+
+**`gloss` is the shine across the top.** It covers the top `fraction` of the node,
+0.45 by default, and fades downwards — rounded by the top corners and square along
+the bottom, where it has faded out anyway. `inset` pulls it in from the sides, which
+is what makes it read as a reflection rather than a stripe.
+
+All four take a single `corner` or a `Corners` with a radius per corner. Give them
+the same corners as the background or they show at the corner that differs; `gloss`
+uses only the top two.
+
+**They paint in the order they are written** (Rule 1 below). Background, then the
+shades, then the shine, then the outline. A `gloss` written before the background is
+painted underneath it and never seen.
+
+**They cost one draw call.** A fill, two shades and an outline batch into a single
+draw. A multi-stop gradient is baked into a 64-pixel strip of the same atlas a flat
+colour comes from, so a gradient button batches with flat panels too.
 
 ---
 
