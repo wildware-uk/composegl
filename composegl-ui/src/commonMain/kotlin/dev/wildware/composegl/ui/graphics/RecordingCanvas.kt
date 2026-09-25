@@ -81,6 +81,7 @@ sealed interface DrawCall {
         val depth: Float,
         val corners: Corners,
         val offset: Offset,
+        val hardness: Float,
         override val clip: Rect,
         override val alpha: Float,
     ) : DrawCall
@@ -513,14 +514,14 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
         record(DrawCall.OutsideBorder(state.map(rect), colour, length(width), corners.drawn(), state.clip, state.alpha))
     }
 
-    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corner: Float, offsetX: Float, offsetY: Float) =
-        innerShade(rect, colour, depth, Corners.all(corner), offsetX, offsetY)
+    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corner: Float, offsetX: Float, offsetY: Float, hardness: Float) =
+        innerShade(rect, colour, depth, Corners.all(corner), offsetX, offsetY, hardness)
 
-    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corners: Corners, offsetX: Float, offsetY: Float) {
+    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corners: Corners, offsetX: Float, offsetY: Float, hardness: Float) {
         record(
             DrawCall.InnerShade(
                 state.map(rect), colour, length(depth), corners.drawn(),
-                Offset(length(offsetX), length(offsetY)), state.clip, state.alpha,
+                Offset(length(offsetX), length(offsetY)), hardness, state.clip, state.alpha,
             ),
         )
     }

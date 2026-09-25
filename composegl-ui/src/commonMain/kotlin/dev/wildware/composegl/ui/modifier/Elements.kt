@@ -248,11 +248,15 @@ data class InnerShadeElement(
     val depth: Float,
     val corners: Corners = Corners.None,
     val offset: Offset = Offset.Zero,
+    val hardness: Float = 0f,
 ) : Modifier.Element {
-    constructor(colour: Colour, depth: Float, corner: Float, offset: Offset = Offset.Zero) :
-        this(colour, depth, Corners.single(corner), offset)
+    constructor(colour: Colour, depth: Float, corner: Float, offset: Offset = Offset.Zero, hardness: Float = 0f) :
+        this(colour, depth, Corners.single(corner), offset, hardness)
 
-    init { require(depth >= 0f && depth.isFinite()) { "shade depth cannot be negative, was $depth" } }
+    init {
+        require(depth >= 0f && depth.isFinite()) { "shade depth cannot be negative, was $depth" }
+        require(hardness in 0f..1f) { "an edge is between a fillet and a chamfer, not $hardness" }
+    }
 }
 
 /**
@@ -269,8 +273,10 @@ data class MouldedElement(
     val shadow: Float = 0f,
     val outline: Colour? = null,
     val outlineWidth: Float = 0.07f,
+    val hardness: Float = 0f,
 ) : Modifier.Element {
     init {
+        require(hardness in 0f..1f) { "an edge is between a fillet and a chamfer, not $hardness" }
         require(depth >= 0f && depth <= 1f) { "a moulded edge reaches between none and all of the box, not $depth" }
         require(shine >= 0f && shine <= 1f) { "a shine covers between none and all of the box, not $shine" }
         require(strength >= 0f && strength <= 1f) { "a light is between off and full, not $strength" }
@@ -990,6 +996,10 @@ fun Modifier.borderOutside(colour: Colour, width: Float = 1f, corners: Corners) 
  * downwards gathers the shade along the top inside edge, as though lit from below. With no offset
  * it rings the whole edge, which is the look of a socket.
  *
+ * [hardness] says what kind of edge it is. At 0 the shade fades the whole way in, which is a
+ * fillet — a moulded plastic button. Near 1 it holds its strength and then drops, which is a
+ * chamfer: a cut edge you can see the line of.
+ *
  * Put it after the background, because that is the order things are painted in.
  *
  * ```kotlin
@@ -997,12 +1007,12 @@ fun Modifier.borderOutside(colour: Colour, width: Float = 1f, corners: Corners) 
  *     .innerShade(black.scaleAlpha(0.35f), depth = 6f, corner = 12f, offset = Offset(0f, -4f))
  * ```
  */
-fun Modifier.innerShade(colour: Colour, depth: Float, corner: Float = 0f, offset: Offset = Offset.Zero) =
-    then(InnerShadeElement(colour, depth, corner, offset))
+fun Modifier.innerShade(colour: Colour, depth: Float, corner: Float = 0f, offset: Offset = Offset.Zero, hardness: Float = 0f) =
+    then(InnerShadeElement(colour, depth, corner, offset, hardness))
 
 /** The same, with its own radius on each corner. */
-fun Modifier.innerShade(colour: Colour, depth: Float, corners: Corners, offset: Offset = Offset.Zero) =
-    then(InnerShadeElement(colour, depth, corners, offset))
+fun Modifier.innerShade(colour: Colour, depth: Float, corners: Corners, offset: Offset = Offset.Zero, hardness: Float = 0f) =
+    then(InnerShadeElement(colour, depth, corners, offset, hardness))
 
 /**
  * A moulded edge: [light] gathered along the top inside edge, [dark] along the bottom, [depth] deep.
@@ -1055,6 +1065,8 @@ fun Modifier.bevel(
  * @param shadow how far a shadow is cast beyond the box. Zero for none.
  * @param outline the line round the outside, drawn outside the box so it eats none of the fill.
  * @param outlineWidth how thick that line is, as a fraction of the shorter side.
+ * @param hardness what kind of edge the light makes: 0 fades away inwards, which is a fillet, and
+ *   near 1 holds and then drops, which is a chamfer. A drawn game sheet is usually a chamfer.
  */
 @Suppress("LongParameterList")
 fun Modifier.moulded(
@@ -1066,7 +1078,8 @@ fun Modifier.moulded(
     shadow: Float = 0f,
     outline: Colour? = null,
     outlineWidth: Float = 0.07f,
-) = moulded(Corners.single(corner), light, depth, shine, strength, shadow, outline, outlineWidth)
+    hardness: Float = 0f,
+) = moulded(Corners.single(corner), light, depth, shine, strength, shadow, outline, outlineWidth, hardness)
 
 /** The same, with its own radius on each corner. */
 @Suppress("LongParameterList")
@@ -1079,7 +1092,8 @@ fun Modifier.moulded(
     shadow: Float = 0f,
     outline: Colour? = null,
     outlineWidth: Float = 0.07f,
-) = then(MouldedElement(corners, light, depth, shine, strength, shadow, outline, outlineWidth))
+    hardness: Float = 0f,
+) = then(MouldedElement(corners, light, depth, shine, strength, shadow, outline, outlineWidth, hardness))
 
 /**
  * A shine across the top [fraction] of this node, fading downwards: the glassy top of a game button.

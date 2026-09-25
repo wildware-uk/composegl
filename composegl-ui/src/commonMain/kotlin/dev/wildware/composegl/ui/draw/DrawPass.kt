@@ -712,8 +712,10 @@ class DrawPass(val canvas: UiCanvas) {
             is BorderSidesElement -> canvas.borders(rect, element.left, element.top, element.right, element.bottom)
             is ShadowElement -> canvas.boxShadow(rect, element.colour, element.spread, element.corners)
             is OutsideBorderElement -> canvas.borderOutside(rect, element.colour, element.width, element.corners)
-            is InnerShadeElement ->
-                canvas.innerShade(rect, element.colour, element.depth, element.corners, element.offset.x, element.offset.y)
+            is InnerShadeElement -> canvas.innerShade(
+                rect, element.colour, element.depth, element.corners,
+                element.offset.x, element.offset.y, element.hardness,
+            )
             is GlossElement -> Gloss.draw(canvas, rect, element)
             is MouldedElement -> Moulded.draw(canvas, rect, element)
             is BrushBackgroundElement -> canvas.box(rect, element.brush, element.corners)

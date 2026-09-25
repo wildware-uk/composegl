@@ -144,19 +144,38 @@ interface UiCanvas {
      * light along the top. The offset is in the toolkit's units, y down, and moves where the shade
      * comes from — an offset down the way gathers it along the top edge.
      *
+     * [hardness] is what the edge is: at 0 the shade fades the whole way in, which is a fillet, and
+     * near 1 it holds its strength and then drops, which is a chamfer with an edge you can see. It
+     * is the difference between a moulded plastic button and a cut one.
+     *
      * The default body draws nothing, because there is no honest way to fake it with a fill: a
      * canvas that cannot do this says so through [shadesInside], and the look is simply absent
      * rather than wrong.
      */
     @Suppress("LongParameterList")
-    fun innerShade(rect: Rect, colour: Colour, depth: Float, corner: Float = 0f, offsetX: Float = 0f, offsetY: Float = 0f) {
+    fun innerShade(
+        rect: Rect,
+        colour: Colour,
+        depth: Float,
+        corner: Float = 0f,
+        offsetX: Float = 0f,
+        offsetY: Float = 0f,
+        hardness: Float = 0f,
+    ) {
         // Nothing, honestly: see shadesInside.
     }
 
     /** The same, with its own radius on each corner. */
     @Suppress("LongParameterList")
-    fun innerShade(rect: Rect, colour: Colour, depth: Float, corners: Corners, offsetX: Float = 0f, offsetY: Float = 0f) =
-        innerShade(rect, colour, depth, corners.smallest, offsetX, offsetY)
+    fun innerShade(
+        rect: Rect,
+        colour: Colour,
+        depth: Float,
+        corners: Corners,
+        offsetX: Float = 0f,
+        offsetY: Float = 0f,
+        hardness: Float = 0f,
+    ) = innerShade(rect, colour, depth, corners.smallest, offsetX, offsetY, hardness)
 
     /**
      * Whether [innerShade] really shades, and [borderOutside] really draws outside the box.

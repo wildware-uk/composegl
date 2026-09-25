@@ -37,8 +37,14 @@ internal object Moulded {
         if (depth > 0f && moulded.strength > 0f) {
             // An offset gathers shade along the edge it points away from, so the light's own step
             // lifts the edge it comes from and the opposite one darkens.
-            canvas.innerShade(rect, Colour.White.scaleAlpha(moulded.strength * 0.8f), depth, corners, fallX * depth, fallY * depth)
-            canvas.innerShade(rect, Colour.Black.scaleAlpha(moulded.strength), depth, corners, -fallX * depth, -fallY * depth)
+            canvas.innerShade(
+                rect, Colour.White.scaleAlpha(moulded.strength * 0.8f), depth, corners,
+                fallX * depth, fallY * depth, moulded.hardness,
+            )
+            canvas.innerShade(
+                rect, Colour.Black.scaleAlpha(moulded.strength), depth, corners,
+                -fallX * depth, -fallY * depth, moulded.hardness,
+            )
         }
         if (moulded.shine > 0f && moulded.strength > 0f) {
             // Lighter than the face rather than whiter: a shine that washes the colour out of a

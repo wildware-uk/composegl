@@ -660,14 +660,21 @@ shadow falls away from it.
 so the same call dresses a 200-wide button and a 24-wide checkbox. `strength` is how
 hard the light is; at `0f` nothing is drawn but the outline.
 
+**`hardness` says what kind of edge the light makes.** At `0f` the shade fades the
+whole way in: a fillet, a moulded plastic button. Near `1f` it holds its strength and
+then drops: a chamfer, a cut edge with a line you can see. Drawn game art is usually a
+chamfer, so a sheet like the one below wants `hardness` up around `0.8f`.
+
 Here is that art sheet's own row of buttons, drawn with nothing but three colours off
 each one and this modifier — two lines a button:
 
 ![the sheet's buttons again, each drawn with a gradient and one moulded call](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/moulded-sheet.png)
 
-Against the original, half of what it draws lands within 10 levels of 255. The measured
-version above gets to 4, because it carries fourteen stops a piece and a measured band
-for the shine. Two lines gets the family; a measurement gets the twin.
+Against the original, half of what it draws lands within 19 levels of 255 with the
+chamfer it is drawn with here, or within 13 with a softer edge. The measured version
+above gets to 4, because it carries fourteen stops a piece and a measured band for the
+shine. The softer edge measures better and looks less like the page, which is worth
+knowing: the number and the eye do not agree, and the eye is the customer.
 
 **They cost one draw call.** A fill, two shades and an outline batch into a single
 draw. A multi-stop gradient is baked into a 64-pixel strip of the same atlas a flat

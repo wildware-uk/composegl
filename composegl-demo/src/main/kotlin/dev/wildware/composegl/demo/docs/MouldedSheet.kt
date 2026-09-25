@@ -54,6 +54,7 @@ private fun Button(piece: Sheet.Piece) {
                 depth = Tuning[0],
                 shine = Tuning[1],
                 strength = Tuning[2],
+                hardness = Tuning[3],
                 outline = Colour.rgb(piece.ink),
                 outlineWidth = line / minOf(piece.width, piece.height),
             ),
@@ -62,13 +63,14 @@ private fun Button(piece: Sheet.Piece) {
 
 /**
  * Depth, shine and strength, so the numbers can be tried against the original without a rebuild:
- * `COMPOSEGL_MOULD=0.22,0.4,0.3`.
+ * `COMPOSEGL_MOULD=depth,shine,strength,hardness`.
  *
- * The defaults are where searching against the original settled: a lighter touch than the eye first
- * reaches for. Pushed further the buttons look glossier and measure worse, because a strong light
- * moves every pixel of a big flat face and only flatters the small bright band.
+ * The defaults are a chamfered edge, which is what that sheet draws: the shade holds its strength
+ * and then drops, rather than fading the whole way in. A softer edge measures slightly closer —
+ * a strong light moves every pixel of a big flat face and only flatters the small bright band —
+ * but it does not look like the page, and looking like the page is the point.
  */
-private val Tuning: FloatArray = (System.getenv("COMPOSEGL_MOULD") ?: "0.10,0.30,0.18")
+private val Tuning: FloatArray = (System.getenv("COMPOSEGL_MOULD") ?: "0.12,0.26,0.26,0.82")
     .split(',').map { it.trim().toFloat() }.toFloatArray()
 
 /** The colour a fraction of the way down the original's face. */

@@ -329,18 +329,18 @@ open class RenderCanvas protected constructor(
         )
     }
 
-    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corner: Float, offsetX: Float, offsetY: Float) {
+    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corner: Float, offsetX: Float, offsetY: Float, hardness: Float) {
         if (state.isHidden || rect.isEmpty || depth <= 0f) return
         // The shade is asked for in the toolkit's units, y down; the batch's y counts up.
-        shape(rect, Colour.Transparent, corner, corner, corner, corner, Colour.Transparent, 0f, colour, -depth, offsetX, -offsetY)
+        shape(rect, Colour.Transparent, corner, corner, corner, corner, Colour.Transparent, 0f, colour, -depth, offsetX, -offsetY, hardness)
     }
 
-    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corners: Corners, offsetX: Float, offsetY: Float) {
+    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corners: Corners, offsetX: Float, offsetY: Float, hardness: Float) {
         if (state.isHidden || rect.isEmpty || depth <= 0f) return
         shape(
             rect, Colour.Transparent,
             corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft,
-            Colour.Transparent, 0f, colour, -depth, offsetX, -offsetY,
+            Colour.Transparent, 0f, colour, -depth, offsetX, -offsetY, hardness,
         )
     }
 
@@ -381,6 +381,7 @@ open class RenderCanvas protected constructor(
         shadowSpread: Float,
         shadowOffsetX: Float = 0f,
         shadowOffsetY: Float = 0f,
+        shadowHardness: Float = 0f,
     ) {
         val box = state.map(rect)
         val grow = state.transformScale
@@ -403,6 +404,7 @@ open class RenderCanvas protected constructor(
             aa = antialias,
             shadowOffsetX = shadowOffsetX * grow,
             shadowOffsetY = shadowOffsetY * grow,
+            shadowHardness = shadowHardness,
         )
     }
 

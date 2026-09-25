@@ -219,4 +219,25 @@ class MouldedBoxGlTest {
         assertTrue(near(green, frame.at(100, 115)), "and green to the bottom")
         assertTrue(white.blue > 0, "the run began at white")
     }
+
+    @Test
+    fun `a hard edge holds its shade and then drops where a soft one fades all the way`() {
+        fun shadeAcross(hardness: Float): List<Int> {
+            val frame = draw {
+                rect(box, green, corner = 0f)
+                innerShade(box, ink, depth = 24f, corner = 0f, offsetY = 24f, hardness = hardness)
+            }
+            // Down the middle, across the band the shade falls through: full shade to none.
+            return (0..28 step 3).map { frame.green(100, 62 + it) }
+        }
+
+        val soft = shadeAcross(0f)
+        val hard = shadeAcross(0.85f)
+
+        assertTrue(hard.first() < soft.first() + 8, "both are dark at the very edge: $hard vs $soft")
+        val softStep = soft.zipWithNext().maxOf { (a, b) -> b - a }
+        val hardStep = hard.zipWithNext().maxOf { (a, b) -> b - a }
+        assertTrue(hardStep > softStep * 2, "the hard one steps rather than ramps: $hardStep against $softStep")
+        assertTrue(hard[2] < soft[2] - 10, "and it is still dark where the soft one has faded: $hard vs $soft")
+    }
 }
