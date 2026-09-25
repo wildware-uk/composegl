@@ -102,6 +102,24 @@ class SharpTextTest {
     }
 
     @Test
+    fun `on a screen smaller than the design each glyph is made at the screen's own pixels`() {
+        val fonts = Fonts()
+        fonts.measure("Hi", style)
+        fonts.log.drawn.clear()
+
+        val device = drawAt(fonts, 0.5f)
+
+        assertTrue("16@8" in fonts.log.faces, "the font was asked for 16 drawn 8 tall: ${fonts.log.faces}")
+        assertEquals(listOf("8:4x8", "8:4x8"), fonts.log.drawn, "both glyphs were made small")
+        val draw = device.draws.single()
+        val page = device.calls.first { it.startsWith("texture(") }.substringAfter(", ").substringBefore("x").toFloat()
+        (0 until draw.quads).forEach { quad ->
+            val tall = (draw.at(quad * 4 + 3, texCoord + 1) - draw.at(quad * 4 + 1, texCoord + 1)) * page
+            assertEquals(8f, tall, 0.001f, "glyph $quad samples 8 pixels down, not the 16 it was rasterised at")
+        }
+    }
+
+    @Test
     fun `the glyphs keep the design-unit boxes they had at a scale of one`() {
         val atOne = boxes(drawAt(Fonts(), 1f).draws.single())
         val atTwo = boxes(drawAt(Fonts(), 2f).draws.single())

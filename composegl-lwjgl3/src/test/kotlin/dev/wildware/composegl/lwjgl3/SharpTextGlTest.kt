@@ -20,7 +20,7 @@ class SharpTextGlTest {
 
     /** The frame, as brightness 0 to 255, y down from the top. */
     private fun draw(scale: Float, size: Int, text: String): IntArray = Gl.render {
-        val fonts = StbFonts().apply { register("body", bytes("/fonts/DejaVuSans.ttf"), listOf(24, 48)) }
+        val fonts = StbFonts().apply { register("body", bytes("/fonts/DejaVuSans.ttf"), listOf(18, 24, 48, 60)) }
         val canvas = GlCanvas(fonts)
         try {
             val design = Gl.size / scale
@@ -55,5 +55,36 @@ class SharpTextGlTest {
         // A vertical stroke 48 pixels tall: a soft pixel at most each side per row, and the rounded ends.
         assertTrue(soft <= softPixels(native) + 4, "the stroke has $soft soft pixels, the font at 48 has ${softPixels(native)}")
         assertEquals(ink(native), ink(scaled), "the letter should be exactly the font's own ink at 48")
+    }
+
+    /** The frame with the text nudged [offset] design units down, so it lands differently between pixels. */
+    private fun drawOffset(scale: Float, size: Int, text: String, offset: Float): IntArray = Gl.render {
+        val fonts = StbFonts().apply { register("body", bytes("/fonts/DejaVuSans.ttf"), listOf(18, 24, 48, 60)) }
+        val canvas = GlCanvas(fonts)
+        try {
+            val design = Gl.size / scale
+            Gl.gl.clearColor(0f, 0f, 0f, 1f)
+            Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
+            canvas.begin(Viewport(Size(design, design), Size(Gl.size.toFloat(), Gl.size.toFloat()), ScalePolicy.Fit))
+            canvas.text(fonts.measure(text, TextStyle(family = "body", size = size.toFloat())), 20f / scale, 20f / scale + offset, Colour.White)
+            canvas.end()
+            Gl.readPixels(Gl.size, Gl.size).map { it and 0xFF }.toIntArray()
+        } finally {
+            canvas.close()
+            fonts.close()
+        }
+    }
+
+    @Test
+    fun `a hyphen on a screen a third of the design keeps its stroke wherever it lands`() {
+        // A 60-pixel hyphen shrunk by the GPU to a third is two texels wide: whether its row of texels
+        // is sampled at all depends on where the glyph falls between pixels, so it is asked for at
+        // eight positions. A copy made at the screen's own size has the stroke at every one.
+        val inked = (0 until 8).map { step ->
+            drawOffset(scale = 0.3f, size = 60, text = "-", offset = step / 8f * (1f / 0.3f)).count { it > 0 }
+        }
+        val native = drawOffset(scale = 1f, size = 18, text = "-", offset = 0f).count { it > 0 }
+
+        assertTrue(inked.min() >= native / 2, "the hyphen is drawn at every position: $inked, the font at 18 inks $native")
     }
 }

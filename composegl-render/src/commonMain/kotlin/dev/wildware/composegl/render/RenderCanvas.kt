@@ -442,11 +442,11 @@ open class RenderCanvas protected constructor(
     /**
      * Whether glyphs at [quarter] come off the sharp atlas rather than their ordinary copies.
      *
-     * A frame's own scale only ever makes glyphs bigger; a zoom makes them smaller as well, and a
-     * zoomed-out plane wants a copy made small just as much as a scaled-up window wants one made big.
+     * Either way round. A window smaller than the design shrinks its glyphs as surely as a zoomed-out
+     * plane does, and a glyph the GPU shrinks loses the strokes thinner than a pixel: a hyphen, the
+     * arms of an E. A copy made at the screen's own pixels keeps them.
      */
-    private fun remadeSharp(quarter: Int): Boolean =
-        if (state.textScale == 1f) quarter > SharpGlyphs.One else quarter != SharpGlyphs.One
+    private fun remadeSharp(quarter: Int): Boolean = quarter != SharpGlyphs.One
 
     /** The picture being drawn, resolved once per call into fields rather than a fresh object. */
     private val picture = Resolved()
