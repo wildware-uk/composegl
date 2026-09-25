@@ -109,6 +109,10 @@ fun main() {
 
     try {
         docShots().filter { only == null || only in it.name }.forEach { shot ->
+            if (shot.width > Window || shot.height > Window) {
+                println("skipped ${shot.name}: ${shot.width}x${shot.height} needs COMPOSEGL_DOC_WINDOW")
+                return@forEach
+            }
             val file = File(out, "${shot.name}.png")
             save(file, take(shot, canvas, fonts, if (shot.stock) Skin.Default else skin.skin))
             println("wrote ${file.path}")
@@ -267,8 +271,15 @@ private val Everything = 0x20..0xFFFF
 /** Hebrew, as Unicode has it: the letters, their final forms, the points and the punctuation. */
 private val HebrewBlock = 0x0590..0x05FF
 
-/** The window every picture is drawn inside. Bigger than the biggest of them. */
-private const val Window = 640
+/**
+ * The window every picture is drawn inside, and the largest a picture can be.
+ *
+ * Its size reaches the driver, and a different one moves a pixel here and there in every picture
+ * taken in it, so it stays where it is and a picture too big for it is skipped with a line saying
+ * so. `COMPOSEGL_DOC_WINDOW=1280 COMPOSEGL_DOC_ONLY=art-sheet` takes that one in a window of its
+ * own, which is how the pictures wider than this are taken.
+ */
+private val Window = System.getenv("COMPOSEGL_DOC_WINDOW")?.toIntOrNull() ?: 640
 
 /** Frames drawn before the shutter, so that anything with a first-frame animation has settled. */
 internal const val Settle = 3

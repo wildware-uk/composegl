@@ -642,19 +642,21 @@ painted underneath it and never seen.
 draw. A multi-stop gradient is baked into a 64-pixel strip of the same atlas a flat
 colour comes from, so a gradient button batches with flat panels too.
 
-**How far this goes.** Both pictures below are a bought art sheet of casual-game
-pieces, drawn again with these modifiers and no art at all — no texture, no
-nine-patch. The only thing drawn by hand is the tick, which is two lines, and the
-banner with pointed ends, which is a polygon behind the node because `borderOutside`
-follows a rounded box.
+**How far this goes.** The picture below is a bought art sheet of casual-game
+interface pieces, drawn again with these modifiers and no art at all — no texture, no
+nine-patch, no atlas. Every capsule, wooden bar, plate, progress bar, checkbox and
+switch on it is a box with a fill, some shade and an outline.
 
-![wooden bars, coloured capsules, square buttons, plates and a banner, all drawn from modifiers](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/art-sheet-buttons.png)
+![a whole art sheet of game interface pieces, drawn from modifiers](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/art-sheet.png)
 
-![progress bars, checkboxes, radio buttons, switches and slider knobs, all drawn from modifiers](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/art-sheet-controls.png)
+It is one recipe, written once and measured in fractions of a piece's height, so the
+same function draws a 54-tall capsule and a 30-tall knob without being retuned.
 
-What a sheet like that still has and this does not: wood grain, and knobs shaped like
-gems and strawberries. Those are pictures, and pictures are what `Image` and
-`ninePatch` are for.
+Four things on that page are not rounded boxes, and are drawn straight onto the canvas
+behind the node instead: the tick in the checkbox (two lines), the banner with pointed
+ends, the cut gem and the strawberry (polygons, each with a slightly larger dark one
+under it for its outline). The wood grain is a handful of faint lines. A real art sheet
+paints all of that; here it is the same drawing calls any widget can make.
 
 ---
 

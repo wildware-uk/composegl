@@ -44,6 +44,9 @@ tasks.register<JavaExec>("runGl") {
  *
  * Writes `docs/wiki/images`. Needs a display, so on a headless machine it is
  * `xvfb-run -a ./gradlew :composegl-demo:docShots`.
+ *
+ * A picture wider or taller than the 640 window is skipped and says so; take it on its own with
+ * `COMPOSEGL_DOC_WINDOW=1280 COMPOSEGL_DOC_ONLY=<name>`, which leaves every other picture alone.
  */
 tasks.register<JavaExec>("docShots") {
     group = "documentation"
