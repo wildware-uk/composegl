@@ -485,6 +485,7 @@ class ResolvedModifier private constructor(
                     is PointerHoverIconElement -> hoverIcon = element.icon
                     is EffectElement -> effects += element.effect
                     is BackgroundElement, is BrushBackgroundElement, is BorderElement, is BorderSidesElement, is ShadowElement,
+                    is OutsideBorderElement, is InnerShadeElement, is GlossElement,
                     is NinePatchElement, is SkinBackgroundElement, is DrawBehindElement ->
                         behind += PaintOp(element, padding)
                     is DrawInFrontElement, is DebugBoundsElement -> inFront += PaintOp(element, padding)

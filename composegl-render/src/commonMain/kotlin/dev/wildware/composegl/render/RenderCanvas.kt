@@ -223,9 +223,10 @@ open class RenderCanvas protected constructor(
     @Suppress("LongParameterList")
     private fun gradient(rect: Rect, brush: Brush, topLeft: Float, topRight: Float, bottomRight: Float, bottomLeft: Float) {
         if (state.isHidden || rect.isEmpty) return
+        if (brush is Brush.Ramp && ramp(rect, brush, topLeft, topRight, bottomRight, bottomLeft)) return
         val box = state.map(rect)
         // Worked out in the toolkit's coordinates, then y flipped. A radial gradient has no axis.
-        val axis = (brush as? Brush.Linear)?.axis(box.width, box.height)
+        val axis = (brush as? Brush.Linear)?.axis(box.width, box.height) ?: (brush as? Brush.Ramp)?.straight?.axis(box.width, box.height)
         batch().gradient(
             white = white(),
             left = box.left,
@@ -234,7 +235,7 @@ open class RenderCanvas protected constructor(
             height = box.height,
             start = brush.first.inForce(),
             end = brush.last.inForce(),
-            radial = brush is Brush.Radial,
+            radial = brush is Brush.Radial || (brush as? Brush.Ramp)?.radial == true,
             axisX = axis?.x ?: 0f,
             axisY = -(axis?.y ?: 0f),
             topLeft = state.mapLength(topLeft),
@@ -246,6 +247,46 @@ open class RenderCanvas protected constructor(
     }
 
     override val drawsGradients: Boolean get() = true
+
+    /**
+     * A run of stops, drawn from a strip of the atlas. False when there is nowhere to bake one —
+     * a canvas with no fonts, or an atlas with no room left — and the caller falls back to the two
+     * colours at the ends, which is what a canvas that cannot draw gradients at all would show.
+     */
+    @Suppress("LongParameterList")
+    private fun ramp(rect: Rect, brush: Brush.Ramp, topLeft: Float, topRight: Float, bottomRight: Float, bottomLeft: Float): Boolean {
+        val pages = atlas ?: return false
+        val spot = pages.ramps.spotFor(brush) ?: return false
+        val page = spot.page
+        val size = page.size.toFloat()
+        val box = state.map(rect)
+        val axis = brush.straight?.axis(box.width, box.height)
+        // The middle of the first texel to the middle of the last, so the ends are the run's ends.
+        val v = (spot.y + 0.5f) / size
+        batch().rampGradient(
+            white = WhiteSpot(page.texture(device), (spot.x + 0.5f) / size, v),
+            left = box.left,
+            bottom = flip(box.bottom),
+            width = box.width,
+            height = box.height,
+            tint = Colour.White.inForce(),
+            radial = brush.radial,
+            axisX = axis?.x ?: 0f,
+            axisY = -(axis?.y ?: 0f),
+            u = (spot.x + 0.5f) / size,
+            v = v,
+            u2 = (spot.x + GradientRamps.Texels - 0.5f) / size,
+            v2 = v,
+            topLeft = state.mapLength(topLeft),
+            topRight = state.mapLength(topRight),
+            bottomRight = state.mapLength(bottomRight),
+            bottomLeft = state.mapLength(bottomLeft),
+            border = Colour.Transparent,
+            borderWidth = 0f,
+            aa = antialias,
+        )
+        return true
+    }
 
     override fun border(rect: Rect, colour: Colour, width: Float, corner: Float) {
         if (state.isHidden || rect.isEmpty || width <= 0f) return
@@ -273,6 +314,37 @@ open class RenderCanvas protected constructor(
     }
 
     override val roundsCornersSeparately: Boolean get() = true
+
+    override fun borderOutside(rect: Rect, colour: Colour, width: Float, corner: Float) {
+        if (state.isHidden || rect.isEmpty || width <= 0f) return
+        shape(rect, Colour.Transparent, corner, corner, corner, corner, colour, -width, Colour.Transparent, 0f)
+    }
+
+    override fun borderOutside(rect: Rect, colour: Colour, width: Float, corners: Corners) {
+        if (state.isHidden || rect.isEmpty || width <= 0f) return
+        shape(
+            rect, Colour.Transparent,
+            corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft,
+            colour, -width, Colour.Transparent, 0f,
+        )
+    }
+
+    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corner: Float, offsetX: Float, offsetY: Float) {
+        if (state.isHidden || rect.isEmpty || depth <= 0f) return
+        // The shade is asked for in the toolkit's units, y down; the batch's y counts up.
+        shape(rect, Colour.Transparent, corner, corner, corner, corner, Colour.Transparent, 0f, colour, -depth, offsetX, -offsetY)
+    }
+
+    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corners: Corners, offsetX: Float, offsetY: Float) {
+        if (state.isHidden || rect.isEmpty || depth <= 0f) return
+        shape(
+            rect, Colour.Transparent,
+            corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft,
+            Colour.Transparent, 0f, colour, -depth, offsetX, -offsetY,
+        )
+    }
+
+    override val shadesInside: Boolean get() = true
 
     override fun fan(points: FloatArray, colour: Colour) {
         if (state.isHidden || points.size < 6) return
@@ -307,6 +379,8 @@ open class RenderCanvas protected constructor(
         borderWidth: Float,
         shadow: Colour,
         shadowSpread: Float,
+        shadowOffsetX: Float = 0f,
+        shadowOffsetY: Float = 0f,
     ) {
         val box = state.map(rect)
         val grow = state.transformScale
@@ -327,6 +401,8 @@ open class RenderCanvas protected constructor(
             shadow = shadow.inForce(),
             shadowSpread = shadowSpread * grow,
             aa = antialias,
+            shadowOffsetX = shadowOffsetX * grow,
+            shadowOffsetY = shadowOffsetY * grow,
         )
     }
 

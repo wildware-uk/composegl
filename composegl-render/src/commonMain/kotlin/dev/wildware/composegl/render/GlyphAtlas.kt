@@ -45,6 +45,12 @@ class GlyphAtlas(
      */
     internal var sharp: SharpGlyphs? = null
 
+    /**
+     * Gradients of more than two colours, baked into strips of this atlas; see [GradientRamps].
+     * Made the first time one is drawn, so an atlas nobody paints a run of stops onto has none.
+     */
+    internal val ramps: GradientRamps by lazy { GradientRamps(this) }
+
     private fun placeWhite(): AtlasSpot {
         val page = pages[0]
         val spot = checkNotNull(page.place(WhiteBlock, WhiteBlock, maxPageSize = 0)) { "no room for the white block" }

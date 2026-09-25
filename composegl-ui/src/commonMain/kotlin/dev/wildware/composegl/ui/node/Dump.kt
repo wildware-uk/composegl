@@ -31,6 +31,10 @@ import dev.wildware.composegl.ui.modifier.OffsetElement
 import dev.wildware.composegl.ui.modifier.PaddingElement
 import dev.wildware.composegl.ui.modifier.RotateElement
 import dev.wildware.composegl.ui.modifier.ScaleElement
+import dev.wildware.composegl.ui.geometry.Offset
+import dev.wildware.composegl.ui.modifier.GlossElement
+import dev.wildware.composegl.ui.modifier.InnerShadeElement
+import dev.wildware.composegl.ui.modifier.OutsideBorderElement
 import dev.wildware.composegl.ui.modifier.ShadowElement
 import dev.wildware.composegl.ui.modifier.SizeElement
 import dev.wildware.composegl.ui.modifier.SizeInElement
@@ -180,6 +184,20 @@ fun describe(element: Modifier.Element): String = when (element) {
         element.bottom?.let { "bottom ${side(it)}" },
     ).joinToString(", ", "border(", ")")
     is ShadowElement -> "shadow(${colour(element.colour)} spread ${describeNumber(element.spread)}${corners(element.corners)})"
+    is OutsideBorderElement ->
+        "borderOutside(${colour(element.colour)} ${describeNumber(element.width)}${corners(element.corners)})"
+    is InnerShadeElement -> buildString {
+        append("innerShade(${colour(element.colour)} deep ${describeNumber(element.depth)}")
+        if (element.offset != Offset.Zero) {
+            append(" from ${describeNumber(element.offset.x)}, ${describeNumber(element.offset.y)}")
+        }
+        append("${corners(element.corners)})")
+    }
+    is GlossElement -> buildString {
+        append("gloss(${colour(element.colour)} ${describeNumber(element.fraction)}")
+        if (element.inset != 0f) append(" inset ${describeNumber(element.inset)}")
+        append("${corners(element.corners)})")
+    }
     is ClipElement -> if (element.corners == Corners.None) "clip" else "clip(${corners(element.corners).trim()})"
     is AlphaElement -> "alpha(${describeNumber(element.alpha)})"
     is BlendElement -> "blend(${element.mode.name})"

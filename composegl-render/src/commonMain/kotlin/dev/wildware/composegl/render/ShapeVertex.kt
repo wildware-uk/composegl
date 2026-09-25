@@ -20,10 +20,14 @@ object ShapeVertex {
         Attribute("a_texCoord0", 2, 15),
         Attribute("a_local", 2, 17),
         Attribute("a_halfSize", 2, 19),
-        // border width, shadow spread, antialias width. Zero antialias says "a picture".
+        // Border width, shadow spread, antialias width. Zero antialias says "a picture".
+        //
+        // A negative border width draws the border outside the edge rather than inside it, and a
+        // negative spread shades inside the shape rather than casting outside it.
         Attribute("a_shape", 3, 21),
         Attribute("a_radii", 4, 24),
-        // kind, then the axis. For a picture the kind says whether its texture is premultiplied.
+        // Kind, then the axis. For a picture the kind says whether its texture is premultiplied.
+        // A shape with no gradient and a shade falling inside it carries the shade's offset here.
         Attribute("a_gradient", 3, 28),
     )
 
@@ -32,6 +36,13 @@ object ShapeVertex {
     /** The first gradient float of a shape: a straight gradient, or one outwards from the middle. */
     const val Linear = 1f
     const val Radial = 2f
+
+    /**
+     * The same two, filled from a strip of the atlas rather than from two colours in the vertex:
+     * a gradient of more than two stops. Where the strip is rides in the shadow colour's slot.
+     */
+    const val LinearRamp = 3f
+    const val RadialRamp = 4f
 
     /** The first gradient float of a picture: its texture is premultiplied and is straightened first. */
     const val PremultipliedPicture = 1f

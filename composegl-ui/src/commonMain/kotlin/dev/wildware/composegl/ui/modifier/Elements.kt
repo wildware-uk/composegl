@@ -231,6 +231,46 @@ data class ShadowElement(
     val corner: Float get() = corners.smallest
 }
 
+/** An outline hugging the outside of the node. @see dev.wildware.composegl.ui.modifier.borderOutside */
+data class OutsideBorderElement(
+    val colour: Colour,
+    val width: Float,
+    val corners: Corners = Corners.None,
+) : Modifier.Element {
+    constructor(colour: Colour, width: Float, corner: Float) : this(colour, width, Corners.single(corner))
+
+    init { require(width >= 0f && width.isFinite()) { "border width cannot be negative, was $width" } }
+}
+
+/** Shade falling inwards from the node's edge. @see dev.wildware.composegl.ui.modifier.innerShade */
+data class InnerShadeElement(
+    val colour: Colour,
+    val depth: Float,
+    val corners: Corners = Corners.None,
+    val offset: Offset = Offset.Zero,
+) : Modifier.Element {
+    constructor(colour: Colour, depth: Float, corner: Float, offset: Offset = Offset.Zero) :
+        this(colour, depth, Corners.single(corner), offset)
+
+    init { require(depth >= 0f && depth.isFinite()) { "shade depth cannot be negative, was $depth" } }
+}
+
+/** A shine across the top of the node. @see dev.wildware.composegl.ui.modifier.gloss */
+data class GlossElement(
+    val colour: Colour,
+    val fraction: Float,
+    val corners: Corners = Corners.None,
+    val inset: Float = 0f,
+) : Modifier.Element {
+    constructor(colour: Colour, fraction: Float, corner: Float, inset: Float = 0f) :
+        this(colour, fraction, Corners.single(corner), inset)
+
+    init {
+        require(fraction > 0f && fraction <= 1f) { "a gloss covers between none and all of the box, not $fraction" }
+        require(inset >= 0f && inset.isFinite()) { "a gloss cannot be inset by $inset" }
+    }
+}
+
 /** Art behind the node, cut into nine so it can be any size. See [dev.wildware.composegl.ui.graphics.NinePatch]. */
 data class NinePatchElement(val patch: NinePatch, val tint: Colour = Colour.White) : Modifier.Element
 
@@ -899,6 +939,98 @@ fun Modifier.border(colour: Colour, width: Float = 1f, corners: Corners, style: 
 
 fun Modifier.shadow(colour: Colour, spread: Float, corner: Float = 0f) =
     then(ShadowElement(colour, spread, corner))
+
+/**
+ * An outline hugging the outside of this node, so it takes nothing off the fill.
+ *
+ * The heavy dark line round a game button. A [border] of the same width is drawn inside the box and
+ * eats into the colour it frames; this one sits outside it, and the node keeps every pixel it was
+ * given. It draws outside the node's bounds, so leave room for it — a click still only counts
+ * inside the node, as it does with a shadow.
+ *
+ * ```kotlin
+ * Modifier.background(green, corner = 12f).borderOutside(almostBlack, width = 3f, corner = 12f)
+ * ```
+ */
+fun Modifier.borderOutside(colour: Colour, width: Float = 1f, corner: Float = 0f) =
+    then(OutsideBorderElement(colour, width, corner))
+
+/** The same, with its own radius on each corner. Give it the same [Corners] as the background. */
+fun Modifier.borderOutside(colour: Colour, width: Float = 1f, corners: Corners) =
+    then(OutsideBorderElement(colour, width, corners))
+
+/**
+ * Shade falling inwards from this node's edge, [depth] deep, gathered towards [offset].
+ *
+ * What makes a flat box look moulded. The offset says which way the light comes from: an offset
+ * downwards gathers the shade along the top inside edge, as though lit from below. With no offset
+ * it rings the whole edge, which is the look of a socket.
+ *
+ * Put it after the background, because that is the order things are painted in.
+ *
+ * ```kotlin
+ * Modifier.background(green, corner = 12f)
+ *     .innerShade(black.scaleAlpha(0.35f), depth = 6f, corner = 12f, offset = Offset(0f, -4f))
+ * ```
+ */
+fun Modifier.innerShade(colour: Colour, depth: Float, corner: Float = 0f, offset: Offset = Offset.Zero) =
+    then(InnerShadeElement(colour, depth, corner, offset))
+
+/** The same, with its own radius on each corner. */
+fun Modifier.innerShade(colour: Colour, depth: Float, corners: Corners, offset: Offset = Offset.Zero) =
+    then(InnerShadeElement(colour, depth, corners, offset))
+
+/**
+ * A moulded edge: [light] gathered along the top inside edge, [dark] along the bottom, [depth] deep.
+ *
+ * Two [innerShade]s, the pair a game button wants, written once. Lit from above, which is where
+ * light comes from in nearly every interface.
+ *
+ * ```kotlin
+ * Modifier.background(green, corner = 12f).bevel(depth = 6f, corner = 12f)
+ * ```
+ */
+fun Modifier.bevel(
+    depth: Float,
+    corner: Float = 0f,
+    light: Colour = Colour.White.scaleAlpha(0.35f),
+    dark: Colour = Colour.Black.scaleAlpha(0.35f),
+) = bevel(depth, Corners.single(corner), light, dark)
+
+/** The same, with its own radius on each corner. */
+fun Modifier.bevel(
+    depth: Float,
+    corners: Corners,
+    light: Colour = Colour.White.scaleAlpha(0.35f),
+    dark: Colour = Colour.Black.scaleAlpha(0.35f),
+) = then(InnerShadeElement(light, depth, corners, Offset(0f, depth)))
+    .then(InnerShadeElement(dark, depth, corners, Offset(0f, -depth)))
+
+/**
+ * A shine across the top [fraction] of this node, fading downwards: the glassy top of a game button.
+ *
+ * Drawn inside the node, rounded by the top corners of [corners] and square along the bottom, where
+ * it fades out. [inset] pulls it in from the sides, which is what makes a shine look like a
+ * reflection rather than a stripe.
+ *
+ * ```kotlin
+ * Modifier.background(green, corner = 12f).gloss(corner = 12f)
+ * ```
+ */
+fun Modifier.gloss(
+    fraction: Float = 0.45f,
+    corner: Float = 0f,
+    colour: Colour = Colour.White.scaleAlpha(0.35f),
+    inset: Float = 0f,
+) = then(GlossElement(colour, fraction, corner, inset))
+
+/** The same, with its own radius on each corner: only the top two are used. */
+fun Modifier.gloss(
+    fraction: Float = 0.45f,
+    corners: Corners,
+    colour: Colour = Colour.White.scaleAlpha(0.35f),
+    inset: Float = 0f,
+) = then(GlossElement(colour, fraction, corners, inset))
 
 /** A soft shadow with its own radius on each corner, following the box it is under. */
 fun Modifier.shadow(colour: Colour, spread: Float, corners: Corners) =

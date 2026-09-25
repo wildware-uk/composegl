@@ -192,20 +192,39 @@ object GlslSources {
             float distance = roundedBox(v_local, v_halfSize, radius);
             float coverage = 1.0 - smoothstep(-aa, aa, distance);
 
-            // A gradient: the end colour is in the border's slot.
+            // A gradient. Two colours mix in the vertex, the end riding in the border's slot; a run
+            // of stops is a strip of the atlas, and where it is rides in the shadow's slot.
             vec4 fill = v_color;
+            // What the texture contributes: the atlas's white block for a flat fill. A run of stops
+            // reads the strip itself, and the quad's own texture coordinate is that strip's start,
+            // so it takes its colour from the strip alone rather than multiplying by it twice.
+            vec4 texel = sampled;
+            if (v_gradient.x > 2.5) texel = vec4(1.0);
             if (v_gradient.x > 0.5) {
-                float along = v_gradient.x < 1.5
-                    ? dot(v_local, v_gradient.yz) + 0.5
-                    : length(v_local / max(v_halfSize, vec2(0.0001)));
-                fill = between(v_color, v_borderColor, clamp(along, 0.0, 1.0));
+                bool outwards = v_gradient.x > 1.5 && v_gradient.x < 2.5 || v_gradient.x > 3.5;
+                float along = outwards
+                    ? length(v_local / max(v_halfSize, vec2(0.0001)))
+                    : dot(v_local, v_gradient.yz) + 0.5;
+                along = clamp(along, 0.0, 1.0);
+                if (v_gradient.x > 2.5) {
+                    vec2 from = v_shadowColor.xy;
+                    vec2 to = v_shadowColor.zw;
+                    vec4 strip = texture2D(u_texture, mix(from, to, along));
+                    // The strip is premultiplied, so that the GPU's own mixing is the right mix.
+                    if (strip.a > 0.0) strip = vec4(strip.rgb / strip.a, strip.a);
+                    fill = strip * v_color;
+                } else {
+                    fill = between(v_color, v_borderColor, along);
+                }
             }
 
-            vec4 result = vec4(fill.rgb, fill.a * coverage) * vec4(sampled.rgb, sampled.a);
+            vec4 result = vec4(fill.rgb, fill.a * coverage) * vec4(texel.rgb, texel.a);
 
-            if (borderWidth > 0.0) {
-                float inside = 1.0 - smoothstep(-aa, aa, distance + borderWidth);
-                float band = max(coverage - inside, 0.0);
+            // A width draws the border inside the edge; a negative one draws it outside, where the
+            // shape's own coverage is nothing. Either way it is the band between the two edges.
+            if (borderWidth != 0.0) {
+                float other = 1.0 - smoothstep(-aa, aa, distance + borderWidth);
+                float band = abs(coverage - other);
                 result = over(vec4(v_borderColor.rgb, v_borderColor.a * band), result);
             }
 
@@ -213,6 +232,14 @@ object GlslSources {
                 // Outside the shape only, falling off across the spread.
                 float shade = (1.0 - smoothstep(0.0, spread, max(distance, 0.0)));
                 result = over(result, vec4(v_shadowColor.rgb, v_shadowColor.a * shade));
+            } else if (spread < 0.0) {
+                // Inside the shape, falling off inwards from the edge, and moved by the offset that
+                // rides in the gradient's axis: a shade along one edge is what makes a box look
+                // moulded rather than flat. Kept to the shape by its own coverage.
+                float depth = -spread;
+                float from = roundedBox(v_local - v_gradient.yz, v_halfSize, radius);
+                float shade = 1.0 - smoothstep(0.0, depth, max(-from, 0.0));
+                result = over(vec4(v_shadowColor.rgb, v_shadowColor.a * shade * coverage), result);
             }
 
             gl_FragColor = result;

@@ -141,6 +141,21 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
      * { "radial": ["#00000000", "#C0000000"] }
      * ```
      *
+     * More than two colours is a run of stops, spaced evenly:
+     *
+     * ```jsonc
+     * { "vertical": ["#FFF4D0", "#F2C14E", "#C98A1B"] }
+     * ```
+     *
+     * A stop that belongs somewhere other than its even share says where, as a fraction of the run:
+     *
+     * ```jsonc
+     * { "vertical": [{ "colour": "#FFFFFF", "at": 0 }, { "colour": "#FFFFFF00", "at": 0.4 }, { "colour": "#FFFFFF00", "at": 1 }] }
+     * ```
+     *
+     * One form or the other, not both in a list: a file that mixes them is refused rather than
+     * guessed at.
+     *
      * The direction is a word rather than an angle for the two everybody means, so a file reads as
      * what it draws. `angle` only belongs with `linear`, and saying it anywhere else is refused
      * rather than ignored — a vertical gradient that quietly ignores its angle is the `textColor`
@@ -159,27 +174,53 @@ internal class SkinParse(private val art: ArtAtlas?, private val fonts: FontProv
         }
         val kind = kinds.single()
         val stops = json.getValue(kind)
-        val colours = (stops as? JsonArray)?.items
-            ?: fail("\"$kind\" is its two colours, written \"[\"#RRGGBB\", \"#RRGGBB\"]\"", stops)
-        if (colours.size != 2) {
-            fail("a gradient runs between two colours, and this has ${colours.size}", stops)
+        val items = (stops as? JsonArray)?.items
+            ?: fail("\"$kind\" is its colours, written \"[\"#RRGGBB\", \"#RRGGBB\"]\"", stops)
+        if (items.size < 2) {
+            fail("a gradient runs between at least two colours, and this has ${items.size}", stops)
         }
-        val from = colours[0].colour()
-        val to = colours[1].colour()
         val angle = json["angle"]
         if (angle != null && kind != "linear") {
             fail("only a \"linear\" gradient has an \"angle\"; a \"$kind\" one already says which way it runs", angle)
         }
-        return when (kind) {
-            "vertical" -> Brush.vertical(from, to)
-            "horizontal" -> Brush.horizontal(from, to)
-            "radial" -> Brush.radial(from, to)
-            else -> Brush.linear(
-                from,
-                to,
-                angle?.number("\"angle\"") ?: fail("a \"linear\" gradient needs an \"angle\", in degrees clockwise from right", json),
-            )
+        val degrees = when (kind) {
+            "vertical" -> 90f
+            "horizontal" -> 0f
+            "radial" -> 0f
+            else -> angle?.number("\"angle\"")
+                ?: fail("a \"linear\" gradient needs an \"angle\", in degrees clockwise from right", json)
         }
+        val placed = items.map { it is JsonObject }
+        if (placed.toSet().size != 1) {
+            fail("a gradient's stops are all colours or all colours with an \"at\", not some of each", stops)
+        }
+        // Two plain colours stay the plain two-colour brushes, which is what nearly every skin says.
+        if (items.size == 2 && placed.none { it }) {
+            val from = items[0].colour()
+            val to = items[1].colour()
+            return if (kind == "radial") Brush.radial(from, to) else Brush.Linear(from, to, degrees)
+        }
+        if (placed.none { it }) {
+            val colours = items.map { it.colour() }
+            return if (kind == "radial") {
+                Brush.Ramp(Brush.evenly(colours).let { (it as Brush.Ramp).stops }, radial = true)
+            } else {
+                Brush.evenly(colours, degrees)
+            }
+        }
+        val written = items.map { item ->
+            val stop = item.obj("a gradient's stop")
+            stop.allow(setOf("colour", "at"))
+            val at = stop["at"] ?: fail("a gradient's stop says where it sits, as \"at\" between 0 and 1", stop)
+            val colour = stop["colour"] ?: fail("a gradient's stop says its \"colour\"", stop)
+            val fraction = at.number("\"at\"")
+            if (fraction !in 0f..1f) fail("a stop sits between 0 and 1 along the gradient, not at $fraction", at)
+            Brush.Stop(fraction, colour.colour())
+        }
+        if (written.zipWithNext().any { (a, b) -> a.at > b.at }) {
+            fail("a gradient's stops run from the start of it to the end, in order", stops)
+        }
+        return Brush.Ramp(written, degrees, radial = kind == "radial")
     }
 
     private fun patch(json: JsonObject): SkinDrawable.Patch {
