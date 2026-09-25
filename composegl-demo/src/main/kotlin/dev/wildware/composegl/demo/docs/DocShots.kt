@@ -347,7 +347,7 @@ private fun MutableList<DocShot>.scenes() {
     )
 
     // A bought art sheet of interface pieces, drawn again with modifiers and no art at all.
-    add(DocShot("art-sheet", 1240, 770, stock = true) { ArtSheet() })
+    add(DocShot("art-sheet", 1600, 1200, stock = true) { ArtSheet() })
 
     // Through Skin.Default rather than the example's skin, because the point of the picture is
     // what you get before you have written a skin at all.

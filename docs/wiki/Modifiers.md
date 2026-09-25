@@ -649,14 +649,16 @@ switch on it is a box with a fill, some shade and an outline.
 
 ![a whole art sheet of game interface pieces, drawn from modifiers](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/art-sheet.png)
 
-It is one recipe, written once and measured in fractions of a piece's height, so the
-same function draws a 54-tall capsule and a 30-tall knob without being retuned.
+Every number in it was read out of the original sheet's pixels rather than typed by
+eye: where each piece sits, how big it is, how round its corners are, how thick its
+line is, and the colours down the middle of it. Each piece is then a `background` with
+a `Brush.Ramp` of fourteen stops and a `borderOutside`, and the bright band across the
+top is a second rounded box over it.
 
-Four things on that page are not rounded boxes, and are drawn straight onto the canvas
-behind the node instead: the tick in the checkbox (two lines), the banner with pointed
-ends, the cut gem and the strawberry (polygons, each with a slightly larger dark one
-under it for its outline). The wood grain is a handful of faint lines. A real art sheet
-paints all of that; here it is the same drawing calls any widget can make.
+Three shapes on the page are not rounded boxes and are drawn onto the canvas instead:
+the banner with pointed ends, the cut gem and the berry, each a polygon with a larger
+dark one under it for its outline. Over the sheet's own pixels, half of what is drawn
+lands within 6 levels of 255 of the original, and two thirds within 24.
 
 ---
 
