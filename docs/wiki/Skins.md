@@ -121,6 +121,35 @@ value is its two colours:
 `corner` (one radius or one per corner), `border`, `borderWidth` and `padding` work as they do on a fill. A state's
 `tint` reaches both colours, so a disabled button fades its whole gradient.
 
+### More than two colours
+
+A list of three or more is a run, spaced evenly — three colours put the middle one
+halfway:
+
+```jsonc
+"gold": { "background": { "gradient": { "vertical": ["#FFF4D0", "#F2C14E", "#C98A1B"] }, "corner": 12 } }
+```
+
+When a colour belongs somewhere other than its even share, say where, as a fraction
+of the run from 0 at the start to 1 at the end:
+
+```jsonc
+"sheen": {
+  "background": {
+    "gradient": { "vertical": [{ "colour": "#FFFFFF", "at": 0 }, { "colour": "#00FFFFFF", "at": 0.4 }] }
+  }
+}
+```
+
+A colour is `#RRGGBB` or `#AARRGGBB`, so `#00FFFFFF` is white at nothing — a shine
+that has faded out. The ends are held: anything before the first stop is the first
+colour, anything after the last is the last, so that `sheen` is clear from 0.4 down.
+
+One form or the other, not both in a list. A file that mixes plain colours and placed
+stops is refused rather than guessed at, and so is a list whose stops run out of
+order. Stops work the same in `horizontal`, `linear` and `radial`, and a run costs no
+more to draw than two colours do.
+
 ---
 
 ## Art

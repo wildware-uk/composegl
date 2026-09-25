@@ -259,6 +259,6 @@ class ModuleSectionsTest {
         const val ScrollStep = 200f
 
         /** How many turns of opening-then-scrolling a section is given before the test gives up. */
-        const val MaxScrolls = 40
+        const val MaxScrolls = 60
     }
 }

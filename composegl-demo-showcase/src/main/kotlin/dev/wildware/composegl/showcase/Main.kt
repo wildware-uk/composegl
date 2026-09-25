@@ -45,6 +45,10 @@ import kotlin.random.Random
  *
  * Run it with `./gradlew :composegl-demo-showcase:run`. `COMPOSEGL_SHOWCASE_SHOT=<path>` draws one
  * frame, saves it and exits, and `COMPOSEGL_SHOWCASE_SHOT_AT` is how long to let it run first.
+ * `COMPOSEGL_SHOWCASE_SCROLL=x,y,notches` wheels a scroll area and `COMPOSEGL_SHOWCASE_CLICK=x,y`
+ * clicks once, a few frames apart and before the shutter, so a group further down a section can be
+ * opened and photographed. With a click, the wheel is turned again afterwards: opening a group
+ * makes the section longer.
  * `COMPOSEGL_SHOWCASE_POINTER=x,y[,press]` puts the pointer somewhere, which is the only way to
  * photograph the ray hitting the terminal. `COMPOSEGL_SHOWCASE_SECTION=ui|debug|game` opens that
  * module's section at startup, which is how the three section screenshots are taken.
@@ -81,6 +85,11 @@ class Showcase : ApplicationAdapter() {
     private val shot: String? = System.getenv("COMPOSEGL_SHOWCASE_SHOT")
     private val shotAt: Float = System.getenv("COMPOSEGL_SHOWCASE_SHOT_AT")?.toFloatOrNull() ?: 0f
     private val scriptedPointer: String? = System.getenv("COMPOSEGL_SHOWCASE_POINTER")
+    private val scriptedScroll: String? = System.getenv("COMPOSEGL_SHOWCASE_SCROLL")
+    private val scriptedClick: String? = System.getenv("COMPOSEGL_SHOWCASE_CLICK")
+
+    /** How many frames have been laid out, so a script can act on one and then the next. */
+    private var laidOut = 0
 
     /** Which module's section to open on the first frame, by its short name. Null is the fight. */
     /** Whether to open the scene view window and the picture in picture on the first frame. */
@@ -182,6 +191,13 @@ class Showcase : ApplicationAdapter() {
         ui = UiRenderer(host, canvas, budget)
         ui.onLaidOut = { millis ->
             scriptedPointer?.let { pretendPointerIsAt(it) }
+            // A frame apart, and never on the first: the wheel and the click land on a tree that has
+            // been laid out, and the click lands on whatever the wheel brought into view.
+            laidOut++
+            if (laidOut == 2) scriptedScroll?.let { pretendWheelTurnedAt(it) }
+            if (laidOut == 4) scriptedClick?.let { pretendClickAt(it) }
+            // Again after the click, because opening a group makes the section longer.
+            if (laidOut in setOf(6, 8) && scriptedClick != null) scriptedScroll?.let { pretendWheelTurnedAt(it) }
             input.frame(millis)
         }
     }
@@ -332,6 +348,30 @@ class Showcase : ApplicationAdapter() {
         if (parts.size > 2 && parts[2].trim() == "press") {
             input.onPointer(dev.wildware.composegl.ui.input.PointerEvent.Press(dev.wildware.composegl.ui.input.PointerId.Mouse, dev.wildware.composegl.ui.geometry.Offset(x, y)))
         }
+    }
+
+    /** Wheels over a point, as "x,y,notches": how a group further down a section is photographed. */
+    private fun pretendWheelTurnedAt(where: String) {
+        val parts = where.split(',')
+        if (parts.size < 3) return
+        val at = dev.wildware.composegl.ui.geometry.Offset(parts[0].trim().toFloat(), parts[1].trim().toFloat())
+        val notches = parts[2].trim().toFloat()
+        val mouse = dev.wildware.composegl.ui.input.PointerId.Mouse
+        input.onPointer(dev.wildware.composegl.ui.input.PointerEvent.Move(mouse, at))
+        input.onPointer(
+            dev.wildware.composegl.ui.input.PointerEvent.Scroll(mouse, at, dev.wildware.composegl.ui.geometry.Offset(0f, notches)),
+        )
+    }
+
+    /** Clicks once at "x,y": a press and a release, which is what opens a group. */
+    private fun pretendClickAt(where: String) {
+        val parts = where.split(',')
+        if (parts.size < 2) return
+        val at = dev.wildware.composegl.ui.geometry.Offset(parts[0].trim().toFloat(), parts[1].trim().toFloat())
+        val mouse = dev.wildware.composegl.ui.input.PointerId.Mouse
+        input.onPointer(dev.wildware.composegl.ui.input.PointerEvent.Move(mouse, at))
+        input.onPointer(dev.wildware.composegl.ui.input.PointerEvent.Press(mouse, at))
+        input.onPointer(dev.wildware.composegl.ui.input.PointerEvent.Release(mouse, at))
     }
 
     private fun save(path: String) {
