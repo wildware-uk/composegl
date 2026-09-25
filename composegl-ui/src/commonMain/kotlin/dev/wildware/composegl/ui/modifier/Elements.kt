@@ -255,6 +255,30 @@ data class InnerShadeElement(
     init { require(depth >= 0f && depth.isFinite()) { "shade depth cannot be negative, was $depth" } }
 }
 
+/**
+ * A box lit from one direction: the lift, the shade, the shine and the shadow, worked out together.
+ *
+ * @see dev.wildware.composegl.ui.modifier.moulded
+ */
+data class MouldedElement(
+    val corners: Corners = Corners.None,
+    val light: Float = 90f,
+    val depth: Float = 0.14f,
+    val shine: Float = 0.45f,
+    val strength: Float = 0.35f,
+    val shadow: Float = 0f,
+    val outline: Colour? = null,
+    val outlineWidth: Float = 0.07f,
+) : Modifier.Element {
+    init {
+        require(depth >= 0f && depth <= 1f) { "a moulded edge reaches between none and all of the box, not $depth" }
+        require(shine >= 0f && shine <= 1f) { "a shine covers between none and all of the box, not $shine" }
+        require(strength >= 0f && strength <= 1f) { "a light is between off and full, not $strength" }
+        require(shadow >= 0f) { "a shadow cannot reach $shadow" }
+        require(!light.isNaN() && !light.isInfinite()) { "the light comes from an angle, not $light" }
+    }
+}
+
 /** A shine across the top of the node. @see dev.wildware.composegl.ui.modifier.gloss */
 data class GlossElement(
     val colour: Colour,
@@ -1005,6 +1029,57 @@ fun Modifier.bevel(
     dark: Colour = Colour.Black.scaleAlpha(0.35f),
 ) = then(InnerShadeElement(light, depth, corners, Offset(0f, depth)))
     .then(InnerShadeElement(dark, depth, corners, Offset(0f, -depth)))
+
+/**
+ * One light, lighting the whole box: the bevel, the shine and the shadow all agree about it.
+ *
+ * The four look modifiers written one at a time are four chances to disagree — a shine from the top
+ * over a bevel lit from the left reads as a mistake before anybody can say why. This takes the
+ * direction the light falls and works the rest out: the edge facing the light is lifted, the far
+ * edge is shaded, the shine lies across the lit side, and the shadow is cast away from it.
+ *
+ * Everything is a fraction of the node's shorter side, so the same call dresses a 200-wide button
+ * and a 24-wide checkbox. Put it after the background, because that is the order things are painted.
+ *
+ * ```kotlin
+ * Modifier.background(face, corner = 12f).moulded(corner = 12f, outline = almostBlack)
+ * Modifier.background(face, corner = 12f).moulded(corner = 12f, light = 180f)   // lit from the right
+ * ```
+ *
+ * @param light the direction the light falls, in degrees clockwise from pointing right, the way
+ *   every other angle in this toolkit turns. 90 is from above, which is where interfaces are lit
+ *   from; 0 is from the left.
+ * @param depth how far the lifted and shaded edges reach inwards.
+ * @param shine how far across the box the light band reaches, as a fraction of it. Zero for none.
+ * @param strength how strong the light is: the opacity of the lift and the shine.
+ * @param shadow how far a shadow is cast beyond the box. Zero for none.
+ * @param outline the line round the outside, drawn outside the box so it eats none of the fill.
+ * @param outlineWidth how thick that line is, as a fraction of the shorter side.
+ */
+@Suppress("LongParameterList")
+fun Modifier.moulded(
+    corner: Float = 0f,
+    light: Float = 90f,
+    depth: Float = 0.14f,
+    shine: Float = 0.45f,
+    strength: Float = 0.35f,
+    shadow: Float = 0f,
+    outline: Colour? = null,
+    outlineWidth: Float = 0.07f,
+) = moulded(Corners.single(corner), light, depth, shine, strength, shadow, outline, outlineWidth)
+
+/** The same, with its own radius on each corner. */
+@Suppress("LongParameterList")
+fun Modifier.moulded(
+    corners: Corners,
+    light: Float = 90f,
+    depth: Float = 0.14f,
+    shine: Float = 0.45f,
+    strength: Float = 0.35f,
+    shadow: Float = 0f,
+    outline: Colour? = null,
+    outlineWidth: Float = 0.07f,
+) = then(MouldedElement(corners, light, depth, shine, strength, shadow, outline, outlineWidth))
 
 /**
  * A shine across the top [fraction] of this node, fading downwards: the glassy top of a game button.
