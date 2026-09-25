@@ -61,14 +61,39 @@ internal fun MouldedButtons() {
 /** One button's colours: the run of its face, and the ink round it. */
 private class Face(val name: String, val light: Colour, val mid: Colour, val dark: Colour)
 
-private val Ink = Colour.rgb(0x2B1B10)
+/** The dark warm line the whole sheet is drawn with. */
+private val Ink = Colour.rgb(0x2B1D12)
 
+/** Matched to the capsules on the reference sheet, by eye, against a render of these beside them. */
 private val Faces = listOf(
-    Face("Play", Colour.rgb(0x9BE86B), Colour.rgb(0x5CC23F), Colour.rgb(0x2F8A24)),
-    Face("Shop", Colour.rgb(0x7FD4FF), Colour.rgb(0x2E9BE0), Colour.rgb(0x1668A8)),
-    Face("Coins", Colour.rgb(0xFFDE7A), Colour.rgb(0xF2B233), Colour.rgb(0xC0790F)),
-    Face("Quit", Colour.rgb(0xFF8E86), Colour.rgb(0xE8453C), Colour.rgb(0xA81E1B)),
+    Face("Play", Colour.rgb(0x74CB3C), Colour.rgb(0x4FAF28), Colour.rgb(0x41A122)),
+    Face("Shop", Colour.rgb(0x5CC6F2), Colour.rgb(0x1E97E0), Colour.rgb(0x1888D4)),
+    Face("Coins", Colour.rgb(0xFFD257), Colour.rgb(0xF2B41C), Colour.rgb(0xEAA910)),
+    Face("Quit", Colour.rgb(0xFF6A66), Colour.rgb(0xE5293C), Colour.rgb(0xD81E33)),
 )
+
+/**
+ * The shine, as the sheet draws it: bright, holding most of its strength down the run and then
+ * stopping, rather than fading away the whole distance. That hard lower edge is what reads as glass.
+ */
+private fun shine(strength: Float = 0.7f) = Brush.ramp(
+    Brush.Stop(0f, Colour.White.scaleAlpha(strength)),
+    Brush.Stop(0.7f, Colour.White.scaleAlpha(strength * 0.8f)),
+    Brush.Stop(0.92f, Colour.Transparent),
+    Brush.Stop(1f, Colour.Transparent),
+)
+
+/** The four things that turn a flat capsule into one of the sheet's, in the order they are painted. */
+private fun Modifier.moulded(face: Face, height: Float, glossy: Float = 0.44f): Modifier {
+    val corner = height / 2f
+    return background(Brush.evenly(listOf(face.light, face.mid, face.dark)), corner = corner)
+        // A dark line just inside the outline, then a darker band along the bottom and a light lip.
+        .innerShade(Colour.Black.scaleAlpha(0.16f), depth = height * 0.07f, corner = corner)
+        .innerShade(Colour.Black.scaleAlpha(0.22f), depth = height * 0.26f, corner = corner, offset = Offset(0f, -height * 0.26f))
+        .innerShade(Colour.White.scaleAlpha(0.3f), depth = height * 0.1f, corner = corner, offset = Offset(0f, -height * 0.1f))
+        .gloss(fraction = glossy, corner = corner, colour = Colour.White.scaleAlpha(0.7f), inset = height * 0.14f)
+        .borderOutside(Ink, width = height * 0.07f, corner = corner)
+}
 
 /**
  * A capsule button: three colours down its face, a moulded edge, a shine across the top and the
@@ -79,15 +104,11 @@ private val Faces = listOf(
 private fun PillButton(face: Face) {
     val press = remember { InteractionState() }
     val held = press.isPressed
-    val corner = 20f
     Box(
         Modifier
             .size(96f, 40f)
             .padding(top = if (held) 2f else 0f)
-            .background(Brush.evenly(listOf(face.light, face.mid, face.dark)), corner = corner)
-            .bevel(depth = 6f, corner = corner, dark = Ink.scaleAlpha(0.45f))
-            .gloss(fraction = if (held) 0.2f else 0.45f, corner = corner, inset = 5f)
-            .borderOutside(Ink, width = 3f, corner = corner)
+            .moulded(face, height = 40f, glossy = if (held) 0.22f else 0.44f)
             .interaction(press)
             .clickable { },
         contentAlignment = Alignment.Centre,
@@ -104,8 +125,10 @@ private fun SquareButton(face: Face) {
         Modifier
             .size(40f, 40f)
             .background(Brush.evenly(listOf(face.light, face.mid, face.dark)), corner = corner)
-            .bevel(depth = 5f, corner = corner, dark = Ink.scaleAlpha(0.45f))
-            .gloss(fraction = 0.4f, corner = corner, inset = 4f)
+            .innerShade(Colour.Black.scaleAlpha(0.16f), depth = 3f, corner = corner)
+            .innerShade(Colour.Black.scaleAlpha(0.22f), depth = 10f, corner = corner, offset = Offset(0f, -10f))
+            .innerShade(Colour.White.scaleAlpha(0.3f), depth = 4f, corner = corner, offset = Offset(0f, -4f))
+            .gloss(fraction = 0.42f, corner = corner, colour = Colour.White.scaleAlpha(0.7f), inset = 5f)
             .borderOutside(Ink, width = 3f, corner = corner),
     )
 }
@@ -153,7 +176,8 @@ private fun Bar(face: Face, fill: Float) {
                 .width(220f * fill)
                 .height(16f)
                 .background(Brush.evenly(listOf(face.light, face.mid, face.dark)), corners = Corners.all(8f))
-                .gloss(fraction = 0.5f, corners = Corners.all(8f), inset = 3f),
+                .innerShade(Colour.White.scaleAlpha(0.3f), depth = 2f, corners = Corners.all(8f), offset = Offset(0f, -2f))
+                .gloss(fraction = 0.5f, corners = Corners.all(8f), colour = Colour.White.scaleAlpha(0.7f), inset = 2f),
         )
     }
 }
