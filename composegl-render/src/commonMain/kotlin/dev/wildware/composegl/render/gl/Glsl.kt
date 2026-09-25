@@ -236,9 +236,15 @@ object GlslSources {
                 // Inside the shape, falling off inwards from the edge, and moved by the offset that
                 // rides in the gradient's axis: a shade along one edge is what makes a box look
                 // moulded rather than flat. Kept to the shape by its own coverage.
+                //
+                // How hard that fall is rides in the gradient's kind, as a negative number, since a
+                // shade never has a gradient. At zero the shade fades the whole way in, which is a
+                // fillet; near one it holds and then drops, which is a chamfer with an edge to it.
                 float depth = -spread;
+                float hard = clamp(-v_gradient.x, 0.0, 0.95);
                 float from = roundedBox(v_local - v_gradient.yz, v_halfSize, radius);
-                float shade = 1.0 - smoothstep(0.0, depth, max(-from, 0.0));
+                float along = clamp(max(-from, 0.0) / depth, 0.0, 1.0);
+                float shade = 1.0 - smoothstep(hard, 1.0, along);
                 result = over(vec4(v_shadowColor.rgb, v_shadowColor.a * shade * coverage), result);
             }
 

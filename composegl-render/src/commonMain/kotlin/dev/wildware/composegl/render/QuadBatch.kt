@@ -97,6 +97,8 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
      * @param shadowSpread how far the shadow reaches outside the shape; negative shades inside it.
      * @param shadowOffsetX how far the inside shade is moved across, so it gathers along one edge.
      * @param shadowOffsetY the same, in this batch's y-up coordinates. Ignored by a shadow outside.
+     * @param shadowHardness how hard the inside shade's inner edge is: 0 fades the whole way in, near
+     *   1 holds and then drops. Ignored by a shadow outside.
      * @param aa how wide the softened edge is, in the same units as everything else.
      */
     @Suppress("LongParameterList")
@@ -118,6 +120,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         aa: Float,
         shadowOffsetX: Float = 0f,
         shadowOffsetY: Float = 0f,
+        shadowHardness: Float = 0f,
     ) {
         // Room for whatever reaches outside the box: a shadow's spread, or a border drawn outside.
         val margin = maxOf(shadowSpread, -borderWidth, 0f) + aa
@@ -149,7 +152,9 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             borderWidth = borderWidth,
             shadowSpread = shadowSpread,
             aa = aa,
-            // A shade inside the shape has no gradient, so its offset rides in the gradient's axis.
+            // A shade inside the shape has no gradient, so its offset and how hard it falls ride
+            // in the gradient's slots: the axis, and the kind as a negative number.
+            gradient = if (shadowSpread < 0f) -shadowHardness.coerceIn(0f, 0.95f) else 0f,
             gradientX = if (shadowSpread < 0f) shadowOffsetX else 0f,
             gradientY = if (shadowSpread < 0f) shadowOffsetY else 0f,
         )
