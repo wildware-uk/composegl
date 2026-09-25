@@ -350,6 +350,8 @@ private fun MutableList<DocShot>.scenes() {
     add(DocShot("art-sheet", 1600, 1200, stock = true) { ArtSheet() })
     // The same button four times, with the light moved round it: one modifier, four looks.
     add(DocShot("moulded-light", 560, 150, stock = true) { MouldedLights() })
+    // The same buttons again, with two lines each instead of a measurement.
+    add(DocShot("moulded-sheet", 1600, 680, stock = true) { MouldedSheet() })
 
     // Through Skin.Default rather than the example's skin, because the point of the picture is
     // what you get before you have written a skin at all.
