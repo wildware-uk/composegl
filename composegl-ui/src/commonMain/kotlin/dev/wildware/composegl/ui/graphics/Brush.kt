@@ -132,6 +132,62 @@ sealed interface Brush {
         override fun modulate(tint: Colour) = copy(centre = centre.modulate(tint), edge = edge.modulate(tint))
     }
 
+    /** A colour at a place along a gradient: [at] is 0 at the start of the run and 1 at its end. */
+    data class Stop(val at: Float, val colour: Colour) {
+        init {
+            require(at in 0f..1f) { "a stop sits between the start and the end of the gradient, not at $at" }
+        }
+    }
+
+    /**
+     * A gradient through any number of colours, each at its own place along the run.
+     *
+     * The glassy look of a game button is three: a light top, a mid body, a darker bottom. Two
+     * colours cannot say that, and stacking two gradients to fake it leaves a seam.
+     *
+     * [degrees] turns it the way [Linear] turns, and is ignored when [radial] is true, where the
+     * run goes outwards from the middle as [Radial] does. The stops run in order and the ends are
+     * held: anything before the first stop is the first colour, anything after the last is the last.
+     *
+     * A backend that cannot draw a run of stops draws the first colour flat, exactly as it does for
+     * any other brush; see [UiCanvas.drawsGradients].
+     */
+    data class Ramp(val stops: List<Stop>, val degrees: Float = 90f, val radial: Boolean = false) : Brush {
+        init {
+            require(stops.size >= 2) { "a gradient needs at least two stops, was given ${stops.size}" }
+            require(stops.zipWithNext().all { (a, b) -> a.at <= b.at }) { "a gradient's stops run in order: $stops" }
+            require(!degrees.isNaN() && !degrees.isInfinite()) { "a gradient's angle has to be a number, was $degrees" }
+        }
+
+        override val first: Colour get() = stops.first().colour
+        override val last: Colour get() = stops.last().colour
+
+        /** The straight gradient this runs along, or null when it runs outwards from the middle. */
+        val straight: Linear? get() = if (radial) null else Linear(first, last, degrees)
+
+        override fun fractionAt(x: Float, y: Float, box: Rect): Float =
+            if (radial) Radial(first, last).fractionAt(x, y, box) else Linear(first, last, degrees).fractionAt(x, y, box)
+
+        override fun colourAt(x: Float, y: Float, box: Rect): Colour = at(fractionAt(x, y, box))
+
+        /** The colour this paints [fraction] of the way along its run, with the ends held. */
+        fun at(fraction: Float): Colour {
+            val t = fraction.coerceIn(0f, 1f)
+            if (t <= stops.first().at) return stops.first().colour
+            if (t >= stops.last().at) return stops.last().colour
+            val next = stops.indexOfFirst { it.at >= t }
+            val before = stops[next - 1]
+            val after = stops[next]
+            val span = after.at - before.at
+            // Two stops in the same place: the later one wins, which is how a hard edge is written.
+            if (span <= 0f) return after.colour
+            return between(before.colour, after.colour, (t - before.at) / span)
+        }
+
+        override fun scaleAlpha(factor: Float) = copy(stops = stops.map { it.copy(colour = it.colour.scaleAlpha(factor)) })
+        override fun modulate(tint: Colour) = copy(stops = stops.map { it.copy(colour = it.colour.modulate(tint)) })
+    }
+
     companion object {
 
         /** [top] along the top edge, [bottom] along the bottom. */
@@ -145,6 +201,22 @@ sealed interface Brush {
 
         /** [centre] in the middle, [edge] round the rim. See [Radial]. */
         fun radial(centre: Colour, edge: Colour): Brush = Radial(centre, edge)
+
+        /** A straight gradient through [stops], each at its own place along the run. See [Ramp]. */
+        fun ramp(vararg stops: Stop, degrees: Float = 90f): Brush = Ramp(stops.toList(), degrees)
+
+        /** The same, running outwards from the middle of the box. */
+        fun radialRamp(vararg stops: Stop): Brush = Ramp(stops.toList(), radial = true)
+
+        /**
+         * A straight gradient through [colours], spaced evenly: three colours put the middle one
+         * halfway. Say [ramp] instead when a colour belongs somewhere other than its even share.
+         */
+        fun evenly(colours: List<Colour>, degrees: Float = 90f): Brush {
+            require(colours.size >= 2) { "a gradient needs at least two colours, was given ${colours.size}" }
+            val last = colours.size - 1
+            return Ramp(colours.mapIndexed { at, colour -> Stop(at / last.toFloat(), colour) }, degrees)
+        }
 
         /**
          * The colour [fraction] of the way from [from] to [to], mixed the way a gradient mixes.

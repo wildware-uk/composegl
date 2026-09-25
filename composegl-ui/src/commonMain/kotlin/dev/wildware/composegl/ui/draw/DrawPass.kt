@@ -27,6 +27,9 @@ import dev.wildware.composegl.ui.modifier.NinePatchElement
 import dev.wildware.composegl.ui.modifier.SkinBackgroundElement
 import dev.wildware.composegl.ui.modifier.PaintOp
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
+import dev.wildware.composegl.ui.modifier.GlossElement
+import dev.wildware.composegl.ui.modifier.InnerShadeElement
+import dev.wildware.composegl.ui.modifier.OutsideBorderElement
 import dev.wildware.composegl.ui.modifier.ShadowElement
 import dev.wildware.composegl.ui.node.ContentCamera
 import dev.wildware.composegl.ui.node.UiNode
@@ -707,6 +710,10 @@ class DrawPass(val canvas: UiCanvas) {
             is BorderElement -> canvas.border(rect, element.colour, element.width, element.corners, element.style)
             is BorderSidesElement -> canvas.borders(rect, element.left, element.top, element.right, element.bottom)
             is ShadowElement -> canvas.boxShadow(rect, element.colour, element.spread, element.corners)
+            is OutsideBorderElement -> canvas.borderOutside(rect, element.colour, element.width, element.corners)
+            is InnerShadeElement ->
+                canvas.innerShade(rect, element.colour, element.depth, element.corners, element.offset.x, element.offset.y)
+            is GlossElement -> Gloss.draw(canvas, rect, element)
             is BrushBackgroundElement -> canvas.box(rect, element.brush, element.corners)
             is NinePatchElement -> element.patch.drawInto(canvas, rect, element.tint)
             is SkinBackgroundElement -> element.drawable.drawInto(canvas, rect, element.tint)

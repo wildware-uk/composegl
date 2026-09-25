@@ -93,6 +93,10 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
      * The corners are named as they look on screen. Each is held to half the box's shorter side.
      *
      * @param white where solid colour is sampled from.
+     * @param borderWidth how thick the border is, drawn inside the edge; negative draws it outside.
+     * @param shadowSpread how far the shadow reaches outside the shape; negative shades inside it.
+     * @param shadowOffsetX how far the inside shade is moved across, so it gathers along one edge.
+     * @param shadowOffsetY the same, in this batch's y-up coordinates. Ignored by a shadow outside.
      * @param aa how wide the softened edge is, in the same units as everything else.
      */
     @Suppress("LongParameterList")
@@ -112,8 +116,11 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         shadow: Colour,
         shadowSpread: Float,
         aa: Float,
+        shadowOffsetX: Float = 0f,
+        shadowOffsetY: Float = 0f,
     ) {
-        val margin = shadowSpread + aa
+        // Room for whatever reaches outside the box: a shadow's spread, or a border drawn outside.
+        val margin = maxOf(shadowSpread, -borderWidth, 0f) + aa
         val halfWidth = width / 2f
         val halfHeight = height / 2f
         val most = minOf(halfWidth, halfHeight).coerceAtLeast(0f)
@@ -142,6 +149,77 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             borderWidth = borderWidth,
             shadowSpread = shadowSpread,
             aa = aa,
+            // A shade inside the shape has no gradient, so its offset rides in the gradient's axis.
+            gradientX = if (shadowSpread < 0f) shadowOffsetX else 0f,
+            gradientY = if (shadowSpread < 0f) shadowOffsetY else 0f,
+        )
+    }
+
+    /**
+     * One rounded box filled from a strip of the atlas: a gradient of more than two colours.
+     *
+     * The same quad and the same distance field as [shape], so it batches with everything else on
+     * the page. Where the strip is rides in the shadow colour's slot, which a gradient never uses,
+     * so the border's slot is free and a run of stops can carry an outline in the same quad.
+     *
+     * @param tint what the strip is multiplied by: the alpha and tint in force.
+     * @param u where the strip starts, in texture coordinates, and [u2] where it ends.
+     */
+    @Suppress("LongParameterList")
+    fun rampGradient(
+        white: WhiteSpot,
+        left: Float,
+        bottom: Float,
+        width: Float,
+        height: Float,
+        tint: Colour,
+        radial: Boolean,
+        axisX: Float,
+        axisY: Float,
+        u: Float,
+        v: Float,
+        u2: Float,
+        v2: Float,
+        topLeft: Float,
+        topRight: Float,
+        bottomRight: Float,
+        bottomLeft: Float,
+        border: Colour,
+        borderWidth: Float,
+        aa: Float,
+    ) {
+        val halfWidth = width / 2f
+        val halfHeight = height / 2f
+        val most = minOf(halfWidth, halfHeight).coerceAtLeast(0f)
+        radii[0] = topLeft.coerceIn(0f, most)
+        radii[1] = topRight.coerceIn(0f, most)
+        radii[2] = bottomRight.coerceIn(0f, most)
+        radii[3] = bottomLeft.coerceIn(0f, most)
+        val margin = maxOf(-borderWidth, 0f) + aa
+
+        use(white.texture)
+        quad(
+            left = left - margin,
+            bottom = bottom - margin,
+            right = left + width + margin,
+            top = bottom + height + margin,
+            centreX = left + halfWidth,
+            centreY = bottom + halfHeight,
+            u = white.u, v = white.v, u2 = white.u, v2 = white.v,
+            fill = tint,
+            border = border,
+            // The strip's two ends, as a colour that is really four numbers.
+            shadow = Colour.Transparent,
+            halfWidth = halfWidth,
+            halfHeight = halfHeight,
+            radii = radii,
+            borderWidth = borderWidth,
+            shadowSpread = 0f,
+            aa = aa,
+            gradient = if (radial) ShapeVertex.RadialRamp else ShapeVertex.LinearRamp,
+            gradientX = axisX,
+            gradientY = axisY,
+            ramp = floatArrayOf(u, v, u2, v2),
         )
     }
 
@@ -450,12 +528,13 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         halfWidth: Float, halfHeight: Float,
         radii: FloatArray, borderWidth: Float, shadowSpread: Float, aa: Float,
         gradient: Float = 0f, gradientX: Float = 0f, gradientY: Float = 0f,
+        ramp: FloatArray? = null,
     ) {
         // Wound anticlockwise from the bottom-left; `v` is the coordinate at the quad's *top*.
-        vertex(left, bottom, u, v2, fill, border, shadow, left - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
-        vertex(left, top, u, v, fill, border, shadow, left - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
-        vertex(right, top, u2, v, fill, border, shadow, right - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
-        vertex(right, bottom, u2, v2, fill, border, shadow, right - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
+        vertex(left, bottom, u, v2, fill, border, shadow, left - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY, ramp = ramp)
+        vertex(left, top, u, v, fill, border, shadow, left - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY, ramp = ramp)
+        vertex(right, top, u2, v, fill, border, shadow, right - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY, ramp = ramp)
+        vertex(right, bottom, u2, v2, fill, border, shadow, right - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY, ramp = ramp)
     }
 
     @Suppress("LongParameterList")
@@ -466,6 +545,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         radii: FloatArray, borderWidth: Float, shadowSpread: Float, aa: Float,
         gradient: Float = 0f, gradientX: Float = 0f, gradientY: Float = 0f,
         w: Float = 1f,
+        ramp: FloatArray? = null,
     ) {
         val out = vertices
         var at = used
@@ -474,7 +554,15 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         out[at++] = w
         at = writeColour(fill, at)
         at = writeColour(border, at)
-        at = writeColour(shadow, at)
+        // A strip of the atlas rides where the shadow's colour would be: a gradient never casts one.
+        if (ramp != null) {
+            out[at++] = ramp[0]
+            out[at++] = ramp[1]
+            out[at++] = ramp[2]
+            out[at++] = ramp[3]
+        } else {
+            at = writeColour(shadow, at)
+        }
         out[at++] = u
         out[at++] = v
         out[at++] = localX

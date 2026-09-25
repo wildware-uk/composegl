@@ -64,6 +64,27 @@ sealed interface DrawCall {
         override val alpha: Float,
     ) : DrawCall
 
+    /** An outline hugging the outside of a box: [UiCanvas.borderOutside]. */
+    data class OutsideBorder(
+        val rect: Rect,
+        val colour: Colour,
+        val width: Float,
+        val corners: Corners,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : DrawCall
+
+    /** Shade falling inwards from a box's edge, moved by an offset: [UiCanvas.innerShade]. */
+    data class InnerShade(
+        val rect: Rect,
+        val colour: Colour,
+        val depth: Float,
+        val corners: Corners,
+        val offset: Offset,
+        override val clip: Rect,
+        override val alpha: Float,
+    ) : DrawCall
+
     /**
      * A filled box whose corners were not all given the same radius.
      *
@@ -484,6 +505,28 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
 
     /** It writes all four down, which is the whole of what this canvas can do about anything. */
     override val roundsCornersSeparately: Boolean get() = true
+
+    override fun borderOutside(rect: Rect, colour: Colour, width: Float, corner: Float) =
+        borderOutside(rect, colour, width, Corners.all(corner))
+
+    override fun borderOutside(rect: Rect, colour: Colour, width: Float, corners: Corners) {
+        record(DrawCall.OutsideBorder(state.map(rect), colour, length(width), corners.drawn(), state.clip, state.alpha))
+    }
+
+    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corner: Float, offsetX: Float, offsetY: Float) =
+        innerShade(rect, colour, depth, Corners.all(corner), offsetX, offsetY)
+
+    override fun innerShade(rect: Rect, colour: Colour, depth: Float, corners: Corners, offsetX: Float, offsetY: Float) {
+        record(
+            DrawCall.InnerShade(
+                state.map(rect), colour, length(depth), corners.drawn(),
+                Offset(length(offsetX), length(offsetY)), state.clip, state.alpha,
+            ),
+        )
+    }
+
+    /** It writes both down, which is the whole of what this canvas can do about anything. */
+    override val shadesInside: Boolean get() = true
 
     override fun fan(points: FloatArray, colour: Colour) {
         if (points.size < 6) return

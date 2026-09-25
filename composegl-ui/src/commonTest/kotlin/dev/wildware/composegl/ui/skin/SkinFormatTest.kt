@@ -191,13 +191,59 @@ class SkinFormatTest {
     }
 
     @Test
-    fun `a gradient needs exactly two colours`() {
+    fun `a gradient needs at least two colours`() {
         val problem = assertFailsWith<SkinFormatException> {
-            read("""{ "styles": { "b": { "background": { "gradient": { "vertical": ["#FF0000", "#00FF00", "#0000FF"] } } } } }""")
+            read("""{ "styles": { "b": { "background": { "gradient": { "vertical": ["#FF0000"] } } } } }""")
         }
 
         assertTrue("two colours" in problem.message.orEmpty(), problem.message.orEmpty())
-        assertTrue("3" in problem.message.orEmpty(), problem.message.orEmpty())
+        assertTrue("1" in problem.message.orEmpty(), problem.message.orEmpty())
+    }
+
+    @Test
+    fun `three colours are a run of stops spaced evenly`() {
+        val skin = read("""{ "styles": { "b": { "background": { "gradient": { "vertical": ["#FF0000", "#00FF00", "#0000FF"] } } } } }""")
+        val expected = SkinDrawable.Gradient(
+            Brush.evenly(listOf(Colour.rgb(0xFF0000), Colour.rgb(0x00FF00), Colour.rgb(0x0000FF))),
+            Corners.None,
+        )
+
+        assertEquals(expected, skin.styles.getValue("b").base.background)
+        assertEquals(expected, read(SkinFormat.write(skin)).styles.getValue("b").base.background, "after a trip out and back")
+    }
+
+    @Test
+    fun `a stop can say where along the run it sits`() {
+        val skin = read(
+            """{ "styles": { "b": { "background": { "gradient": { "vertical": [""" +
+                """{ "colour": "#FFFFFF", "at": 0 }, { "colour": "#00FFFFFF", "at": 0.4 }, { "colour": "#00FFFFFF", "at": 1 }] } } } } }""",
+        )
+        val shine = Brush.Ramp(
+            listOf(
+                Brush.Stop(0f, Colour.White),
+                Brush.Stop(0.4f, Colour.White.withAlpha(0)),
+                Brush.Stop(1f, Colour.White.withAlpha(0)),
+            ),
+        )
+
+        assertEquals(SkinDrawable.Gradient(shine, Corners.None), skin.styles.getValue("b").base.background)
+        assertEquals(
+            SkinDrawable.Gradient(shine, Corners.None),
+            read(SkinFormat.write(skin)).styles.getValue("b").base.background,
+            "after a trip out and back",
+        )
+    }
+
+    @Test
+    fun `a gradient cannot mix plain colours with placed stops`() {
+        val problem = assertFailsWith<SkinFormatException> {
+            read(
+                """{ "styles": { "b": { "background": { "gradient": { "vertical": """ +
+                    """["#FF0000", { "colour": "#00FF00", "at": 0.5 }] } } } } }""",
+            )
+        }
+
+        assertTrue("some of each" in problem.message.orEmpty(), problem.message.orEmpty())
     }
 
     @Test

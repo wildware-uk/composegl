@@ -109,7 +109,36 @@ internal class SkinWrite(private val art: ArtAtlas?) {
             colour(to)
             text.append("]")
         }
+        fun run(colours: List<Brush.Stop>) {
+            // All plain colours or all placed stops, never a mix: that is what the reader accepts,
+            // and a run that is evenly spaced is written the short way it was read.
+            val last = colours.size - 1
+            val evenly = colours.withIndex().all { (at, stop) -> stop.at == at / last.toFloat() }
+            text.append("[")
+            colours.forEachIndexed { at, stop ->
+                if (at > 0) text.append(", ")
+                if (evenly) {
+                    colour(stop.colour)
+                } else {
+                    text.append("{ \"colour\": ")
+                    colour(stop.colour)
+                    text.append(", \"at\": ")
+                    number(stop.at)
+                    text.append(" }")
+                }
+            }
+            text.append("]")
+        }
         when (brush) {
+            is Brush.Ramp -> when {
+                brush.radial -> key("radial") { run(brush.stops) }
+                brush.degrees == 90f -> key("vertical") { run(brush.stops) }
+                brush.degrees == 0f -> key("horizontal") { run(brush.stops) }
+                else -> {
+                    key("linear") { run(brush.stops) }
+                    key("angle") { number(brush.degrees) }
+                }
+            }
             is Brush.Radial -> key("radial") { stops(brush.centre, brush.edge) }
             is Brush.Linear -> when (brush.degrees) {
                 90f -> key("vertical") { stops(brush.start, brush.end) }
