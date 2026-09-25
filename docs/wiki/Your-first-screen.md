@@ -272,6 +272,10 @@ Viewport(
 So `280f` means "280 wide on a 1280-wide screen", everywhere, forever. No density
 buckets, no `dp`, no per-device layout.
 
+It works in both directions. A window smaller than the design — a 1280-wide design on
+a 360-wide phone — is fine: text is drawn again at the screen's own pixel size, so
+hyphens and thin strokes do not disappear on the way down.
+
 ---
 
 ## 5. Arranging things
