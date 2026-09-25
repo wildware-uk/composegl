@@ -660,6 +660,15 @@ shadow falls away from it.
 so the same call dresses a 200-wide button and a 24-wide checkbox. `strength` is how
 hard the light is; at `0f` nothing is drawn but the outline.
 
+Here is that art sheet's own row of buttons, drawn with nothing but three colours off
+each one and this modifier — two lines a button:
+
+![the sheet's buttons again, each drawn with a gradient and one moulded call](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/moulded-sheet.png)
+
+Against the original, half of what it draws lands within 10 levels of 255. The measured
+version above gets to 4, because it carries fourteen stops a piece and a measured band
+for the shine. Two lines gets the family; a measurement gets the twin.
+
 **They cost one draw call.** A fill, two shades and an outline batch into a single
 draw. A multi-stop gradient is baked into a 64-pixel strip of the same atlas a flat
 colour comes from, so a gradient button batches with flat panels too.
