@@ -176,6 +176,17 @@ class KoolPointerInputTest {
     }
 
     @Test
+    fun `a finger that lands and lifts inside one frame is still a tap`() {
+        // What Android's touch looks like through Kool: the finger is new, the button is already up,
+        // and the whole tap is in the changed mask. A mouse is not read this way; see the test above.
+        input.onFrame(listOf(Sample(0, 40f, 40f, buttons = 0, changed = left)))
+        assertEquals(
+            listOf("move Offset(x=20.0, y=20.0) []", "press Primary Offset(x=20.0, y=20.0)", "release Primary Offset(x=20.0, y=20.0)"),
+            describe(),
+        )
+    }
+
+    @Test
     fun `a pointer that arrives with a button down is pressed once`() {
         input.onFrame(listOf(Sample(mouse, 200f, 100f, buttons = left, changed = left)))
         assertEquals(listOf("move Offset(x=100.0, y=50.0) []", "press Primary Offset(x=100.0, y=50.0)"), describe())

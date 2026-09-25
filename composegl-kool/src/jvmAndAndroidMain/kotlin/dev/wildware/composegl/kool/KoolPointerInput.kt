@@ -22,9 +22,13 @@ import dev.wildware.composegl.ui.layout.Viewport
  * frame. So this compares a frame with the one before. Kool already splits a press and a release that
  * arrived in the same frame into one click, and leaves the button marked as changed with the same
  * state either side; that is read back as a press followed by a release, so a quick click is still a
- * click. A pointer seen for the first time is read by which buttons are down, not by what changed:
- * Kool reuses a pointer's slot, and a mouse coming back into the window can carry the changed bits of
- * a button let go outside it, which would otherwise click whatever it came back over.
+ * click.
+ *
+ * **A mouse seen for the first time is read by which buttons are down, not by what changed.** Kool
+ * keeps one slot for the mouse and does not clear it: a mouse that left the window with a button
+ * held and let go outside comes back still carrying that button's changed bit, which would
+ * otherwise click whatever it came back over. A finger is not read that way — a touch that lands
+ * and lifts inside one frame is reported as a change and nothing else, and that is a real tap.
  *
  * **Coordinates.** Kool's pointer positions are the framebuffer's pixels, top-left origin — the pixels a
  * [Viewport] is measured in — so they go through [Viewport.toDesign] and nothing else.
@@ -74,7 +78,8 @@ internal class KoolPointerInput(
             Buttons.forEach { (mask, button) ->
                 val wasDown = button in seenNow.held
                 val isDown = pointer.buttons and mask != 0
-                val changed = last != null && pointer.changed and mask != 0
+                // A finger's first frame can be a whole tap; a mouse's first frame cannot be trusted.
+                val changed = (last != null || id != PointerId.Mouse) && pointer.changed and mask != 0
                 fun press() = sink.onPointer(PointerEvent.Press(id, at, button, type, now)).also { seenNow.held += button }
                 fun release() = sink.onPointer(PointerEvent.Release(id, at, button, type, now)).also { seenNow.held -= button }
                 used = when {
