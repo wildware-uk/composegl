@@ -20,7 +20,7 @@ class SharpTextGlTest {
 
     /** The frame, as brightness 0 to 255, y down from the top. */
     private fun draw(scale: Float, size: Int, text: String): IntArray = Gl.render {
-        val fonts = StbFonts().apply { register("body", bytes("/fonts/DejaVuSans.ttf"), listOf(18, 24, 48, 60)) }
+        val fonts = StbFonts().apply { register("body", bytes("/fonts/DejaVuSans.ttf"), listOf(18, 19, 24, 48, 60)) }
         val canvas = GlCanvas(fonts)
         try {
             val design = Gl.size / scale
@@ -59,7 +59,7 @@ class SharpTextGlTest {
 
     /** The frame with the text nudged [offset] design units down, so it lands differently between pixels. */
     private fun drawOffset(scale: Float, size: Int, text: String, offset: Float): IntArray = Gl.render {
-        val fonts = StbFonts().apply { register("body", bytes("/fonts/DejaVuSans.ttf"), listOf(18, 24, 48, 60)) }
+        val fonts = StbFonts().apply { register("body", bytes("/fonts/DejaVuSans.ttf"), listOf(18, 19, 24, 48, 60)) }
         val canvas = GlCanvas(fonts)
         try {
             val design = Gl.size / scale
@@ -86,5 +86,38 @@ class SharpTextGlTest {
         val native = drawOffset(scale = 1f, size = 18, text = "-", offset = 0f).count { it > 0 }
 
         assertTrue(inked.min() >= native / 2, "the hyphen is drawn at every position: $inked, the font at 18 inks $native")
+    }
+
+    /** The frame after the same scale has been drawn twice: a window nobody is resizing. */
+    private fun drawSteady(scale: Float, size: Int, text: String): IntArray = Gl.render {
+        val fonts = StbFonts().apply { register("body", bytes("/fonts/DejaVuSans.ttf"), listOf(18, 19, 24, 48, 60)) }
+        val canvas = GlCanvas(fonts)
+        try {
+            val design = Gl.size / scale
+            val layout = fonts.measure(text, TextStyle(family = "body", size = size.toFloat()))
+            var frame = IntArray(0)
+            repeat(2) {
+                Gl.gl.clearColor(0f, 0f, 0f, 1f)
+                Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
+                canvas.begin(Viewport(Size(design, design), Size(Gl.size.toFloat(), Gl.size.toFloat()), ScalePolicy.Fit))
+                canvas.text(layout, 20f / scale, 20f / scale, Colour.White)
+                canvas.end()
+                frame = Gl.readPixels(Gl.size, Gl.size).map { it and 0xFF }.toIntArray()
+            }
+            frame
+        } finally {
+            canvas.close()
+            fonts.close()
+        }
+    }
+
+    @Test
+    fun `a window held at four fifths of the design draws the font's own cut at that size`() {
+        // 24 at 0.781 is 18.7 pixels: a quarter of the design size would cut it at 18 and stretch it.
+        val steady = drawSteady(scale = 0.781f, size = 24, text = "l")
+        val native = drawOffset(scale = 1f, size = 19, text = "l", offset = 0f)
+
+        val soft = softPixels(steady)
+        assertTrue(soft <= softPixels(native) + 4, "the stroke has $soft soft pixels, the font at 19 has ${softPixels(native)}")
     }
 }

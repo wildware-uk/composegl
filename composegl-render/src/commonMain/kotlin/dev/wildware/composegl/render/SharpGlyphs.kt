@@ -12,7 +12,7 @@ import kotlin.math.roundToInt
  * place. Measuring never sees any of this: widths, line breaks and carets are exactly what they
  * were.
  *
- * The scale is rounded to a quarter ([quarterOf]), so a window being dragged bigger makes a handful
+ * A scale still moving is rounded ([stepOf]), so a window being dragged bigger makes a handful
  * of sizes rather than one a frame. The copies live on an atlas of their own, which is emptied at
  * the start of a frame once it has filled with sizes the screen has moved on from. A glyph with no
  * room is drawn from its ordinary copy, stretched, as before.
@@ -29,15 +29,15 @@ internal class SharpGlyphs(private val pageSize: Int, private val smooth: Boolea
 
     private var full = false
     private var latest = 0
-    private val quarters = HashSet<Int>()
+    private val steps = HashSet<Int>()
 
-    /** Room for a copy made for [quarter], or null when there is none this generation. */
-    fun place(quarter: Int, width: Int, height: Int): AtlasSpot? {
-        latest = quarter
+    /** Room for a copy made for [step], or null when there is none this generation. */
+    fun place(step: Int, width: Int, height: Int): AtlasSpot? {
+        latest = step
         if (width + GlyphAtlas.Gap > pageSize || height + GlyphAtlas.Gap > pageSize) return null
         val atlas = atlas ?: GlyphAtlas(pageSize, pageSize, MaxPages, owner, smooth).also { atlas = it }
         val spot = atlas.placeOrNull(width, height)
-        if (spot == null) full = true else quarters += quarter
+        if (spot == null) full = true else steps += step
         return spot
     }
 
@@ -50,9 +50,9 @@ internal class SharpGlyphs(private val pageSize: Int, private val smooth: Boolea
         if (!full) return
         full = false
         val atlas = atlas ?: return
-        if (quarters.any { it != latest }) {
+        if (steps.any { it != latest }) {
             atlas.clear()
-            quarters.clear()
+            steps.clear()
             generation++
         }
     }
@@ -63,19 +63,32 @@ internal class SharpGlyphs(private val pageSize: Int, private val smooth: Boolea
 
     companion object {
 
-        /** A scale of one, in quarters. */
-        const val One = 4
+        /** A scale of one, in steps: a step is a sixty-fourth, so a size lands within one percent. */
+        const val One = 64
+
+        /** The step a scale is snapped to while it is still moving: a quarter of the design size. */
+        const val Coarse = One / 4
 
         /** The most a glyph is enlarged by: four times, past which it is stretched. */
-        const val MaxQuarter = 16
+        const val MaxStep = One * 4
 
         private const val MaxPages = 2
 
-        /** [scale] to the nearest quarter, as a count of quarters, at most [MaxQuarter]. */
-        fun quarterOf(scale: Float): Int =
-            if (scale.isFinite()) (scale * One).roundToInt().coerceIn(0, MaxQuarter) else One
+        /**
+         * [scale] as a count of steps, at most [MaxStep].
+         *
+         * A [steady] scale — a window that is not being resized, a zoom that has stopped — is taken
+         * exactly, so a glyph is made at the pixels it is drawn at. One that is still moving is
+         * snapped to [Coarse], so a resize makes a handful of sizes rather than one a frame.
+         */
+        fun stepOf(scale: Float, steady: Boolean = false): Int {
+            if (!scale.isFinite()) return One
+            val exact = (scale * One).roundToInt()
+            val step = if (steady) exact else (exact + Coarse / 2) / Coarse * Coarse
+            return step.coerceIn(0, MaxStep)
+        }
 
-        /** How many pixels tall a glyph of [size] is made for [quarter]. */
-        fun pixelsFor(size: Int, quarter: Int): Int = (size * quarter / One.toFloat()).roundToInt()
+        /** How many pixels tall a glyph of [size] is made for [step]. */
+        fun pixelsFor(size: Int, step: Int): Int = (size * step / One.toFloat()).roundToInt()
     }
 }
