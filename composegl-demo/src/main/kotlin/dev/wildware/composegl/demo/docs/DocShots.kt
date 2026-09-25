@@ -348,6 +348,8 @@ private fun MutableList<DocShot>.scenes() {
 
     // A bought art sheet of interface pieces, drawn again with modifiers and no art at all.
     add(DocShot("art-sheet", 1600, 1200, stock = true) { ArtSheet() })
+    // The same button four times, with the light moved round it: one modifier, four looks.
+    add(DocShot("moulded-light", 560, 150, stock = true) { MouldedLights() })
 
     // Through Skin.Default rather than the example's skin, because the point of the picture is
     // what you get before you have written a skin at all.

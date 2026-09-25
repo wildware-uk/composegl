@@ -638,6 +638,28 @@ uses only the top two.
 shades, then the shine, then the outline. A `gloss` written before the background is
 painted underneath it and never seen.
 
+### One light, and everything agrees with it
+
+Written one at a time, those four are four chances to disagree — a shine from the top
+over a bevel lit from the left reads as a mistake before anybody can say why.
+`Modifier.moulded` takes the direction the light falls and works the rest out:
+
+```kotlin
+Modifier.background(face, corner = 26f)
+    .moulded(corner = 26f, outline = almostBlack, shadow = 0.12f)
+```
+
+![the same button lit from above, the left, the right and below](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/moulded-light.png)
+
+One button, one modifier, four angles. `light` is degrees clockwise from pointing
+right, so 90 is from above, which is where interfaces are lit from. The edge facing the
+light is lifted, the far edge is shaded, the shine lies along the lit side and the
+shadow falls away from it.
+
+`depth`, `shine`, `shadow` and `outlineWidth` are fractions of the box's shorter side,
+so the same call dresses a 200-wide button and a 24-wide checkbox. `strength` is how
+hard the light is; at `0f` nothing is drawn but the outline.
+
 **They cost one draw call.** A fill, two shades and an outline batch into a single
 draw. A multi-stop gradient is baked into a 64-pixel strip of the same atlas a flat
 colour comes from, so a gradient button batches with flat panels too.
