@@ -81,6 +81,48 @@ class SharpTextTest {
         return device
     }
 
+    /** The same, held at one scale for [frames] frames: a window that is not being resized. */
+    private fun drawSteady(fonts: AtlasFonts, scale: Float, text: String = "Hi", frames: Int = 2): RecordingDevice {
+        val device = RecordingDevice()
+        val canvas = RenderCanvas(device, fonts)
+        val layout = fonts.measure(text, style)
+        repeat(frames) {
+            canvas.begin(scaled(scale))
+            canvas.text(layout, 10f, 20f, Colour.White)
+            canvas.end()
+        }
+        return device
+    }
+
+    @Test
+    fun `a window held at a scale gets glyphs made at exactly that scale`() {
+        val fonts = Fonts()
+        fonts.measure("Hi", style)
+        fonts.log.faces.clear()
+
+        // 16 * 0.781 is 12.5, which no quarter of 16 lands on.
+        drawSteady(fonts, 0.781f)
+
+        assertTrue("16@13" in fonts.log.faces, "the font was asked for 16 drawn 13 tall: ${fonts.log.faces}")
+    }
+
+    @Test
+    fun `a scale still moving is snapped rather than made again every frame`() {
+        val fonts = Fonts()
+        val device = RecordingDevice()
+        val canvas = RenderCanvas(device, fonts)
+        val layout = fonts.measure("Hi", style)
+        // Twenty frames of a window being dragged smaller, each a different scale.
+        for (frame in 0 until 20) {
+            canvas.begin(scaled(0.9f - frame / 100f))
+            canvas.text(layout, 10f, 20f, Colour.White)
+            canvas.end()
+        }
+
+        val sizes = fonts.log.faces.toSet()
+        assertTrue(sizes.size <= 4, "a drag makes a handful of sizes, not one a frame: $sizes")
+    }
+
     @Test
     fun `at twice the size each glyph is made at twice the pixels`() {
         val fonts = Fonts()
@@ -231,7 +273,7 @@ class SharpTextTest {
 
         assertEquals(boxes(one.draws.single()), boxes(two.draws.single()))
         val glyph = (fonts.measure("😀", style) as AtlasTextLayout).placed.single().glyph
-        val copy = checkNotNull(glyph.sharp(8))
+        val copy = checkNotNull(glyph.sharp(SharpGlyphs.One * 2))
         assertEquals(32f, copy.height)
         assertNotEquals(glyph.page, copy.page)
     }

@@ -37,21 +37,21 @@ class Glyph internal constructor(
     /** A copy that is drawn into its original's box, as a picture is, rather than from its own offsets. */
     internal val fillsBox: Boolean = false,
 ) {
-    private var sharpQuarter = 0
+    private var sharpStep = 0
     private var sharpGeneration = -1
     private var sharpCopy: Glyph? = null
 
     /**
-     * This glyph made again for a screen [quarter] quarters the design size, or null when it is drawn
+     * This glyph made again for a screen [step] steps the design size, or null when it is drawn
      * as it is: no face to ask, no room, or no gain. The last answer is kept, so a frame after frame at
      * one scale asks nothing.
      */
-    internal fun sharp(quarter: Int): Glyph? {
+    internal fun sharp(step: Int): Glyph? {
         val face = face ?: return null
         val generation = face.sharpGeneration
-        if (quarter == sharpQuarter && generation == sharpGeneration) return sharpCopy
-        val copy = face.sharp(codepoint, quarter)
-        sharpQuarter = quarter
+        if (step == sharpStep && generation == sharpGeneration) return sharpCopy
+        val copy = face.sharp(codepoint, step)
+        sharpStep = step
         sharpGeneration = face.sharpGeneration
         sharpCopy = copy
         return copy
@@ -461,7 +461,7 @@ open class AtlasFonts(
 
         private val glyphs = HashMap<Int, Glyph>()
 
-        /** Copies made for a scaled-up screen, by quarter and codepoint, and the faces they came from by pixel size. */
+        /** Copies made for a scaled-up screen, by step and codepoint, and the faces they came from by pixel size. */
         private val sharpGlyphs = HashMap<Long, Glyph>()
         private val sharpFaces = HashMap<Int, RasterFace>()
         private var madeIn = 0
@@ -506,33 +506,33 @@ open class AtlasFonts(
         }
 
         /**
-         * [codepoint] made for a screen [quarter] quarters the design size, or null to draw it as it is.
+         * [codepoint] made for a screen [step] steps the design size, or null to draw it as it is.
          * Smaller than one is a zoomed-out plane's, and is made too: a glyph shrunk on the GPU with no
          * smaller copy to sample from shimmers.
          */
-        fun sharp(codepoint: Int, quarter: Int): Glyph? {
-            if (quarter == SharpGlyphs.One || quarter <= 0) return null
+        fun sharp(codepoint: Int, step: Int): Glyph? {
+            if (step == SharpGlyphs.One || step <= 0) return null
             if (madeIn != sharp.generation) {
                 sharpGlyphs.clear()
                 sharpFaces.clear()
                 madeIn = sharp.generation
             }
-            val key = (quarter.toLong() shl 32) or codepoint.toLong()
+            val key = (step.toLong() shl 32) or codepoint.toLong()
             sharpGlyphs[key]?.let { return if (it === Missing) null else it }
-            val made = makeSharp(codepoint, quarter)
+            val made = makeSharp(codepoint, step)
             // Whatever was made, a copy that was not made is not tried again this generation.
             if (madeIn == sharp.generation) sharpGlyphs[key] = made ?: Missing
             return made
         }
 
-        private fun makeSharp(codepoint: Int, quarter: Int): Glyph? {
-            val pixels = SharpGlyphs.pixelsFor(size, quarter)
+        private fun makeSharp(codepoint: Int, step: Int): Glyph? {
+            val pixels = SharpGlyphs.pixelsFor(size, step)
             if (pixels == size || pixels <= 0) return null
-            if (pictures != null) return sharpPicture(codepoint, pixels, quarter)
+            if (pictures != null) return sharpPicture(codepoint, pixels, step)
             val raster = sharpFaces[pixels] ?: rasteriser.face(family, size, pixels)?.also { sharpFaces[pixels] = it } ?: return null
             if (!raster.has(codepoint) || !raster.draw(codepoint, bitmap)) return null
             if (bitmap.width <= 0 || bitmap.height <= 0) return null
-            val spot = sharp.place(quarter, bitmap.width, bitmap.height) ?: return null
+            val spot = sharp.place(step, bitmap.width, bitmap.height) ?: return null
             val colour = bitmap.kind == GlyphKind.Colour
             if (colour) {
                 spot.page.writeRgba(spot.x, spot.y, bitmap.width, bitmap.height, bitmap.pixels)
@@ -549,12 +549,12 @@ open class AtlasFonts(
         }
 
         /** A picture from its source, as tall as the screen wants it or as the source is, whichever is less. */
-        private fun sharpPicture(codepoint: Int, pixels: Int, quarter: Int): Glyph? {
+        private fun sharpPicture(codepoint: Int, pixels: Int, step: Int): Glyph? {
             val source = pictureSources[family]?.get(codepoint) ?: return null
             val tall = minOf(pixels, source.height)
             if (tall == size || tall <= 0) return null
             val wide = (source.width * tall / source.height.toFloat()).roundToInt().coerceAtLeast(1)
-            val spot = sharp.place(quarter, wide, tall) ?: return null
+            val spot = sharp.place(step, wide, tall) ?: return null
             spot.page.writeRgba(spot.x, spot.y, wide, tall, shrink(source.pixels, source.width, source.height, wide, tall))
             return Glyph(
                 spot.page, spot.x, spot.y, wide.toFloat(), tall.toFloat(), 0f, 0f, 0f, colour = true,

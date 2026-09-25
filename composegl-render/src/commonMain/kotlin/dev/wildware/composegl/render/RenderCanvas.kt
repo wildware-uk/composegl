@@ -77,8 +77,11 @@ open class RenderCanvas protected constructor(
     /** How wide a softened edge is, in design units: one screen pixel, whatever the scale. */
     private var antialias = 1f
 
-    /** The frame's scale to the nearest quarter, as a count of quarters: what glyphs are made again at. */
-    private var quarter = SharpGlyphs.One
+    /** The frame's scale in steps: what glyphs are made again at. See [SharpGlyphs.stepOf]. */
+    private var step = SharpGlyphs.One
+
+    /** The scale the frame before this one was drawn at, so a steady window can be told from a resize. */
+    private var lastFrameScale = Float.NaN
 
     /** The larger of the frame's two scales, which a pushed transform's text scale multiplies. */
     private var frameScale = 1f
@@ -158,7 +161,8 @@ open class RenderCanvas protected constructor(
         state = CanvasState(Rect.of(0f, 0f, viewport.design.width, viewport.design.height))
         antialias = 1f / minOf(viewport.scaleX, viewport.scaleY).coerceAtLeast(0.0001f)
         frameScale = maxOf(viewport.scaleX, viewport.scaleY)
-        quarter = SharpGlyphs.quarterOf(frameScale)
+        step = SharpGlyphs.stepOf(frameScale, steady = frameScale == lastFrameScale)
+        lastFrameScale = frameScale
         atlas?.sharp?.beginFrame()
 
         // The letterbox and the scale live here, so nothing below has to think about them.
@@ -346,8 +350,8 @@ open class RenderCanvas protected constructor(
 
         var page: AtlasPage? = null
         var texture: DeviceTexture? = null
-        val quarter = textQuarter()
-        val remade = remadeSharp(quarter)
+        val step = textStep()
+        val remade = remadeSharp(step)
         val grow = state.transformScale
         val placedGlyphs = measured.placed
         for (index in placedGlyphs.indices) {
@@ -355,7 +359,7 @@ open class RenderCanvas protected constructor(
             val glyph = placed.glyph
             if (ring && glyph.colour) continue
             val on = glyph.page ?: continue
-            val sharp = if (remade) glyph.sharp(quarter) else null
+            val sharp = if (remade) glyph.sharp(step) else null
             if (sharp != null) {
                 drawSharp(sharp, placed, x, y, if (sharp.colour) pictureTint else tint)
                 page = null
@@ -430,23 +434,24 @@ open class RenderCanvas protected constructor(
     }
 
     /**
-     * The quarters glyphs are made at now: the frame's own, or under a pushed transform the frame's
-     * scale times the transform's text scale, snapped to a [TextZoom] step first.
+     * The steps glyphs are made at now: the frame's own, or under a pushed transform the frame's scale
+     * times the transform's text scale, snapped to a [TextZoom] step first. A zoom is snapped already,
+     * so the size it asks for is taken exactly.
      */
-    private fun textQuarter(): Int {
+    private fun textStep(): Int {
         val zoom = state.textScale
-        if (zoom == 1f) return quarter
-        return SharpGlyphs.quarterOf(frameScale * TextZoom.snap(zoom)).coerceAtLeast(1)
+        if (zoom == 1f) return step
+        return SharpGlyphs.stepOf(frameScale * TextZoom.snap(zoom), steady = true).coerceAtLeast(1)
     }
 
     /**
-     * Whether glyphs at [quarter] come off the sharp atlas rather than their ordinary copies.
+     * Whether glyphs at [step] come off the sharp atlas rather than their ordinary copies.
      *
      * Either way round. A window smaller than the design shrinks its glyphs as surely as a zoomed-out
      * plane does, and a glyph the GPU shrinks loses the strokes thinner than a pixel: a hyphen, the
      * arms of an E. A copy made at the screen's own pixels keeps them.
      */
-    private fun remadeSharp(quarter: Int): Boolean = quarter != SharpGlyphs.One
+    private fun remadeSharp(step: Int): Boolean = step != SharpGlyphs.One
 
     /** The picture being drawn, resolved once per call into fields rather than a fresh object. */
     private val picture = Resolved()
@@ -1197,7 +1202,7 @@ open class RenderCanvas protected constructor(
         val fonts = atlas
         // Wherever the glyphs of this draw are coming from, so a panel and its label are still one
         // draw call — the sharp page on a scaled-up frame, and on a zoomed-out plane too.
-        val atlas = if (fonts != null && remadeSharp(textQuarter())) fonts.sharp?.atlas ?: fonts else fonts
+        val atlas = if (fonts != null && remadeSharp(textStep())) fonts.sharp?.atlas ?: fonts else fonts
         val cached = whiteSpot
         if (atlas == null) {
             if (cached != null) return cached
