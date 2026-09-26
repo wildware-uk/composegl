@@ -707,15 +707,56 @@ whole way in: a fillet, a moulded plastic button. Near `1f` it holds its strengt
 then drops: a chamfer, a cut edge with a line you can see. Drawn game art is usually a
 chamfer, so a sheet like the one below wants `hardness` up around `0.8f`.
 
+**`faceRun` lights a run of colours instead of one.** This is the difference between a
+painted button and a moulded one, and it took a while to see. Drawn art almost always
+grades the body — light at the top, deep at the bottom — and that grade is a *change of
+colour*, not a change of brightness: the light end is a warmer, yellower green than the
+dark end. No light can invent a colour that is not in what it is lighting, so one flat
+colour lit will always read as plastic beside real art.
+
+```kotlin
+Modifier.relief(
+    corner = 24f,
+    faceRun = Brush.ramp(brightGreen to 0.18f, midGreen to 0.5f, deepGreen to 0.8f),
+    gloss = 0.3f, polish = 0.6f,
+)
+```
+
+The run goes the way the light falls, so turning the light turns the body grade with it.
+A face is a colour or a run, and where the atlas is full it falls back to the colour —
+the same fallback a many-stop gradient already has.
+
 Here is that art sheet's own row of buttons, drawn with nothing but three colours off
 each one and this modifier — two lines a button:
 
 ![the sheet's buttons again, each drawn with a gradient and one moulded call](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/moulded-sheet.png)
 
 Those are lit by `relief` — a chamfered edge, one light, and a fairly wet polish — over
-three colours taken off each original. Against that original, half of what it draws lands
-within 15 levels of 255. The measured version above gets to 4, because it carries fourteen stops a piece and
-a measured band for the shine. Two lines gets the family; a measurement gets the twin.
+three colours taken off each original. Down the middle of three of them, the typical
+pixel is out by 2 of 255. The measured version above gets closer still, because it
+carries fourteen stops a piece and a measured band for the shine. Three colours gets the
+family; a measurement gets the twin.
+
+### Wood, paper and brushed metal
+
+**`material` lays a picture across the face**, multiplied into `face` and lit exactly as a
+colour is. So one grey grain makes oak, walnut or mahogany depending only on what tints
+it:
+
+```kotlin
+Modifier.relief(corner = 20f, face = oak, material = woodGrain, gloss = 0.25f)
+```
+
+![wood, paper and brushed metal, each tinted three ways](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/materials.png)
+
+Three grains, three tints each, one modifier. The rows differ only in how they take a
+light: wood and paper want the shine turned right down, and brushed metal wants it tight,
+because that is what a scratched surface does to a highlight.
+
+`tiles` is how many times the grain is laid across the face; `1f` stretches it to fit.
+A material takes the one texture a lit quad has, so **a face is a material or a run of
+colours, never both**, and a material has to be a texture of its own rather than a region
+of an atlas — tiling a region samples whatever was packed beside it at every repeat.
 
 **They cost one draw call.** A fill, two shades and an outline batch into a single
 draw. A multi-stop gradient is baked into a 64-pixel strip of the same atlas a flat

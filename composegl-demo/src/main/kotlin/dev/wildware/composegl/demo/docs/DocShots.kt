@@ -354,6 +354,8 @@ private fun MutableList<DocShot>.scenes() {
     add(DocShot("moulded-sheet", 1600, 680, stock = true) { MouldedSheet() })
     // A box lit as a surface with a shape: the three edges, and the light moved round one of them.
     add(DocShot("relief-shapes", 580, 310, stock = true) { ReliefShapes() })
+    // The same lit surface wearing a material: wood, paper and brushed metal, each tinted three ways.
+    add(DocShot("materials", 790, 440, stock = true) { MaterialSheet() })
 
     // Through Skin.Default rather than the example's skin, because the point of the picture is
     // what you get before you have written a skin at all.

@@ -359,13 +359,25 @@ open class RenderCanvas protected constructor(
         polish: Float,
         face: Colour,
         faceRun: Brush.Ramp?,
+        material: TextureHandle?,
+        tiles: Float,
     ) {
         if (state.isHidden || rect.isEmpty || depth <= 0f || strength <= 0f) return
         val box = state.map(rect)
+        // A material is laid across the face and tinted by the face's colour. It takes the one
+        // texture this quad has, so a face is a material or a run of colours, never both — and a
+        // material has to be a texture of its own rather than a region of an atlas, because tiling
+        // a region samples its neighbours at every repeat.
+        val grain = material?.takeIf { resolve(it) }?.let {
+            check(picture.u == 0f && picture.u2 == 1f) {
+                "a lit face's material is tiled, so it needs a texture of its own rather than a region of an atlas"
+            }
+            picture.texture
+        }
         // Where the run of colours sits on the atlas, if there is one and it fitted. A lit quad
         // samples no texture of its own, so its texture coordinate is free to point at the strip;
         // if the atlas is full the face falls back to the one colour, which is the run's first.
-        val run = faceRun?.let { atlas?.ramps?.spotFor(it) }
+        val run = if (grain != null) null else faceRun?.let { atlas?.ramps?.spotFor(it) }
         val runPage = run?.page
         val runSize = runPage?.size?.toFloat() ?: 1f
         val grow = state.transformScale
@@ -373,7 +385,11 @@ open class RenderCanvas protected constructor(
         val high = elevation * PiOver180
         val flat = cos(high)
         batch().relief(
-            white = if (runPage != null) WhiteSpot(runPage.texture(device), 0f, 0f) else white(),
+            white = when {
+                grain != null -> WhiteSpot(grain, 0f, 0f)
+                runPage != null -> WhiteSpot(runPage.texture(device), 0f, 0f)
+                else -> white()
+            },
             left = box.left,
             bottom = flip(box.bottom),
             width = box.width,
@@ -399,6 +415,7 @@ open class RenderCanvas protected constructor(
             faceU = if (run != null) (run.x + 0.5f) / runSize else 0f,
             faceV = if (run != null) (run.y + 0.5f) / runSize else 0f,
             faceWidth = if (run != null) (GradientRamps.Texels - 1f) / runSize else 0f,
+            faceTiles = if (grain != null) tiles.coerceAtLeast(0.01f) else 0f,
             aa = antialias,
         )
     }

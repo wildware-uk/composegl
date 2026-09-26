@@ -724,7 +724,7 @@ class DrawPass(val canvas: UiCanvas) {
                 minOf(rect.width, rect.height) * element.depth,
                 element.light, element.elevation, element.strength, element.gloss, element.polish,
                 element.face ?: Colour.Transparent,
-                element.faceRun,
+                element.faceRun, element.material, element.tiles,
             )
             is BrushBackgroundElement -> canvas.box(rect, element.brush, element.corners)
             is NinePatchElement -> element.patch.drawInto(canvas, rect, element.tint)

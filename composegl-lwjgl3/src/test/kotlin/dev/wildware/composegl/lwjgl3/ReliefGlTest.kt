@@ -11,6 +11,7 @@ import dev.wildware.composegl.ui.layout.Viewport
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
+import kotlin.math.abs
 import org.junit.jupiter.api.Test
 import org.lwjgl.opengl.GL11
 
@@ -213,5 +214,58 @@ class ReliefGlTest {
         val white = (40..140).flatMap { y -> (50..170).map { x -> frame[y * Gl.size + x] } }
             .count { it shr 16 and 0xFF > 250 && it shr 8 and 0xFF > 250 && it and 0xFF > 250 }
         assertTrue(white == 0, "nothing burns out to white, but $white pixels did")
+    }
+
+    @Test
+    fun `a material on the face is multiplied into its colour, and the light still shapes the edge`() {
+        // A grain of light and dark stripes, as its own texture: two greys, four rows each.
+        val pixels = ByteArray(8 * 8 * 4)
+        for (row in 0 until 8) {
+            val grey = if (row < 4) 0xFF.toByte() else 0x80.toByte()
+            for (column in 0 until 8) {
+                val at = (row * 8 + column) * 4
+                pixels[at] = grey
+                pixels[at + 1] = grey
+                pixels[at + 2] = grey
+                pixels[at + 3] = 0xFF.toByte()
+            }
+        }
+        val red = Colour.rgb(0xC03020)
+        fun draw(material: GlTexture?): IntArray = Gl.render {
+            val canvas = GlCanvas(null)
+            try {
+                Gl.gl.clearColor(0f, 0f, 0f, 1f)
+                Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
+                canvas.begin(viewport)
+                canvas.relief(
+                    box, Corners.all(16f), Relief.Chamfer, depth = 18f, light = 90f,
+                    strength = 0.4f, gloss = 0f, face = red, material = material,
+                )
+                canvas.end()
+                Gl.readPixels(Gl.size, Gl.size)
+            } finally {
+                canvas.close()
+            }
+        }
+        fun rgb(frame: IntArray, y: Int) = frame[y * Gl.size + 110].let {
+            intArrayOf(it shr 16 and 0xFF, it shr 8 and 0xFF, it and 0xFF)
+        }
+
+        val grain = GlTexture.rgba(8, 8, pixels, smooth = false, gl = Gl.gl)
+        val plain = draw(null)
+        val textured = try { draw(grain) } finally { grain.close() }
+
+        // The upper half of the face wears the pale stripe and the lower half the dark one, and the
+        // plain face has no such step at all.
+        val pale = rgb(textured, 70)
+        val dark = rgb(textured, 105)
+        assertTrue(pale[0] > dark[0] + 30, "the grain shows: ${pale.toList()} against ${dark.toList()}")
+        assertTrue(
+            abs(rgb(plain, 70)[0] - rgb(plain, 105)[0]) < 20,
+            "and it is the grain doing it, not the light: the plain face is even down the middle",
+        )
+
+        // Multiplied into the face's colour, not replacing it: a grey grain on red stays red.
+        assertTrue(pale[0] > pale[1] + 60 && dark[0] > dark[1] + 30, "still red: ${pale.toList()}, ${dark.toList()}")
     }
 }
