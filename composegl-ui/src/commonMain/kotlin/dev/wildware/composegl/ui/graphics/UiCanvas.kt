@@ -198,6 +198,8 @@ interface UiCanvas {
      * @param elevation how high the light is above the surface, in degrees: 90 is straight on.
      * @param strength how much difference the light makes at all.
      * @param gloss how bright the shine is where the surface faces the light squarely.
+     * @param polish how tight that shine is: low spreads it across the whole lit side, which is wet
+     *   plastic, and high draws it to a point, which is glass.
      */
     @Suppress("LongParameterList")
     fun relief(
@@ -209,6 +211,7 @@ interface UiCanvas {
         elevation: Float = 55f,
         strength: Float = 0.6f,
         gloss: Float = 0.3f,
+        polish: Float = 0.5f,
     ) {
         // Nothing, honestly: see shadesInside.
     }

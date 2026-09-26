@@ -232,7 +232,11 @@ object GlslSources {
                 // Straight on, so the half vector between the eye and the light is all it takes.
                 // "half" is a reserved word in this dialect, so the half vector is halfway.
                 vec3 halfway = normalize(light + vec3(0.0, 0.0, 1.0));
-                float shine = pow(max(dot(normal, halfway), 0.0), 24.0) * v_shadowColor.w;
+                // How polished the surface is decides how tight the shine is: a low number spreads
+                // it across the whole lit side, which is wet-looking plastic, and a high one draws
+                // it to a point, which is glass. It rides in the fill colour's red, unused here.
+                float tightness = mix(2.0, 90.0, clamp(v_color.r, 0.0, 1.0));
+                float shine = pow(max(dot(normal, halfway), 0.0), tightness) * v_shadowColor.w;
                 float strength = v_gradient.z;
                 float shade = (facing - light.z) * strength;
                 vec4 lift = vec4(1.0, 1.0, 1.0, clamp(shade, 0.0, 1.0));

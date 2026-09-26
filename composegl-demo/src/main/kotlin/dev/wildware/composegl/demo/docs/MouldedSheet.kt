@@ -59,6 +59,7 @@ private fun Button(piece: Sheet.Piece) {
                 elevation = Tuning[1],
                 strength = Tuning[2],
                 gloss = Tuning[3],
+                polish = Tuning[4],
             )
             .borderOutside(Colour.rgb(piece.ink), width = line, corners = Corners.all(corner)),
     )
@@ -66,11 +67,11 @@ private fun Button(piece: Sheet.Piece) {
 
 /**
  * Depth, shine and strength, so the numbers can be tried against the original without a rebuild:
- * `COMPOSEGL_MOULD=depth,elevation,strength,gloss`.
+ * `COMPOSEGL_MOULD=depth,elevation,strength,gloss,polish`.
  *
  * The defaults are where a search against the original settled.
  */
-private val Tuning: FloatArray = (System.getenv("COMPOSEGL_MOULD") ?: "0.14,50,0.75,0.45")
+private val Tuning: FloatArray = (System.getenv("COMPOSEGL_MOULD") ?: "0.12,55,0.7,0.5,0.45")
     .split(',').map { it.trim().toFloat() }.toFloatArray()
 
 /** The colour a fraction of the way down the original's face. */

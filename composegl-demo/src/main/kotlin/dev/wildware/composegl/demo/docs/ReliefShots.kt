@@ -42,6 +42,20 @@ internal fun ReliefShapes() {
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16f), verticalAlignment = VerticalAlignment.Centre) {
+                listOf("wet" to 0.05f, "satin" to 0.35f, "shiny" to 0.6f, "glass" to 0.95f).forEach { (name, polish) ->
+                    Box(
+                        Modifier
+                            .size(110f, 60f)
+                            .background(face, corner = 16f)
+                            .relief(corner = 16f, shape = Relief.Fillet, depth = 0.35f, gloss = 0.9f, polish = polish)
+                            .borderOutside(ink, width = 4f, corner = 16f),
+                        contentAlignment = Alignment.Centre,
+                    ) {
+                        Text(name, style = "label")
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(16f), verticalAlignment = VerticalAlignment.Centre) {
                 listOf(90f, 45f, 0f, 315f).forEach { angle ->
                     Box(
                         Modifier

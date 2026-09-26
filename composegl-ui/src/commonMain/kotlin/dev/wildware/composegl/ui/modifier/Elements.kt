@@ -273,8 +273,10 @@ data class ReliefElement(
     val elevation: Float = 55f,
     val strength: Float = 0.6f,
     val gloss: Float = 0.3f,
+    val polish: Float = 0.5f,
 ) : Modifier.Element {
     init {
+        require(polish in 0f..1f) { "a surface is between wet and glassy, not $polish" }
         require(depth > 0f && depth <= 1f) { "an edge climbs across some of the box, not $depth" }
         require(elevation > 0f && elevation <= 90f) { "the light is somewhere above the surface, not at $elevation" }
         require(strength >= 0f && strength <= 1f) { "a light is between off and full, not $strength" }
@@ -1085,6 +1087,8 @@ fun Modifier.bevel(
  * @param elevation how high the light is, in degrees: 90 is straight on and flattens everything.
  * @param strength how much difference the light makes.
  * @param gloss how bright the shine is where the surface faces the light squarely.
+ * @param polish how tight that shine is: low spreads it across the whole lit side, which is wet
+ *   plastic, and high draws it to a point, which is glass. Drawn game art is usually low.
  */
 @Suppress("LongParameterList")
 fun Modifier.relief(
@@ -1095,7 +1099,8 @@ fun Modifier.relief(
     elevation: Float = 55f,
     strength: Float = 0.6f,
     gloss: Float = 0.3f,
-) = relief(Corners.single(corner), shape, depth, light, elevation, strength, gloss)
+    polish: Float = 0.5f,
+) = relief(Corners.single(corner), shape, depth, light, elevation, strength, gloss, polish)
 
 /** The same, with its own radius on each corner. */
 @Suppress("LongParameterList")
@@ -1107,7 +1112,8 @@ fun Modifier.relief(
     elevation: Float = 55f,
     strength: Float = 0.6f,
     gloss: Float = 0.3f,
-) = then(ReliefElement(corners, shape, depth, light, elevation, strength, gloss))
+    polish: Float = 0.5f,
+) = then(ReliefElement(corners, shape, depth, light, elevation, strength, gloss, polish))
 
 /**
  * One light, lighting the whole box: the bevel, the shine and the shadow all agree about it.
