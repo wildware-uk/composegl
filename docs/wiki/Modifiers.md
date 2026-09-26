@@ -688,9 +688,19 @@ The corners are the part worth looking at. They are lit by how far they have act
 turned away from the light, which is what no stack of bands gets right, and it is why a
 lit box reads as a shape rather than as a box with a stripe on it.
 
-It draws the light's contribution and nothing else, so it lies over any fill: a colour, a
-gradient, a picture. One draw call, and nothing is sampled — the normal is worked out from
-the same distance field that rounds the corners.
+**Give it the face colour.** With `face`, the light is put on that colour rather than over
+it, and that is the difference between a painted button and a plastic one: a highlight is
+the same green made brighter, not green with white on top. Over somebody else's fill all
+a light can add is white, and white takes the colour out of the bright parts.
+
+```kotlin
+// The button, in one modifier. No background underneath it.
+Modifier.relief(corner = 30f, face = leaf, gloss = 0.5f, polish = 0.45f)
+```
+
+Left out, it lies over whatever fill is underneath — useful over a gradient or a picture,
+at the cost of that washing. Either way it is one draw call, and nothing is sampled: the
+normal is worked out from the same distance field that rounds the corners.
 
 **`hardness` says what kind of edge the light makes.** At `0f` the shade fades the
 whole way in: a fillet, a moulded plastic button. Near `1f` it holds its strength and

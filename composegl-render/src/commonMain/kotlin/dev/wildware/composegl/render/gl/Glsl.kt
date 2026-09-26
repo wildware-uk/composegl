@@ -239,6 +239,24 @@ object GlslSources {
                 float shine = pow(max(dot(normal, halfway), 0.0), tightness) * v_shadowColor.w;
                 float strength = v_gradient.z;
                 float shade = (facing - light.z) * strength;
+
+                // Given a colour of its own, the light is put on that colour: a lit face is the
+                // same green made brighter, which is what a painted button is. Laid over somebody
+                // else's fill instead, all that can be added is white and black, and white takes
+                // the colour out of a highlight — the thing that makes a drawn button look washed.
+                if (v_shape.x > 0.5) {
+                    // Lighting a colour is not one multiplication. A lit face climbs fast and
+                    // carries a little white with it, the way a bright surface washes towards the
+                    // colour of the light; a shaded one falls away more gently and keeps its hue,
+                    // because nothing is washing it out. Painted art does both, and a single
+                    // multiply in either direction is what makes a drawn button look plastic.
+                    float gain = shade > 0.0 ? 1.0 + shade * 2.2 : 1.0 + shade * 0.9;
+                    vec3 face = v_borderColor.rgb * clamp(gain, 0.0, 4.0);
+                    face = mix(face, vec3(1.0), clamp(shade, 0.0, 1.0) * 0.35);
+                    gl_FragColor = vec4(clamp(face + shine, 0.0, 1.0), v_borderColor.a * coverage);
+                    return;
+                }
+
                 vec4 lift = vec4(1.0, 1.0, 1.0, clamp(shade, 0.0, 1.0));
                 vec4 dark = vec4(0.0, 0.0, 0.0, clamp(-shade, 0.0, 1.0));
                 vec4 relief = over(lift, dark);

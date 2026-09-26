@@ -357,6 +357,7 @@ open class RenderCanvas protected constructor(
         strength: Float,
         gloss: Float,
         polish: Float,
+        face: Colour,
     ) {
         if (state.isHidden || rect.isEmpty || depth <= 0f || strength <= 0f) return
         val box = state.map(rect)
@@ -387,6 +388,7 @@ open class RenderCanvas protected constructor(
             lightZ = sin(high),
             gloss = gloss,
             polish = polish,
+            face = face.inForce(),
             aa = antialias,
         )
     }

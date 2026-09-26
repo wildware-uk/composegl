@@ -135,4 +135,42 @@ class ReliefGlTest {
         assertTrue(wetBand > glassyBand + 3, "the wet shine covers more rows: $wetBand against $glassyBand")
         assertTrue(glassy.max() >= wet.max() - 12, "and the glassy one is no dimmer where it does shine")
     }
+
+    @Test
+    fun `a lit face keeps its colour where a light laid over one loses it`() {
+        val green = Colour.rgb(0x3AA81E)
+        fun brightest(face: Colour?): IntArray {
+            val frame = Gl.render {
+                val canvas = GlCanvas(null)
+                try {
+                    Gl.gl.clearColor(0f, 0f, 0f, 1f)
+                    Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
+                    canvas.begin(viewport)
+                    if (face == null) canvas.rect(box, green, corner = 16f)
+                    canvas.relief(
+                        box, Corners.all(16f), Relief.Chamfer, depth = 22f, light = 90f,
+                        strength = 0.8f, gloss = 0f, face = face ?: Colour.Transparent,
+                    )
+                    canvas.end()
+                    Gl.readPixels(Gl.size, Gl.size)
+                } finally {
+                    canvas.close()
+                }
+            }
+            // The brightest row of the lit edge, as red, green and blue.
+            val at = (44..64).maxByOrNull { frame[it * Gl.size + 110] shr 8 and 0xFF }!!
+            val pixel = frame[at * Gl.size + 110]
+            return intArrayOf(pixel shr 16 and 0xFF, pixel shr 8 and 0xFF, pixel and 0xFF)
+        }
+
+        val over = brightest(null)
+        val lit = brightest(green)
+
+        fun saturation(rgb: IntArray) = rgb.max() - rgb.min()
+        assertTrue(lit[1] > over[1] - 10, "both reach about as bright: ${lit.toList()} against ${over.toList()}")
+        assertTrue(
+            saturation(lit) > saturation(over) + 20,
+            "the lit face keeps its green where the overlay washes it: ${lit.toList()} against ${over.toList()}",
+        )
+    }
 }

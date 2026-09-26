@@ -176,6 +176,9 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
      * @param gloss how bright the specular highlight is. Zero for a matte surface.
      * @param polish how tight that highlight is: low spreads it across the lit side, high draws it
      *   to a point. Rides in the fill colour's red, which a lit quad does not otherwise use.
+     * @param face the colour to light, or transparent to light whatever is underneath instead. A
+     *   colour of its own is what makes a highlight the same hue only brighter; laid over another
+     *   fill, a lit quad can only add white, which takes the colour out of the bright parts.
      */
     @Suppress("LongParameterList")
     fun relief(
@@ -196,6 +199,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         lightZ: Float,
         gloss: Float,
         polish: Float,
+        face: Colour,
         aa: Float,
     ) {
         val halfWidth = width / 2f
@@ -217,7 +221,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             u = white.u, v = white.v, u2 = white.u, v2 = white.v,
             // Opaque white but for the red, which carries how polished the surface is.
             fill = Colour(255, (polish.coerceIn(0f, 1f) * 255f).toInt(), 255, 255),
-            border = Colour.Transparent,
+            border = face,
             // The light, packed as a colour: a direction of minus one to one, written zero to one.
             shadow = Colour(
                 (gloss.coerceIn(0f, 1f) * 255f).toInt(),
@@ -228,7 +232,8 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             halfWidth = halfWidth,
             halfHeight = halfHeight,
             radii = radii,
-            borderWidth = 0f,
+            // A width of one says the quad paints the face colour rather than lying over a fill.
+            borderWidth = if (face.alpha > 0) 1f else 0f,
             shadowSpread = 0f,
             aa = aa,
             gradient = kind,
