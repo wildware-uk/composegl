@@ -44,6 +44,16 @@ object ShapeVertex {
     const val LinearRamp = 3f
     const val RadialRamp = 4f
 
+    /**
+     * A lit surface rather than a fill: the shape is given a height along its edge and one light
+     * is shone on the normal of it. The edge's shape is the kind; how far it reaches and how strong
+     * the light is ride in the gradient's axis; the light itself and how glossy the surface is ride
+     * in the shadow colour's slot, which a lit quad never uses.
+     */
+    const val ReliefChamfer = 5f
+    const val ReliefFillet = 6f
+    const val ReliefDome = 7f
+
     /** The first gradient float of a picture: its texture is premultiplied and is straightened first. */
     const val PremultipliedPicture = 1f
 

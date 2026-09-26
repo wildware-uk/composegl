@@ -35,6 +35,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.modifier.GlossElement
 import dev.wildware.composegl.ui.modifier.InnerShadeElement
 import dev.wildware.composegl.ui.modifier.MouldedElement
+import dev.wildware.composegl.ui.modifier.ReliefElement
 import dev.wildware.composegl.ui.modifier.OutsideBorderElement
 import dev.wildware.composegl.ui.modifier.ShadowElement
 import dev.wildware.composegl.ui.modifier.SizeElement
@@ -192,6 +193,11 @@ fun describe(element: Modifier.Element): String = when (element) {
         if (element.offset != Offset.Zero) {
             append(" from ${describeNumber(element.offset.x)}, ${describeNumber(element.offset.y)}")
         }
+        append("${corners(element.corners)})")
+    }
+    is ReliefElement -> buildString {
+        append("relief(${element.shape.name.lowercase()} deep ${describeNumber(element.depth)}")
+        append(" light ${describeNumber(element.light)} up ${describeNumber(element.elevation)}")
         append("${corners(element.corners)})")
     }
     is MouldedElement -> buildString {
