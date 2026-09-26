@@ -174,6 +174,13 @@ internal fun UiSection(state: ShowcaseState, windows: DebugWindowsState, world: 
         MouldedButtons()
         Text("A fill, a bevel, a gloss and an outline. One draw call for the lot.", style = "label.dim")
     }
+
+    Group(
+        "Lit surfaces",
+        "The same look the short way: give the edge a height and shine one light on it.",
+    ) {
+        LitSurfaces()
+    }
 }
 
 /** The drones as a tree: a branch that opens, and choosing a row moves the lock. */
