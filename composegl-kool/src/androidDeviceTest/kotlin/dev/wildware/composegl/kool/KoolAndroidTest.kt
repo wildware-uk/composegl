@@ -108,12 +108,14 @@ class KoolAndroidTest {
             assertEquals(red.code(), before.at(100, 100))
 
             KoolDevice.touch(MotionEvent.ACTION_DOWN, 100f, 100f)
-            // Held for two of Kool's frames. Kool 0.19.0 itself reports no press for a finger that lifts
-            // within one frame of landing: its own pointer state never shows the button down.
-            repeat(2) { KoolDevice.capture() }
+            // Held for six of Kool's frames, which is about a tenth of a second: what a finger
+            // really does. Kool 0.19.0 reports no press at all for one that lifts within a frame of
+            // landing, and two frames is close enough to that edge to fail on a slow emulator.
+            repeat(6) { KoolDevice.capture() }
             KoolDevice.touch(MotionEvent.ACTION_UP, 100f, 100f)
-            // Kool reads the finger in one frame and the screen takes it in the next render.
-            repeat(3) { KoolDevice.capture() }
+            // Kool reads the finger in one frame and the screen takes it in the next render; given
+            // a few more than that, so a frame lost to the emulator is not a failed test.
+            repeat(8) { KoolDevice.capture() }
 
             val after = KoolDevice.capture()
             KoolDevice.save("pointer-after", size, size, after)
