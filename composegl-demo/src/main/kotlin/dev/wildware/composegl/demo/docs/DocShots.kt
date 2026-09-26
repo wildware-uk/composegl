@@ -353,7 +353,7 @@ private fun MutableList<DocShot>.scenes() {
     // The same buttons again, with two lines each instead of a measurement.
     add(DocShot("moulded-sheet", 1600, 680, stock = true) { MouldedSheet() })
     // A box lit as a surface with a shape: the three edges, and the light moved round one of them.
-    add(DocShot("relief-shapes", 580, 230, stock = true) { ReliefShapes() })
+    add(DocShot("relief-shapes", 580, 310, stock = true) { ReliefShapes() })
 
     // Through Skin.Default rather than the example's skin, because the point of the picture is
     // what you get before you have written a skin at all.

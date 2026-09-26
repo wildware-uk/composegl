@@ -40,6 +40,7 @@ class ReliefGlTest {
         light: Float = 90f,
         depth: Float = 24f,
         gloss: Float = 0f,
+        polish: Float = 0.5f,
     ): IntArray = Gl.render {
         val canvas = GlCanvas(null)
         try {
@@ -47,7 +48,7 @@ class ReliefGlTest {
             Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
             canvas.begin(viewport)
             canvas.rect(box, face, corner = 16f)
-            canvas.relief(box, Corners.all(16f), shape, depth = depth, light = light, gloss = gloss)
+            canvas.relief(box, Corners.all(16f), shape, depth = depth, light = light, gloss = gloss, polish = polish)
             canvas.end()
             Gl.readPixels(Gl.size, Gl.size)
         } finally {
@@ -116,5 +117,22 @@ class ReliefGlTest {
         val brightestMatte = (44..136).maxOf { matte.grey(110, it) }
         val brightestShiny = (44..136).maxOf { shiny.grey(110, it) }
         assertTrue(brightestShiny > brightestMatte + 15, "a shine: $brightestShiny against $brightestMatte")
+    }
+
+    @Test
+    fun `a wet surface spreads its shine where a glassy one draws it to a point`() {
+        fun litRows(polish: Float): List<Int> {
+            val frame = draw(shape = Relief.Fillet, depth = 34f, gloss = 1f, polish = polish)
+            return (42..90).map { frame.grey(110, it) }
+        }
+
+        val wet = litRows(0.05f)
+        val glassy = litRows(0.95f)
+
+        // How much of the lit side is brighter than the fill: a wet surface shines over more of it.
+        val wetBand = wet.count { it > 0x90 }
+        val glassyBand = glassy.count { it > 0x90 }
+        assertTrue(wetBand > glassyBand + 3, "the wet shine covers more rows: $wetBand against $glassyBand")
+        assertTrue(glassy.max() >= wet.max() - 12, "and the glassy one is no dimmer where it does shine")
     }
 }

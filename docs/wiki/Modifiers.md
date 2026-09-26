@@ -679,8 +679,10 @@ across the whole face. `depth` is how far the climb reaches in, as a fraction of
 shorter side — a dome wants about `0.5f`, an edge about `0.2f`.
 
 `light` and `elevation` place the light: degrees clockwise from pointing right, and
-degrees above the surface. `gloss` adds a specular shine where the surface faces the
-light squarely.
+degrees above the surface. `gloss` is how bright the shine is, and `polish` is how tight
+it is — the middle row above is one shape at four polishes. Low spreads the shine across
+the whole lit side, which reads as wet plastic; high draws it to a point, which reads as
+glass. Drawn game art is usually low, around `0.2f` to `0.5f`.
 
 The corners are the part worth looking at. They are lit by how far they have actually
 turned away from the light, which is what no stack of bands gets right, and it is why a
@@ -700,9 +702,9 @@ each one and this modifier — two lines a button:
 
 ![the sheet's buttons again, each drawn with a gradient and one moulded call](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/moulded-sheet.png)
 
-Those are lit by `relief` — a chamfered edge and one light — over three colours taken
-off each original. Against that original, half of what it draws lands within 18 levels of
-255. The measured version above gets to 4, because it carries fourteen stops a piece and
+Those are lit by `relief` — a chamfered edge, one light, and a fairly wet polish — over
+three colours taken off each original. Against that original, half of what it draws lands
+within 15 levels of 255. The measured version above gets to 4, because it carries fourteen stops a piece and
 a measured band for the shine. Two lines gets the family; a measurement gets the twin.
 
 **They cost one draw call.** A fill, two shades and an outline batch into a single

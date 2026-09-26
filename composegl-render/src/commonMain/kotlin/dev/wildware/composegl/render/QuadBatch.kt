@@ -174,6 +174,8 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
      * @param strength how much difference the light makes.
      * @param lightX where the light is, as a direction; [lightZ] is how high above the surface.
      * @param gloss how bright the specular highlight is. Zero for a matte surface.
+     * @param polish how tight that highlight is: low spreads it across the lit side, high draws it
+     *   to a point. Rides in the fill colour's red, which a lit quad does not otherwise use.
      */
     @Suppress("LongParameterList")
     fun relief(
@@ -193,6 +195,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         lightY: Float,
         lightZ: Float,
         gloss: Float,
+        polish: Float,
         aa: Float,
     ) {
         val halfWidth = width / 2f
@@ -212,7 +215,8 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             centreX = left + halfWidth,
             centreY = bottom + halfHeight,
             u = white.u, v = white.v, u2 = white.u, v2 = white.v,
-            fill = Colour.White,
+            // Opaque white but for the red, which carries how polished the surface is.
+            fill = Colour(255, (polish.coerceIn(0f, 1f) * 255f).toInt(), 255, 255),
             border = Colour.Transparent,
             // The light, packed as a colour: a direction of minus one to one, written zero to one.
             shadow = Colour(
