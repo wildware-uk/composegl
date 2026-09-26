@@ -264,7 +264,16 @@ object GlslSources {
                     // light goes on top. The run lies along one row of the atlas, so only u moves,
                     // and it runs the way the light falls — the same light that shapes the edge.
                     vec3 base = v_borderColor.rgb;
-                    if (v_shape.y > 0.0) {
+                    if (v_shape.y < 0.0) {
+                        // A material rather than a colour: wood, paper, brushed metal. It is laid
+                        // across the face and multiplied into the face's colour, so one grey grain
+                        // makes oak or walnut depending only on what it is tinted with — and the
+                        // light still shapes the edge over the top of it.
+                        vec2 grainAt = v_local / (2.0 * v_halfSize) + 0.5;
+                        grainAt.y = 1.0 - grainAt.y;      // pictures count down; this quad counts up
+                        vec4 grain = texture2D(u_texture, fract(grainAt * -v_shape.y));
+                        base = base * (grain.a > 0.0 ? grain.rgb / grain.a : grain.rgb);
+                    } else if (v_shape.y > 0.0) {
                         // Zero at the lit end of the box and one at the far end, measured along the
                         // light rather than down the screen, so turning the light turns the run too.
                         vec2 axis = light.xy;

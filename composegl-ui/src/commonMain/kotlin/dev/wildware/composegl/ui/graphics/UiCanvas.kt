@@ -208,6 +208,11 @@ interface UiCanvas {
      *   almost always grades the body of a button, and the grade is not a brightness: the light end
      *   is usually a different, warmer colour, which lighting cannot invent. The run goes the way
      *   the light falls, so one light still decides everything. Overrides [face] when given.
+     * @param material a picture laid across the face — wood, paper, brushed metal — multiplied into
+     *   [face], so one grey grain becomes oak or walnut depending only on what tints it. It takes
+     *   the one texture a lit quad has, so a face is a material or a run of colours, never both,
+     *   and it has to be a texture of its own rather than a region of an atlas.
+     * @param tiles how many times the material is laid across the face. One stretches it to fit.
      */
     @Suppress("LongParameterList")
     fun relief(
@@ -222,6 +227,8 @@ interface UiCanvas {
         polish: Float = 0.5f,
         face: Colour = Colour.Transparent,
         faceRun: Brush.Ramp? = null,
+        material: TextureHandle? = null,
+        tiles: Float = 1f,
     ) {
         // Nothing, honestly: see shadesInside.
     }

@@ -39,6 +39,7 @@ import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.BorderSide
 import dev.wildware.composegl.ui.graphics.BorderStyle
 import dev.wildware.composegl.ui.graphics.Relief
+import dev.wildware.composegl.ui.graphics.TextureHandle
 
 // --- what a node is ------------------------------------------------------------------------
 
@@ -276,6 +277,8 @@ data class ReliefElement(
     val polish: Float = 0.5f,
     val face: Colour? = null,
     val faceRun: Brush.Ramp? = null,
+    val material: TextureHandle? = null,
+    val tiles: Float = 1f,
 ) : Modifier.Element {
     init {
         require(polish in 0f..1f) { "a surface is between wet and glassy, not $polish" }
@@ -1091,6 +1094,10 @@ fun Modifier.bevel(
  * @param gloss how bright the shine is where the surface faces the light squarely.
  * @param polish how tight that shine is: low spreads it across the whole lit side, which is wet
  *   plastic, and high draws it to a point, which is glass. Drawn game art is usually low.
+ * @param material a picture laid across the face — wood, paper, brushed metal — multiplied into
+ *   [face], so one grey grain becomes oak or walnut depending only on what tints it. A face is a
+ *   material or a run of colours, never both.
+ * @param tiles how many times the material is laid across the face. One stretches it to fit.
  * @param faceRun the face as a run of colours rather than one, lit the same way: the graded body a
  *   painted button has, which no amount of lighting one flat colour will produce. It runs the way
  *   the light falls. Overrides [face].
@@ -1111,7 +1118,11 @@ fun Modifier.relief(
     polish: Float = 0.5f,
     face: Colour? = null,
     faceRun: Brush.Ramp? = null,
-) = relief(Corners.single(corner), shape, depth, light, elevation, strength, gloss, polish, face, faceRun)
+    material: TextureHandle? = null,
+    tiles: Float = 1f,
+) = relief(
+    Corners.single(corner), shape, depth, light, elevation, strength, gloss, polish, face, faceRun, material, tiles,
+)
 
 /** The same, with its own radius on each corner. */
 @Suppress("LongParameterList")
@@ -1126,7 +1137,9 @@ fun Modifier.relief(
     polish: Float = 0.5f,
     face: Colour? = null,
     faceRun: Brush.Ramp? = null,
-) = then(ReliefElement(corners, shape, depth, light, elevation, strength, gloss, polish, face, faceRun))
+    material: TextureHandle? = null,
+    tiles: Float = 1f,
+) = then(ReliefElement(corners, shape, depth, light, elevation, strength, gloss, polish, face, faceRun, material, tiles))
 
 /**
  * One light, lighting the whole box: the bevel, the shine and the shadow all agree about it.

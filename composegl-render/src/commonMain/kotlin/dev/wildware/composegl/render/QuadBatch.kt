@@ -203,6 +203,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         faceU: Float,
         faceV: Float,
         faceWidth: Float,
+        faceTiles: Float,
         aa: Float,
     ) {
         val halfWidth = width / 2f
@@ -239,9 +240,10 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             radii = radii,
             // A width of one says the quad paints the face colour rather than lying over a fill.
             borderWidth = if (face.alpha > 0) 1f else 0f,
-            // How far along the atlas row the run of colours reaches. Zero says the face is one
-            // colour; a lit quad casts no shadow, so the spread is free to say it.
-            shadowSpread = faceWidth,
+            // How far along the atlas row the run of colours reaches, or — as a negative — how
+            // many times a material is laid across the face. Zero says the face is one flat colour.
+            // A lit quad casts no shadow, so the spread is free to say which of the three it is.
+            shadowSpread = if (faceTiles > 0f) -faceTiles else faceWidth,
             aa = aa,
             gradient = kind,
             gradientX = bevel,
