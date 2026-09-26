@@ -200,6 +200,9 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         gloss: Float,
         polish: Float,
         face: Colour,
+        faceU: Float,
+        faceV: Float,
+        faceWidth: Float,
         aa: Float,
     ) {
         val halfWidth = width / 2f
@@ -218,7 +221,9 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             top = bottom + height + aa,
             centreX = left + halfWidth,
             centreY = bottom + halfHeight,
-            u = white.u, v = white.v, u2 = white.u, v2 = white.v,
+            // Where the face's run of colours starts on the atlas, if it has one. A lit quad has
+            // no texture of its own, so the texture coordinate is free to point at the strip.
+            u = faceU, v = faceV, u2 = faceU, v2 = faceV,
             // Opaque white but for the red, which carries how polished the surface is.
             fill = Colour(255, (polish.coerceIn(0f, 1f) * 255f).toInt(), 255, 255),
             border = face,
@@ -234,7 +239,9 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             radii = radii,
             // A width of one says the quad paints the face colour rather than lying over a fill.
             borderWidth = if (face.alpha > 0) 1f else 0f,
-            shadowSpread = 0f,
+            // How far along the atlas row the run of colours reaches. Zero says the face is one
+            // colour; a lit quad casts no shadow, so the spread is free to say it.
+            shadowSpread = faceWidth,
             aa = aa,
             gradient = kind,
             gradientX = bevel,

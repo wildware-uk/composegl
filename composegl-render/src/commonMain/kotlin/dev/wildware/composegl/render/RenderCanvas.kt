@@ -358,15 +358,22 @@ open class RenderCanvas protected constructor(
         gloss: Float,
         polish: Float,
         face: Colour,
+        faceRun: Brush.Ramp?,
     ) {
         if (state.isHidden || rect.isEmpty || depth <= 0f || strength <= 0f) return
         val box = state.map(rect)
+        // Where the run of colours sits on the atlas, if there is one and it fitted. A lit quad
+        // samples no texture of its own, so its texture coordinate is free to point at the strip;
+        // if the atlas is full the face falls back to the one colour, which is the run's first.
+        val run = faceRun?.let { atlas?.ramps?.spotFor(it) }
+        val runPage = run?.page
+        val runSize = runPage?.size?.toFloat() ?: 1f
         val grow = state.transformScale
         val radians = light * PiOver180
         val high = elevation * PiOver180
         val flat = cos(high)
         batch().relief(
-            white = white(),
+            white = if (runPage != null) WhiteSpot(runPage.texture(device), 0f, 0f) else white(),
             left = box.left,
             bottom = flip(box.bottom),
             width = box.width,
@@ -388,7 +395,10 @@ open class RenderCanvas protected constructor(
             lightZ = sin(high),
             gloss = gloss,
             polish = polish,
-            face = face.inForce(),
+            face = (if (run != null) Colour.White else face).inForce(),
+            faceU = if (run != null) (run.x + 0.5f) / runSize else 0f,
+            faceV = if (run != null) (run.y + 0.5f) / runSize else 0f,
+            faceWidth = if (run != null) (GradientRamps.Texels - 1f) / runSize else 0f,
             aa = antialias,
         )
     }

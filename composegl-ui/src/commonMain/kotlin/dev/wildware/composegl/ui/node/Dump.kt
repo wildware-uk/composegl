@@ -198,6 +198,7 @@ fun describe(element: Modifier.Element): String = when (element) {
     is ReliefElement -> buildString {
         append("relief(${element.shape.name.lowercase()} deep ${describeNumber(element.depth)}")
         append(" light ${describeNumber(element.light)} up ${describeNumber(element.elevation)}")
+        element.faceRun?.let { append(" run of ${it.stops.size}") }
         append("${corners(element.corners)})")
     }
     is MouldedElement -> buildString {

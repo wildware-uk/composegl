@@ -275,6 +275,7 @@ data class ReliefElement(
     val gloss: Float = 0.3f,
     val polish: Float = 0.5f,
     val face: Colour? = null,
+    val faceRun: Brush.Ramp? = null,
 ) : Modifier.Element {
     init {
         require(polish in 0f..1f) { "a surface is between wet and glassy, not $polish" }
@@ -1090,6 +1091,9 @@ fun Modifier.bevel(
  * @param gloss how bright the shine is where the surface faces the light squarely.
  * @param polish how tight that shine is: low spreads it across the whole lit side, which is wet
  *   plastic, and high draws it to a point, which is glass. Drawn game art is usually low.
+ * @param faceRun the face as a run of colours rather than one, lit the same way: the graded body a
+ *   painted button has, which no amount of lighting one flat colour will produce. It runs the way
+ *   the light falls. Overrides [face].
  * @param face the colour to light. Give it the button's colour and leave the background off: a
  *   highlight is then that colour made brighter, which is what a painted button is. Left out, the
  *   light lies over whatever fill is underneath and can only add white, which washes the colour
@@ -1106,7 +1110,8 @@ fun Modifier.relief(
     gloss: Float = 0.3f,
     polish: Float = 0.5f,
     face: Colour? = null,
-) = relief(Corners.single(corner), shape, depth, light, elevation, strength, gloss, polish, face)
+    faceRun: Brush.Ramp? = null,
+) = relief(Corners.single(corner), shape, depth, light, elevation, strength, gloss, polish, face, faceRun)
 
 /** The same, with its own radius on each corner. */
 @Suppress("LongParameterList")
@@ -1120,7 +1125,8 @@ fun Modifier.relief(
     gloss: Float = 0.3f,
     polish: Float = 0.5f,
     face: Colour? = null,
-) = then(ReliefElement(corners, shape, depth, light, elevation, strength, gloss, polish, face))
+    faceRun: Brush.Ramp? = null,
+) = then(ReliefElement(corners, shape, depth, light, elevation, strength, gloss, polish, face, faceRun))
 
 /**
  * One light, lighting the whole box: the bevel, the shine and the shadow all agree about it.
