@@ -38,10 +38,13 @@ internal fun MouldedSheet() {
 private fun Button(piece: Sheet.Piece) {
     val line = piece.outline
     val corner = (piece.corner - line).coerceAtLeast(0f)
-    // Three colours off the original's face, and the light does the rest.
-    val face = listOf(colourAt(piece, 0.16f), colourAt(piece, 0.55f), colourAt(piece, 0.9f))
+    // Three colours off the original's body, and the light does the rest. The body only: the bright
+    // band along the top is the lit edge, and a run that included it would smooth out the crease
+    // the chamfer is there to make.
+    // Each colour stays where it was read, rather than being spread out evenly, so the run holds
+    // its end colours past the last reading instead of carrying on down into the dark lip.
     val run = Brush.Ramp(
-        Brush.evenly(face).let { (it as Brush.Ramp).stops },
+        listOf(0.18f, 0.5f, 0.8f).map { Brush.Stop(it, colourAt(piece, it)) },
         degrees = if (piece.across) 0f else 90f,
     )
     Box(
@@ -60,7 +63,10 @@ private fun Button(piece: Sheet.Piece) {
                 strength = Tuning[2],
                 gloss = Tuning[3],
                 polish = Tuning[4],
-                face = colourAt(piece, 0.55f),
+                // The original's own body colours, lit: the graded body a painted button has is a
+                // change of colour, not a change of brightness, so no amount of lighting one flat
+                // green will make it. The light shapes the edge and puts the shine on top.
+                faceRun = run,
             )
             .borderOutside(Colour.rgb(piece.ink), width = line, corners = Corners.all(corner)),
     )
@@ -72,7 +78,7 @@ private fun Button(piece: Sheet.Piece) {
  *
  * The defaults are where a search against the original settled.
  */
-private val Tuning: FloatArray = (System.getenv("COMPOSEGL_MOULD") ?: "0.11,52,0.75,0.3,0.45,0")
+private val Tuning: FloatArray = (System.getenv("COMPOSEGL_MOULD") ?: "0.12,42,0.4,0.3,0.6,0")
     .split(',').map { it.trim().toFloat() }.toFloatArray()
 
 /** The colour a fraction of the way down the original's face. */

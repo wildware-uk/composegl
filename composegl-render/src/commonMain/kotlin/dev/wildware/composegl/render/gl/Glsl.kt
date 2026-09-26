@@ -194,9 +194,15 @@ object GlslSources {
             // A chamfer climbs at one angle and then stops dead, which is the crease along the top
             // of it; softened over the last of the climb so the crease is a line, not a staircase.
             if (kind < 5.5) return 1.0 - smoothstep(0.96, 1.0, along);
-            if (kind < 6.5) return rest / max(sqrt(1.0 - rest * rest), 0.08);  // fillet: rolled
+            // A fillet rolls over, and at the very edge of the roll the surface is nearly on its
+            // side. Left alone that is a normal pointing almost outwards, which catches the light
+            // in a hard white line along the rim; held to a sane angle it is a rolled edge.
+            if (kind < 6.5) return rest / max(sqrt(1.0 - rest * rest), 0.42);
             return rest * 1.6;                                           // dome: curving all the way
         }
+
+        // Where a lit surface stops climbing straight towards white and starts easing into it.
+        const float Knee = 0.8;
 
         void main() {
             vec4 sampled = texture2D(u_texture, v_texCoord);
@@ -235,32 +241,67 @@ object GlslSources {
                 // How polished the surface is decides how tight the shine is: a low number spreads
                 // it across the whole lit side, which is wet-looking plastic, and a high one draws
                 // it to a point, which is glass. It rides in the fill colour's red, unused here.
-                float tightness = mix(2.0, 90.0, clamp(v_color.r, 0.0, 1.0));
+                float tightness = mix(2.0, 60.0, clamp(v_color.r, 0.0, 1.0));
                 float shine = pow(max(dot(normal, halfway), 0.0), tightness) * v_shadowColor.w;
                 float strength = v_gradient.z;
-                float shade = (facing - light.z) * strength;
+                // Measured against what facing the light squarely would give, rather than against
+                // nothing: a flat face is neither lit nor shaded whatever height the light is at,
+                // and a surface turned fully towards it gets the whole of the strength asked for.
+                // Without this the light's own elevation quietly decides how much difference it
+                // makes, and a high light leaves everything nearly flat.
+                float reach = max(1.0 - light.z, 0.2);
+                float shade = clamp((facing - light.z) / reach, -1.0, 1.0) * strength;
 
                 // Given a colour of its own, the light is put on that colour: a lit face is the
                 // same green made brighter, which is what a painted button is. Laid over somebody
                 // else's fill instead, all that can be added is white and black, and white takes
                 // the colour out of a highlight — the thing that makes a drawn button look washed.
                 if (v_shape.x > 0.5) {
+                    // The face's own colour, which may be a run of colours rather than one. Painted
+                    // art almost always grades the body of a button from light at the top to deep at
+                    // the bottom, and that grade is not a brightness: the light end is a different,
+                    // yellower green. Lighting cannot invent that, so the artist names it and the
+                    // light goes on top. The run lies along one row of the atlas, so only u moves,
+                    // and it runs the way the light falls — the same light that shapes the edge.
+                    vec3 base = v_borderColor.rgb;
+                    if (v_shape.y > 0.0) {
+                        // Zero at the lit end of the box and one at the far end, measured along the
+                        // light rather than down the screen, so turning the light turns the run too.
+                        vec2 axis = light.xy;
+                        float span = max(length(axis), 0.0001);
+                        vec2 unit = axis / span;
+                        float across = max(abs(unit.x) * v_halfSize.x + abs(unit.y) * v_halfSize.y, 0.0001);
+                        float down = clamp(0.5 + dot(v_local, unit) / across * 0.5, 0.0, 1.0);
+                        vec2 at = vec2(v_texCoord.x + v_shape.y * down, v_texCoord.y);
+                        vec4 strip = texture2D(u_texture, at);
+                        base = strip.a > 0.0 ? strip.rgb / strip.a : strip.rgb;
+                    }
                     // Lighting a colour is not one multiplication. A lit face climbs fast and
                     // carries a little white with it, the way a bright surface washes towards the
                     // colour of the light; a shaded one falls away more gently and keeps its hue,
                     // because nothing is washing it out. Painted art does both, and a single
                     // multiply in either direction is what makes a drawn button look plastic.
-                    float gain = shade > 0.0 ? 1.0 + shade * 2.2 : 1.0 + shade * 0.9;
-                    vec3 face = v_borderColor.rgb * clamp(gain, 0.0, 4.0);
-                    face = mix(face, vec3(1.0), clamp(shade, 0.0, 1.0) * 0.35);
-                    gl_FragColor = vec4(clamp(face + shine, 0.0, 1.0), v_borderColor.a * coverage);
+                    float gain = shade > 0.0 ? 1.0 + shade * 1.6 : 1.0 + shade * 0.9;
+                    vec3 face = base * clamp(gain, 0.0, 4.0);
+                    face = mix(face, vec3(1.0), clamp(shade, 0.0, 1.0) * 0.25);
+                    // Screened rather than added: a shine climbs towards white and slows as it
+                    // gets there, instead of clipping to a flat white stripe with an edge on it.
+                    face = face + (1.0 - face) * shine;
+                    // Bright ends roll off instead of stopping dead at white. Without this the
+                    // channel nearest full — green, in almost every green button — flattens to 255
+                    // while the others keep climbing, so a lit edge slides towards cyan and then
+                    // ends in a hard white bar with a visible edge on it. Below the knee nothing
+                    // changes at all, so ordinary colour is untouched.
+                    vec3 over = max(face - Knee, 0.0) / (1.0 - Knee);
+                    face = min(face, 1.0 - (1.0 - Knee) * exp(-over));
+                    gl_FragColor = vec4(clamp(face, 0.0, 1.0), v_borderColor.a * coverage);
                     return;
                 }
 
                 vec4 lift = vec4(1.0, 1.0, 1.0, clamp(shade, 0.0, 1.0));
                 vec4 dark = vec4(0.0, 0.0, 0.0, clamp(-shade, 0.0, 1.0));
                 vec4 relief = over(lift, dark);
-                relief.a = max(relief.a, clamp(shine, 0.0, 1.0));
+                relief.a = max(relief.a, clamp(shine, 0.0, 0.8));
                 relief.rgb = mix(relief.rgb, vec3(1.0), clamp(shine, 0.0, 1.0));
                 gl_FragColor = vec4(relief.rgb, relief.a * coverage);
                 return;

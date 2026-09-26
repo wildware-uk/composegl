@@ -204,6 +204,10 @@ interface UiCanvas {
      *   Given a colour, a highlight is that colour made brighter, which is what a painted button
      *   is; over somebody else's fill the light can only add white, and white takes the colour out
      *   of a highlight. Give it the face and leave the background off.
+     * @param faceRun the face as a run of colours instead of one, lit the same way. Painted art
+     *   almost always grades the body of a button, and the grade is not a brightness: the light end
+     *   is usually a different, warmer colour, which lighting cannot invent. The run goes the way
+     *   the light falls, so one light still decides everything. Overrides [face] when given.
      */
     @Suppress("LongParameterList")
     fun relief(
@@ -217,6 +221,7 @@ interface UiCanvas {
         gloss: Float = 0.3f,
         polish: Float = 0.5f,
         face: Colour = Colour.Transparent,
+        faceRun: Brush.Ramp? = null,
     ) {
         // Nothing, honestly: see shadesInside.
     }

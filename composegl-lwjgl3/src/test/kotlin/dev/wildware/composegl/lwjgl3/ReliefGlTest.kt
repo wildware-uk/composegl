@@ -3,6 +3,7 @@ package dev.wildware.composegl.lwjgl3
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.Relief
 import dev.wildware.composegl.ui.layout.ScalePolicy
@@ -172,5 +173,45 @@ class ReliefGlTest {
             saturation(lit) > saturation(over) + 20,
             "the lit face keeps its green where the overlay washes it: ${lit.toList()} against ${over.toList()}",
         )
+    }
+
+    @Test
+    fun `a face given a run of colours grades across the body, and never clips to white`() {
+        val top = Colour.rgb(0x6ED23C)
+        val bottom = Colour.rgb(0x2E8C18)
+        val run = Brush.Ramp(listOf(Brush.Stop(0.2f, top), Brush.Stop(0.8f, bottom)))
+        // With an atlas: a run of colours is baked onto it, and without one the face falls back to
+        // the single colour, exactly as a many-stop gradient does.
+        val frame = Gl.render {
+            val canvas = GlCanvas(StbFonts(), Gl.gl)
+            try {
+                Gl.gl.clearColor(0f, 0f, 0f, 1f)
+                Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
+                canvas.begin(viewport)
+                canvas.relief(
+                    box, Corners.all(16f), Relief.Chamfer, depth = 18f, light = 90f,
+                    strength = 0.5f, gloss = 0.9f, polish = 0.6f, face = top, faceRun = run,
+                )
+                canvas.end()
+                Gl.readPixels(Gl.size, Gl.size)
+            } finally {
+                canvas.close()
+            }
+        }
+        fun at(y: Int) = frame[y * Gl.size + 110].let {
+            intArrayOf(it shr 16 and 0xFF, it shr 8 and 0xFF, it and 0xFF)
+        }
+
+        // Down the middle of the body, clear of the lit edge at either end.
+        val high = at(70)
+        val low = at(110)
+        assertTrue(high[1] > low[1] + 15, "the body grades: ${high.toList()} at the top, ${low.toList()} lower")
+        assertTrue(low[0] < high[0], "and in every channel, not just the brightest")
+
+        // The whole shape, including the lit edge and the shine on it: a rolled-off highlight keeps
+        // its colour, where one that clips goes flat white and takes the hue with it.
+        val white = (40..140).flatMap { y -> (50..170).map { x -> frame[y * Gl.size + x] } }
+            .count { it shr 16 and 0xFF > 250 && it shr 8 and 0xFF > 250 && it and 0xFF > 250 }
+        assertTrue(white == 0, "nothing burns out to white, but $white pixels did")
     }
 }
