@@ -33,7 +33,7 @@ internal fun ReliefShapes() {
                         Modifier
                             .size(150f, 60f)
                             .background(face, corner = 30f)
-                            .relief(corner = 30f, shape = shape, depth = 0.3f, gloss = 0.35f)
+                            .relief(corner = 30f, shape = shape, depth = 0.3f, gloss = 0.35f, face = Colour.rgb(0x4FAF28))
                             .borderOutside(ink, width = 4f, corner = 30f),
                         contentAlignment = Alignment.Centre,
                     ) {

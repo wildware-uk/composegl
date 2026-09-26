@@ -48,11 +48,11 @@ private fun Button(piece: Sheet.Piece) {
         Modifier
             .offset(piece.x + line, piece.y + line)
             .size(piece.width - line * 2f, piece.height - line * 2f)
-            .background(run, corners = Corners.all(corner))
-            // A surface with a shape, lit: the edge is a chamfer, as that page's are.
+            // A surface with a shape, lit — and the light is put on the face's own colour rather
+            // than over it, so a highlight is that green made brighter instead of whiter.
             .relief(
                 corners = Corners.all(corner),
-                shape = Relief.Chamfer,
+                shape = if (Tuning.size > 5 && Tuning[5] > 0.5f) Relief.Dome else Relief.Chamfer,
                 depth = Tuning[0],
                 // A piece taller than it is wide is lit from the left on that page, not from above.
                 light = if (piece.across) 0f else 90f,
@@ -60,6 +60,7 @@ private fun Button(piece: Sheet.Piece) {
                 strength = Tuning[2],
                 gloss = Tuning[3],
                 polish = Tuning[4],
+                face = colourAt(piece, 0.55f),
             )
             .borderOutside(Colour.rgb(piece.ink), width = line, corners = Corners.all(corner)),
     )
@@ -71,7 +72,7 @@ private fun Button(piece: Sheet.Piece) {
  *
  * The defaults are where a search against the original settled.
  */
-private val Tuning: FloatArray = (System.getenv("COMPOSEGL_MOULD") ?: "0.12,55,0.7,0.5,0.45")
+private val Tuning: FloatArray = (System.getenv("COMPOSEGL_MOULD") ?: "0.11,52,0.75,0.3,0.45,0")
     .split(',').map { it.trim().toFloat() }.toFloatArray()
 
 /** The colour a fraction of the way down the original's face. */

@@ -200,6 +200,10 @@ interface UiCanvas {
      * @param gloss how bright the shine is where the surface faces the light squarely.
      * @param polish how tight that shine is: low spreads it across the whole lit side, which is wet
      *   plastic, and high draws it to a point, which is glass.
+     * @param face the colour to light, or [Colour.Transparent] to light whatever is underneath.
+     *   Given a colour, a highlight is that colour made brighter, which is what a painted button
+     *   is; over somebody else's fill the light can only add white, and white takes the colour out
+     *   of a highlight. Give it the face and leave the background off.
      */
     @Suppress("LongParameterList")
     fun relief(
@@ -212,6 +216,7 @@ interface UiCanvas {
         strength: Float = 0.6f,
         gloss: Float = 0.3f,
         polish: Float = 0.5f,
+        face: Colour = Colour.Transparent,
     ) {
         // Nothing, honestly: see shadesInside.
     }
