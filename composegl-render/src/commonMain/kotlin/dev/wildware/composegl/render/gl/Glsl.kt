@@ -152,6 +152,19 @@ object GlslSources {
             return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
         }
 
+        // Which way the edge lies from a point inside a rounded box: the way the distance grows.
+        // The same arithmetic as roundedBox, differentiated by hand rather than sampled, so a
+        // normal costs no extra texture reads and is exact on the straight sides.
+        vec2 towardsEdge(vec2 point, vec2 extent, float radius) {
+            vec2 q = abs(point) - extent + radius;
+            vec2 way = max(q, 0.0);
+            if (way.x + way.y <= 0.0) {
+                // Between the corners: the nearer side is the one whose edge is closest.
+                way = q.x > q.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+            }
+            return normalize(way) * sign(point + vec2(0.0001, 0.0001));
+        }
+
         // Which corner's radius a point is under: the one in the same quarter of the box. The
         // radii are top-left, then clockwise, and y counts upwards here.
         float cornerRadius(vec2 point, vec4 radii) {
@@ -173,6 +186,18 @@ object GlslSources {
             return vec4(mix(from.rgb * from.a, to.rgb * to.a, t) / a, a);
         }
 
+        // How steeply the surface climbs a fraction [along] of the way up the edge, for each of the
+        // three shapes an edge can be. A chamfer climbs at a constant angle, a fillet rolls over,
+        // and a dome keeps curving across the whole face.
+        float slopeOf(float kind, float along) {
+            float rest = clamp(1.0 - along, 0.0, 1.0);
+            // A chamfer climbs at one angle and then stops dead, which is the crease along the top
+            // of it; softened over the last of the climb so the crease is a line, not a staircase.
+            if (kind < 5.5) return 1.0 - smoothstep(0.96, 1.0, along);
+            if (kind < 6.5) return rest / max(sqrt(1.0 - rest * rest), 0.08);  // fillet: rolled
+            return rest * 1.6;                                           // dome: curving all the way
+        }
+
         void main() {
             vec4 sampled = texture2D(u_texture, v_texCoord);
             float aa = v_shape.z;
@@ -191,6 +216,33 @@ object GlslSources {
 
             float distance = roundedBox(v_local, v_halfSize, radius);
             float coverage = 1.0 - smoothstep(-aa, aa, distance);
+
+            // A lit surface rather than a filled one: the shape is given a height along its edge,
+            // the normal of that height is worked out here, and one light is shone on it. What
+            // comes out is the difference the light makes — dark where it falls away, bright where
+            // it faces the light — which lies over whatever fill is underneath.
+            if (v_gradient.x > 4.5) {
+                float bevel = max(v_gradient.y, 0.0001);
+                float along = clamp(max(-distance, 0.0) / bevel, 0.0, 1.0);
+                vec2 out2 = towardsEdge(v_local, v_halfSize, radius);
+                vec3 normal = normalize(vec3(-out2 * slopeOf(v_gradient.x, along), 1.0));
+                vec3 light = normalize(v_shadowColor.xyz * 2.0 - 1.0);
+                float lit = dot(normal, light);
+                float facing = clamp(lit, -1.0, 1.0);
+                // Straight on, so the half vector between the eye and the light is all it takes.
+                // "half" is a reserved word in this dialect, so the half vector is halfway.
+                vec3 halfway = normalize(light + vec3(0.0, 0.0, 1.0));
+                float shine = pow(max(dot(normal, halfway), 0.0), 24.0) * v_shadowColor.w;
+                float strength = v_gradient.z;
+                float shade = (facing - light.z) * strength;
+                vec4 lift = vec4(1.0, 1.0, 1.0, clamp(shade, 0.0, 1.0));
+                vec4 dark = vec4(0.0, 0.0, 0.0, clamp(-shade, 0.0, 1.0));
+                vec4 relief = over(lift, dark);
+                relief.a = max(relief.a, clamp(shine, 0.0, 1.0));
+                relief.rgb = mix(relief.rgb, vec3(1.0), clamp(shine, 0.0, 1.0));
+                gl_FragColor = vec4(relief.rgb, relief.a * coverage);
+                return;
+            }
 
             // A gradient. Two colours mix in the vertex, the end riding in the border's slot; a run
             // of stops is a strip of the atlas, and where it is rides in the shadow's slot.

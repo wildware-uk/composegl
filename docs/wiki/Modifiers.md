@@ -660,6 +660,36 @@ shadow falls away from it.
 so the same call dresses a 200-wide button and a 24-wide checkbox. `strength` is how
 hard the light is; at `0f` nothing is drawn but the outline.
 
+### A surface with a shape, lit
+
+`moulded` stacks bands and keeps them agreeing. `Modifier.relief` does the thing itself:
+the edge is given a height, the renderer works out which way the surface faces at every
+pixel — a normal map, made from the shape rather than loaded from a file — and shines one
+light on it.
+
+```kotlin
+Modifier.background(face, corner = 30f).relief(corner = 30f, shape = Relief.Chamfer)
+```
+
+![three edge shapes, and one of them lit from four directions](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/relief-shapes.png)
+
+The `Relief` is what the edge does, in a joiner's words: a **chamfer** is a flat cut with
+a crease along the top of it, a **fillet** is rolled over, and a **dome** keeps curving
+across the whole face. `depth` is how far the climb reaches in, as a fraction of the
+shorter side — a dome wants about `0.5f`, an edge about `0.2f`.
+
+`light` and `elevation` place the light: degrees clockwise from pointing right, and
+degrees above the surface. `gloss` adds a specular shine where the surface faces the
+light squarely.
+
+The corners are the part worth looking at. They are lit by how far they have actually
+turned away from the light, which is what no stack of bands gets right, and it is why a
+lit box reads as a shape rather than as a box with a stripe on it.
+
+It draws the light's contribution and nothing else, so it lies over any fill: a colour, a
+gradient, a picture. One draw call, and nothing is sampled — the normal is worked out from
+the same distance field that rounds the corners.
+
 **`hardness` says what kind of edge the light makes.** At `0f` the shade fades the
 whole way in: a fillet, a moulded plastic button. Near `1f` it holds its strength and
 then drops: a chamfer, a cut edge with a line you can see. Drawn game art is usually a
@@ -670,11 +700,10 @@ each one and this modifier — two lines a button:
 
 ![the sheet's buttons again, each drawn with a gradient and one moulded call](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/moulded-sheet.png)
 
-Against the original, half of what it draws lands within 19 levels of 255 with the
-chamfer it is drawn with here, or within 13 with a softer edge. The measured version
-above gets to 4, because it carries fourteen stops a piece and a measured band for the
-shine. The softer edge measures better and looks less like the page, which is worth
-knowing: the number and the eye do not agree, and the eye is the customer.
+Those are lit by `relief` — a chamfered edge and one light — over three colours taken
+off each original. Against that original, half of what it draws lands within 18 levels of
+255. The measured version above gets to 4, because it carries fourteen stops a piece and
+a measured band for the shine. Two lines gets the family; a measurement gets the twin.
 
 **They cost one draw call.** A fill, two shades and an outline batch into a single
 draw. A multi-stop gradient is baked into a 64-pixel strip of the same atlas a flat

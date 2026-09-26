@@ -8,7 +8,9 @@ import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.fillMaxSize
-import dev.wildware.composegl.ui.modifier.moulded
+import dev.wildware.composegl.ui.graphics.Relief
+import dev.wildware.composegl.ui.modifier.borderOutside
+import dev.wildware.composegl.ui.modifier.relief
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.size
 
@@ -17,8 +19,8 @@ import dev.wildware.composegl.ui.modifier.size
  *
  * [ArtSheet] paints the same page from the original's pixels: fourteen measured stops a piece, plus
  * a measured band for the shine. This one takes three colours off each piece — near the top, the
- * middle and the bottom — and hands everything else to the modifier's own light. So it is what a
- * game gets by writing two lines, rather than what a measurement gets.
+ * middle and the bottom — and gives the rest to one light on a surface with a chamfered edge. So it
+ * is what a game gets by writing two lines, rather than what a measurement gets.
  *
  * Only the pieces that are one rounded box: the wooden bars, the capsules, the squares and the
  * tall buttons. A bar with a fill in it, a banner, a gem and a berry are other shapes' business.
@@ -47,30 +49,28 @@ private fun Button(piece: Sheet.Piece) {
             .offset(piece.x + line, piece.y + line)
             .size(piece.width - line * 2f, piece.height - line * 2f)
             .background(run, corners = Corners.all(corner))
-            .moulded(
+            // A surface with a shape, lit: the edge is a chamfer, as that page's are.
+            .relief(
                 corners = Corners.all(corner),
+                shape = Relief.Chamfer,
+                depth = Tuning[0],
                 // A piece taller than it is wide is lit from the left on that page, not from above.
                 light = if (piece.across) 0f else 90f,
-                depth = Tuning[0],
-                shine = Tuning[1],
+                elevation = Tuning[1],
                 strength = Tuning[2],
-                hardness = Tuning[3],
-                outline = Colour.rgb(piece.ink),
-                outlineWidth = line / minOf(piece.width, piece.height),
-            ),
+                gloss = Tuning[3],
+            )
+            .borderOutside(Colour.rgb(piece.ink), width = line, corners = Corners.all(corner)),
     )
 }
 
 /**
  * Depth, shine and strength, so the numbers can be tried against the original without a rebuild:
- * `COMPOSEGL_MOULD=depth,shine,strength,hardness`.
+ * `COMPOSEGL_MOULD=depth,elevation,strength,gloss`.
  *
- * The defaults are a chamfered edge, which is what that sheet draws: the shade holds its strength
- * and then drops, rather than fading the whole way in. A softer edge measures slightly closer —
- * a strong light moves every pixel of a big flat face and only flatters the small bright band —
- * but it does not look like the page, and looking like the page is the point.
+ * The defaults are where a search against the original settled.
  */
-private val Tuning: FloatArray = (System.getenv("COMPOSEGL_MOULD") ?: "0.12,0.26,0.26,0.82")
+private val Tuning: FloatArray = (System.getenv("COMPOSEGL_MOULD") ?: "0.14,50,0.75,0.45")
     .split(',').map { it.trim().toFloat() }.toFloatArray()
 
 /** The colour a fraction of the way down the original's face. */

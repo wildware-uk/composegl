@@ -38,6 +38,7 @@ import dev.wildware.composegl.ui.skin.SkinDrawable
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.BorderSide
 import dev.wildware.composegl.ui.graphics.BorderStyle
+import dev.wildware.composegl.ui.graphics.Relief
 
 // --- what a node is ------------------------------------------------------------------------
 
@@ -256,6 +257,29 @@ data class InnerShadeElement(
     init {
         require(depth >= 0f && depth.isFinite()) { "shade depth cannot be negative, was $depth" }
         require(hardness in 0f..1f) { "an edge is between a fillet and a chamfer, not $hardness" }
+    }
+}
+
+/**
+ * A box lit as a surface with a shape, rather than as a stack of bands.
+ *
+ * @see dev.wildware.composegl.ui.modifier.relief
+ */
+data class ReliefElement(
+    val corners: Corners = Corners.None,
+    val shape: Relief = Relief.Chamfer,
+    val depth: Float = 0.18f,
+    val light: Float = 90f,
+    val elevation: Float = 55f,
+    val strength: Float = 0.6f,
+    val gloss: Float = 0.3f,
+) : Modifier.Element {
+    init {
+        require(depth > 0f && depth <= 1f) { "an edge climbs across some of the box, not $depth" }
+        require(elevation > 0f && elevation <= 90f) { "the light is somewhere above the surface, not at $elevation" }
+        require(strength >= 0f && strength <= 1f) { "a light is between off and full, not $strength" }
+        require(gloss >= 0f && gloss <= 1f) { "a shine is between none and full, not $gloss" }
+        require(!light.isNaN() && !light.isInfinite()) { "the light comes from an angle, not $light" }
     }
 }
 
@@ -1039,6 +1063,51 @@ fun Modifier.bevel(
     dark: Colour = Colour.Black.scaleAlpha(0.35f),
 ) = then(InnerShadeElement(light, depth, corners, Offset(0f, depth)))
     .then(InnerShadeElement(dark, depth, corners, Offset(0f, -depth)))
+
+/**
+ * The box as a surface with a shape, lit by one light.
+ *
+ * [moulded] stacks bands — a lift, a shade, a shine — and they agree about the light because one
+ * number sets them. This does the thing itself: the edge is given a height, the renderer works out
+ * which way the surface faces at every pixel, and one light is shone on it. The corners come out
+ * right because they really do turn away from the light, which stacked bands can only approximate.
+ *
+ * It draws the light's own contribution, so it lies over any fill — a colour, a gradient, a picture.
+ *
+ * ```kotlin
+ * Modifier.background(face, corner = 24f).relief(corner = 24f, shape = Relief.Chamfer)
+ * Modifier.background(face, corner = 24f).relief(corner = 24f, shape = Relief.Dome, light = 45f)
+ * ```
+ *
+ * @param shape what the edge does: a flat cut, rolled over, or curving across the whole face.
+ * @param depth how far the climb reaches in from the edge, as a fraction of the shorter side.
+ * @param light where the light comes from, in degrees clockwise from pointing right. 90 is above.
+ * @param elevation how high the light is, in degrees: 90 is straight on and flattens everything.
+ * @param strength how much difference the light makes.
+ * @param gloss how bright the shine is where the surface faces the light squarely.
+ */
+@Suppress("LongParameterList")
+fun Modifier.relief(
+    corner: Float = 0f,
+    shape: Relief = Relief.Chamfer,
+    depth: Float = 0.18f,
+    light: Float = 90f,
+    elevation: Float = 55f,
+    strength: Float = 0.6f,
+    gloss: Float = 0.3f,
+) = relief(Corners.single(corner), shape, depth, light, elevation, strength, gloss)
+
+/** The same, with its own radius on each corner. */
+@Suppress("LongParameterList")
+fun Modifier.relief(
+    corners: Corners,
+    shape: Relief = Relief.Chamfer,
+    depth: Float = 0.18f,
+    light: Float = 90f,
+    elevation: Float = 55f,
+    strength: Float = 0.6f,
+    gloss: Float = 0.3f,
+) = then(ReliefElement(corners, shape, depth, light, elevation, strength, gloss))
 
 /**
  * One light, lighting the whole box: the bevel, the shine and the shadow all agree about it.

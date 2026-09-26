@@ -12,6 +12,7 @@ import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.CanvasState
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.graphics.Relief
 import dev.wildware.composegl.ui.graphics.NineRegions
 import dev.wildware.composegl.ui.graphics.SceneSurface
 import dev.wildware.composegl.ui.graphics.SceneTarget
@@ -22,7 +23,9 @@ import dev.wildware.composegl.ui.graphics.featherOutline
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextLayout
 import kotlin.math.ceil
+import kotlin.math.cos
 import kotlin.math.floor
+import kotlin.math.sin
 import kotlin.math.roundToInt
 
 /**
@@ -341,6 +344,48 @@ open class RenderCanvas protected constructor(
             rect, Colour.Transparent,
             corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft,
             Colour.Transparent, 0f, colour, -depth, offsetX, -offsetY, hardness,
+        )
+    }
+
+    override fun relief(
+        rect: Rect,
+        corners: Corners,
+        shape: Relief,
+        depth: Float,
+        light: Float,
+        elevation: Float,
+        strength: Float,
+        gloss: Float,
+    ) {
+        if (state.isHidden || rect.isEmpty || depth <= 0f || strength <= 0f) return
+        val box = state.map(rect)
+        val grow = state.transformScale
+        val radians = light * PiOver180
+        val high = elevation * PiOver180
+        val flat = cos(high)
+        batch().relief(
+            white = white(),
+            left = box.left,
+            bottom = flip(box.bottom),
+            width = box.width,
+            height = box.height,
+            topLeft = state.mapLength(corners.topLeft),
+            topRight = state.mapLength(corners.topRight),
+            bottomRight = state.mapLength(corners.bottomRight),
+            bottomLeft = state.mapLength(corners.bottomLeft),
+            kind = when (shape) {
+                Relief.Chamfer -> ShapeVertex.ReliefChamfer
+                Relief.Fillet -> ShapeVertex.ReliefFillet
+                Relief.Dome -> ShapeVertex.ReliefDome
+            },
+            bevel = depth * grow,
+            strength = strength,
+            lightX = cos(radians) * flat,
+            // The toolkit's y counts down and the batch's counts up, so the light turns with it.
+            lightY = -sin(radians) * flat,
+            lightZ = sin(high),
+            gloss = gloss,
+            aa = antialias,
         )
     }
 
@@ -1314,6 +1359,9 @@ open class RenderCanvas protected constructor(
         else error("this canvas can only draw textures it made, not ${texture::class}")
 
     private companion object {
+
+        /** Degrees to radians, spelled out once. */
+        const val PiOver180 = 0.017453292f
 
         /** Design coordinates onto the clip cube, column-major, origin bottom-left. */
         fun orthographic(into: FloatArray, width: Float, height: Float, left: Float = 0f) {

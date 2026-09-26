@@ -161,6 +161,79 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     }
 
     /**
+     * One rounded box as a lit surface: the difference a light makes to it, over whatever is under.
+     *
+     * The shape is given a height along its edge — cut flat, rolled over, or curving across the
+     * whole face — and the normal of that height is lit by one light. Nothing about the fill is
+     * needed, because what comes out is the light's own contribution: dark where the surface falls
+     * away and bright where it faces the light, which lies over any fill at all.
+     *
+     * @param kind which shape the edge is: one of [ShapeVertex.ReliefChamfer], [ShapeVertex.ReliefFillet]
+     *   or [ShapeVertex.ReliefDome].
+     * @param bevel how far the climb reaches in from the edge.
+     * @param strength how much difference the light makes.
+     * @param lightX where the light is, as a direction; [lightZ] is how high above the surface.
+     * @param gloss how bright the specular highlight is. Zero for a matte surface.
+     */
+    @Suppress("LongParameterList")
+    fun relief(
+        white: WhiteSpot,
+        left: Float,
+        bottom: Float,
+        width: Float,
+        height: Float,
+        topLeft: Float,
+        topRight: Float,
+        bottomRight: Float,
+        bottomLeft: Float,
+        kind: Float,
+        bevel: Float,
+        strength: Float,
+        lightX: Float,
+        lightY: Float,
+        lightZ: Float,
+        gloss: Float,
+        aa: Float,
+    ) {
+        val halfWidth = width / 2f
+        val halfHeight = height / 2f
+        val most = minOf(halfWidth, halfHeight).coerceAtLeast(0f)
+        radii[0] = topLeft.coerceIn(0f, most)
+        radii[1] = topRight.coerceIn(0f, most)
+        radii[2] = bottomRight.coerceIn(0f, most)
+        radii[3] = bottomLeft.coerceIn(0f, most)
+
+        use(white.texture)
+        quad(
+            left = left - aa,
+            bottom = bottom - aa,
+            right = left + width + aa,
+            top = bottom + height + aa,
+            centreX = left + halfWidth,
+            centreY = bottom + halfHeight,
+            u = white.u, v = white.v, u2 = white.u, v2 = white.v,
+            fill = Colour.White,
+            border = Colour.Transparent,
+            // The light, packed as a colour: a direction of minus one to one, written zero to one.
+            shadow = Colour(
+                (gloss.coerceIn(0f, 1f) * 255f).toInt(),
+                ((lightX * 0.5f + 0.5f) * 255f).toInt().coerceIn(0, 255),
+                ((lightY * 0.5f + 0.5f) * 255f).toInt().coerceIn(0, 255),
+                ((lightZ * 0.5f + 0.5f) * 255f).toInt().coerceIn(0, 255),
+            ),
+            halfWidth = halfWidth,
+            halfHeight = halfHeight,
+            radii = radii,
+            borderWidth = 0f,
+            shadowSpread = 0f,
+            aa = aa,
+            gradient = kind,
+            gradientX = bevel,
+            gradientY = strength,
+        )
+    }
+
+    /**
      * One rounded box filled from a strip of the atlas: a gradient of more than two colours.
      *
      * The same quad and the same distance field as [shape], so it batches with everything else on

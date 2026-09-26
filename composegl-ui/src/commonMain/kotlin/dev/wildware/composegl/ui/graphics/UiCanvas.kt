@@ -178,6 +178,42 @@ interface UiCanvas {
     ) = innerShade(rect, colour, depth, corners.smallest, offsetX, offsetY, hardness)
 
     /**
+     * A box lit as though it had a shape: the difference one light makes to a surface with an edge.
+     *
+     * Rather than stacking a lift and a shade and a shine and hoping they agree, the shape is given
+     * a height along its edge — cut flat, rolled over, or curving across the whole face — and the
+     * renderer works out which way that surface faces at every pixel and shines one light on it.
+     * The corners are lit because they really do turn away from the light, which is the thing no
+     * amount of stacked bands gets right.
+     *
+     * What it draws is the light's own contribution, so it lies over any fill: a colour, a gradient,
+     * a picture.
+     *
+     * The default body draws nothing, because there is no honest way to fake a lit surface with a
+     * flat one; [shadesInside] says whether a canvas can do it.
+     *
+     * @param shape what the edge does: see [Relief].
+     * @param depth how far the climb reaches in from the edge, in the toolkit's units.
+     * @param light where the light comes from, in degrees clockwise from pointing right.
+     * @param elevation how high the light is above the surface, in degrees: 90 is straight on.
+     * @param strength how much difference the light makes at all.
+     * @param gloss how bright the shine is where the surface faces the light squarely.
+     */
+    @Suppress("LongParameterList")
+    fun relief(
+        rect: Rect,
+        corners: Corners,
+        shape: Relief = Relief.Chamfer,
+        depth: Float = 6f,
+        light: Float = 90f,
+        elevation: Float = 55f,
+        strength: Float = 0.6f,
+        gloss: Float = 0.3f,
+    ) {
+        // Nothing, honestly: see shadesInside.
+    }
+
+    /**
      * Whether [innerShade] really shades, and [borderOutside] really draws outside the box.
      *
      * Another honest default, the same shape as [roundsCornersSeparately]: false means a shade
