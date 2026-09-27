@@ -23,6 +23,7 @@ enum class Section(val title: String, val blurb: String, val tag: String) {
     Hud("HUD", "Compass, markers, weapon wheel, subtitles, dialogue", "hud"),
     Gear("Inventory and quests", "Bag, item cards, skill tree, objectives, chat", "gear"),
     Effects("Effects", "Gradients, clips, blend, 3D, shaders", "effects"),
+    Surfaces("Surfaces", "Lit edges, materials, buttons you can press", "surfaces"),
     Text("Text", "Styled runs, selection, fallback, right to left", "text"),
     Settings("Accessibility", "Skins, high contrast and text size", "settings"),
     Debug("Debug tools", "Overlays, windows, console, plots, node tree", "debug"),

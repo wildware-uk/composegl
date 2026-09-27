@@ -16,6 +16,7 @@ import dev.wildware.composegl.ui.input.PointerButton
 import dev.wildware.composegl.ui.layout.LayoutDirection
 import dev.wildware.composegl.ui.layout.ProvideLayoutDirection
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.node.dump
 import dev.wildware.composegl.ui.testing.UiTest
 import dev.wildware.composegl.ui.testing.uiTest
 import kotlin.test.Test
@@ -440,6 +441,43 @@ class ShowcaseUiTest {
         ui.advanceBy(300)
         assertTrue(ui.texts("chat").any { "on my way" in it }, "the line is in the chat:\n" + ui.texts("chat"))
     }
+
+    @Test
+    fun `a lit button turns its light over while it is held, and counts the press`() = showcase { ui, state ->
+        state.goTo(Section.Surfaces)
+        ui.advanceBy(400)
+        ui.assertExists("relief-panel")
+
+        // Resting, it is lit from above like everything else on the page.
+        assertTrue("light 90" in reliefOf(ui, "press-resume"), reliefOf(ui, "press-resume"))
+
+        // Held, from below — one number, and every edge and corner turns over with it.
+        ui.press("press-resume")
+        ui.settle()
+        assertTrue("light 270" in reliefOf(ui, "press-resume"), reliefOf(ui, "press-resume"))
+
+        ui.release()
+        ui.settle()
+        assertTrue("light 90" in reliefOf(ui, "press-resume"), reliefOf(ui, "press-resume"))
+        ui.assertText("press-count", "Pressed 1 time")
+    }
+
+    @Test
+    fun `the grains reach the faces that wear them`() {
+        val grains = ShowcaseMaterials(FakeTexture(GrainSize, GrainSize), FakeTexture(GrainSize, GrainSize), FakeTexture(GrainSize, GrainSize))
+        val state = ShowcaseState().also { it.reduceMotion = true }
+        uiTest(Size(1280f, 2600f), input = { ShowcaseInput(state, it) }) {
+            Showcase(state, ShowcaseSkins(art), materials = grains)
+        }.use { ui ->
+            state.goTo(Section.Surfaces)
+            ui.advanceBy(400)
+            assertTrue("material" in reliefOf(ui, "relief-panel"), reliefOf(ui, "relief-panel"))
+        }
+    }
+
+    /** What a node's `relief` says it is doing, off the node tree. */
+    private fun reliefOf(ui: UiTest, tag: String): String =
+        ui.node(tag).dump(modifiers = true).lineSequence().first { "relief(" in it }
 
     @Test
     fun `the debug page opens, docks and floats windows and runs console commands`() = showcase { ui, state ->

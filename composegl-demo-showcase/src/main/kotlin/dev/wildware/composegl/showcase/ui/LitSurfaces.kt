@@ -5,6 +5,11 @@ import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import dev.wildware.composegl.gdx.GdxTexture
+import androidx.compose.runtime.remember
+import dev.wildware.composegl.ui.input.InteractionState
+import dev.wildware.composegl.ui.modifier.clickable
+import dev.wildware.composegl.ui.modifier.interaction
+import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
@@ -115,10 +120,63 @@ internal fun LitSurfaces() {
             }
         }
 
+        // The one that only exists while somebody is doing something. Held, the light moves from
+        // above to below, and that one number turns every edge and corner over with it.
+        Rank("Press: held, it is lit from below instead of above") {
+            Row(horizontalArrangement = Arrangement.spacedBy(8f)) {
+                PressButton("RESUME", LeafRun, Colour.rgb(0x1F5C10))
+                PressButton("MAP", SkyRun, Colour.rgb(0x0B406F))
+                PressButton("QUIT", EmberRun, Colour.rgb(0x63120D))
+            }
+        }
+
         // Honest about the cost: the coloured ones all batch together, and each material is a
         // texture of its own, so it breaks the batch the same way any other picture does.
         Text("Two lines a button. The coloured ones batch into one call; each material costs its own.", style = "label.dim")
     }
+}
+
+/**
+ * A button that turns its light over while it is held.
+ *
+ * A press is the one thing a row of samples cannot show, because the whole of it is the change
+ * between two frames: the top edge drops into shadow, the bottom edge lights, the face grade runs
+ * the other way, the shine goes out, and the label goes down with the face it is written on.
+ */
+@Composable
+private fun PressButton(label: String, paint: Brush.Ramp, line: Colour) {
+    val interaction = remember { InteractionState() }
+    val down = interaction.isPressed
+    // Hovered, the light is turned up rather than a colour changed: the same surface catching more
+    // of the same light, which is what a mouse resting on a real one would do.
+    val lit = interaction.isHovered && !down
+    Box(
+        Modifier
+            .size(112f, 46f)
+            .interaction(interaction)
+            .clickable {}
+            .relief(
+                corners = Corners.all(14f),
+                shape = Relief.Chamfer,
+                depth = 0.24f,
+                light = if (down) 270f else 90f,
+                elevation = if (down) 60f else 48f,
+                strength = if (down) 0.5f else if (lit) 0.72f else 0.62f,
+                gloss = if (down) 0.06f else if (lit) 0.6f else 0.4f,
+                polish = 0.45f,
+                faceRun = if (down) paint.turnedOver() else paint,
+            )
+            .borderOutside(line, width = 3f, corners = Corners.all(14f)),
+        contentAlignment = Alignment.Centre,
+    ) {
+        Text(label, Modifier.offset(y = if (down) 2f else 0f), style = "label")
+    }
+}
+
+/** The same run the other way up and a shade down: a face further from the light than it was. */
+private fun Brush.Ramp.turnedOver(): Brush.Ramp {
+    val shade = Colour.rgb(0xD2D2D2)
+    return Brush.Ramp(stops.reversed().mapIndexed { at, stop -> Brush.Stop(stops[at].at, stop.colour.modulate(shade)) })
 }
 
 /** A row of samples under a line saying what is being varied along it. */
@@ -140,6 +198,19 @@ private fun Lit(caption: String?, look: Modifier.() -> Modifier) {
         if (caption != null) Text(caption, style = "label")
     }
 }
+
+private val LeafRun = run(0x7FD84A, 0x45B024, 0x2E8C18)
+private val SkyRun = run(0x6FD0F7, 0x1E97E0, 0x1268B4)
+private val EmberRun = run(0xF4796F, 0xDB3B32, 0xA82018)
+
+/** A button's body: a grade of hue rather than of brightness, which is what painted art has. */
+private fun run(top: Long, middle: Long, bottom: Long) = Brush.Ramp(
+    listOf(
+        Brush.Stop(0.16f, Colour.rgb(top)),
+        Brush.Stop(0.5f, Colour.rgb(middle)),
+        Brush.Stop(0.84f, Colour.rgb(bottom)),
+    ),
+)
 
 private val Ink = Colour.rgb(0x2B1D12)
 private val Leaf = Colour.rgb(0x4FAF28)
