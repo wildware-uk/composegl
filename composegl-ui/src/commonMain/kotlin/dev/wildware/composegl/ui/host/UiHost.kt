@@ -3,16 +3,23 @@ package dev.wildware.composegl.ui.host
 import androidx.compose.runtime.BroadcastFrameClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Recomposer
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import dev.wildware.composegl.ui.animation.Clocks
 import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.internal.Guard
+import androidx.compose.runtime.mutableStateOf
+import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.layout.Constraints
+import dev.wildware.composegl.ui.layout.LocalScreen
+import dev.wildware.composegl.ui.layout.LocalWindowClass
 import dev.wildware.composegl.ui.layout.MeasurePass
+import dev.wildware.composegl.ui.layout.Screen
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.layout.run
 import dev.wildware.composegl.ui.node.UiApplier
@@ -84,6 +91,14 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
     private val recomposer = Recomposer(dispatcher + clock + job)
     private val composition = Composition(UiApplier(tree.root), recomposer)
 
+    /**
+     * How much room the interface has, for the layouts that change shape rather than scale.
+     *
+     * Written by [settle] from the viewport it is laid out with, and read through [LocalScreen].
+     * A game driving the host itself sets it, once, from whatever it lays out with.
+     */
+    var screen by mutableStateOf(Screen(Size.Zero))
+
     /** How many frames actually changed something. A cheap health check for a game to print. */
     var changedFrames = 0L
         private set
@@ -107,7 +122,19 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
         // Every animation under this host runs on this host's clocks, without a game having to
         // remember to say so. A screen that wants its own — a replay running at half speed — still
         // provides them over the top for its own subtree.
-        composition.setContent { CompositionLocalProvider(LocalClocks provides clocks, content = content) }
+        composition.setContent {
+            // The clocks, and how much room there is: the two things every screen under this host
+            // shares and neither of which a game should have to thread through its own tree. The
+            // window class is provided beside the screen rather than derived at each reader, so a
+            // layout that only cares about phone-or-desktop is not recomposed by every pixel of a
+            // window being dragged wider.
+            CompositionLocalProvider(
+                LocalClocks provides clocks,
+                LocalScreen provides screen,
+                LocalWindowClass provides screen.windowClass,
+                content = content,
+            )
+        }
     }
 
     /**
@@ -223,7 +250,12 @@ fun UiHost.settle(
     focus: FocusManager? = null,
     nanos: Long,
     budget: FrameBudget? = null,
-): Boolean = settleWith(focus, nanos, budget) { pass -> pass.run(root, viewport) }
+): Boolean {
+    // Before the recompose, so a screen that has just changed shape is composed at the new one
+    // rather than a frame behind it.
+    screen = Screen.of(viewport)
+    return settleWith(focus, nanos, budget) { pass -> pass.run(root, viewport) }
+}
 
 /**
  * The same thing against plain [Constraints], for a test that has no screen to describe.
@@ -237,7 +269,15 @@ fun UiHost.settle(
     focus: FocusManager? = null,
     nanos: Long,
     budget: FrameBudget? = null,
-): Boolean = settleWith(focus, nanos, budget) { pass -> pass.run(root, constraints) }
+): Boolean {
+    // No viewport, so the room is whatever the constraints allow: what a test means by "at most
+    // 1280 by 720" is a 1280 by 720 screen.
+    screen = Screen(Size(constraints.maxWidth.orZero(), constraints.maxHeight.orZero()))
+    return settleWith(focus, nanos, budget) { pass -> pass.run(root, constraints) }
+}
+
+/** An unbounded constraint describes no screen; zero is the honest answer for one. */
+private fun Float.orZero() = if (isFinite()) coerceAtLeast(0f) else 0f
 
 /**
  * The order itself, written once: recompose, lay out, refresh focus.

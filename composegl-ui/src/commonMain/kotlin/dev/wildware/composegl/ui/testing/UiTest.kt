@@ -38,6 +38,7 @@ import dev.wildware.composegl.ui.input.PointerId
 import dev.wildware.composegl.ui.input.PointerRouter
 import dev.wildware.composegl.ui.input.SourceAware
 import dev.wildware.composegl.ui.input.TextEvent
+import dev.wildware.composegl.ui.layout.Screen
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.node.dump
@@ -178,6 +179,9 @@ class UiTest(
     ))
 
     internal fun setContent(content: @Composable () -> Unit) {
+        // Before the content, so the very first composition already knows how much room it has
+        // rather than being composed against nothing and put right on the frame after.
+        host.screen = Screen.of(viewport)
         host.setContent {
             ProvideFonts(backend.fonts) {
                 ProvideClipboard(backend.clipboard) {

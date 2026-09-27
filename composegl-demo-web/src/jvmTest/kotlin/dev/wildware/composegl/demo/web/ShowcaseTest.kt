@@ -475,6 +475,20 @@ class ShowcaseUiTest {
         }
     }
 
+    @Test
+    fun `the layout page says which window class the screen is in`() = showcase { ui, state ->
+        state.goTo(Section.Layout)
+        ui.advanceBy(400)
+        assertTrue("Expanded" in ui.text("screen-readout"), ui.text("screen-readout"))
+    }
+
+    @Test
+    fun `on a phone the same page reads as compact`() = showcase(width = 400f, height = 860f) { ui, state ->
+        state.goTo(Section.Layout)
+        ui.advanceBy(400)
+        assertTrue("Compact" in ui.text("screen-readout"), ui.text("screen-readout"))
+    }
+
     /** What a node's `relief` says it is doing, off the node tree. */
     private fun reliefOf(ui: UiTest, tag: String): String =
         ui.node(tag).dump(modifiers = true).lineSequence().first { "relief(" in it }
