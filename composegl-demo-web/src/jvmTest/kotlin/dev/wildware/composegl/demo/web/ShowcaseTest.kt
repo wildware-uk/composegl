@@ -489,6 +489,21 @@ class ShowcaseUiTest {
         assertTrue("Compact" in ui.text("screen-readout"), ui.text("screen-readout"))
     }
 
+    @Test
+    fun `the responsive card's panes stack without landing on top of each other`() = showcase(width = 400f, height = 860f) { ui, state ->
+        state.goTo(Section.Layout)
+        ui.advanceBy(400)
+
+        // Stacked in a column that is as tall as it likes, which is where a weight has nothing to
+        // share and every pane used to be measured at no height at all and drawn over the last.
+        val tops = listOf("pane-Nav", "pane-Page", "pane-Details").map { ui.node(it).layoutBoundsInRoot }
+        assertEquals(3, tops.map { it.top }.distinct().size, "the panes sit at $tops")
+        tops.zipWithNext().forEach { (above, below) ->
+            assertTrue(above.bottom <= below.top, "$above overlaps $below")
+            assertTrue(above.height > 0f, "a pane has no height: $above")
+        }
+    }
+
     /** What a node's `relief` says it is doing, off the node tree. */
     private fun reliefOf(ui: UiTest, tag: String): String =
         ui.node(tag).dump(modifiers = true).lineSequence().first { "relief(" in it }
