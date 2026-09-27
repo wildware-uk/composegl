@@ -758,6 +758,50 @@ A material takes the one texture a lit quad has, so **a face is a material or a 
 colours, never both**, and a material has to be a texture of its own rather than a region
 of an atlas — tiling a region samples whatever was packed beside it at every repeat.
 
+### A whole panel, and a press
+
+A piece at a time proves the modifier; a panel is where a light has to agree across eight
+things at once. Everything here is a box with an edge and a light on it — the plank, the
+name plate cut into it, the three buttons, the groove the supply bar runs in, the bar
+itself, the switch and its knob. The only picture on it is one grey wood grain, tinted
+two browns.
+
+![a game panel made of lit surfaces: a wooden plank, a sunken name plate, three graded buttons, a supply bar in a groove, and a switch](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/relief-panel.png)
+
+**Turning the light over is a press.** A pressed button is lit from underneath, and that
+one number takes every edge with it: the top edge that was catching the light goes into
+shadow, the bottom edge lights up, the graded face runs the other way, and the shine goes
+out because the face is no longer pointed at the light. The corners follow, which is the
+part a stack of bands never manages.
+
+```kotlin
+val interaction = remember { InteractionState() }
+val down = interaction.isPressed
+
+Box(
+    Modifier
+        .size(144f, 58f)
+        .interaction(interaction)
+        .clickable { resume() }
+        .relief(
+            corner = 16f,
+            depth = 0.24f,
+            light = if (down) 270f else 90f,   // from below while it is held
+            gloss = if (down) 0.06f else 0.4f, // and the shine goes out
+            faceRun = if (down) deepToBright else brightToDeep,
+        )
+        .borderOutside(line, width = 4f, corner = 16f),
+    contentAlignment = Alignment.Centre,
+) {
+    Text("RESUME", Modifier.offset(y = if (down) 2f else 0f), style = "label")
+}
+```
+
+![a hand moving onto the panel, pressing Resume and holding it, letting go, and going on to press Map: each button lights from below while it is held and the label goes down a pixel with it](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/relief-press.gif)
+
+Hovering turns the light up rather than changing a colour: the same surface catching more
+of the same light, which is what a mouse resting on a real one would do.
+
 **They cost one draw call.** A fill, two shades and an outline batch into a single
 draw. A multi-stop gradient is baked into a 64-pixel strip of the same atlas a flat
 colour comes from, so a gradient button batches with flat panels too.

@@ -57,6 +57,22 @@ tasks.register<JavaExec>("docShots") {
 }
 
 /**
+ * The wiki's moving pictures: the frames into `build/clips`, the GIF into `docs/wiki/images`.
+ *
+ * A still cannot show a press, because the whole of a press is the change between two frames.
+ * Needs a display like the stills do, so on a headless machine it is
+ * `xvfb-run -a ./gradlew :composegl-demo:docClips`, and it needs `ffmpeg` to turn the frames into
+ * anything — without one the frames are still written and the command to run is printed.
+ */
+tasks.register<JavaExec>("docClips") {
+    group = "documentation"
+    description = "Takes the moving pictures the wiki uses."
+    mainClass.set("dev.wildware.composegl.demo.docs.ClipsKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = rootDir
+}
+
+/**
  * Every `@Preview` in the example, as a PNG in `build/previews`.
  *
  * No demo launched, nothing clicked: the functions are found in the compiled classes and drawn on

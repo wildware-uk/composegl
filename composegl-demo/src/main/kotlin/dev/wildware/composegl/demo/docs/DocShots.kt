@@ -356,6 +356,8 @@ private fun MutableList<DocShot>.scenes() {
     add(DocShot("relief-shapes", 580, 310, stock = true) { ReliefShapes() })
     // The same lit surface wearing a material: wood, paper and brushed metal, each tinted three ways.
     add(DocShot("materials", 790, 440, stock = true) { MaterialSheet() })
+    // A whole panel made of lit surfaces and nothing else: plank, plate, buttons, groove, switch.
+    add(DocShot("relief-panel", 560, 400, stock = true) { ReliefPanel() })
 
     // Through Skin.Default rather than the example's skin, because the point of the picture is
     // what you get before you have written a skin at all.
