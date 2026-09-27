@@ -101,6 +101,7 @@ fun Showcase(
     skins: ShowcaseSkins,
     budget: FrameBudget? = null,
     openLink: (String) -> Unit = {},
+    materials: ShowcaseMaterials? = null,
 ) {
     val keyboard = remember { GamepadKeyboard() }
     // In memory on every platform: a tour is not somewhere a window's position is worth keeping, and
@@ -119,6 +120,7 @@ fun Showcase(
         LocalWindows provides windows,
         LocalConsole provides console,
         LocalInterfaceRoot provides interfaceRoot,
+        LocalMaterials provides materials,
     ) {
         ProvideSkin(skins[state.skin]) {
             ProvideTextScale(state.textScale) {
@@ -279,6 +281,7 @@ private fun PageArea(state: ShowcaseState, modifier: Modifier, padding: Float) {
                         Section.Hud -> HudPage()
                         Section.Gear -> GearPage()
                         Section.Effects -> EffectsPage()
+                        Section.Surfaces -> SurfacesPage()
                         Section.Text -> TextPage()
                         Section.Settings -> SettingsPage()
                         Section.Debug -> DebugPage()

@@ -43,11 +43,15 @@ class ShowcaseBrowserTest {
         val crest = backend.loadTexture("/composegl/resources/ui/ui.png").region(80, 0, 24, 24)
         val coins = WebGlTexture.rgba(backend.gl, CoinFrames * CoinSize, CoinSize, coinSheet(), smooth = false)
         val skins = ShowcaseSkins(showcaseAtlas(crest, coins) { texture, left, top, width, height -> texture.region(left, top, width, height) })
+        // The grains too, the way the page itself makes them, so the surfaces page is photographed
+        // wearing the materials rather than falling back to a flat colour.
+        val grains = Grain.entries.map { WebGlTexture.rgba(backend.gl, GrainSize, GrainSize, grainSheet(it), smooth = true) }
+        val materials = ShowcaseMaterials(grains[0], grains[1], grains[2])
 
         val design = designFor(cssWidth.toDouble(), cssHeight.toDouble())
         val state = ShowcaseState().also { it.width = design.width }
         val budget = mutableStateOf<FrameBudget?>(null)
-        val ui = BrowserUi(backend, design, input = { ShowcaseInput(state, it) }) { Showcase(state, skins, budget.value) }
+        val ui = BrowserUi(backend, design, input = { ShowcaseInput(state, it) }) { Showcase(state, skins, budget.value, materials = materials) }
         budget.value = ui.renderer.budget
         try {
             frames(ui, 8)
@@ -56,6 +60,7 @@ class ShowcaseBrowserTest {
             ui.close()
             backend.close()
             coins.close()
+            grains.forEach { it.close() }
             canvas.remove()
         }
     }

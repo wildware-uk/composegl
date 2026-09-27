@@ -49,6 +49,10 @@ private suspend fun start() {
     val sheet = backend.loadTexture("ui/ui.png")
     val coins = WebGlTexture.rgba(backend.gl, CoinFrames * CoinSize, CoinSize, coinSheet(), smooth = false)
     val atlas = showcaseAtlas(sheet.region(80, 0, 24, 24), coins) { texture, left, top, width, height -> texture.region(left, top, width, height) }
+    // The grains the surfaces page wears. Their own textures rather than regions of the atlas,
+    // because a material is tiled and tiling a region samples whatever was packed beside it.
+    fun grain(kind: Grain) = WebGlTexture.rgba(backend.gl, GrainSize, GrainSize, grainSheet(kind), smooth = true)
+    val materials = ShowcaseMaterials(grain(Grain.Wood), grain(Grain.Paper), grain(Grain.Metal))
 
     val state = ShowcaseState()
     val skins = ShowcaseSkins(atlas)
@@ -61,7 +65,7 @@ private suspend fun start() {
         background = Colour.rgb(0x0B0E13),
         input = { screen -> ShowcaseInput(state, screen) },
     ) {
-        Showcase(state, skins, budget.value, openLink = { url -> window.open(url, "_blank", "noopener") })
+        Showcase(state, skins, budget.value, openLink = { url -> window.open(url, "_blank", "noopener") }, materials = materials)
     }
     budget.value = ui.renderer.budget
 

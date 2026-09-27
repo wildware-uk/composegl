@@ -32,6 +32,9 @@ val LocalWindows = staticCompositionLocalOf { DebugWindowsState(MemoryDebugWindo
 /** The tour's developer console, so the debug page can open it and run commands through it. */
 val LocalConsole = staticCompositionLocalOf<DevConsoleState?> { null }
 
+/** The grains the surfaces page lays across a lit face, or null on a backend that made none. */
+val LocalMaterials = staticCompositionLocalOf<ShowcaseMaterials?> { null }
+
 /** The node the whole tour is built into, once it has been laid out. For the node tree. */
 val LocalInterfaceRoot = staticCompositionLocalOf<State<UiNode?>> { mutableStateOf(null) }
 
