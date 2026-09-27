@@ -57,7 +57,13 @@ internal data class LinearPolicy(
         }
 
         if (totalWeight > 0f) {
-            val spare = if (mainMax.isFinite()) (mainMax - used).coerceAtLeast(0f) else 0f
+            // A line with no end to it has nothing to share out: a Column inside a scroll area is
+            // offered infinite height, and a share of infinity is not a number anybody can be
+            // measured at. Such a child is measured as if it had no weight — its own size, in as
+            // much room as it likes — rather than at nothing, which used to stack every weighted
+            // child on top of the one before it at the same place on the screen.
+            val unbounded = !mainMax.isFinite()
+            val spare = if (unbounded) 0f else (mainMax - used).coerceAtLeast(0f)
             var handedOut = 0f
             for (index in 0 until count) {
                 val measurable = measurables[index]
@@ -68,12 +74,14 @@ internal data class LinearPolicy(
                 // Never below nothing: the shares add up to the space on paper, but they are floats,
                 // and a long row whose last weight is a sliver can hand out a hair more than there
                 // was. A child asked for a negative width is a crash rather than a rounding error.
-                val share =
-                    if (index == lastWeighted) (spare - handedOut).coerceAtLeast(0f)
-                    else spare * (weight / totalWeight)
-                handedOut += share
+                val share = when {
+                    unbounded -> Float.POSITIVE_INFINITY
+                    index == lastWeighted -> (spare - handedOut).coerceAtLeast(0f)
+                    else -> spare * (weight / totalWeight)
+                }
+                if (share.isFinite()) handedOut += share
                 val placeable = measurable.measure(
-                    childConstraints(share, crossMax, offers[index], tight = true),
+                    childConstraints(share, crossMax, offers[index], tight = !unbounded),
                 )
                 placeables[index] = placeable
                 used += placeable.main

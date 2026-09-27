@@ -86,9 +86,15 @@ private fun Responsive() = Card("Responsive", "Drag the window's edge: this card
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6f)) {
                 Text("This card has ${room.width.toInt()} of its own, so it is laid out ${if (wide) "side by side" else "stacked"}.", Modifier.fillMaxWidth(), style = "label.dim")
                 if (wide) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6f)) { Panes() }
+                    // Side by side, so each pane takes a share of the row.
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6f)) {
+                        Panes { Modifier.weight(1f) }
+                    }
                 } else {
-                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6f)) { Panes() }
+                    // Stacked, where a share of the column would mean nothing: each takes the width.
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6f)) {
+                        Panes { Modifier.fillMaxWidth() }
+                    }
                 }
             }
         }
@@ -97,10 +103,10 @@ private fun Responsive() = Card("Responsive", "Drag the window's edge: this card
 
 /** Three blocks that sit in a row where there is room and stack where there is not. */
 @Composable
-private fun Panes() {
+private fun Panes(slot: () -> Modifier) {
     listOf("Nav", "Page", "Details").forEach { name ->
         Box(
-            Modifier.weight(1f).height(38f).background(Steel, corner = 6f),
+            slot().height(38f).background(Steel, corner = 6f).testTag("pane-$name"),
             contentAlignment = Alignment.Centre,
         ) { Text(name, style = "label") }
     }
