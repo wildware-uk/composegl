@@ -183,7 +183,7 @@ private fun coinSheet(): GlTexture {
     return GlTexture.rgba(width, CoinSize, pixels, smooth = false)
 }
 
-private fun resource(path: String): ByteArray =
+internal fun resource(path: String): ByteArray =
     checkNotNull(object {}.javaClass.classLoader.getResourceAsStream(path)) { "no $path on the classpath" }
         .use { it.readBytes() }
 
@@ -199,7 +199,7 @@ private fun resource(path: String): ByteArray =
  * Every scale is applied to every family. A family is a handful of sizes and the sizes overlap, so
  * working out which scale reaches which style is more arithmetic than it would save.
  */
-private fun bakedSizes(skins: List<Skin>): Map<String, List<Int>> {
+internal fun bakedSizes(skins: List<Skin>): Map<String, List<Int>> {
     val scales = (DocTextScales + SubtitleSize.scales + 1f).distinct()
     val declared = LinkedHashMap<String, MutableSet<Int>>()
     // A widget nothing styled draws at the toolkit's own default, which no skin file has to mention.
@@ -514,7 +514,7 @@ private fun drag(mouse: PointerRouter, from: Offset, to: Offset, hold: Boolean) 
 }
 
 /** The bottom-left corner of the framebuffer, turned the right way up. */
-private fun read(width: Int, height: Int): BufferedImage {
+internal fun read(width: Int, height: Int): BufferedImage {
     val bytes = BufferUtils.createByteBuffer(width * height * 4)
     GL11.glReadPixels(0, 0, width, height, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, bytes)
 
@@ -535,6 +535,6 @@ private fun read(width: Int, height: Int): BufferedImage {
     return image
 }
 
-private fun save(file: File, image: BufferedImage) {
+internal fun save(file: File, image: BufferedImage) {
     ImageIO.write(image, "png", file)
 }
