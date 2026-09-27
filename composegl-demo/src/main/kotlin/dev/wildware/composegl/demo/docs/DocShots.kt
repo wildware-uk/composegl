@@ -582,6 +582,10 @@ private fun MutableList<DocShot>.layout() {
         }
     })
 
+    // The same screen at three widths: stacked, a rail beside the page, and the lot at once. Two
+    // settling frames, because WithSize knows its room from the layout pass rather than before it.
+    add(DocShot("layout-responsive", 980, 560, stock = true, still = 4) { ResponsiveWidths() })
+
     add(DocShot("layout-flow", 420, 310) {
         Frame {
             Column(verticalArrangement = Arrangement.spacedBy(8f)) {

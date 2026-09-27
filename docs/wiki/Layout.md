@@ -65,6 +65,75 @@ with a size inside it — and `Constraints` has `minWidth`, `maxWidth`, `minHeig
 
 ---
 
+## Responsive: changing shape, not just scale
+
+`Viewport` makes one design fit any screen. That is **scaling**, and it is not the
+same as being responsive: scaled down, a three-column desktop layout on a phone is a
+three-column desktop layout with unreadable text. Being responsive is *changing* the
+layout, and something has to know how much room there is.
+
+`LocalScreen` is that something. The host provides it from the viewport every frame.
+
+```kotlin
+val screen = LocalScreen.current            // Screen(size, safeInsets)
+if (screen.width < 700f) Stacked() else SideBySide()
+```
+
+`screen.size` is what the root is actually laid out at — the design size with the safe
+area already taken off — so it is the room a screen has rather than the resolution
+somebody declared. `screen.orientation` is `Portrait` or `Landscape`, and a square
+counts as landscape.
+
+**`WindowClass` is the coarse version**, at Material's own breakpoints, because a
+number people already know beats a better one nobody does:
+
+| Class | Design units | Typically |
+|---|---|---|
+| `Compact` | under 600 | a phone held upright |
+| `Medium` | 600 to 839 | a tablet, or a small window |
+| `Expanded` | 840 and up | laptop, desktop, television |
+
+```kotlin
+when (LocalWindowClass.current) {
+    WindowClass.Compact -> Column { Page(); BottomBar() }      // one column
+    WindowClass.Medium -> Row { Rail(); Page() }               // a rail beside it
+    WindowClass.Expanded -> Row { Nav(); Page(); Details() }   // the lot
+}
+```
+
+![the same screen at three widths: stacked with a bar underneath at 360, a rail beside the page at 700, and navigation, page and details side by side at 920](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/layout-responsive.png)
+
+One composable, laid out three times. Nothing is scaled: the phone gets a different
+layout, not a smaller one.
+
+Read `LocalWindowClass` rather than `LocalScreen` when the decision is coarse: it
+changes three times across every screen size there is, so dragging a desktop window
+wider recomposes nothing until a boundary is crossed.
+
+**`WithSize` asks the same question about one place** rather than the whole screen —
+a card in a grid, a panel inside a split — which is what a component that has to work
+in more than one place needs:
+
+```kotlin
+WithSize { room ->
+    if (room.width < 420f) Column { Icon(); Label() } else Row { Icon(); Label() }
+}
+```
+
+Two things to know about it. **It knows on the second frame**: the width comes from
+the layout pass, so the first composition uses `estimate` — the whole screen by
+default, which is right for a box that fills the screen and wrong for a narrow card.
+And the **height is the content's own**, not the room offered, because a box's height
+is decided by what is in it; give it a height or `fillMaxSize` if height is what the
+decision turns on.
+
+That one frame is the price of having no subcomposition in the layout core. Everything
+else — `weight`, `fillMaxWidth(fraction)`, `aspectRatio`, `FlowRow`, `Grid` — is fluid
+with no frames owed, so reach for those first and change shape only where fluid stops
+being enough.
+
+---
+
 ## Keeping a shape: `aspectRatio`
 
 A portrait, a minimap or a video thumbnail wants a flexible size and a fixed

@@ -20,6 +20,7 @@ import dev.wildware.composegl.ui.input.PointerRouter
 import dev.wildware.composegl.ui.input.SourceAware
 import dev.wildware.composegl.ui.input.TextEvent
 import dev.wildware.composegl.ui.layout.ScalePolicy
+import dev.wildware.composegl.ui.layout.Screen
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.widget.ProvideBackStack
 import dev.wildware.composegl.ui.widget.ProvideClipboard
@@ -164,6 +165,9 @@ class ComposeGlView(
     private val closeables = mutableListOf<AutoCloseable>()
 
     fun setContent(content: @Composable () -> Unit) {
+        // Before the content, so the first composition already knows how much room it has and a
+        // screen that changes shape with it is not composed once against nothing.
+        host.screen = Screen.of(viewport)
         host.setContent {
             ProvideFonts(backend.fonts) {
                 ProvideClipboard(backend.clipboard) {

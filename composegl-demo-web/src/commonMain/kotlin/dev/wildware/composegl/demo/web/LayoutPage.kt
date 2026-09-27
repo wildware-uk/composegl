@@ -16,8 +16,12 @@ import dev.wildware.composegl.ui.layout.FlowRow
 import dev.wildware.composegl.ui.layout.Grid
 import dev.wildware.composegl.ui.layout.GridCells
 import dev.wildware.composegl.ui.layout.IntrinsicSize
+import dev.wildware.composegl.ui.layout.LocalScreen
+import dev.wildware.composegl.ui.layout.LocalWindowClass
 import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.layout.VerticalAlignment
+import dev.wildware.composegl.ui.layout.WindowClass
+import dev.wildware.composegl.ui.layout.WithSize
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.aspectRatio
@@ -27,6 +31,7 @@ import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
+import dev.wildware.composegl.ui.modifier.testTag
 import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.modifier.widthIn
@@ -39,6 +44,7 @@ import dev.wildware.composegl.ui.widget.Text
 @Composable
 fun LayoutPage() {
     Page(Section.Layout, "The layouts are the toolkit's own: floats in design units, no dp, measured in one pass.") {
+        Responsive()
         RowColumnBox()
         Weights()
         GridCard()
@@ -47,6 +53,56 @@ fun LayoutPage() {
         MinMax()
         BaselineCard()
         Intrinsic()
+    }
+}
+
+/**
+ * The page's own answer to "how do I make this work on a phone as well".
+ *
+ * Two halves, because they answer different questions. The top reads `LocalScreen` and
+ * `LocalWindowClass` — how much room the whole screen has — and the bottom is a `WithSize` that
+ * only knows about the card it is standing in, which is why it stays stacked on a desktop where
+ * the screen readout above it says Expanded.
+ */
+@Composable
+private fun Responsive() = Card("Responsive", "Drag the window's edge: this card changes shape, it does not just scale.") {
+    val screen = LocalScreen.current
+    val windowClass = LocalWindowClass.current
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
+        Text("Screen ${screen.width.toInt()} x ${screen.height.toInt()} — $windowClass, ${screen.orientation}", Modifier.testTag("screen-readout"), style = "label")
+
+        // The coarse decision, the one most screens actually make.
+        val shape = when (windowClass) {
+            WindowClass.Compact -> "one column, bar along the bottom"
+            WindowClass.Medium -> "a rail beside the page"
+            WindowClass.Expanded -> "nav, page and details, all on at once"
+        }
+        Text("A screen this wide would lay out as: $shape", Modifier.fillMaxWidth(), style = "label.dim")
+
+        // The same question asked about one place rather than the whole screen: a card is narrow
+        // even on a desktop, so this stays stacked while the readout above says Expanded.
+        WithSize { room ->
+            val wide = room.width >= 420f
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6f)) {
+                Text("This card has ${room.width.toInt()} of its own, so it is laid out ${if (wide) "side by side" else "stacked"}.", Modifier.fillMaxWidth(), style = "label.dim")
+                if (wide) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6f)) { Panes() }
+                } else {
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6f)) { Panes() }
+                }
+            }
+        }
+    }
+}
+
+/** Three blocks that sit in a row where there is room and stack where there is not. */
+@Composable
+private fun Panes() {
+    listOf("Nav", "Page", "Details").forEach { name ->
+        Box(
+            Modifier.weight(1f).height(38f).background(Steel, corner = 6f),
+            contentAlignment = Alignment.Centre,
+        ) { Text(name, style = "label") }
     }
 }
 
