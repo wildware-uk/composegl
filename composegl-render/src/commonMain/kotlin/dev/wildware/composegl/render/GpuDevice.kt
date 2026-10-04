@@ -159,6 +159,9 @@ interface VertexStream {
     val quads: Int
 
     operator fun set(index: Int, value: Float)
+
+    /** The first [count] floats of [from], written from the start in one copy. */
+    fun put(from: FloatArray, count: Int)
 }
 
 /**

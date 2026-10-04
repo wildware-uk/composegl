@@ -90,6 +90,9 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     private var effectArray = 0
     private var effectFloats: GlFloats? = null
 
+    /** One effect quad's corners, filled here and handed to [effectFloats] in one copy. */
+    private val effectCorners = FloatArray(4 * ShapeVertex.EffectFloats)
+
     private class EffectProgram(val name: Int) {
         val uniforms = HashMap<String, Int>()
     }
@@ -136,17 +139,19 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
      * the engine's.
      */
     private fun uploadIndices(quads: Int) {
-        val indices = gl.shorts(quads * 6)
+        val values = ShortArray(quads * 6)
         for (quad in 0 until quads) {
             val vertex = quad * 4
             val at = quad * 6
-            indices[at] = vertex.toShort()
-            indices[at + 1] = (vertex + 1).toShort()
-            indices[at + 2] = (vertex + 2).toShort()
-            indices[at + 3] = (vertex + 2).toShort()
-            indices[at + 4] = (vertex + 3).toShort()
-            indices[at + 5] = vertex.toShort()
+            values[at] = vertex.toShort()
+            values[at + 1] = (vertex + 1).toShort()
+            values[at + 2] = (vertex + 2).toShort()
+            values[at + 3] = (vertex + 2).toShort()
+            values[at + 4] = (vertex + 3).toShort()
+            values[at + 5] = vertex.toShort()
         }
+        val indices = gl.shorts(values.size)
+        indices.put(0, values, 0, values.size)
         val vertexArrays = caps().vertexArrays
         if (vertexArrays) gl.bindVertexArray(shapeArray)
         gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, indexBuffer)
@@ -357,6 +362,8 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         override fun set(index: Int, value: Float) {
             floats[index] = value
         }
+
+        override fun put(from: FloatArray, count: Int) = floats.put(0, from, 0, count)
     }
 
     override fun vertices(quads: Int): VertexStream {
@@ -410,10 +417,11 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         effect.uniforms.forEach { (name, value) -> set(uniform(program, name), value) }
 
         val floats = checkNotNull(effectFloats)
-        put(floats, 0, quad.left, quad.top, quad.u, quad.v)
-        put(floats, 1, quad.right, quad.top, quad.u2, quad.v)
-        put(floats, 2, quad.right, quad.bottom, quad.u2, quad.v2)
-        put(floats, 3, quad.left, quad.bottom, quad.u, quad.v2)
+        corner(0, quad.left, quad.top, quad.u, quad.v)
+        corner(1, quad.right, quad.top, quad.u2, quad.v)
+        corner(2, quad.right, quad.bottom, quad.u2, quad.v2)
+        corner(3, quad.left, quad.bottom, quad.u, quad.v2)
+        floats.put(0, effectCorners, 0, effectCorners.size)
 
         gl.activeTexture(GlConst.TEXTURE0)
         bindPicture(picture)
@@ -447,12 +455,12 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     private fun uniform(program: EffectProgram, name: String): Int =
         program.uniforms.getOrPut(name) { gl.getUniformLocation(program.name, name) }
 
-    private fun put(floats: GlFloats, corner: Int, x: Float, y: Float, u: Float, v: Float) {
+    private fun corner(corner: Int, x: Float, y: Float, u: Float, v: Float) {
         val at = corner * ShapeVertex.EffectFloats
-        floats[at] = x
-        floats[at + 1] = y
-        floats[at + 2] = u
-        floats[at + 3] = v
+        effectCorners[at] = x
+        effectCorners[at + 1] = y
+        effectCorners[at + 2] = u
+        effectCorners[at + 3] = v
     }
 
     private fun set(location: Int, value: Uniform) {

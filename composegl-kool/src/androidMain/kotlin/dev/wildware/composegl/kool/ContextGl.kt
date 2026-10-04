@@ -145,12 +145,22 @@ internal actual object ContextGl : Gl {
         override fun set(index: Int, value: Float) {
             buffer.put(index, value)
         }
+        override fun put(at: Int, from: FloatArray, offset: Int, count: Int) {
+            (buffer as Buffer).clear().position(at)
+            buffer.put(from, offset, count)
+            (buffer as Buffer).clear()
+        }
     }
 
     private class Shorts(val buffer: ShortBuffer) : GlShorts {
         override val capacity: Int get() = buffer.capacity()
         override fun set(index: Int, value: Short) {
             buffer.put(index, value)
+        }
+        override fun put(at: Int, from: ShortArray, offset: Int, count: Int) {
+            (buffer as Buffer).clear().position(at)
+            buffer.put(from, offset, count)
+            (buffer as Buffer).clear()
         }
     }
 

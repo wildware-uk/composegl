@@ -22,6 +22,13 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
 
     private val vertices = device.vertices(maxQuads)
     private val capacity = maxQuads * 4 * ShapeVertex.Floats
+
+    /**
+     * What is queued, written here and handed to [vertices] in one copy when it flushes. Not
+     * straight into [vertices]: a float at a time through a platform buffer was a fifth of a frame
+     * on Android.
+     */
+    private val floats = FloatArray(capacity)
     private var used = 0
 
     private var texture: DeviceTexture? = null
@@ -81,6 +88,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     fun flush(reason: BatchBreak) {
         if (used == 0) return
         val quads = used / (4 * ShapeVertex.Floats)
+        vertices.put(floats, used)
         device.drawShapes(vertices, quads, checkNotNull(texture), blend, projection)
         renderCalls++
         trace?.record(reason)
@@ -643,7 +651,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         w: Float = 1f,
         ramp: FloatArray? = null,
     ) {
-        val out = vertices
+        val out = floats
         var at = used
         out[at++] = x
         out[at++] = y
@@ -680,10 +688,10 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
 
     /** Four floats, red first. The toolkit's packed integer undone once, here. */
     private fun writeColour(colour: Colour, at: Int): Int {
-        vertices[at] = colour.red / 255f
-        vertices[at + 1] = colour.green / 255f
-        vertices[at + 2] = colour.blue / 255f
-        vertices[at + 3] = colour.alphaFraction
+        floats[at] = colour.red / 255f
+        floats[at + 1] = colour.green / 255f
+        floats[at + 2] = colour.blue / 255f
+        floats[at + 3] = colour.alphaFraction
         return at + 4
     }
 }

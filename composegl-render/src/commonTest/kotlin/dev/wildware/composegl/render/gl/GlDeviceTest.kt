@@ -3,9 +3,11 @@ package dev.wildware.composegl.render.gl
 import dev.wildware.composegl.render.Blend
 import dev.wildware.composegl.render.EffectQuad
 import dev.wildware.composegl.render.FrameTarget
+import dev.wildware.composegl.render.QuadBatch
 import dev.wildware.composegl.render.ShapeVertex
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
+import dev.wildware.composegl.ui.graphics.Colour
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -86,6 +88,40 @@ class GlDeviceTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun `a flush of many quads hands its vertices over in one bulk copy`() {
+        val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
+        val device = GlDevice(gl)
+        val batch = QuadBatch(device)
+        device.begin(FrameTarget.Host)
+        val texture = device.texture(4, 4, smooth = true)
+        batch.begin(identity)
+        repeat(10) { batch.textured(texture, 0f, 0f, 10f, 10f, 0f, 0f, 1f, 1f, Colour.White) }
+        batch.end()
+        device.end()
+
+        val floats = 10 * 4 * ShapeVertex.Floats
+        assertEquals(0, gl.oneAtATime, "not one float at a time")
+        assertEquals(listOf("copy(floats $floats)"), gl.named("copy(floats"))
+        val copied = gl.calls.indexOfFirst("copy(floats $floats)")
+        val uploaded = gl.calls.indexOfFirst("bufferData(${GlConst.ARRAY_BUFFER}, floats $floats)")
+        assertTrue(copied < uploaded, "copied before it goes up")
+    }
+
+    @Test
+    fun `an effect quad and the index buffer go up in one copy each`() {
+        val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
+        val device = GlDevice(gl)
+        device.begin(FrameTarget.Host)
+        val picture = device.texture(4, 4, smooth = true)
+        device.drawEffect(glow, picture, EffectQuad(), Blend.PremultipliedSourceOver)
+        device.vertices(100)
+        device.end()
+
+        assertEquals(0, gl.oneAtATime, "not one number at a time")
+        assertEquals(listOf("copy(shorts 6)", "copy(floats 16)", "copy(shorts 600)"), gl.named("copy("))
     }
 
     @Test

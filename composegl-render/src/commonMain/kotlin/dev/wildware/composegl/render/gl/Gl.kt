@@ -140,16 +140,22 @@ data class GlProfile(val api: GlApi, val major: Int, val minor: Int, val core: B
         this.major > major || (this.major == major && this.minor >= minor)
 }
 
-/** Float storage a binding can upload directly. Written by absolute index. */
+/** Float storage a binding can upload directly. Written by absolute index, or many at once. */
 interface GlFloats {
     val capacity: Int
     operator fun set(index: Int, value: Float)
+
+    /** [count] floats of [from], starting at [offset], written from [at] in one copy. */
+    fun put(at: Int, from: FloatArray, offset: Int, count: Int)
 }
 
-/** Short storage a binding can upload directly. */
+/** Short storage a binding can upload directly. Written by absolute index, or many at once. */
 interface GlShorts {
     val capacity: Int
     operator fun set(index: Int, value: Short)
+
+    /** [count] shorts of [from], starting at [offset], written from [at] in one copy. */
+    fun put(at: Int, from: ShortArray, offset: Int, count: Int)
 }
 
 /** Byte storage a binding can upload and read back directly. */
