@@ -73,7 +73,9 @@
   These compare against golden images; a golden that changes must be explained on the card.
 - Verdict: Gradle exit code; failing goldens leave actual/expected/diff under
   `**/build/screenshots/**`.
-- Known failures on main: none recorded. Check any failure against `origin/master` in a detached
+- Known failures on main: on this machine `:composegl-lwjgl3:testGles2` and `testGles3` crash
+  after every test has passed (master does the same; found on #234). Read the test report, not
+  the exit code, for those two. Check any other failure against `origin/master` in a detached
   worktree in the same session.
 
 ## Never per ticket
