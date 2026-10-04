@@ -1,11 +1,13 @@
 package dev.wildware.composegl.showcase.ui
 
 import androidx.compose.runtime.Composable
+import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import dev.wildware.composegl.gdx.GdxTexture
 import androidx.compose.runtime.remember
+import dev.wildware.composegl.ui.backend.FakeTexture
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.interaction
@@ -230,6 +232,8 @@ private val Grains: List<Pair<() -> TextureHandle, Colour>> = listOf(
  */
 private object Grain {
 
+    private const val Side = 128
+
     private val made = mutableMapOf<String, GdxTexture>()
 
     fun wood(): TextureHandle = of("wood") { random, x, y ->
@@ -247,13 +251,16 @@ private object Grain {
         0.72 + Random(y).nextDouble() * 0.24 + random.nextDouble() * 0.04
     }
 
-    private fun of(name: String, grey: (Random, Int, Int) -> Double): TextureHandle =
-        made.getOrPut(name) {
-            val size = 128
+    private fun of(name: String, grey: (Random, Int, Int) -> Double): TextureHandle {
+        // No GL context to make a texture in: the section is composed headless, in a test. There
+        // a picture is only laid out around and written into a recording, never uploaded, so a
+        // stand-in the same size does. Not kept, so a real run in the same process builds the grain.
+        if (Gdx.gl == null) return FakeTexture(Side, Side)
+        return made.getOrPut(name) {
             val random = Random(name.hashCode())
-            val pixmap = Pixmap(size, size, Pixmap.Format.RGBA8888)
-            for (y in 0 until size) {
-                for (x in 0 until size) {
+            val pixmap = Pixmap(Side, Side, Pixmap.Format.RGBA8888)
+            for (y in 0 until Side) {
+                for (x in 0 until Side) {
                     val level = grey(random, x, y).coerceIn(0.0, 1.0).toFloat()
                     pixmap.setColor(level, level, level, 1f)
                     pixmap.drawPixel(x, y)
@@ -262,4 +269,5 @@ private object Grain {
             val texture = Texture(pixmap).also { pixmap.dispose() }
             GdxTexture(TextureRegion(texture))
         }
+    }
 }

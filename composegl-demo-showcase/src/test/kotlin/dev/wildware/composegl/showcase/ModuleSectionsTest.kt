@@ -6,6 +6,7 @@ import dev.wildware.composegl.debug.rememberDebugWindowsState
 import dev.wildware.composegl.debug.rememberDevConsole
 import dev.wildware.composegl.showcase.ui.GameCompassTag
 import dev.wildware.composegl.showcase.ui.GroupTagPrefix
+import dev.wildware.composegl.showcase.ui.LitRowTag
 import dev.wildware.composegl.showcase.ui.ModuleSections
 import dev.wildware.composegl.showcase.ui.SectionScrollTag
 import dev.wildware.composegl.showcase.ui.SectionTag
@@ -176,6 +177,23 @@ class ModuleSectionsTest {
                     ui.render()
                 }
             }
+        }
+    }
+
+    /**
+     * The lit samples are the one group that makes textures of its own, and a test has no GPU to
+     * make them on. They still have to compose, lay out and draw here: a group that throws stops the
+     * whole screen, and every step after it would be driving nothing.
+     */
+    @Test
+    fun `the lit surfaces build and draw with no GPU`() {
+        section(state(Module.Ui), LayoutDirection.Ltr).use { ui ->
+            ui.openEveryGroup()
+
+            // Fails with the tree printed when the rows are not on the page at all.
+            val lit = ui.node(LitRowTag).boundsInRoot
+            assertTrue(!lit.isEmpty, "the lit rows were laid out:\n" + ui.dump())
+            ui.render()
         }
     }
 
