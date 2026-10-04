@@ -134,11 +134,16 @@ object LwjglGl : Gl {
     override fun readPixels(x: Int, y: Int, width: Int, height: Int, format: Int, type: Int, into: GlBytes) =
         GL11.glReadPixels(x, y, width, height, format, type, (into as Bytes).buffer.clear())
 
-    /** Direct memory, written by absolute index: nothing is copied on its way to the driver. */
+    /** Direct memory, filled in one copy: nothing more is copied on its way to the driver. */
     internal class Floats(val buffer: FloatBuffer) : GlFloats {
         override val capacity: Int get() = buffer.capacity()
         override fun set(index: Int, value: Float) {
             buffer.put(index, value)
+        }
+        override fun put(at: Int, from: FloatArray, offset: Int, count: Int) {
+            buffer.clear().position(at)
+            buffer.put(from, offset, count)
+            buffer.clear()
         }
     }
 
@@ -146,6 +151,11 @@ object LwjglGl : Gl {
         override val capacity: Int get() = buffer.capacity()
         override fun set(index: Int, value: Short) {
             buffer.put(index, value)
+        }
+        override fun put(at: Int, from: ShortArray, offset: Int, count: Int) {
+            buffer.clear().position(at)
+            buffer.put(from, offset, count)
+            buffer.clear()
         }
     }
 

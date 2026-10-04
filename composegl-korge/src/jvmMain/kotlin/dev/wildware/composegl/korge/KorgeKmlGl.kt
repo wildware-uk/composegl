@@ -171,20 +171,30 @@ internal class KorgeKmlGl : Gl {
         mine.forEach { (_, delete) -> delete(on) }
     }
 
-    /** Direct memory in the platform's order, written by absolute index: nothing copied on its way to the driver. */
+    /** Direct memory in the platform's order, filled in one copy: nothing more copied on its way to the driver. */
     private class Floats(override val capacity: Int) : GlFloats {
         private val bytes = native(capacity * 4)
+        private val floats = bytes.asFloatBuffer()
         val buffer = Buffer(bytes)
         override fun set(index: Int, value: Float) {
             bytes.putFloat(index * 4, value)
+        }
+        override fun put(at: Int, from: FloatArray, offset: Int, count: Int) {
+            floats.clear().position(at)
+            floats.put(from, offset, count)
         }
     }
 
     private class Shorts(override val capacity: Int) : GlShorts {
         private val bytes = native(capacity * 2)
+        private val shorts = bytes.asShortBuffer()
         val buffer = Buffer(bytes)
         override fun set(index: Int, value: Short) {
             bytes.putShort(index * 2, value)
+        }
+        override fun put(at: Int, from: ShortArray, offset: Int, count: Int) {
+            shorts.clear().position(at)
+            shorts.put(from, offset, count)
         }
     }
 

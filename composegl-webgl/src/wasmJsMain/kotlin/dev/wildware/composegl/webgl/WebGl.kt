@@ -156,11 +156,17 @@ class WebGl(val context: GL) : Gl {
     private class Floats(val array: FloatArray) : GlFloats {
         override val capacity: Int get() = array.size
         override fun set(index: Int, value: Float) = array.set(index, value)
+        override fun put(at: Int, from: FloatArray, offset: Int, count: Int) {
+            from.copyInto(array, at, offset, offset + count)
+        }
     }
 
     private class Shorts(val array: ShortArray) : GlShorts {
         override val capacity: Int get() = array.size
         override fun set(index: Int, value: Short) = array.set(index, value)
+        override fun put(at: Int, from: ShortArray, offset: Int, count: Int) {
+            from.copyInto(array, at, offset, offset + count)
+        }
     }
 
     private class Bytes(val array: ByteArray) : GlBytes {

@@ -147,6 +147,10 @@ class RecordingDevice(offscreen: Boolean = true, maxTextureSize: Int = 4096) : G
         override fun set(index: Int, value: Float) {
             floats[index] = value
         }
+
+        override fun put(from: FloatArray, count: Int) {
+            from.copyInto(floats, 0, 0, count)
+        }
     }
 
     /** One `drawShapes`. */

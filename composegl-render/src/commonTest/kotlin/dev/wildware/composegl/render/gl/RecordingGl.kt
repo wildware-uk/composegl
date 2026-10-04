@@ -29,6 +29,9 @@ class RecordingGl(
     /** Set to make the next compile fail with this log. */
     var failCompile: String? = null
 
+    /** Floats and shorts written one at a time, rather than handed over in one copy. */
+    var oneAtATime = 0
+
     private var next = 1
 
     /** The calls whose names start with [prefix]. */
@@ -46,17 +49,27 @@ class RecordingGl(
     override fun shorts(capacity: Int): GlShorts = Shorts(capacity)
     override fun bytes(capacity: Int): GlBytes = Bytes(capacity)
 
-    private class Floats(override val capacity: Int) : GlFloats {
+    private inner class Floats(override val capacity: Int) : GlFloats {
         val values = FloatArray(capacity)
         override fun set(index: Int, value: Float) {
             values[index] = value
+            oneAtATime++
+        }
+        override fun put(at: Int, from: FloatArray, offset: Int, count: Int) {
+            from.copyInto(values, at, offset, offset + count)
+            log("copy(floats $count)")
         }
     }
 
-    private class Shorts(override val capacity: Int) : GlShorts {
+    private inner class Shorts(override val capacity: Int) : GlShorts {
         val values = ShortArray(capacity)
         override fun set(index: Int, value: Short) {
             values[index] = value
+            oneAtATime++
+        }
+        override fun put(at: Int, from: ShortArray, offset: Int, count: Int) {
+            from.copyInto(values, at, offset, offset + count)
+            log("copy(shorts $count)")
         }
     }
 

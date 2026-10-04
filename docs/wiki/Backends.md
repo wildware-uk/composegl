@@ -305,6 +305,18 @@ KorGE's pieces are `KorgeKmlGl.kt`, `KorgeRasteriser` in `KorgeFonts.kt`,
 `KorgeCanvas`. A render texture KorGE reads back top row first is drawn with
 `begin(viewport, target, clear, topRowFirst = true)`.
 
+The binding also makes the memory uploads come from: `floats`, `shorts` and `bytes`. The
+renderer fills plain Kotlin arrays and copies them in with `put` (a whole batch of
+vertices in one call), so make `put` one bulk copy, never a loop of single writes:
+
+```kotlin
+override fun put(at: Int, from: FloatArray, offset: Int, count: Int) {
+    buffer.clear().position(at)
+    buffer.put(from, offset, count)
+    buffer.clear()
+}
+```
+
 A `SceneView` needs nothing more from most backends: `RenderCanvas.scene` renders into
 the device's own picture and hands over what `handOver` makes. An engine whose own
 drawing only lands in a framebuffer it made itself — KorGE's batch, for one — makes
