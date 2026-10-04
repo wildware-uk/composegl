@@ -20,7 +20,8 @@ import dev.wildware.composegl.ui.effect.Uniform
  *
  * What it works out once, from the context: whether vertex array objects exist (and must be used —
  * a core context draws nothing without one), whether framebuffers exist, which GLSL dialect to
- * compile, and which internal format an offscreen picture takes.
+ * compile, and which internal format an offscreen picture takes. With [HostState.Leave], which
+ * framebuffer is the engine's own is asked once too, on the first frame drawn into it.
  *
  * Nothing touches the driver until something is drawn, built or asked for, so a canvas holding one
  * can be made with no context anywhere.
@@ -205,9 +206,26 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     // --- frames ---
 
     private var frameTarget: FrameTarget = FrameTarget.Host
+
+    /** What [FrameTarget.Host] binds in this frame. */
     private var hostFramebuffer = 0
     private val hostViewport = IntArray(4)
     private val snapshot = GlSnapshot()
+
+    /**
+     * The engine's own framebuffer, as the first frame on it found it, or [Unknown] until then.
+     * Asked once and remembered rather than asked every frame: a query makes the CPU wait for the
+     * driver to catch up, and on a threaded driver that wait was most of the render thread's time
+     * in native code. Forgotten with the context.
+     */
+    private var engineFramebuffer = Unknown
+
+    /**
+     * The framebuffer this device knows is bound right now — one it asked about or bound itself —
+     * so making a picture mid-frame need not ask. [Unknown] until then, between frames, and while
+     * a game draws, when anything may have been bound.
+     */
+    private var bound = Unknown
 
     private var target: FrameTarget = FrameTarget.Host
     private val viewport = IntArray(4)
@@ -220,9 +238,22 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         if (handOver == HostState.Restore) {
             snapshot.capture(gl, caps.vertexArrays)
             hostFramebuffer = snapshot.framebuffer
+            bound = hostFramebuffer
+        } else if (into === FrameTarget.Host) {
+            // Asked once. After that, what is bound is not known until the frame binds its target:
+            // the engine should have its own bound, but nothing has asked.
+            bound = if (engineFramebuffer == Unknown) {
+                gl.getInteger(GlConst.FRAMEBUFFER_BINDING).also { engineFramebuffer = it }
+            } else {
+                Unknown
+            }
+            hostFramebuffer = engineFramebuffer
         } else {
+            // A frame into a picture can begin anywhere in a game's own scene, inside a framebuffer
+            // of the game's that this device has never seen, so what to put back is asked for.
             hostFramebuffer = gl.getInteger(GlConst.FRAMEBUFFER_BINDING)
-            if (into !== FrameTarget.Host) gl.getIntegers(GlConst.VIEWPORT, hostViewport)
+            gl.getIntegers(GlConst.VIEWPORT, hostViewport)
+            bound = hostFramebuffer
         }
         target = into
         scissorOn = false
@@ -230,6 +261,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     }
 
     override fun end() {
+        bound = Unknown
         if (handOver == HostState.Restore) {
             snapshot.restore(gl, caps().vertexArrays)
             return
@@ -242,7 +274,12 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         leave()
     }
 
+    override fun hostTargetChanged() {
+        engineFramebuffer = Unknown
+    }
+
     override fun suspend() {
+        bound = Unknown
         if (handOver == HostState.Restore) snapshot.restore(gl, caps().vertexArrays) else leave()
     }
 
@@ -258,6 +295,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
      * round the block, as round a frame's `raw`, with the picture left bound.
      */
     override fun suspendInScene() {
+        bound = Unknown
         if (handOver == HostState.Restore) snapshot.restore(gl, caps().vertexArrays, target = false) else leave()
     }
 
@@ -322,6 +360,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
             else -> error("this device can only draw into OpenGL targets, not ${into::class}")
         }
         gl.bindFramebuffer(GlConst.FRAMEBUFFER, framebuffer)
+        bound = framebuffer
         gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3])
     }
 
@@ -588,7 +627,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         val depthBuffer = if (depth) depthBuffer(caps, width, height) else 0
 
         val framebuffer = gl.createFramebuffer()
-        val previous = gl.getInteger(GlConst.FRAMEBUFFER_BINDING)
+        val previous = if (bound != Unknown) bound else gl.getInteger(GlConst.FRAMEBUFFER_BINDING)
         gl.bindFramebuffer(GlConst.FRAMEBUFFER, framebuffer)
         gl.framebufferTexture2D(GlConst.FRAMEBUFFER, GlConst.COLOR_ATTACHMENT0, GlConst.TEXTURE_2D, colour, 0)
         if (depthBuffer != 0) {
@@ -635,6 +674,9 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     }
 
     override fun contextLost() {
+        // A new context's own framebuffer need not have the old one's name.
+        engineFramebuffer = Unknown
+        bound = Unknown
         built = false
         shapeProgram = 0
         indexBuffer = 0
@@ -660,6 +702,9 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
 
     private companion object {
         const val FloatBytes = 4
+
+        /** No framebuffer is ever called this; it stands for one not yet asked about. */
+        const val Unknown = -1
     }
 }
 

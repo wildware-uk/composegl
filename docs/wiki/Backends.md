@@ -325,8 +325,20 @@ width, height, depth = true)`, and passes it to the protected `renderScene(into,
 which does the rest. `KorgeCanvas.scene` is the example.
 
 Pick `HostState.Leave` when your engine sets the GL state it needs before it draws;
-`Restore` when it caches GL state and believes the cache (KorGE, three.js). Inside a
-scene the picture's framebuffer, viewport and scissor are not the ones the engine
+`Restore` when it caches GL state and believes the cache (KorGE, three.js).
+
+`Leave` asks the driver which framebuffer is yours once, on the first frame, and
+remembers it. A query makes the CPU wait for the driver: in one game on NVIDIA, asking
+every frame was 71% of the render thread's time in native code. So to draw a frame
+into a framebuffer of your own, name it rather than binding it first:
+`canvas.begin(viewport, framebuffer)` on `GlCanvas`, `GdxCanvas` and `WebGlCanvas`, or
+`begin(viewport, GlDeviceTarget.adopt(framebuffer, texture, width, height))` on your
+own canvas. Where you cannot name it, because a framebuffer you bind wraps the whole
+frame, call `canvas.hostTargetChanged()` when that changes (see
+[[Render targets|Render-targets]]). A device of your own that remembers nothing can
+leave `GpuDevice.hostTargetChanged` alone.
+
+Inside a scene the picture's framebuffer, viewport and scissor are not the ones the engine
 remembers, so an engine you can tell to forget should be told to, round a scene's
 `raw` block. `KorgeCanvas` is the example. If your
 context can be lost (Android, the browser), call `canvas.contextLost()` when it is.

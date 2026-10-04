@@ -39,6 +39,36 @@ LibGDX) gives it all back.
 
 ---
 
+## A framebuffer of your own around the whole interface
+
+A whole-screen effect, such as a colour grade, binds a framebuffer of its own around
+the frame, interface included. A canvas that leaves GL state as it is documented
+(`HostState.Leave`: LWJGL3, LibGDX, and WebGL unless you chose `Restore`) asks the
+driver which framebuffer is yours only once, on the first frame, and then remembers it,
+because asking every frame makes the CPU wait for the driver. So when the framebuffer
+around the interface changes, say so with `hostTargetChanged()`:
+
+```kotlin
+fun grade(on: Boolean) {
+    if (on != grading) canvas.hostTargetChanged()   // the next frame asks again
+    grading = on
+}
+
+// Every frame:
+if (grading) grade.begin()          // binds the grade's own framebuffer
+ui.render(viewport, System.nanoTime())
+if (grading) grade.end()            // draws it to the window
+```
+
+Call it when the effect is switched on, when it is switched off, and when its
+framebuffer is made again at a new size. The frame after each call asks the driver
+once; the frames after that ask nothing. Without it the interface keeps drawing into
+the framebuffer it remembers. A frame you open yourself can name the framebuffer
+instead: `canvas.begin(viewport, framebuffer)` on `GlCanvas`, `GdxCanvas` and
+`WebGlCanvas`.
+
+---
+
 ## Depth: drawing a 3D scene into one
 
 Out of the box a render target has colour and nothing else. That is all the interface

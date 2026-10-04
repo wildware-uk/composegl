@@ -393,8 +393,9 @@ every drawer shut when they leave.
 | Kool | `KoolFrame`: Kool's `ctx`, the projection and the viewport | Kool's own GL state back, whatever the block left (below) |
 | your own `RenderCanvas` | whatever its `handOver` makes | whatever its device's `HostState` says |
 
-"The documented end state" is `HostState.Leave`: the framebuffer and viewport you had,
-scissor off, depth test, culling and stencil test off, blending on with
+"The documented end state" is `HostState.Leave`: the frame's framebuffer and viewport
+(the window's own, as the first frame found it, unless you said otherwise; see
+[[Render targets|Render-targets]]), scissor off, depth test, culling and stencil test off, blending on with
 `SRC_ALPHA, ONE_MINUS_SRC_ALPHA`, no program, no buffers, texture unit 0 active with
 nothing bound. Your block starts in that state too, with the picture bound. A widget
 drawn after a careless scene draws exactly as it would with no scene at all; each

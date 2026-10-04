@@ -1322,6 +1322,15 @@ open class RenderCanvas protected constructor(
     }
 
     /**
+     * The game has bound a framebuffer of its own around this canvas's frames, or stopped: a
+     * whole-screen colour grade, a capture for a transition. The next frame asks the driver which
+     * framebuffer [FrameTarget.Host] is, rather than drawing into the one it remembers. Call it
+     * after binding one and again after letting it go; a frame you can name a target for instead
+     * needs neither — begin it with that target.
+     */
+    fun hostTargetChanged() = device.hostTargetChanged()
+
+    /**
      * The device lost its context with every object in it. Forgets them all; the next frame
      * rebuilds programs and buffers and uploads the glyph atlas again from memory.
      */

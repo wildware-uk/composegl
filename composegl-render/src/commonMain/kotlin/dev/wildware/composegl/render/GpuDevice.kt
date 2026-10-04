@@ -37,6 +37,13 @@ interface GpuDevice {
     /** Gives the engine its state back. */
     fun end()
 
+    /**
+     * The engine's own framebuffer is a different one from the next frame on: it has bound one of
+     * its own around the interface's frames, or stopped. A device that remembers which one
+     * [FrameTarget.Host] is asks again on the next frame. Nothing to do for one that does not.
+     */
+    fun hostTargetChanged() = Unit
+
     /** Around a game's own drawing inside a frame: its state back while the block runs… */
     fun suspend()
 
@@ -136,7 +143,15 @@ interface DeviceTexture : DeviceResource {
 /** Where a frame is drawn. */
 interface FrameTarget {
 
-    /** Whatever the engine had bound when the frame began: usually the window. */
+    /**
+     * The engine's own framebuffer: usually the window.
+     *
+     * A device may ask the driver which framebuffer that is once and remember it, since asking
+     * every frame makes the CPU wait for the driver. So a frame drawn into a framebuffer of the
+     * game's own names that framebuffer as its target, rather than binding it and saying [Host];
+     * a game that binds one around frames it cannot name a target for says so with
+     * [GpuDevice.hostTargetChanged], after binding it and again after letting it go.
+     */
     object Host : FrameTarget
 }
 

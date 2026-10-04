@@ -14,6 +14,11 @@ enum class HostState {
      * framebuffer and viewport put back. For an engine that sets what it needs before it draws: raw
      * LWJGL, LibGDX, a browser page that owns its context.
      *
+     * Which framebuffer is the engine's own is asked once, on the first frame drawn into it, and
+     * every later frame into [FrameTarget.Host][dev.wildware.composegl.render.FrameTarget.Host]
+     * asks the driver nothing at all. A frame into a framebuffer the game binds for itself names
+     * it as the target — `begin(viewport, framebuffer)` on the LWJGL3, LibGDX and WebGL canvases.
+     *
      * One thing it does not put back: clearing a target that has a depth buffer leaves depth
      * writing switched on, which is OpenGL's own default. An engine that turns it off for a pass of
      * its own turns it off again anyway; one that cannot wants [Restore].
