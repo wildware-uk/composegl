@@ -4,14 +4,19 @@ import dev.wildware.composegl.render.Blend
 import dev.wildware.composegl.render.EffectQuad
 import dev.wildware.composegl.render.FrameTarget
 import dev.wildware.composegl.render.QuadBatch
+import dev.wildware.composegl.render.RenderCanvas
 import dev.wildware.composegl.render.ShapeVertex
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
+import dev.wildware.composegl.ui.geometry.Rect
+import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.layout.Viewport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class GlDeviceTest {
@@ -304,6 +309,233 @@ class GlDeviceTest {
         assertEquals("bindFramebuffer(${target.framebuffer})", gl.named("bindFramebuffer").dropLast(1).last())
         assertEquals("bindFramebuffer(7)", gl.named("bindFramebuffer").last())
         assertEquals("viewport(1, 2, 3, 4)", gl.named("viewport").last())
+    }
+
+    /** A frame on the host's own framebuffer that draws into [layer] and comes back, as a canvas's layer does. */
+    private fun frameWithLayer(device: GlDevice, layer: GlDeviceTarget) {
+        device.begin(FrameTarget.Host)
+        device.target(FrameTarget.Host, 0, 0, 64, 64)
+        device.target(layer, 0, 0, 16, 16)
+        device.target(FrameTarget.Host, 0, 0, 64, 64)
+        device.end()
+    }
+
+    private fun RecordingGl.framebufferQueries() = named("getInteger(${GlConst.FRAMEBUFFER_BINDING})").size
+
+    @Test
+    fun `a frame on the host's framebuffer asks the driver for it only the first time`() {
+        val gl = RecordingGl()
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 5
+        val device = GlDevice(gl)
+        val layer = device.offscreen(16, 16) as GlDeviceTarget
+        frameWithLayer(device, layer)
+
+        val from = gl.calls.size
+        repeat(3) { frameWithLayer(device, layer) }
+        val later = gl.calls.subList(from, gl.calls.size)
+
+        assertEquals(emptyList(), later.filter { it.startsWith("get") }, "every frame after the first")
+        assertEquals("bindFramebuffer(5)", later.filter { it.startsWith("bindFramebuffer") }.last(), "back on the host's after a layer")
+    }
+
+    @Test
+    fun `a canvas drawing a layer every frame asks the driver nothing after the first`() {
+        val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 5
+        val canvas = RenderCanvas(GlDevice(gl))
+        val viewport = Viewport.oneToOne(Size(64f, 64f))
+        val box = Rect.of(8f, 8f, 16f, 16f)
+        fun frame() {
+            canvas.begin(viewport)
+            val picture = canvas.layer(box) { canvas.rect(box, Colour.Red) }
+            canvas.drawLayer(assertNotNull(picture), box)
+            canvas.end()
+        }
+        frame()
+
+        val from = gl.calls.size
+        repeat(3) { frame() }
+        val later = gl.calls.subList(from, gl.calls.size)
+
+        assertEquals(emptyList(), later.filter { it.startsWith("get") })
+        assertTrue("bindFramebuffer(5)" in later, "the window's framebuffer after the layer")
+    }
+
+    @Test
+    fun `a frame into an offscreen target still finds what to put back and leaves the host's alone`() {
+        val gl = RecordingGl()
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 5
+        val device = GlDevice(gl)
+        val layer = device.offscreen(16, 16) as GlDeviceTarget
+        frameWithLayer(device, layer)
+
+        // The game binds a framebuffer of its own and draws a render target in the middle of its scene.
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 7
+        val picture = device.offscreen(8, 8) as GlDeviceTarget
+        val queries = gl.framebufferQueries()
+        device.begin(picture)
+        device.target(picture, 0, 0, 8, 8)
+        device.end()
+        assertEquals(queries + 1, gl.framebufferQueries(), "the game's framebuffer is not one the device knows")
+        assertEquals("bindFramebuffer(7)", gl.named("bindFramebuffer").last())
+
+        frameWithLayer(device, layer)
+        assertEquals(queries + 1, gl.framebufferQueries())
+        assertEquals("bindFramebuffer(5)", gl.named("bindFramebuffer").last(), "the host's own, not the game's")
+    }
+
+    @Test
+    fun `a picture made inside a frame puts back the framebuffer the device bound without asking`() {
+        val gl = RecordingGl()
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 5
+        val device = GlDevice(gl)
+        val layer = device.offscreen(16, 16) as GlDeviceTarget
+        frameWithLayer(device, layer)
+
+        device.begin(FrameTarget.Host)
+        device.target(FrameTarget.Host, 0, 0, 64, 64)
+        device.target(layer, 0, 0, 16, 16)
+        val queries = gl.framebufferQueries()
+        device.offscreen(4, 4)
+        assertEquals(queries, gl.framebufferQueries())
+        assertEquals("bindFramebuffer(${layer.framebuffer})", gl.named("bindFramebuffer").last(), "still drawing into the layer")
+        device.end()
+    }
+
+    @Test
+    fun `a picture made outside a frame still asks what is bound`() {
+        val gl = RecordingGl()
+        val device = GlDevice(gl)
+        frameWithLayer(device, device.offscreen(16, 16) as GlDeviceTarget)
+
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 9
+        val queries = gl.framebufferQueries()
+        device.offscreen(4, 4)
+        assertEquals(queries + 1, gl.framebufferQueries(), "between frames the game may have bound anything")
+        assertEquals("bindFramebuffer(9)", gl.named("bindFramebuffer").last())
+    }
+
+    @Test
+    fun `a picture made after a game's drawing inside a frame asks again`() {
+        val gl = RecordingGl()
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 5
+        val device = GlDevice(gl)
+        frameWithLayer(device, device.offscreen(16, 16) as GlDeviceTarget)
+
+        device.begin(FrameTarget.Host)
+        device.target(FrameTarget.Host, 0, 0, 64, 64)
+        device.suspend()
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 9
+        val queries = gl.framebufferQueries()
+        device.offscreen(4, 4)
+        assertEquals(queries + 1, gl.framebufferQueries(), "the game's own drawing may have bound anything")
+        assertEquals("bindFramebuffer(9)", gl.named("bindFramebuffer").last())
+        device.resume()
+        assertEquals("bindFramebuffer(5)", gl.named("bindFramebuffer").last(), "the frame's own again")
+        device.end()
+    }
+
+    @Test
+    fun `a game that binds a framebuffer of its own around the frames says so and the next frame asks`() {
+        val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 5
+        val canvas = RenderCanvas(GlDevice(gl))
+        val viewport = Viewport.oneToOne(Size(64f, 64f))
+        val box = Rect.of(8f, 8f, 16f, 16f)
+        fun frame(): List<String> {
+            val from = gl.calls.size
+            canvas.begin(viewport)
+            canvas.drawLayer(assertNotNull(canvas.layer(box) { canvas.rect(box, Colour.Red) }), box)
+            canvas.end()
+            return gl.calls.subList(from, gl.calls.size).toList()
+        }
+        frame()
+
+        // A grade switched on: its framebuffer bound around the frame.
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 7
+        canvas.hostTargetChanged()
+        val graded = frame()
+        assertEquals(1, graded.count { it == "getInteger(${GlConst.FRAMEBUFFER_BINDING})" })
+        assertTrue("bindFramebuffer(7)" in graded && "bindFramebuffer(5)" !in graded, graded.toString())
+        assertEquals(emptyList(), frame().filter { it.startsWith("get") }, "and then remembered")
+
+        // Switched off.
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 5
+        canvas.hostTargetChanged()
+        val plain = frame()
+        assertTrue("bindFramebuffer(5)" in plain && "bindFramebuffer(7)" !in plain, plain.toString())
+    }
+
+    @Test
+    fun `a picture made after a game's drawing inside a scene asks again`() {
+        val gl = RecordingGl()
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 5
+        val device = GlDevice(gl)
+        val picture = device.offscreen(16, 16) as GlDeviceTarget
+        frameWithLayer(device, picture)
+
+        device.begin(FrameTarget.Host)
+        device.target(FrameTarget.Host, 0, 0, 64, 64)
+        device.target(picture, 0, 0, 16, 16)
+        device.suspendInScene()
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 9
+        val queries = gl.framebufferQueries()
+        device.offscreen(4, 4)
+        assertEquals(queries + 1, gl.framebufferQueries(), "the game's own drawing may have bound anything")
+        assertEquals("bindFramebuffer(9)", gl.named("bindFramebuffer").last())
+        device.resumeInScene()
+        assertEquals("bindFramebuffer(${picture.framebuffer})", gl.named("bindFramebuffer").last(), "the scene's picture again")
+        device.end()
+    }
+
+    @Test
+    fun `a picture made between beginning a frame and binding its target asks`() {
+        val gl = RecordingGl()
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 5
+        val device = GlDevice(gl)
+        frameWithLayer(device, device.offscreen(16, 16) as GlDeviceTarget)
+
+        device.begin(FrameTarget.Host)
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 9
+        val queries = gl.framebufferQueries()
+        device.offscreen(4, 4)
+        assertEquals(queries + 1, gl.framebufferQueries(), "nothing has been bound or asked yet this frame")
+        assertEquals("bindFramebuffer(9)", gl.named("bindFramebuffer").last(), "what is really bound, left bound")
+        device.end()
+    }
+
+    @Test
+    fun `with Restore a picture made mid-frame puts back the frame's framebuffer without asking again`() {
+        val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 11
+        val device = GlDevice(gl, HostState.Restore)
+        val layer = device.offscreen(16, 16) as GlDeviceTarget
+
+        device.begin(FrameTarget.Host)
+        val queries = gl.framebufferQueries()
+        device.target(FrameTarget.Host, 0, 0, 64, 64)
+        device.offscreen(4, 4)
+        assertEquals("bindFramebuffer(11)", gl.named("bindFramebuffer").last(), "the engine's own, as the frame found it")
+        device.target(layer, 0, 0, 16, 16)
+        device.offscreen(4, 4)
+        assertEquals("bindFramebuffer(${layer.framebuffer})", gl.named("bindFramebuffer").last(), "still drawing into the layer")
+        assertEquals(queries, gl.framebufferQueries())
+        device.end()
+    }
+
+    @Test
+    fun `a lost context makes the device ask for the host's framebuffer again`() {
+        val gl = RecordingGl()
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 5
+        val device = GlDevice(gl)
+        frameWithLayer(device, device.offscreen(16, 16) as GlDeviceTarget)
+        device.contextLost()
+
+        gl.integers[GlConst.FRAMEBUFFER_BINDING] = 3
+        val queries = gl.framebufferQueries()
+        frameWithLayer(device, device.offscreen(16, 16) as GlDeviceTarget)
+        assertEquals("bindFramebuffer(3)", gl.named("bindFramebuffer").last(), "the new context's own")
+        assertEquals(queries + 2, gl.framebufferQueries(), "once for the new picture between frames, once for the frame")
     }
 
     @Test
