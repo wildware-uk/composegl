@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.backend.HeadlessBackend
@@ -145,6 +146,28 @@ class WorldMarkersTest {
             val bounds = ui.node("plate").boundsInRoot
             assertEquals(80f, bounds.bottom, 0.5f, "a label on a post stands on its point: $bounds")
             assertEquals(100f, bounds.centre.x, 0.5f)
+        }
+    }
+
+    @Test
+    fun `a marker whose anchor is all that changes is placed again`() {
+        var anchor by mutableStateOf<Alignment>(Alignment.Centre)
+        screen {
+            WorldMarkerLayer(projection = camera.projection) {
+                marker(key = "one", x = 100f, y = 80f, anchor = anchor) {
+                    Box(Modifier.size(40f, 20f).testTag("plate"))
+                }
+            }
+        }.use { ui ->
+            assertEquals(80f, ui.node("plate").boundsInRoot.centre.y, 0.5f)
+
+            // Nothing on screen moves the point, so only the layout can put the marker somewhere else.
+            anchor = Alignment.BottomCentre
+            ui.settle()
+
+            val bounds = ui.node("plate").boundsInRoot
+            assertEquals(80f, bounds.bottom, 0.5f, "the marker kept its old anchor: $bounds")
+            assertEquals(100f, bounds.centre.x, 0.5f, "and is still centred across: $bounds")
         }
     }
 

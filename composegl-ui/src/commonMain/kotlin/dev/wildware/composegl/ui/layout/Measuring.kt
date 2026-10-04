@@ -121,9 +121,9 @@ interface PlacementScope {
  *
  * It also lends a layout the scratch space it needs while it works. A layout has to hold on to its
  * children between measuring them and placing them, and the obvious way — a list built on the spot
- * — is a list per node per frame, for a tree that is measured every frame whether it changed or
- * not. So the room is lent instead: it belongs to the node, it is used again next frame, and it is
- * good until this measure returns. Keeping it past that is keeping somebody else's paper.
+ * — is a list per node per pass, for a tree that is measured on every frame of a scroll or an
+ * animation. So the room is lent instead: it belongs to the node, it is used again next pass, and it
+ * is good until this measure returns. Keeping it past that is keeping somebody else's paper.
  *
  * A layout is free to ignore all of it and build its own lists. Nothing checks.
  */
@@ -209,10 +209,9 @@ interface MeasureScope {
      *
      * Worth the second way of saying it because of what the block costs. A block that mentions
      * anything around it — the children, their number, the size just chosen — is a small object
-     * made fresh every time the layout runs, and a layout runs every frame for every node on the
-     * screen whether anything moved or not. Nothing here mentions anything: the answer, the
-     * children and their corners all belong to the node already, so a screen standing still makes
-     * nothing at all.
+     * made fresh every time the layout runs, and a layout runs for every node on the screen on every
+     * frame where anything changed. Nothing here mentions anything: the answer, the children and
+     * their corners all belong to the node already, so a pass makes nothing at all.
      *
      * Use it when the corners are known at the end of measuring. Use the block form when they are
      * not, or when the placing is unusual enough that arrays would obscure it.

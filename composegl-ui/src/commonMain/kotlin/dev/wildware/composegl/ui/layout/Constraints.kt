@@ -104,10 +104,10 @@ data class Constraints(
 /**
  * The last [Constraints] worked out here, handed back when the numbers have not moved.
  *
- * A layout pass runs every frame in a game whether anything changed or not, and the numbers a node
- * or a child is offered are the same every time for a screen that is standing still. So the object
- * is kept and compared field by field rather than rebuilt — which costs four float comparisons and
- * saves an allocation on nearly every node, nearly every frame.
+ * A layout pass runs on every frame where anything changed, and the numbers a node or a child is
+ * offered are mostly the same from one pass to the next: a scroll moves one list, not the screen.
+ * So the object is kept and compared field by field rather than rebuilt — which costs four float
+ * comparisons and saves an allocation on nearly every node, every pass.
  *
  * A layout gets these lent to it by [MeasureScope.offers], one per child. Holding one privately
  * works just as well; what must not happen is two different sets of numbers sharing one, because

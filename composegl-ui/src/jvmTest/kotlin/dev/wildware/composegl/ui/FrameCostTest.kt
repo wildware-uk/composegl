@@ -9,7 +9,10 @@ import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.TextureHandle
+import dev.wildware.composegl.ui.debug.FrameBudget
+import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.host.UiHost
+import dev.wildware.composegl.ui.host.settle
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
 import dev.wildware.composegl.ui.layout.Box
@@ -19,6 +22,7 @@ import dev.wildware.composegl.ui.layout.MeasurePass
 import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.layout.SizeChangedHandler
+import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.fillMaxSize
@@ -122,6 +126,37 @@ class FrameCostTest {
             wall += 16_000_000L
             assertTrue(!host.frame(wall), "frame $it redrew a screen where nothing had changed")
         }
+    }
+
+    /**
+     * The renderer's own frame, `settle`, on the same HUD: a still frame does not lay it out.
+     *
+     * Asked through the budget, with a clock that moves a millisecond every time it is read, so any
+     * layout pass at all would show as a millisecond of it.
+     */
+    @Test
+    fun `settling a still screen lays nothing out`() {
+        hud()
+        var nanos = 0L
+        val budget = FrameBudget(publishEveryMillis = 0L, nanoTime = { nanos += 1_000_000; nanos })
+        budget.isOn = true
+        val viewport = Viewport.oneToOne(Size(1280f, 720f))
+        repeat(5) {
+            wall += 16_000_000L
+            host.settle(viewport, nanos = wall, budget = budget)
+        }
+        budget.reset()
+
+        repeat(30) {
+            wall += 16_000_000L
+            assertTrue(!host.settle(viewport, nanos = wall, budget = budget), "frame $it changed something")
+            budget.endFrame()
+        }
+
+        val reading = budget.reading
+        assertTrue(reading.frames == 30L, "the budget did not see the frames: ${reading.frames}")
+        assertTrue(reading.recomposeMillis > 0f, "the budget timed nothing at all")
+        assertTrue(reading.layoutMillis == 0f, "a still frame laid the HUD out: ${reading.layoutMillis}ms")
     }
 
     @Test

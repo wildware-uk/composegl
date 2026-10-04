@@ -227,11 +227,52 @@ it has not, so an unchanged widget does not redraw the frame.
 
 ---
 
+## When a layout runs
+
+On a frame where something reached the tree: a recompose that changed a node, a
+node added, removed or moved, a size animation under way, or a different screen
+size. A screen standing still measures nothing at all — every rectangle is already
+the answer.
+
+So read whatever moves your layout **while composing**, not inside `measure`. A
+policy remembered against the value is a new policy when the value changes, and a
+new policy is a change:
+
+```kotlin
+@Composable
+fun CompassStrip(heading: Float, content: @Composable () -> Unit) {
+    // Read here: a new heading is a new policy, so that frame is laid out again.
+    val policy = remember(heading) {
+        MeasurePolicy { measurables, constraints ->
+            val placeables = measurables.map { it.measure(constraints.loosen()) }
+            val width = constraints.constrainWidth(360f)
+            layout(width, constraints.constrainHeight(24f)) {
+                placeables.forEach { it.at(width / 2f - heading, 0f) }
+            }
+        }
+    }
+    Layout(measurePolicy = policy, content = content)
+}
+```
+
+A policy that reads `player.heading` inside `measure` instead would only move when
+something else on the screen happened to change.
+
+Reading where *another node* is from inside `measure` — lining a marker up with a
+button elsewhere on the screen — works as it always has: you get wherever the last
+pass left that node. After any pass that moved, resized or first placed something,
+the next frame lays out once more, so a layout like that catches up a frame later
+and then stops. On a screen's very first frame the second pass runs straight away,
+so it is right before anything is drawn.
+
+---
+
 ## Making it cost nothing per frame
 
-A layout runs every frame in a game, because the frame it draws into was just
-cleared. The obvious implementation — `map` to a list, `maxOfOrNull`, `forEachIndexed`
-— makes three or four objects per node per frame.
+A layout runs on every frame where anything changed — every frame of a scroll, a
+drag or an animation — so whatever it costs, it costs many times a second. The
+obvious implementation — `map` to a list, `maxOfOrNull`, `forEachIndexed` — makes
+three or four objects per node per frame.
 
 For a layout that is on screen all the time, the scope will lend you room that
 belongs to the node and is reused next frame:
@@ -259,8 +300,8 @@ layout(width, height) {
 ```
 
 The block mentions `count` and `placeables`, so Kotlin makes a fresh object for it
-**every time the layout runs** — once per node, every frame, forever. On a HUD of
-twenty widgets that was most of what a still screen cost.
+**every time the layout runs** — once per node, on every frame of every scroll,
+drag and animation. On a HUD of twenty widgets that was most of what a pass cost.
 
 So write the corners down instead, and hand back the count:
 

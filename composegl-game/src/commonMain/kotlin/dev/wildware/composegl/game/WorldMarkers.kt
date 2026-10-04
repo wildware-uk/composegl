@@ -568,6 +568,9 @@ internal class WorldMarkers {
         // A list that changed is a frame that has to be worked out again whatever the camera is
         // doing: the new markers have never been projected and have no size yet.
         lastNanos = NeverUpdated
+        // And laid out again: a marker whose anchor is all that changed moves nowhere on screen,
+        // so the frame loop would see nothing to redraw, and placing it is layout's job.
+        node?.invalidate()
     }
 
     /** Called by the measure pass, which is the only place the layer's real size is known. */

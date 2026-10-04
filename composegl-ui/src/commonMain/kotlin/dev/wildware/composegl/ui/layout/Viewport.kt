@@ -180,7 +180,5 @@ data class Viewport(
 
 /** Lays a tree out to fill [viewport], with the safe area already taken off. */
 fun MeasurePass.run(root: UiNode, viewport: Viewport) {
-    beginAt(root)
-    measure(root, viewport.rootConstraints).placeAt(viewport.contentOrigin.x, viewport.contentOrigin.y)
-    reportLayout()
+    run(root, viewport.rootConstraints, viewport.contentOrigin.x, viewport.contentOrigin.y)
 }

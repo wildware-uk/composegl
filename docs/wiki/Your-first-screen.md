@@ -120,6 +120,11 @@ The first two of those steps, plus the focus refresh, are also one call —
 `host.settle(viewport, focus, nanos)` — which is what a test that never draws
 uses. See [Testing](Testing).
 
+`settle`, and so the renderer, skips step 2 on a frame where nothing changed: no
+state written, no input, no resize under way, and the same viewport as last time.
+The furniture is already where it goes, so nobody lays it out again. Written out by
+hand as above, the measure runs every frame; that is fine, just not free.
+
 If your game draws into the *same* canvas as the interface — a 2D game putting
 its board under its HUD, say — you do not need to write it out. Hand the drawing
 over instead, and it happens inside the canvas's frame, under everything:

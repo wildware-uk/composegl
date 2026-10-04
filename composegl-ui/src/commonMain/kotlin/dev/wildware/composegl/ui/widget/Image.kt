@@ -1,7 +1,10 @@
 package dev.wildware.composegl.ui.widget
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.TextureHandle
@@ -62,7 +65,14 @@ fun Image(
     // picture, and the size they report is a bound rather than one. Said here rather than three
     // calls later by a backend that can only tell you it did not make this texture.
     refuseNineRegions(texture)
-    val painter = remember(texture, fit, tint, alignment) { ImagePainter(texture, fit, tint, alignment) }
+    // A texture can change size without being a different texture: one still loading has none
+    // until it arrives, and a scene's picture follows the window. Nothing tells the tree, and a
+    // frame where nothing changed is not laid out, so drawing notices instead — it reads the size
+    // anyway — and a new painter is the change that lays the picture out again.
+    var resized by remember(texture) { mutableIntStateOf(0) }
+    val painter = remember(texture, fit, tint, alignment, resized) {
+        ImagePainter(texture, fit, tint, alignment) { resized++ }
+    }
     LeafLayout(modifier = modifier, name = "image", measurePolicy = painter, draw = painter.draw, ink = painter.ink)
 }
 
@@ -91,17 +101,32 @@ private class ImagePainter(
     private val fit: ImageFit,
     private val tint: Colour,
     private val alignment: Alignment,
+    private val resized: () -> Unit,
 ) : MeasurePolicy {
+
+    // The texture's size when it was last measured, and whether a change from it has been reported.
+    private var measuredWidth = 0
+    private var measuredHeight = 0
+    private var reported = false
 
     override fun MeasureScope.measure(
         measurables: List<Measurable>,
         constraints: Constraints,
-    ): MeasureResult = layout(
-        constraints.constrainWidth(texture.width.toFloat()),
-        constraints.constrainHeight(texture.height.toFloat()),
-    ) {}
+    ): MeasureResult {
+        measuredWidth = texture.width
+        measuredHeight = texture.height
+        return layout(
+            constraints.constrainWidth(measuredWidth.toFloat()),
+            constraints.constrainHeight(measuredHeight.toFloat()),
+        ) {}
+    }
 
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
+        // Once: the frame after this one is laid out with a new painter, and this one is dropped.
+        if (!reported && (texture.width != measuredWidth || texture.height != measuredHeight)) {
+            reported = true
+            resized()
+        }
         val (destination, source) = fitInto(bounds, texture.width.toFloat(), texture.height.toFloat(), fit, alignment)
         if (!destination.isEmpty) image(texture, destination, tint, source)
     }
