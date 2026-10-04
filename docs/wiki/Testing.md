@@ -456,6 +456,24 @@ on every pass, and the placement block every layout was making per node per fram
 Neither pass allocates per node any more, so what is left is mostly the runtime
 being asked for a frame it has nothing to do in.
 
+`settle`, and so `UiRenderer.render`, goes one further: a frame where nothing has
+changed since the last layout, at the same size, does not lay the tree out at all.
+A budget handed to it shows that as no layout time:
+
+```kotlin
+// On a screen that has already settled:
+val budget = FrameBudget(publishEveryMillis = 0L)
+budget.isOn = true
+repeat(30) {
+    wall += 16_000_000L
+    host.settle(viewport, nanos = wall, budget = budget)
+    budget.endFrame()
+}
+assertEquals(0f, budget.reading.layoutMillis)   // a still screen measured nothing
+```
+
+On the twenty-widget HUD that is the whole layout pass gone from a still frame.
+
 One thing deliberately stays outside that measurement: `FocusManager.refresh`
 builds a fresh list of focusable nodes every call, so passing a focus manager to
 `settle` — or setting `UiRenderer.focus` — costs an allocation a frame. It is off

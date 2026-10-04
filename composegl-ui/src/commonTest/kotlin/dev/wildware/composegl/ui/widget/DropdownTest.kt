@@ -412,6 +412,64 @@ class DropdownTest {
         assertTrue(next.top >= list.top && next.bottom <= list.bottom, "moving down keeps the option in view: $next in $list")
     }
 
+    /**
+     * The list reads its maximum while it is measured, so a frame that changed nothing else must
+     * still be laid out. The dropdown recomposing is what says so today; this keeps it saying so.
+     */
+    @Test
+    fun `a new max height on an open list is laid out`() {
+        val many = List(30) { "Option $it" }
+        var tallest by mutableStateOf(280f)
+        val ui = open(size = Size(400f, 600f)) {
+            PopupHost {
+                var chosen by remember { mutableStateOf("Option 0") }
+                Dropdown(
+                    many,
+                    chosen,
+                    onSelect = { chosen = it },
+                    modifier = Modifier.width(200f).testTag("long"),
+                    maxListHeight = tallest,
+                ) { Text(it, Modifier.testTag("option $it")) }
+            }
+        }
+        ui.click("long")
+        assertTrue(ui.popups()[0].children[0].children[0].height > 120f, "the list starts taller than it will be")
+
+        tallest = 120f
+        ui.settle()
+
+        val list = ui.popups()[0].children[0].children[0].boundsInRoot
+        assertTrue(list.height <= 120f, "the open list kept its old maximum: $list")
+    }
+
+    @Test
+    fun `an open list follows the screen behind it when that moves`() {
+        var shift by mutableStateOf(0f)
+        val ui = open(size = Size(500f, 400f)) {
+            PopupHost {
+                var chosen by remember { mutableStateOf("English") }
+                // Moved as a whole, so the list's field moves with nothing about the field changing.
+                Box(Modifier.offset(shift, 40f)) {
+                    Dropdown(
+                        listOf("English", "Deutsch", "日本語"),
+                        chosen,
+                        onSelect = { chosen = it },
+                        modifier = Modifier.width(140f).testTag("language"),
+                    ) { Text(it, Modifier.testTag("option $it")) }
+                }
+            }
+        }
+        ui.click("language")
+
+        shift = 160f
+        ui.settle()
+
+        val field = ui.node("language").boundsInRoot
+        assertEquals(160f, field.left)
+        val first = ui.option("English").boundsInRoot
+        assertTrue(first.left >= field.left && first.right <= field.right, "the option $first is not under the field $field")
+    }
+
     // --- where the list lives ------------------------------------------------------------------
 
     @Test

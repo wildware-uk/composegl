@@ -380,11 +380,11 @@ class UiNode(var name: String = "node") {
     var givenConstraints: Constraints? = null
         internal set
 
-    // --- what the layout pass uses again every frame ---
+    // --- what the layout pass uses again every pass ---
     //
-    // A pass runs over the whole tree every frame in most games, whether anything changed or not,
-    // and the three objects below are the ones it would otherwise make fresh for every node every
-    // time. They hold no state that outlives a pass; see MeasurePass for why that is safe.
+    // A pass runs over the whole tree on every frame where anything changed — every frame of a
+    // scroll or an animation — and the three objects below are the ones it would otherwise make
+    // fresh for every node every time. They hold no state that outlives a pass; see MeasurePass for why that is safe.
 
     internal val measurable = OnceMeasurable(this)
 
@@ -473,6 +473,30 @@ class UiNode(var name: String = "node") {
     var width = 0f
     var height = 0f
 
+    // The rectangle the last pass to reach this node finished with, and before the first the one a
+    // new node starts with: what anything that asked where it was would have been told. What tells
+    // a pass that moved something from one that wrote every rectangle back as it found it.
+    private var laidX = 0f
+    private var laidY = 0f
+    private var laidWidth = 0f
+    private var laidHeight = 0f
+
+    /**
+     * Notes the rectangle this pass finished with, once nothing in the pass will move it again, and
+     * returns whether it is a different one from the last pass's.
+     *
+     * A node placed for the first time counts as moving from nowhere: a layout measured before it
+     * in the same pass, asking where it was, was told nowhere.
+     */
+    internal fun noteLaidOut(): Boolean {
+        val moved = x != laidX || y != laidY || width != laidWidth || height != laidHeight
+        laidX = x
+        laidY = y
+        laidWidth = width
+        laidHeight = height
+        return moved
+    }
+
     /**
      * How far down from this node's top its first line of text stands, or NaN when there is no text
      * anywhere inside it.
@@ -534,6 +558,13 @@ class UiNode(var name: String = "node") {
      * before routing a pointer at it is asking for the answer it gets.
      */
     internal var scaleApplied: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            // Where the node is drawn has moved, and so has every rectangle an `onPlaced` was told.
+            // Those are worked out by layout, which a frame where nothing changed does not run.
+            tree?.relayout()
+        }
 
     /**
      * This node's own scale as it is actually drawn: what its chain asked for, unless the canvas
@@ -548,6 +579,11 @@ class UiNode(var name: String = "node") {
      * a canvas can make pictures and still be unable to flip one.
      */
     internal var mirrorApplied: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            tree?.relayout()
+        }
 
     /**
      * Whether the last draw pass could zoom the camera on this node — see [ContentCamera]. A canvas
@@ -556,6 +592,11 @@ class UiNode(var name: String = "node") {
      * [scaleApplied].
      */
     internal var cameraApplied: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            tree?.relayout()
+        }
 
     /** Whether this node's left and right are swapped as it is actually drawn. */
     val drawnMirrorX: Boolean get() = mirrorApplied && resolved.mirrorX
@@ -1052,13 +1093,88 @@ class UiTree(val root: UiNode = UiNode("root")) {
 
     fun invalidate() {
         changed = true
+        layoutStale = true
     }
 
     /** The same, naming the node that changed, so it is counted while the tree is counting. */
     internal fun invalidate(node: UiNode) {
         changed = true
+        layoutStale = true
         if (counting) node.noteChange(clocks.frameNanos, redrawOnly = false)
     }
+
+    // --- whether the rectangles the tree holds are still the answer ---
+    //
+    // Layout costs the same on a frame where nothing moved as on one where everything did, and on
+    // a still screen every rectangle it writes is the one already there. These are what let a frame
+    // skip it: a pass over the root records the room it was given, and any change to the tree since
+    // marks it stale. A redraw does not, because it moves only the picture.
+
+    /**
+     * Whether something has changed that the last layout of [root] has not seen. Cleared as a pass
+     * over the root begins rather than when it ends, so a change made *during* the pass — a resize
+     * stepping — still counts and the next frame lays the tree out again.
+     */
+    private var layoutStale = true
+
+    /** The room [root] was last laid out in, or null when it never was or something else moved it. */
+    private var laidOutIn: Constraints? = null
+    private var laidOutX = 0f
+    private var laidOutY = 0f
+
+    /**
+     * A pass over [node] is beginning. What the tree was laid out in is forgotten until it finishes:
+     * a layout that throws part-way leaves a tree half done, and the next frame must try again rather
+     * than take it for finished. A pass over only part of the tree is forgotten for good, since
+     * whatever the root's pass would give that part, this may not be it.
+     */
+    internal fun layingOut(node: UiNode) {
+        laidOutIn = null
+        if (node === root) layoutStale = false
+    }
+
+    /**
+     * A pass over [node] in [constraints], placed at [x], [y], has finished, and [moved] says whether
+     * it moved, resized or first placed any node. One that did is followed by another on the next
+     * frame.
+     *
+     * Because a layout may read where *other* nodes are while it measures — a popup lining up with
+     * the field it dropped from, a card placed against the layer it is drawn in — and what it reads
+     * there is wherever the last pass left them: a node placed later in the same pass has not been
+     * placed yet. So after a pass that moved something the next frame lays out again, by when
+     * everything it reads has stopped moving, and what it read is put right. A pass that moved
+     * nothing would read exactly what it read before, and is not run.
+     */
+    internal fun laidOut(node: UiNode, constraints: Constraints, x: Float, y: Float, moved: Boolean) {
+        if (node === root) {
+            laidOutIn = constraints
+            laidOutX = x
+            laidOutY = y
+            laidOutOnce = true
+        }
+        if (moved) layoutStale = true
+    }
+
+    /** Whether a pass over [root] has ever finished. */
+    internal var laidOutOnce = false
+        private set
+
+    /**
+     * Asks for the next frame to lay the tree out again without saying anything changed: something
+     * a layout reads has moved, but nothing about the picture is different yet. The draw pass, when
+     * a canvas turns out unable to draw a node scaled or mirrored and so where it really is moves.
+     */
+    internal fun relayout() {
+        layoutStale = true
+    }
+
+    /**
+     * Whether the tree is already laid out exactly as a pass over [root] in [constraints], placed at
+     * [x], [y], would leave it: nothing has changed since the last one, and that one was given the
+     * same room.
+     */
+    internal fun isLaidOut(constraints: Constraints, x: Float, y: Float): Boolean =
+        !layoutStale && laidOutIn == constraints && laidOutX == x && laidOutY == y
 
     /**
      * Asks for the next frame to be drawn, for something that moved only in the drawing — a

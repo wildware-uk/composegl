@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.DrawCall
 import dev.wildware.composegl.ui.graphics.RecordingCanvas
 import dev.wildware.composegl.ui.host.UiHost
+import dev.wildware.composegl.ui.host.settle
 import dev.wildware.composegl.ui.input.GamepadButton
 import dev.wildware.composegl.ui.input.GamepadEvent
 import dev.wildware.composegl.ui.input.GamepadId
@@ -486,6 +487,37 @@ class ItemTooltipTest {
         // The layer learns where it is when it is first laid out, so the second pass is the one
         // that places the card — which is the pass a player sees, since nothing moves in between.
         frames()
+
+        val title = checkNotNull(text("Ash Repeater"))
+        assertTrue(title.at.y > 240f && title.at.y < 290f, "the card should hang just under the slot: ${title.at}")
+        assertTrue(title.at.x > 190f && title.at.x < 270f, "and be centred on it, not on the layer: ${title.at}")
+    }
+
+    /**
+     * The same, on a screen laid out the way a game's renderer does it: a frame where nothing has
+     * changed is not laid out at all. The card is up from the very first frame, before the layer
+     * has been placed, so nothing but the layer finding out where it is can move the card.
+     */
+    @Test
+    fun `a card up from the first frame of a settled screen still hangs under its slot`() {
+        hovered = found
+        val slot = Rect(300f, 200f, 340f, 240f)
+        host.setContent {
+            ProvideFonts(MonospaceFontProvider()) {
+                Box(Modifier.fillMaxSize().padding(left = 100f, top = 50f)) {
+                    ItemTooltip(item = hovered, anchor = slot, rarity = { it.rarity }) {
+                        title(it.name)
+                        stat("Damage", it.damage)
+                    }
+                }
+            }
+        }
+        repeat(4) {
+            wall += 16_000_000L
+            host.settle(Constraints.atMost(600f, 400f), focus, nanos = wall)
+        }
+        canvas.clear(bounds)
+        DrawPass(canvas).draw(host.root)
 
         val title = checkNotNull(text("Ash Repeater"))
         assertTrue(title.at.y > 240f && title.at.y < 290f, "the card should hang just under the slot: ${title.at}")

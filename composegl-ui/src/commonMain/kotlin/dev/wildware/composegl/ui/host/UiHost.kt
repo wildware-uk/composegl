@@ -21,7 +21,6 @@ import dev.wildware.composegl.ui.layout.LocalWindowClass
 import dev.wildware.composegl.ui.layout.MeasurePass
 import dev.wildware.composegl.ui.layout.Screen
 import dev.wildware.composegl.ui.layout.Viewport
-import dev.wildware.composegl.ui.layout.run
 import dev.wildware.composegl.ui.node.UiApplier
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.node.UiTree
@@ -177,11 +176,16 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
     /**
      * Whether the layout that just ran changed anything by itself, counted as a changed frame if
      * [frame] had not already counted it. Clears the flag, so the next frame starts clean.
+     *
+     * [moved] is whether the pass moved, resized or first placed any node. That is a different
+     * picture whether or not anything said so: the pass that follows one that moved something,
+     * putting right a layout that read where another node was, is what it catches.
      */
-    internal fun layoutChanged(): Boolean {
-        if (!tree.consumeChanges()) return false
-        // Still only a redraw if the frame before layout was nothing or only a redraw as well.
-        onlyRedrawn = (!lastFrameChanged || onlyRedrawn) && tree.onlyRedrawn
+    internal fun layoutChanged(moved: Boolean): Boolean {
+        if (!tree.consumeChanges() && !moved) return false
+        // Still only a redraw if the frame before layout was nothing or only a redraw as well, and
+        // the layout moved no box.
+        onlyRedrawn = !moved && (!lastFrameChanged || onlyRedrawn) && tree.onlyRedrawn
         if (!lastFrameChanged) changedFrames++
         lastFrameChanged = true
         return true
@@ -221,6 +225,12 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
  * assertEquals("Continue", focus.focused?.name)
  * ```
  *
+ * A frame where nothing has changed the tree since it was last laid out, at the same size, skips
+ * the layout: every rectangle is already the answer. A layout policy that reads something the
+ * tree is never told about — a game's own field, read while measuring — is therefore laid out
+ * again only when something else changes. Read it while composing instead, or call
+ * [UiNode.invalidate][dev.wildware.composegl.ui.node.UiNode.invalidate] on the node when it moves.
+ *
  * @param focus the manager to refresh, or null for a screen that has none. It is an argument
  *   rather than something the host holds because a game usually has more than one — a heads-up
  *   display and a panel in the world are two trees with two managers — and a host cannot know
@@ -254,7 +264,7 @@ fun UiHost.settle(
     // Before the recompose, so a screen that has just changed shape is composed at the new one
     // rather than a frame behind it.
     screen = Screen.of(viewport)
-    return settleWith(focus, nanos, budget) { pass -> pass.run(root, viewport) }
+    return settleWith(focus, nanos, budget, viewport.rootConstraints, viewport.contentOrigin.x, viewport.contentOrigin.y)
 }
 
 /**
@@ -273,19 +283,41 @@ fun UiHost.settle(
     // No viewport, so the room is whatever the constraints allow: what a test means by "at most
     // 1280 by 720" is a 1280 by 720 screen.
     screen = Screen(Size(constraints.maxWidth.orZero(), constraints.maxHeight.orZero()))
-    return settleWith(focus, nanos, budget) { pass -> pass.run(root, constraints) }
+    return settleWith(focus, nanos, budget, constraints, 0f, 0f)
 }
 
 /** An unbounded constraint describes no screen; zero is the honest answer for one. */
 private fun Float.orZero() = if (isFinite()) coerceAtLeast(0f) else 0f
 
 /**
+ * One pass over the tree, or two the first time it is ever laid out. Returns whether the last pass
+ * moved anything.
+ *
+ * Every node is placed for the first time on the first pass, so a layout that asks where another
+ * node is, measured before that node is placed, is told nowhere. Any later pass that moves something
+ * is followed by another on the next frame, which puts that right. On the very first one nothing has
+ * been drawn yet, so it is put right now instead, and the frame after it has nothing left to do.
+ */
+private fun UiHost.layOut(constraints: Constraints, x: Float, y: Float): Boolean {
+    val first = !tree.laidOutOnce
+    val moved = MeasurePass().run(root, constraints, x, y)
+    return if (first && moved) MeasurePass().run(root, constraints, x, y) else moved
+}
+
+/**
  * The order itself, written once: recompose, lay out, refresh focus.
  *
  * The two overloads above differ only in what they hand the layout pass — a viewport places the
- * root at the safe area's corner, plain constraints leave it at the origin — so that one line is
- * the argument and the other three are here. Inline, because the alternative is a fresh lambda
- * every frame for a frame that otherwise allocates almost nothing.
+ * root at the safe area's corner, plain constraints leave it at the origin — so the room and the
+ * corner are the arguments and the other three steps are here.
+ *
+ * The layout is skipped when nothing has reached the tree since it was last laid out, in the same
+ * room and at the same corner: a frame with no state change, no input and no animation stepping a
+ * size would write every rectangle back exactly as it found it. Anything that does change the tree
+ * — a recompose, a node added or moved, a resize under way — marks it to be laid out again, and so
+ * does laying the tree out anywhere else in between. A redraw alone does not: it moves the picture,
+ * not the boxes. A pass that moved or resized anything is followed by one more on the next frame,
+ * for the layouts that read where other nodes are; see [UiTree.laidOut].
  *
  * The refresh is last on purpose: taking focus tells every ancestor to reveal the newly focused
  * node, and the rectangle a scrolling list is handed there is whatever the layout wrote — run it
@@ -293,18 +325,25 @@ private fun Float.orZero() = if (isFinite()) coerceAtLeast(0f) else 0f
  * wrappers because the budget splits a frame into the three passes and this is none of them; the
  * testing wiki says the same about the allocation it costs.
  */
-private inline fun UiHost.settleWith(
+private fun UiHost.settleWith(
     focus: FocusManager?,
     nanos: Long,
     budget: FrameBudget?,
-    measure: (MeasurePass) -> Unit,
+    constraints: Constraints,
+    x: Float,
+    y: Float,
 ): Boolean {
     val changed = if (budget == null) frame(nanos) else budget.recompose { frame(nanos) }
-    if (budget == null) measure(MeasurePass()) else budget.layout { measure(MeasurePass()) }
+    val moved = when {
+        tree.isLaidOut(constraints, x, y) -> false
+        budget == null -> layOut(constraints, x, y)
+        else -> budget.layout { layOut(constraints, x, y) }
+    }
     focus?.refresh()
     // Layout can change the picture by itself: a node part-way through `animateContentSize` moves
-    // every frame with nothing recomposed. Reported now, on the frame it was laid out at the new
-    // size, rather than on the next one — a game that skips drawing an unchanged frame would
-    // otherwise show every step of a resize a frame late and miss the last one.
-    return layoutChanged() || changed
+    // every frame with nothing recomposed, and a pass that follows one that moved something can
+    // move more. Reported now, on the frame it was laid out at the new size, rather than on the
+    // next one — a game that skips drawing an unchanged frame would otherwise show every step of a
+    // resize a frame late and miss the last one.
+    return layoutChanged(moved) || changed
 }

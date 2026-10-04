@@ -286,8 +286,8 @@ holds its answer inside the range, a `defaultMinSize` lifts it, and a child keep
 `aspectRatio` works out one side from the other.
 
 Asking is not measuring, so it does not break the measure-once rule below. It does walk
-the subtree under the node that asked, every frame, so put it on the menu rather than
-round the whole screen.
+the subtree under the node that asked, every time it is laid out, so put it on the menu
+rather than round the whole screen.
 
 ---
 

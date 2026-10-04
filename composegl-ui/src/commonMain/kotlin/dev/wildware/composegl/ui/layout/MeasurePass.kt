@@ -14,9 +14,10 @@ import dev.wildware.composegl.ui.node.UiNode
  *
  * A pass is a throwaway object, and it is the only thing here that is. The small objects a walk
  * needs — the wrapper round each child, the list they go in, the placeable each node hands back —
- * live on the nodes and are used again next frame, because a game runs this every frame whether
- * anything changed or not: making them fresh each time is a few hundred pieces of rubbish a frame
- * for a screen that is standing still. Which pass is running is a reference, compared by identity,
+ * live on the nodes and are used again next frame, because a pass runs on every frame where
+ * anything changed — every frame of a scroll, a drag or an animation — and on every frame for a game
+ * that lays out by hand: making them fresh each time is a few hundred pieces of rubbish a frame.
+ * Which pass is running is a reference, compared by identity,
  * so "measured exactly once" is still checked and still costs nothing.
  */
 class MeasurePass {
@@ -31,10 +32,33 @@ class MeasurePass {
 
     /** Measures and places [node] and everything under it. The root ends up at the origin. */
     fun run(node: UiNode, constraints: Constraints) {
-        beginAt(node)
-        measure(node, constraints).placeAt(0f, 0f)
-        reportLayout()
+        run(node, constraints, 0f, 0f)
     }
+
+    /**
+     * Measures [node] in [constraints] and places it at [x], [y]. Every pass comes through here, so
+     * the tree always knows the room its root was last laid out in.
+     *
+     * @return whether the pass moved, resized or first placed any node: the picture is different
+     *   even if nothing told the tree so.
+     */
+    internal fun run(node: UiNode, constraints: Constraints, x: Float, y: Float): Boolean {
+        beginAt(node)
+        val tree = node.tree
+        tree?.layingOut(node)
+        moved = false
+        measure(node, constraints).placeAt(x, y)
+        if (node.noteLaidOut()) moved = true
+        reportLayout()
+        tree?.laidOut(node, constraints, x, y, moved)
+        return moved
+    }
+
+    /**
+     * Whether this pass has moved, resized or first placed any node. See
+     * [dev.wildware.composegl.ui.node.UiTree.laidOut].
+     */
+    private var moved = false
 
     /** Points this pass at [root]'s watcher list, emptied. Called before the root is measured. */
     internal fun beginAt(root: UiNode) {
@@ -172,6 +196,14 @@ class MeasurePass {
                 VerticalAlignment.Top, VerticalAlignment.Baseline, null -> 0f
             }
             placeable.slot(slotWidth, slotHeight, dx, dy)
+        }
+
+        // Every child this pass reached is where it is going to stay now: placed, shifted for a
+        // resize and moved down for a baseline, all of it above.
+        val children = node.children
+        for (index in children.indices) {
+            val child = children[index]
+            if (child.measurable.measuredIn(this) && child.noteLaidOut()) moved = true
         }
 
         return placeable
