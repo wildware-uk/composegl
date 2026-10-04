@@ -78,6 +78,10 @@ import dev.wildware.composegl.ui.widget.ProvideSoftKeyboard
  * Nodes are named by `Modifier.testTag`, and everything that takes a tag fails with the tree
  * printed when the tag is not there, because a misspelt tag is otherwise a test about nothing.
  *
+ * A screen that throws — a composable while it recomposes, or an effect — is stopped by Compose
+ * and never changes again, so the step that stopped it fails, with what was thrown as the cause.
+ * One that stops after the last step, on another thread, fails [UiTest.close] instead.
+ *
  * @param size the screen, which is also the viewport the tree is laid out and drawn in.
  * @param backend where fonts, clipboard, keyboard and the canvas [render] draws into come from.
  *   Headless by default; a GL test hands a real one in and reads the pixels back.
@@ -264,7 +268,21 @@ class UiTest(
         cursor.frame(nanos / 1_000_000L)
         padNavigator.frame(nanos / 1_000_000L)
         val changed = host.settle(viewport, focus, nanos = nanos) && !host.onlyRedrawn
+        failIfStopped()
         return changed || focus.focused !== before || cursor.position != cursorWas
+    }
+
+    /** Whether a step has already failed on [UiHost.failure], so [close] does not say it twice. */
+    private var reported = false
+
+    /**
+     * Fails once the screen has stopped: something under it threw, and Compose will never change
+     * it again. Every step after that would be clicking a frozen screen and checking nothing.
+     */
+    private fun failIfStopped() {
+        val stopped = host.failure ?: return
+        reported = true
+        throw IllegalStateException("the screen threw and has stopped, so it will not change again: $stopped", stopped)
     }
 
     // --- the pointer -----------------------------------------------------------------------------
@@ -519,7 +537,7 @@ class UiTest(
      */
     fun render(): Boolean {
         nanos += FrameNanos
-        return renderer.render(viewport, nanos)
+        return renderer.render(viewport, nanos).also { failIfStopped() }
     }
 
     /**
@@ -530,7 +548,17 @@ class UiTest(
      */
     fun overdraw(cell: Float = 1f): OverdrawMap = measureOverdraw(root, backend.canvas, cell)
 
-    override fun close() = host.dispose()
+    /**
+     * Lets the composition go, and fails if the screen stopped after the last step looked: an
+     * effect that threw on another thread, say. A test whose screen died cannot end green.
+     */
+    override fun close() {
+        val stopped = host.failure
+        host.dispose()
+        if (stopped != null && !reported) {
+            throw IllegalStateException("the screen threw and stopped after the last step: $stopped", stopped)
+        }
+    }
 
     // ---------------------------------------------------------------------------------------------
 

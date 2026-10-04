@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.host
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -18,6 +19,8 @@ import dev.wildware.composegl.ui.modifier.focusable
 import dev.wildware.composegl.ui.modifier.onReveal
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.size
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -347,12 +350,70 @@ class UiHostTest {
         assertFalse(host.settle(whole, nanos = tick()), "a settled tree settles again for free")
     }
 
+    /**
+     * A screen that throws while it recomposes takes the recomposer down with it, and from then on
+     * nothing on it changes again. The host says so, with what was thrown, so whoever drives the
+     * screen does not carry on with a frozen one.
+     */
+    @Test
+    fun `a screen that throws while recomposing is stopped with what it threw`() {
+        var broken by mutableStateOf(false)
+        host.setContent {
+            check(!broken) { "the screen broke" }
+            LeafLayout(name = "box")
+        }
+        frames()
+        assertNull(host.failure, "a screen that has thrown nothing is running")
+
+        broken = true
+        frame()
+
+        assertEquals("the screen broke", host.failure?.message)
+    }
+
+    /** An effect runs on the same recomposer, so one that throws stops the screen the same way. */
+    @Test
+    fun `an effect that throws stops the screen with what it threw`() {
+        var started by mutableStateOf(false)
+        host.setContent {
+            LeafLayout(name = "box")
+            if (started) LaunchedEffect(Unit) { error("the effect broke") }
+        }
+        frames()
+
+        started = true
+        frame()
+
+        assertEquals("the effect broke", host.failure?.message)
+    }
+
+    /**
+     * A failure inside a `supervisorScope` is one the screen was built to survive: it keeps
+     * recomposing, so nothing has stopped. The error still goes to the platform as it always has.
+     */
+    @Test
+    fun `a failure the screen survives does not stop it`() {
+        var padding by mutableStateOf(4f)
+        host.setContent {
+            LeafLayout(Modifier.padding(padding), name = "box")
+            LaunchedEffect(Unit) { supervisorScope { launch { error("shielded") } } }
+        }
+        frames()
+
+        padding = 8f
+
+        assertTrue(frame(), "the screen still recomposes")
+        assertEquals(8f, host.root.children.single().resolved.padding.left)
+        assertNull(host.failure)
+    }
+
     @Test
     fun `a disposed host refuses to run frames`() {
         host.setContent { LeafLayout(name = "box") }
         host.dispose()
 
         assertThrowsIllegalState { host.frame(0L) }
+        assertNull(host.failure, "letting a screen go is not the screen failing")
     }
 
     private fun assertThrowsIllegalState(block: () -> Unit) {

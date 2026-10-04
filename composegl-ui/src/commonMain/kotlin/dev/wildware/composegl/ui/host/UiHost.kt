@@ -30,6 +30,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.launch
+import kotlin.concurrent.Volatile
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -105,7 +106,30 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
     var isDisposed = false
         private set
 
+    /**
+     * What stopped this screen, or null while it runs.
+     *
+     * When a composable throws while recomposing, or an effect under the screen throws, Compose
+     * stops the screen for good: nothing on it changes again. The error itself goes wherever the
+     * platform sends an uncaught coroutine exception, which is printed on the desktop and a crash on
+     * Android, and nothing else tells the game. This is that error, for whoever is driving the
+     * screen: a test harness that has to fail rather than click on a frozen screen, or a game that
+     * would rather say so than show one. A failure the screen survives, inside a `supervisorScope`
+     * say, is not one, and neither is [dispose].
+     *
+     * Set from whichever thread the failure happened on, which is not always the frame's.
+     */
+    @Volatile
+    var failure: Throwable? = null
+        private set
+
     init {
+        // A child of the host's job hears the moment that job is cancelled. Its own cancellation
+        // says why: the cause is what cancelled the parent, which is what the screen threw.
+        Job(job).invokeOnCompletion { stopped ->
+            if (!isDisposed && failure == null) failure = stopped?.cause ?: stopped
+        }
+
         // A long press on this tree is measured in the same time as every animation in it.
         tree.clocks = clocks
 

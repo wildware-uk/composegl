@@ -777,6 +777,26 @@ holds the last flash until something changes.
 
 ---
 
+## A screen that has stopped
+
+The opposite problem: a screen that never changes again. When a composable throws while
+it recomposes, or a `LaunchedEffect` throws, Compose stops that screen for good. The
+error goes wherever your platform sends any uncaught coroutine error: printed on the
+desktop, a crash on Android. Nothing else tells the game, so on the desktop the menu just
+freezes.
+
+`host.failure` is that error, or `null` while the screen runs:
+
+```kotlin
+host.failure?.let { error -> log("the menu has stopped: $error") }
+```
+
+A failure the screen survives, inside a `supervisorScope`, is not one. A test need not
+read it: `uiTest` fails the step that stopped the screen. See
+[Testing](Testing.md#driving-a-screen-like-a-player).
+
+---
+
 ## The lines inside text, on the screen
 
 `TextAnchor` places text by its line box, its capitals or its baseline, and none of

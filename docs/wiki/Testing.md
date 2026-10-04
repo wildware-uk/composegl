@@ -165,6 +165,20 @@ focused fails too.
 something a test can check. Clicks, keys and pad buttons return whether anything used
 them.
 
+**A screen that throws fails the step that broke it.** Once a composable or a
+`LaunchedEffect` on the screen throws, Compose stops the screen, and every click after
+that would be checking a frozen picture. So the action that set it off fails, with what
+was thrown as the cause:
+
+```kotlin
+val failure = assertFailsWith<IllegalStateException> { ui.click("open-inventory") }
+println(failure.cause)   // what the inventory screen threw
+```
+
+An effect can throw on another thread after the last step has finished. Then closing
+the test fails instead, so a test whose screen died never ends green. A failure the
+screen survives, inside a `supervisorScope`, fails nothing.
+
 A game that wraps its sink — `ParallaxAware` in front of the toolkit, say — wraps the
 test's the same way, so every event the test sends passes through it first:
 
