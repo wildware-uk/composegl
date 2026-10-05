@@ -22,11 +22,9 @@ import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.graphics.featherOutline
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextLayout
-import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
-import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.roundToInt
 
@@ -496,8 +494,8 @@ open class RenderCanvas protected constructor(
         drawText(layout, x, y, 0f, 0f, colour, ring = true)
 
     /**
-     * A ring copy whose letters are snapped where the face's are, then moved [dx], [dy] in whole
-     * screen pixels, so every copy of every line sits the same number of pixels off its letter.
+     * A ring copy whose letters are snapped where the face's are, then moved exactly [dx], [dy], so
+     * every copy of every line sits the same distance off its letter.
      */
     override fun textRing(layout: TextLayout, x: Float, y: Float, dx: Float, dy: Float, colour: Colour) =
         drawText(layout, x, y, dx, dy, colour, ring = true)
@@ -554,10 +552,12 @@ open class RenderCanvas protected constructor(
      * into. A letter is placed from its own offsets and snapped to the screen's pixels, so each of its
      * pixels lands on one of the screen's; a picture fills its original's box.
      *
-     * A ring copy's offset [dx], [dy] is added after the letter is snapped, as whole pixels, so it
-     * moves every copy of every line by the same amount. Snapped together with the letter, a ring
-     * thinner than a pixel reached the next pixel or not depending on where its line fell between
-     * two, and a paragraph drew some lines bold and some thin.
+     * A ring copy's offset [dx], [dy] is added after the letter is snapped, unrounded, so it moves
+     * every copy of every line by the same amount. Snapped together with the letter, a ring thinner
+     * than a pixel reached the next pixel or not depending on where its line fell between two, and a
+     * paragraph drew some lines bold and some thin. Left a fraction of a pixel off, the copy is
+     * sampled smoothly and puts down that fraction of a pixel's ink: a ring a fifth of a pixel wide
+     * is a faint edge, and a thinner ring a fainter one, on every line alike.
      */
     private fun drawSharp(sharp: Glyph, placed: PlacedGlyph, x: Float, y: Float, dx: Float, dy: Float, tint: Colour) {
         val on = checkNotNull(sharp.page)
@@ -580,8 +580,8 @@ open class RenderCanvas protected constructor(
             val originY = layer?.bounds?.top ?: 0f
             val atX = state.mapX(x + placed.pen + sharp.xOffset / sharp.pixelsPerUnit)
             val atY = state.mapY(y + placed.baseline + sharp.yOffset / sharp.pixelsPerUnit)
-            left = originX + (floor((atX - originX) * scaleX + 0.5f) + wholePixels(dx * grow * scaleX)) / scaleX
-            top = originY + (floor((atY - originY) * scaleY + 0.5f) + wholePixels(dy * grow * scaleY)) / scaleY
+            left = originX + floor((atX - originX) * scaleX + 0.5f) / scaleX + dx * grow
+            top = originY + floor((atY - originY) * scaleY + 0.5f) / scaleY + dy * grow
             // Made for the nearest step of a zoom, so stretched by whatever the step left over.
             width = sharp.width / sharp.pixelsPerUnit * grow
             height = sharp.height / sharp.pixelsPerUnit * grow
@@ -599,23 +599,6 @@ open class RenderCanvas protected constructor(
             v2 = (sharp.y + sharp.height) / size,
             tint = tint,
         )
-    }
-
-    /**
-     * A ring offset of [pixels] screen pixels as a whole number of them.
-     *
-     * The pair of copies on one axis, one each side, adds twice the offset to the letter's
-     * thickness. That total is rounded to whole pixels, never to none, and split between the two
-     * sides with the odd pixel going to the positive one. A ring of a whole pixel or more lands where
-     * it would anyway, give or take rounding; a ring under half a pixel adds the one pixel, to the
-     * right and below, which is what a thin ring looked like on the lines where it showed before.
-     * Rounding each side on its own instead would make a 0.2-pixel ring a full pixel on both sides:
-     * twice the weight it asked for, enough to fill the inside of a small kanji.
-     */
-    private fun wholePixels(pixels: Float): Float {
-        if (pixels == 0f) return 0f
-        val total = max(1f, floor(2f * abs(pixels) + 0.5f))
-        return if (pixels > 0f) ceil(total / 2f) else -floor(total / 2f)
     }
 
     /**

@@ -298,80 +298,57 @@ class SharpTextTest {
     }
 
     /**
-     * The screen pixels every glyph quad of the last draw covers, ring copies and face together.
-     * Each quad is snapped, so its edges sit on whole pixels and the cover is exact.
+     * Each ring copy's offset from the face, in screen pixels, as (left, top) of its quad minus the
+     * face's: the face is drawn last, after the eight copies.
      */
-    private fun ink(draw: RecordingDevice.Draw, scale: Float, screenHeight: Float): Int {
-        val covered = HashSet<Long>()
-        for (box in boxes(draw)) {
-            val (left, top, right, bottom) = box.map { it * scale }
-            // y is counted up from the bottom of the screen; turn it into rows from the top.
-            val x0 = kotlin.math.round(left).toInt()
-            val x1 = kotlin.math.round(right).toInt()
-            val y0 = kotlin.math.round(screenHeight - top).toInt()
-            val y1 = kotlin.math.round(screenHeight - bottom).toInt()
-            for (x in minOf(x0, x1) until maxOf(x0, x1)) for (y in minOf(y0, y1) until maxOf(y0, y1)) {
-                covered += x.toLong() shl 32 or y.toLong()
-            }
-        }
-        return covered.size
-    }
-
-    @Test
-    fun `a ring under a pixel wide puts down the same ink wherever its line falls between pixels`() {
-        // The game's Japanese body text at 1280x720: a ring of 0.34 design units is 0.22 of a pixel.
-        val scale = 0.66f
-        val fonts = Fonts()
-        val layout = fonts.measure("H", style)
-        val ring = TextOutline(Colour.Black, width = 0.34f)
-        val inks = (0 until 10).map { tenth ->
-            val device = RecordingDevice()
-            val canvas = RenderCanvas(device, fonts)
-            // Twice round: a held scale is what the copies are made for.
-            repeat(2) {
-                device.draws.clear()
-                canvas.begin(scaled(scale))
-                canvas.text(layout, 10f + tenth * 0.1f, 20f + tenth * 0.1f, Colour.White, ring)
-                canvas.end()
-            }
-            ink(device.draws.single(), scale, 100f * scale)
-        }
-        val face = run {
-            val device = RecordingDevice()
-            val canvas = RenderCanvas(device, fonts)
-            repeat(2) {
-                device.draws.clear()
-                canvas.begin(scaled(scale))
-                canvas.text(layout, 10f, 20f, Colour.White)
-                canvas.end()
-            }
-            ink(device.draws.single(), scale, 100f * scale)
-        }
-
-        assertEquals(1, inks.toSet().size, "one ink count at every sub-pixel offset: $inks")
-        assertTrue(inks.first() > face, "a thin ring still adds weight round the letter: ${inks.first()} against $face")
-    }
-
-    @Test
-    fun `a ring of whole pixels stays the same width on both sides of the letter`() {
-        // One design unit at twice the size: two pixels each side, nothing to round.
-        val fonts = Fonts()
-        val layout = fonts.measure("H", style)
+    private fun ringOffsets(layout: AtlasTextLayout, at: Float, width: Float, scale: Float): List<Pair<Float, Float>> {
         val device = RecordingDevice()
-        val canvas = RenderCanvas(device, fonts)
+        val canvas = RenderCanvas(device, ringFonts)
+        // Twice round: a held scale is what the copies are made for.
         repeat(2) {
             device.draws.clear()
-            canvas.begin(scaled(2f))
-            canvas.text(layout, 10f, 20f, Colour.White, TextOutline(Colour.Black, width = 1f))
+            canvas.begin(scaled(scale))
+            canvas.text(layout, 10f + at, 20f + at, Colour.White, TextOutline(Colour.Black, width))
             canvas.end()
         }
-        val boxes = boxes(device.draws.single()).map { box -> box.map { it * 2f } }
+        val boxes = boxes(device.draws.single()).map { box -> box.map { it * scale } }
         val face = boxes.last()
-        val rings = boxes.dropLast(1)
-
-        assertEquals(face[0] - 2f, rings.minOf { it[0] }, 0.01f, "two pixels out on the left")
-        assertEquals(face[2] + 2f, rings.maxOf { it[2] }, 0.01f, "two pixels out on the right")
-        assertEquals(face[1] + 2f, rings.maxOf { it[1] }, 0.01f, "two pixels out above")
-        assertEquals(face[3] - 2f, rings.minOf { it[3] }, 0.01f, "two pixels out below")
+        return boxes.dropLast(1).map { (it[0] - face[0]) to (face[1] - it[1]) }
     }
+
+    private val ringFonts = Fonts()
+
+    @Test
+    fun `a ring under a pixel sits the same fraction of a pixel off its letter wherever its line falls`() {
+        // The game's Japanese body text at 1280x720: a ring of 0.34 design units is 0.22 of a pixel.
+        val scale = 0.66f
+        val layout = ringFonts.measure("H", style) as AtlasTextLayout
+        val straight = 0.34f * scale
+        val corner = straight * 0.70710678f
+        val expected = listOf(
+            -straight to 0f, straight to 0f, 0f to -straight, 0f to straight,
+            -corner to -corner, corner to -corner, -corner to corner, corner to corner,
+        )
+        for (tenth in 0 until 10) {
+            val offsets = ringOffsets(layout, tenth * 0.1f, 0.34f, scale)
+            assertEquals(8, offsets.size)
+            offsets.zip(expected).forEachIndexed { copy, (got, want) ->
+                // Neither rounded to a whole pixel nor to none: the ring's own width, on every line.
+                assertEquals(want.first, got.first, 0.001f, "copy $copy across, line ${tenth / 10f} px off the grid")
+                assertEquals(want.second, got.second, 0.001f, "copy $copy down, line ${tenth / 10f} px off the grid")
+            }
+        }
+    }
+
+    @Test
+    fun `a wide ring keeps its corners as far out as its sides on both sides of the letter`() {
+        // One design unit at twice the size: two pixels, with corners at 1.41 each way.
+        val offsets = ringOffsets(ringFonts.measure("H", style) as AtlasTextLayout, 0.3f, 1f, 2f)
+        val corner = 2f * 0.70710678f
+        assertEquals(listOf(-2f to 0f, 2f to 0f, 0f to -2f, 0f to 2f), offsets.take(4).map { round2(it) })
+        assertEquals(listOf(-corner to -corner, corner to -corner, -corner to corner, corner to corner).map { round2(it) },
+            offsets.drop(4).map { round2(it) })
+    }
+
+    private fun round2(p: Pair<Float, Float>) = (kotlin.math.round(p.first * 100f) / 100f) to (kotlin.math.round(p.second * 100f) / 100f)
 }
