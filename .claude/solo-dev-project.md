@@ -115,6 +115,9 @@ on. Never label an issue `blocked` or file one as "an owner's call" for a techni
 
 ## Box
 - Load cap: 20 (24 cores, other projects share the machine) - wait above it before any heavy run.
+- Memory: 31 GB shared with other projects' builds and an Android emulator. Before a heavy run,
+  `free -g` must show at least 6 GB available; below that, wait as for load. A run the system
+  killed for low memory is rerun once memory is back, without asking anyone.
 - Shared paths to namespace: `COMPOSEGL_DOC_SHOTS` and any other output dir - use your own
   scratch dir. Never use a fixed `/tmp` path.
 - Other: the GPU and the Gradle daemon cache (`~/.gradle`) are shared with other projects. Never
