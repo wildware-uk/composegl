@@ -22,6 +22,7 @@ import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.graphics.featherOutline
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextLayout
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
@@ -601,14 +602,20 @@ open class RenderCanvas protected constructor(
     }
 
     /**
-     * A ring offset of [pixels] screen pixels as a whole number of them: the nearest, but never none
-     * for an offset that is not zero. A ring under half a pixel wide is still there to add weight,
-     * and rounded to nothing it would vanish from every line instead of from half of them.
+     * A ring offset of [pixels] screen pixels as a whole number of them.
+     *
+     * The pair of copies on one axis, one each side, adds twice the offset to the letter's
+     * thickness. That total is rounded to whole pixels, never to none, and split between the two
+     * sides with the odd pixel going to the positive one. A ring of a whole pixel or more lands where
+     * it would anyway, give or take rounding; a ring under half a pixel adds the one pixel, to the
+     * right and below, which is what a thin ring looked like on the lines where it showed before.
+     * Rounding each side on its own instead would make a 0.2-pixel ring a full pixel on both sides:
+     * twice the weight it asked for, enough to fill the inside of a small kanji.
      */
-    private fun wholePixels(pixels: Float): Float = when {
-        pixels > 0f -> max(1f, floor(pixels + 0.5f))
-        pixels < 0f -> -max(1f, floor(-pixels + 0.5f))
-        else -> 0f
+    private fun wholePixels(pixels: Float): Float {
+        if (pixels == 0f) return 0f
+        val total = max(1f, floor(2f * abs(pixels) + 0.5f))
+        return if (pixels > 0f) ceil(total / 2f) else -floor(total / 2f)
     }
 
     /**

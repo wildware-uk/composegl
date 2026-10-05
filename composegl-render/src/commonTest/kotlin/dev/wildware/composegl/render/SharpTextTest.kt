@@ -351,4 +351,27 @@ class SharpTextTest {
         assertEquals(1, inks.toSet().size, "one ink count at every sub-pixel offset: $inks")
         assertTrue(inks.first() > face, "a thin ring still adds weight round the letter: ${inks.first()} against $face")
     }
+
+    @Test
+    fun `a ring of whole pixels stays the same width on both sides of the letter`() {
+        // One design unit at twice the size: two pixels each side, nothing to round.
+        val fonts = Fonts()
+        val layout = fonts.measure("H", style)
+        val device = RecordingDevice()
+        val canvas = RenderCanvas(device, fonts)
+        repeat(2) {
+            device.draws.clear()
+            canvas.begin(scaled(2f))
+            canvas.text(layout, 10f, 20f, Colour.White, TextOutline(Colour.Black, width = 1f))
+            canvas.end()
+        }
+        val boxes = boxes(device.draws.single()).map { box -> box.map { it * 2f } }
+        val face = boxes.last()
+        val rings = boxes.dropLast(1)
+
+        assertEquals(face[0] - 2f, rings.minOf { it[0] }, 0.01f, "two pixels out on the left")
+        assertEquals(face[2] + 2f, rings.maxOf { it[2] }, 0.01f, "two pixels out on the right")
+        assertEquals(face[1] + 2f, rings.maxOf { it[1] }, 0.01f, "two pixels out above")
+        assertEquals(face[3] - 2f, rings.minOf { it[3] }, 0.01f, "two pixels out below")
+    }
 }
