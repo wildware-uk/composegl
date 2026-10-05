@@ -46,6 +46,13 @@
 - Releases of any kind except `-f kind=snapshot`, and only after the owner asked.
 - Public API removals or renames not asked for by the issue.
 
+Everything else is yours. **Never ask the owner which fix or approach to take** (owner,
+2026-10-05: "its your job to pick the best solutions"). That includes speed-against-look
+trade-offs, small visual differences, and which of several designs to build. Pick the best one:
+fast on a phone, no frozen or wrong animation, and as close to today's look as you can get it.
+Write the choice and the reasons on the issue, with before/after pictures and numbers, and carry
+on. Never label an issue `blocked` or file one as "an owner's call" for a technical choice.
+
 ## Backlog
 - Skip: issues titled "DO NOT START THIS FEATURE UNTIL EXPLICITLY INSTRUCTED" (#189-#192); the
   `roadmap` label; `blocked-externally` unless the newest dependency version now allows it.
