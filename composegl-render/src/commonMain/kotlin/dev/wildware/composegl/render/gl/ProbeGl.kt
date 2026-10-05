@@ -66,6 +66,15 @@ class ProbeGl(private val gl: Gl) : Gl {
         var quadsOutsideScissor = 0
         var quadsOfNoSize = 0
         val breaks = HashMap<String, Int>()
+        /** Pixels re-loaded counting only the 16x16 tiles the resumed pass draws into, as a tiler that skips untouched tiles would. */
+        var reloadTilePixels = 0L
+        var screenReloadTilePixels = 0L
+        /** Draw calls there would be if a batch could hold this many textures at once (2 and 4), all else equal. */
+        var draws2 = 0
+        var draws4 = 0
+        /** For each picture put down: its size, the screen area it was put down over, and that area before the scissor. */
+        val composited = HashMap<String, Long>()
+        val compositedWhole = HashMap<String, Long>()
         var livePictureBytes = 0L
         /** Distinct offscreen pictures drawn into, as width x height, and how many times. */
         val offscreenTargets = HashMap<String, Int>()
@@ -83,8 +92,11 @@ class ProbeGl(private val gl: Gl) : Gl {
         frame.screen = screenPixels
         frame.phase = phase
         frame.livePictureBytes = livePictureBytes
+        finishPass()
         drawnThisFrame.clear()
         pendingReload = -1
+        run2.clear()
+        run4.clear()
         lastDrawFramebuffer = -2
         uniformChangesAtLastDraw = 0
         frames += frame
@@ -131,6 +143,21 @@ class ProbeGl(private val gl: Gl) : Gl {
     private val lastDrawBlend = IntArray(4)
     private val lastDrawScissor = IntArray(5)
     private var uniformChangesAtLastDraw = 0
+    private val passTiles = HashSet<Int>()
+    private var passResumed = false
+    private var passScreen = false
+    private val run2 = HashSet<Int>()
+    private val run4 = HashSet<Int>()
+
+    private fun finishPass() {
+        if (passResumed) {
+            val px = passTiles.size * 256L
+            frame.reloadTilePixels += px
+            if (passScreen) frame.screenReloadTilePixels += px
+        }
+        passTiles.clear()
+        passResumed = false
+    }
 
     private fun uniformKey(at: Int): Long = (program.toLong() shl 32) or (at.toLong() and 0xffffffffL)
 
@@ -313,20 +340,32 @@ class ProbeGl(private val gl: Gl) : Gl {
                 frame.screenReloads++
                 frame.reloadPixels += frame.screen.takeIf { it > 0 } ?: lastScreen
             }
+            passResumed = true
+            passScreen = picture == null
             pendingReload = -1
         }
         val texture = textures[GlConst.TEXTURE0] ?: 0
         val scissorOn = if (caps[GlConst.SCISSOR_TEST] == true) 1 else 0
-        val cause = when {
-            lastDrawFramebuffer != framebuffer -> "first into its target"
-            lastDrawProgram != program -> "program (effect)"
-            lastDrawTexture != texture -> "texture"
-            !lastDrawBlend.contentEquals(blend) -> "blend"
-            lastDrawScissor[0] != scissorOn || (scissorOn == 1 && (lastDrawScissor[1] != scissorBox[0] || lastDrawScissor[2] != scissorBox[1] || lastDrawScissor[3] != scissorBox[2] || lastDrawScissor[4] != scissorBox[3])) -> "scissor"
-            frame.uniformChanges != uniformChangesAtLastDraw -> "uniform (projection or rounded clip)"
-            else -> "nothing changed (full batch or a flush)"
-        }
+        val changed = ArrayList<String>()
+        if (lastDrawFramebuffer != framebuffer) changed += "target"
+        if (lastDrawProgram != program) changed += "program"
+        if (lastDrawTexture != texture) changed += "texture"
+        if (!lastDrawBlend.contentEquals(blend)) changed += "blend"
+        if (lastDrawScissor[0] != scissorOn || (scissorOn == 1 && (lastDrawScissor[1] != scissorBox[0] || lastDrawScissor[2] != scissorBox[1] || lastDrawScissor[3] != scissorBox[2] || lastDrawScissor[4] != scissorBox[3]))) changed += "scissor"
+        if (frame.uniformChanges != uniformChangesAtLastDraw) changed += "uniform"
+        val cause = if (changed.isEmpty()) "nothing" else changed.joinToString("+")
         frame.breaks[cause] = (frame.breaks[cause] ?: 0) + 1
+        // The same draws, with batches that could hold 2 or 4 textures: only a change other than
+        // the texture, or a texture past the limit, starts a new draw call.
+        val other = changed.any { it != "texture" }
+        for ((set, limit) in listOf(run2 to 2, run4 to 4)) {
+            val fresh = set.isEmpty() || other || (texture !in set && set.size >= limit)
+            if (fresh) {
+                set.clear()
+                if (limit == 2) frame.draws2++ else frame.draws4++
+            }
+            set += texture
+        }
         lastDrawFramebuffer = framebuffer
         lastDrawProgram = program
         lastDrawTexture = texture
@@ -389,6 +428,7 @@ class ProbeGl(private val gl: Gl) : Gl {
             if (key !in attributions && attributions.size < 60) attributions[key] = asker()
         }
         if (this.framebuffer != framebuffer) {
+            finishPass()
             frame.framebufferSwitches++
             pendingReload = if (framebuffer in drawnThisFrame) framebuffer else -1
         }
@@ -489,6 +529,23 @@ class ProbeGl(private val gl: Gl) : Gl {
                 continue
             }
             val kind = if (effect) "effect" else kindOf(floats, base, texture)
+            var minX = Float.MAX_VALUE; var minY = Float.MAX_VALUE; var maxX = -Float.MAX_VALUE; var maxY = -Float.MAX_VALUE
+            for (v in 0 until 4) {
+                minX = minOf(minX, corner[v * 2]); maxX = maxOf(maxX, corner[v * 2])
+                minY = minOf(minY, corner[v * 2 + 1]); maxY = maxOf(maxY, corner[v * 2 + 1])
+            }
+            val tx0 = (maxOf(minX, left) / 16f).toInt()
+            val tx1 = ((minOf(maxX, right) - 0.001f) / 16f).toInt()
+            val ty0 = (maxOf(minY, bottom) / 16f).toInt()
+            val ty1 = ((minOf(maxY, top) - 0.001f) / 16f).toInt()
+            for (ty in ty0..ty1) for (tx in tx0..tx1) passTiles += ty * 4096 + tx
+            if (kind == "layer picture") {
+                val size = textureSizes[texture]
+                val key = if (size != null) "${size[0]}x${size[1]}" else "?"
+                frame.composited[key] = (frame.composited[key] ?: 0L) + area
+                val whole = clippedArea(-1e9f, -1e9f, 1e9f, 1e9f).toLong()
+                frame.compositedWhole[key] = (frame.compositedWhole[key] ?: 0L) + whole
+            }
             frame.pixelsByKind[kind] = (frame.pixelsByKind[kind] ?: 0L) + area
             frame.quadsByKind[kind] = (frame.quadsByKind[kind] ?: 0) + 1
             if (offscreen) frame.offscreenPixels += area else frame.hostPixels += area
@@ -607,6 +664,10 @@ fun probeReport(label: String, list: List<ProbeGl.Frame>): String {
         appendLine("uniform calls ${med { it.uniformCalls }} (changes ${med { it.uniformChanges }})")
         val causes = list.flatMap { it.breaks.keys }.toSet().sortedByDescending { c -> list.map { it.breaks[c] ?: 0 }.sorted()[list.size / 2] }
         appendLine("draw calls by why they broke from the last: " + causes.joinToString { c -> "$c ${med { it.breaks[c] ?: 0 }}" })
+        appendLine("draw calls if a batch held 2 textures ${med { it.draws2 }}, 4 textures ${med { it.draws4 }}")
+        appendLine("re-loaded pixels counting only tiles the resumed passes touch: ${med { it.reloadTilePixels }} (screen ${med { it.screenReloadTilePixels }})")
+        val comps = list.flatMap { it.composited.keys }.toSet()
+        if (comps.isNotEmpty()) appendLine("pictures put down (picture size: px landed, px before the scissor): " + comps.joinToString { k -> "$k: ${med { it.composited[k] ?: 0L }}, ${med { it.compositedWhole[k] ?: 0L }}" })
         appendLine("render pass reloads ${med { it.reloads }} (of the screen ${med { it.screenReloads }}), ${med { it.reloadPixels }} px stored and read back again")
         appendLine("quads covering nothing: off the target ${med { it.quadsOutsideTarget }}, outside the scissor ${med { it.quadsOutsideScissor }}, no size ${med { it.quadsOfNoSize }}")
         appendLine("queries that wait for the driver ${med { it.queries }}, readPixels ${med { it.readPixels }}")

@@ -52,7 +52,9 @@ fun main() {
     val only = System.getenv("COMPOSEGL_PROBE_ONLY")
     val width = 1080
     val height = 2400
-    val window = GlfwWindow("probe", width, height, visible = false, vsync = false, context = GlfwContext.Es3)
+    // Square, so the showcase can be drawn upright (1080x2400) and snake sideways (2400x1080), each
+    // in the bottom-left corner of the same window.
+    val window = GlfwWindow("probe", 2400, 2400, visible = false, vsync = false, context = GlfwContext.Es3)
     val renderer = GLES20.glGetString(GLES20.GL_RENDERER)
     val version = GLES20.glGetString(GLES20.GL_VERSION)
     val report = StringBuilder("renderer $renderer, $version, window ${width}x$height\n")
@@ -71,17 +73,19 @@ fun main() {
     val materials = ShowcaseMaterials(grain(Grain.Wood), grain(Grain.Paper), grain(Grain.Metal))
     val skins = ShowcaseSkins(atlas)
 
-    fun scene(name: String, frames: Int = 120, skip: Int = 60, run: (ProbeGl, GlCanvas, Int) -> Unit) {
+    fun scene(name: String, frames: Int = 120, skip: Int = 60, wide: Boolean = false, run: (ProbeGl, GlCanvas, Int) -> Unit) {
+        val shotWidth = if (wide) height else width
+        val shotHeight = if (wide) width else height
         if (only != null && only !in name) return
         val probe = ProbeGl(gl)
         val canvas = GlCanvas(fonts, probe)
         try {
             for (frame in 0 until frames) {
-                GLES20.glViewport(0, 0, width, height)
+                GLES20.glViewport(0, 0, 2400, 2400)
                 GLES20.glClearColor(0.043f, 0.055f, 0.075f, 1f)
                 GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
                 run(probe, canvas, frame)
-                if (frame == frames - 1) save(File(out, "$name.png"), width, height)
+                if (frame == frames - 1) save(File(out, "$name.png"), shotWidth, shotHeight)
                 window.present()
                 probe.endFrame(width.toLong() * height)
             }
@@ -113,7 +117,7 @@ fun main() {
     showcase(Section.Gear, still = true, scroll = true, tag = "scroll")
 
     // Snake on a phone held sideways: 2400x1080.
-    fun snake(name: String, script: List<String>) = scene(name) { _, canvas, frame ->
+    fun snake(name: String, script: List<String>) = scene(name, wide = true) { _, canvas, frame ->
         snakeFrame(canvas, fonts, script, frame)
     }
     snake("snake-menu", emptyList())
@@ -193,9 +197,8 @@ private fun snakeFrame(canvas: GlCanvas, fonts: StbFonts, script: List<String>, 
     val app = checkNotNull(snakeApp)
     if (frame < script.size && script[frame] == "play") app.session.startGame()
     app.update(1f / 60f)
-    // A phone held sideways: the window's 1080x2400 turned round would be 2400x1080, but the window
-    // is upright, so the game is fitted into it as it comes.
-    val viewport = Viewport(design = SnakeApp.Design, physical = Size(1080f, 2400f), policy = ScalePolicy.Fit)
+    // A phone held sideways: 2400x1080.
+    val viewport = Viewport(design = SnakeApp.Design, physical = Size(2400f, 1080f), policy = ScalePolicy.Fit)
     app.frame(canvas, viewport, frame * 16_666_667L)
 }
 
