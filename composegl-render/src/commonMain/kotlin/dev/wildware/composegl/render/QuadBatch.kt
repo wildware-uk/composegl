@@ -33,6 +33,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
 
     private var texture: DeviceTexture? = null
     private var blend = Blend.SourceOver
+    private var mask: ClipMask? = null
     private var drawing = false
 
     private val projection = FloatArray(16)
@@ -52,6 +53,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         renderCalls = 0
         projection.copyInto(this.projection)
         blend = Blend.SourceOver
+        mask = null
     }
 
     fun end() {
@@ -82,6 +84,17 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     }
 
     /**
+     * The rounded clip the following quads are kept inside, or null for none.
+     *
+     * What is queued was queued under the old one, so it goes first, blamed on the clip. The batch
+     * holds [next] rather than a copy: whoever filled it flushes before filling it again.
+     */
+    fun mask(next: ClipMask?) {
+        flush(BatchBreak.Clip)
+        mask = next
+    }
+
+    /**
      * Hands what is queued to the device, blaming [reason] on the trace — but only when something
      * was queued, since an empty flush costs no draw call.
      */
@@ -89,7 +102,14 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         if (used == 0) return
         val quads = used / (4 * ShapeVertex.Floats)
         vertices.put(floats, used)
-        device.drawShapes(vertices, quads, checkNotNull(texture), blend, projection)
+        val mask = mask
+        // The call every device has had all along when there is no mask, so one written before
+        // masks existed is handed exactly what it always was.
+        if (mask == null) {
+            device.drawShapes(vertices, quads, checkNotNull(texture), blend, projection)
+        } else {
+            device.drawShapes(vertices, quads, checkNotNull(texture), blend, projection, mask)
+        }
         renderCalls++
         trace?.record(reason)
         used = 0

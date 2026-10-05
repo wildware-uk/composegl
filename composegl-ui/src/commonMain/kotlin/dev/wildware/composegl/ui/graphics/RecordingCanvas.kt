@@ -730,12 +730,18 @@ class RecordingCanvas(bounds: Rect = Rect.of(0f, 0f, 1000f, 1000f)) : UiCanvas {
     override val handsOverRaw: Boolean get() = false
 
     override fun raw(block: (Any) -> Unit) {
+        rawDrawings++
         record(DrawCall.Raw(state.clip, state.alpha))
     }
 
     override fun raw(destination: Rect, block: (Any) -> Unit) {
+        rawDrawings++
         record(DrawCall.Raw(state.clip, state.alpha, state.map(destination)))
     }
+
+    /** Counted the way a real canvas counts it, so the draw pass decides here as it does there. */
+    override var rawDrawings = 0
+        private set
 
     private val recordedScenes = mutableListOf<RecordedScene>()
 

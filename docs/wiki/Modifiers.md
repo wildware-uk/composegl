@@ -150,10 +150,47 @@ round to the pointer without cutting anything:
 Modifier.hitShape(Shapes.Circle)
 ```
 
-A shaped clip draws the widget into an offscreen picture and puts it back through the
-shape, with an edge softened over one screen pixel. That is one picture per clipped
-widget per frame: fine for portraits and a row of tiles, not for a thousand. A canvas
-that cannot make or cut pictures clips to the rectangle instead.
+A rounded clip — `clip(corner = …)`, `clip(Corners.top(…))`, `Shapes.roundedRect` or
+`Shapes.Circle` — is drawn in place: the shader that draws every box trims what lands
+to the rounded edge, softened over one screen pixel. No picture is taken, on a still
+frame or a moving one, so a rounded card costs what `clip()` costs:
+
+```kotlin
+Box(Modifier.size(220f, 140f).clip(corner = 16f).background(panel)) { Artwork() }
+Image(portrait, Modifier.size(64f).clipShape(Shapes.Circle))
+```
+
+A shader effect that reaches a rounded corner goes into a picture the size of what it
+draws and is trimmed as it lands, so its corners are cut too; one clear of the corners
+is drawn straight.
+
+Your own `raw` drawing can land anywhere, even past the place `raw(rect)` gives it, and
+only a picture can trim it. So a rounded clip that holds one is drawn as a cut picture,
+as before, from the frame after the first one it is seen in, and goes back to being
+drawn in place the frame after it is gone. On that first frame the first `raw` opens
+one picture of the whole clip and the rest of the clip is drawn into it: the corners
+are cut all the same, but an additive child drawn after it lights only what is in that
+picture, and see-through pixels from a `SpriteBatch` at its default blend land a little
+light, for that one frame.
+
+One thing differs from a cut picture, and only on the curve. A pixel the edge passes
+through is partly inside, and drawn in place each thing stacked there is trimmed on
+its own, so the things underneath show through a little where the picture would show
+what is outside the card. With two things stacked — a background and art over it — that
+is at most a quarter of the lower one, in the one pixel the edge cuts in half; with three
+it is up to about two fifths, and more with more. Straight edges come out as before. It is the
+same trade clipping makes in Compose and Flutter: worth it for a card that costs no
+picture.
+
+It goes back to a picture in four cases: inside another rounded clip, when it or
+something above it is faded with `alpha` or blended with `blend` (so the subtree still
+fades as one piece), when it holds your own `raw` drawing (above), and on a canvas that
+cannot round a clip in place (`canvas.roundsClips`).
+
+Every other shape draws the widget into an offscreen picture and puts it back through
+the shape, with the same soft edge. That is one picture per clipped widget per frame:
+fine for portraits and a row of tiles, not for a thousand. A canvas that cannot make or
+cut pictures clips to the rectangle instead.
 
 **Skew is for leaning.** A banner with speed in it, an italic-style title card, the
 slanted bars of a fighting-game HUD:

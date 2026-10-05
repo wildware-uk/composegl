@@ -1,6 +1,7 @@
 package dev.wildware.composegl.render.gl
 
 import dev.wildware.composegl.render.Blend
+import dev.wildware.composegl.render.ClipMask
 import dev.wildware.composegl.render.DeviceLimits
 import dev.wildware.composegl.render.DeviceResource
 import dev.wildware.composegl.render.DeviceTarget
@@ -83,6 +84,10 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     private var shapeProgram = 0
     private var projectionAt = -1
     private var shapeTextureAt = -1
+    private var maskBoxAt = -1
+    private var maskRadiiAt = -1
+    private var maskScaleAt = -1
+    private var maskModeAt = -1
     private var indexBuffer = 0
     private var indexQuads = 0
     private var shapeBuffer = 0
@@ -118,6 +123,10 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         ) { message -> throw IllegalStateException(message) }
         projectionAt = gl.getUniformLocation(shapeProgram, "u_projTrans")
         shapeTextureAt = gl.getUniformLocation(shapeProgram, "u_texture")
+        maskBoxAt = gl.getUniformLocation(shapeProgram, "u_maskBox")
+        maskRadiiAt = gl.getUniformLocation(shapeProgram, "u_maskRadii")
+        maskScaleAt = gl.getUniformLocation(shapeProgram, "u_maskScale")
+        maskModeAt = gl.getUniformLocation(shapeProgram, "u_maskMode")
 
         shapeBuffer = gl.createBuffer()
         effectBuffer = gl.createBuffer()
@@ -413,7 +422,21 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         return Stream(gl.floats(quads * 4 * ShapeVertex.Floats), quads)
     }
 
-    override fun drawShapes(vertices: VertexStream, quads: Int, texture: DeviceTexture, blend: Blend, projection: FloatArray) {
+    override fun drawShapes(vertices: VertexStream, quads: Int, texture: DeviceTexture, blend: Blend, projection: FloatArray) =
+        drawShapes(vertices, quads, texture, blend, projection, mask = null)
+
+    /** Every OpenGL the shape shader compiles on has `gl_FragCoord`, which is all a mask needs. */
+    override val masks: Boolean get() = true
+
+    @Suppress("LongParameterList")
+    override fun drawShapes(
+        vertices: VertexStream,
+        quads: Int,
+        texture: DeviceTexture,
+        blend: Blend,
+        projection: FloatArray,
+        mask: ClipMask?,
+    ) {
         build()
         val stream = vertices as? Stream ?: error("these vertices were not made by this device")
         val vertexArrays = caps().vertexArrays
@@ -422,6 +445,15 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         gl.useProgram(shapeProgram)
         gl.uniformMatrix4fv(projectionAt, projection)
         gl.uniform1i(shapeTextureAt, 0)
+        if (mask == null) {
+            gl.uniform1f(maskModeAt, 0f)
+        } else {
+            gl.uniform4f(maskBoxAt, mask.centreX, mask.centreY, mask.halfWidth, mask.halfHeight)
+            gl.uniform4f(maskRadiiAt, mask.topLeft, mask.topRight, mask.bottomRight, mask.bottomLeft)
+            gl.uniform2f(maskScaleAt, mask.pixelsAcross, mask.pixelsUp)
+            // Which half of the colour to trim depends on whether it arrives premultiplied.
+            gl.uniform1f(maskModeAt, if (blend.premultiplied) 2f else 1f)
+        }
 
         if (vertexArrays) gl.bindVertexArray(shapeArray)
         gl.bindBuffer(GlConst.ARRAY_BUFFER, shapeBuffer)

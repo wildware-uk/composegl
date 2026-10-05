@@ -354,16 +354,22 @@ or if the binding grows past 400 lines.
 
 A graphics API that is not OpenGL implements `GpuDevice` instead of `Gl` — about
 twenty members — and ships its own port of the shape shader. Nothing above the device
-knows OpenGL exists.
+knows OpenGL exists. Rounded clips are drawn in place only on a device that answers
+`masks = true` and keeps each draw inside the `ClipMask` handed to `drawShapes`; on any
+other they are cut pictures, as before.
 
 ### If you really must draw yourself
 
 `UiCanvas` is the interface `RenderCanvas` implements, and it is deliberately short: `rect`,
 `border`, `shadow`, `text`, `image`, `fan`, a clip stack, an alpha stack, a blend stack,
-a transform stack and `raw`. The richer calls — `layer`, `cutLayer`, `textRing`, turned and tilted
-layers, `drawCalls`, `traceDrawCalls` — each have a capability flag and a default that
-degrades rather than fails. **The rule for `raw` and for `layer`: leave your own state
+a transform stack and `raw`. The richer calls — `layer`, `cutLayer`, `roundClip`,
+`textRing`, turned and tilted layers, `drawCalls`, `traceDrawCalls` — each have a capability
+flag and a default that degrades rather than fails. **The rule for `raw` and for `layer`: leave your own state
 as you found it.**
+
+A canvas that rounds clips and runs `raw` counts each `raw` in `rawDrawings`. The draw pass
+reads it round a rounded clip, and one that held a `raw` drawing is cut as a picture from
+its next frame, since only a picture can trim drawing the canvas did not do itself.
 
 A backend that snaps letters to pixels overrides the six-argument
 `textRing(layout, x, y, dx, dy, colour)`: it gets the letters' place and the ring copy's offset

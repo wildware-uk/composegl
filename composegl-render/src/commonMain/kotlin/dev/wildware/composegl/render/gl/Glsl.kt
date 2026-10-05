@@ -136,6 +136,15 @@ object GlslSources {
     val ShapeFragment = """
         uniform sampler2D u_texture;
 
+        // The rounded clip in force, if any: see ClipMask. The middle in pixels of the target, the
+        // half size and the corners (top-left, then clockwise, top meaning up) in units, how many
+        // pixels a unit is each way, and whether to trim at all: 0 no, 1 a straight colour, 2 a
+        // premultiplied one.
+        uniform vec4 u_maskBox;
+        uniform vec4 u_maskRadii;
+        uniform vec2 u_maskScale;
+        uniform float u_maskMode;
+
         varying vec4 v_color;
         varying vec4 v_borderColor;
         varying vec4 v_shadowColor;
@@ -204,7 +213,7 @@ object GlslSources {
         // Where a lit surface stops climbing straight towards white and starts easing into it.
         const float Knee = 0.8;
 
-        void main() {
+        vec4 shaded() {
             vec4 sampled = texture2D(u_texture, v_texCoord);
             float aa = v_shape.z;
 
@@ -212,8 +221,7 @@ object GlslSources {
             // picture is straightened first, since everything here works in straight alpha.
             if (aa <= 0.0) {
                 if (v_gradient.x > 0.5 && sampled.a > 0.0) sampled = vec4(sampled.rgb / sampled.a, sampled.a);
-                gl_FragColor = v_color * sampled;
-                return;
+                return v_color * sampled;
             }
 
             float radius = cornerRadius(v_local, v_radii);
@@ -303,8 +311,7 @@ object GlslSources {
                     // changes at all, so ordinary colour is untouched.
                     vec3 over = max(face - Knee, 0.0) / (1.0 - Knee);
                     face = min(face, 1.0 - (1.0 - Knee) * exp(-over));
-                    gl_FragColor = vec4(clamp(face, 0.0, 1.0), v_borderColor.a * coverage);
-                    return;
+                    return vec4(clamp(face, 0.0, 1.0), v_borderColor.a * coverage);
                 }
 
                 vec4 lift = vec4(1.0, 1.0, 1.0, clamp(shade, 0.0, 1.0));
@@ -312,8 +319,7 @@ object GlslSources {
                 vec4 relief = over(lift, dark);
                 relief.a = max(relief.a, clamp(shine, 0.0, 0.8));
                 relief.rgb = mix(relief.rgb, vec3(1.0), clamp(shine, 0.0, 1.0));
-                gl_FragColor = vec4(relief.rgb, relief.a * coverage);
-                return;
+                return vec4(relief.rgb, relief.a * coverage);
             }
 
             // A gradient. Two colours mix in the vertex, the end riding in the border's slot; a run
@@ -372,7 +378,27 @@ object GlslSources {
                 result = over(vec4(v_shadowColor.rgb, v_shadowColor.a * shade * coverage), result);
             }
 
-            gl_FragColor = result;
+            return result;
+        }
+
+        // How much of a pixel is inside the rounded clip in force: the box's own distance, in its
+        // units, turned into one pixel of soft edge centred on the line, as a cut picture's feather is.
+        // gl_FragCoord is the pixel's middle, counted up from the bottom of the target.
+        float masked() {
+            vec2 point = (gl_FragCoord.xy - u_maskBox.xy) / u_maskScale;
+            float distance = roundedBox(point, u_maskBox.zw, cornerRadius(point, u_maskRadii));
+            return clamp(0.5 - distance * min(u_maskScale.x, u_maskScale.y), 0.0, 1.0);
+        }
+
+        void main() {
+            vec4 colour = shaded();
+            // A rounded clip in force trims what lands. A premultiplied colour is trimmed in all four
+            // channels and a straight one in its opacity alone, which is the same thing once blended.
+            if (u_maskMode > 0.5) {
+                float kept = masked();
+                colour = u_maskMode > 1.5 ? colour * kept : vec4(colour.rgb, colour.a * kept);
+            }
+            gl_FragColor = colour;
         }
     """.trimIndent()
 

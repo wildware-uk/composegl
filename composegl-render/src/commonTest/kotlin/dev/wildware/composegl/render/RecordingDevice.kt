@@ -8,7 +8,11 @@ import dev.wildware.composegl.ui.effect.ShaderEffect
  * What lets the canvas, the batch, the layers and the atlas be tested on every target with no
  * context anywhere: a test draws, then reads [calls] and [draws] back.
  */
-class RecordingDevice(offscreen: Boolean = true, maxTextureSize: Int = 4096) : GpuDevice {
+class RecordingDevice(
+    offscreen: Boolean = true,
+    maxTextureSize: Int = 4096,
+    override val masks: Boolean = true,
+) : GpuDevice {
 
     override val limits = DeviceLimits(maxTextureSize = maxTextureSize, offscreen = offscreen)
 
@@ -98,11 +102,22 @@ class RecordingDevice(offscreen: Boolean = true, maxTextureSize: Int = 4096) : G
 
     override fun vertices(quads: Int): VertexStream = FakeStream(quads)
 
-    override fun drawShapes(vertices: VertexStream, quads: Int, texture: DeviceTexture, blend: Blend, projection: FloatArray) {
+    override fun drawShapes(vertices: VertexStream, quads: Int, texture: DeviceTexture, blend: Blend, projection: FloatArray) =
+        drawShapes(vertices, quads, texture, blend, projection, mask = null)
+
+    override fun drawShapes(
+        vertices: VertexStream,
+        quads: Int,
+        texture: DeviceTexture,
+        blend: Blend,
+        projection: FloatArray,
+        mask: ClipMask?,
+    ) {
         prepared = true
         val stream = vertices as FakeStream
-        draws += Draw(quads, texture, blend, projection.copyOf(), stream.floats.copyOf(quads * 4 * ShapeVertex.Floats))
-        calls += "drawShapes($quads, ${name(texture)}, $blend)"
+        val floats = stream.floats.copyOf(quads * 4 * ShapeVertex.Floats)
+        draws += Draw(quads, texture, blend, projection.copyOf(), floats, mask?.let(::Mask))
+        calls += "drawShapes($quads, ${name(texture)}, $blend${if (mask != null) ", masked" else ""})"
     }
 
     override fun drawEffect(effect: ShaderEffect, picture: DeviceTexture, quad: EffectQuad, blend: Blend) {
@@ -153,8 +168,28 @@ class RecordingDevice(offscreen: Boolean = true, maxTextureSize: Int = 4096) : G
         }
     }
 
-    /** One `drawShapes`. */
-    class Draw(val quads: Int, val texture: DeviceTexture, val blend: Blend, val projection: FloatArray, val vertices: FloatArray) {
+    /** A [ClipMask] as it was when it was drawn with: the canvas refills its own as it goes. */
+    class Mask(mask: ClipMask) {
+        val centreX = mask.centreX
+        val centreY = mask.centreY
+        val halfWidth = mask.halfWidth
+        val halfHeight = mask.halfHeight
+
+        /** Top-left, top-right, bottom-right, bottom-left, with top meaning up the target. */
+        val corners = listOf(mask.topLeft, mask.topRight, mask.bottomRight, mask.bottomLeft)
+        val pixelsAcross = mask.pixelsAcross
+        val pixelsUp = mask.pixelsUp
+    }
+
+    /** One `drawShapes`, and the rounded clip it was kept inside, if any. */
+    class Draw(
+        val quads: Int,
+        val texture: DeviceTexture,
+        val blend: Blend,
+        val projection: FloatArray,
+        val vertices: FloatArray,
+        val mask: Mask? = null,
+    ) {
 
         /** Float [offset] of vertex [vertex], counted across the whole draw. */
         fun at(vertex: Int, offset: Int): Float = vertices[vertex * ShapeVertex.Floats + offset]

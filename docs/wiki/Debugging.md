@@ -612,7 +612,8 @@ Worth knowing:
 
 - A subtree drawn into a picture — a `scale`, a `rotate`, an effect, a shaped clip —
   counts twice: once into the picture, once where the picture lands. That is what the
-  GPU fills.
+  GPU fills. A rounded clip is counted that way too, although the GL canvas draws it in
+  place and fills it once, so it reads a little high.
 - A clipped-away or faded-out part counts nothing, as it paints nothing.
 - Only the interface is counted. A 3D world drawn behind it, or anything drawn through
   `raw`, is not. A scrim over the world shows as painted once.
@@ -636,8 +637,8 @@ needs something the queue does not share:
 |---|---|
 | `texture` | a picture from a different texture than the one before it |
 | `blend` | `Modifier.blend`, going in and coming out |
-| `clip` | `Modifier.clip`, going in and coming out |
-| `layer` | an offscreen picture: a scale, a turn, a shaped clip, an effect |
+| `clip` | `Modifier.clip`, rounded or not, going in and coming out |
+| `layer` | an offscreen picture: a scale, a turn, an effect, a shaped clip that is not round (or a round one inside another, faded, blended, or holding your own `raw` drawing), an effect that reaches a rounded clip's corner, and the first frame a rounded clip holds a `raw` drawing |
 | `shader` | a picture drawn through an effect's shader |
 | `raw` | your own drawing inside `raw { }` |
 | `scene` | a `SceneView` rendering your 3D scene, before the frame. Counted as one call, the least it costs. |

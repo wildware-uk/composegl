@@ -128,13 +128,21 @@ class RecordingGl(
     override fun programInfoLog(program: Int): String = ""
     override fun deleteProgram(program: Int) = log("deleteProgram($program)")
     override fun useProgram(program: Int) = log("useProgram($program)")
-    override fun getUniformLocation(program: Int, name: String): Int = name.length
-    override fun uniform1i(at: Int, value: Int) = log("uniform1i($at, $value)")
-    override fun uniform1f(at: Int, value: Float) = log("uniform1f($at)")
-    override fun uniform2f(at: Int, x: Float, y: Float) = log("uniform2f($at)")
-    override fun uniform3f(at: Int, x: Float, y: Float, z: Float) = log("uniform3f($at)")
-    override fun uniform4f(at: Int, x: Float, y: Float, z: Float, w: Float) = log("uniform4f($at)")
-    override fun uniformMatrix4fv(at: Int, matrix: FloatArray) = log("uniformMatrix4fv($at)")
+    /** A location per uniform name, so a call can be written down by the name it sets. */
+    private val uniforms = ArrayList<String>()
+
+    override fun getUniformLocation(program: Int, name: String): Int =
+        uniforms.indexOf(name).takeIf { it >= 0 } ?: uniforms.size.also { uniforms += name }
+
+    private fun uniform(at: Int) = uniforms.getOrElse(at) { "$at" }
+
+    override fun uniform1i(at: Int, value: Int) = log("uniform1i(${uniform(at)}, $value)")
+    override fun uniform1f(at: Int, value: Float) = log("uniform1f(${uniform(at)}, $value)")
+    override fun uniform2f(at: Int, x: Float, y: Float) = log("uniform2f(${uniform(at)}, $x, $y)")
+    override fun uniform3f(at: Int, x: Float, y: Float, z: Float) = log("uniform3f(${uniform(at)}, $x, $y, $z)")
+    override fun uniform4f(at: Int, x: Float, y: Float, z: Float, w: Float) =
+        log("uniform4f(${uniform(at)}, $x, $y, $z, $w)")
+    override fun uniformMatrix4fv(at: Int, matrix: FloatArray) = log("uniformMatrix4fv(${uniform(at)})")
 
     override fun createBuffer(): Int = made("createBuffer")
     override fun bindBuffer(target: Int, buffer: Int) = log("bindBuffer($target, $buffer)")
