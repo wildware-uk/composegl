@@ -9,7 +9,8 @@ package dev.wildware.composegl.render.gl
  * the ES 3 / WebGL 2 family need a version line and a few words changed, which is done here in
  * Kotlin rather than with `#define`: names starting `gl_` are reserved in GLSL ES 3.00.
  *
- * Documented limit: an effect cannot use `in`, `out` or `texture` as its own identifiers.
+ * Documented limit: an effect cannot use `in`, `out` or `texture` as its own identifiers, nor any name
+ * starting `cg_`, which the toolkit keeps for its own.
  */
 enum class GlslDialect(
     private val version: String,
@@ -220,6 +221,15 @@ object GlslSources {
             // A picture or a glyph: no shape to work out, just the texture. A premultiplied
             // picture is straightened first, since everything here works in straight alpha.
             if (aa <= 0.0) {
+                // A picture whose radii hold a box is a layer in the corner of a bigger pooled
+                // picture: a read within half a texel of the corner's edge is made again, held inside
+                // it, as a picture its own size is clamped at its edge, rather than reading the clear
+                // strip round it. Only there: everywhere else, and for text and shapes, the one plain
+                // read straight from the varying stands. See holdInside.
+                if (v_radii.z > 0.0) {
+                    vec2 held = clamp(v_texCoord, v_radii.xy, v_radii.zw);
+                    if (held != v_texCoord) sampled = texture2D(u_texture, held);
+                }
                 if (v_gradient.x > 0.5 && sampled.a > 0.0) sampled = vec4(sampled.rgb / sampled.a, sampled.a);
                 return v_color * sampled;
             }
@@ -417,6 +427,12 @@ object GlslSources {
     /**
      * What every effect shader gets for nothing, written on the front of the author's own text.
      * The same on every backend; it used to be copied four times.
+     *
+     * `v_texCoord` runs from 0 to 1 over the picture, as the effect contract says, but the picture
+     * is often the bottom-left corner of a bigger pooled texture. So every read the author writes is
+     * sent through `cg_picture` (see [effectFragment]), which maps it into the corner the picture
+     * lies in and holds it half a texel inside the corner's edge: the read an exact-size texture
+     * clamped at its edge would give, whatever lies round the corner.
      */
     val EffectPreamble = """
         varying vec2 v_texCoord;
@@ -424,6 +440,27 @@ object GlslSources {
         uniform vec2 u_textureSize;
         uniform vec2 u_size;
         uniform float u_alpha;
+        uniform vec4 cg_picturePlace;
+        uniform vec4 cg_pictureEdges;
+
+        vec2 cg_pictureAt(vec2 at) {
+            return clamp(cg_picturePlace.xy + at * cg_picturePlace.zw, cg_pictureEdges.xy, cg_pictureEdges.zw);
+        }
+
+        vec4 cg_picture(sampler2D picture, vec2 at) {
+            return texture2D(picture, cg_pictureAt(at));
+        }
+
+        vec4 cg_picture(sampler2D picture, vec2 at, float bias) {
+            return texture2D(picture, cg_pictureAt(at), bias);
+        }
 
     """.trimIndent() + "\n"
+
+    /**
+     * An effect's whole fragment shader, before the dialect: the preamble, then the author's own
+     * text with every `texture2D` turned into `cg_picture`. Every read is of the picture, since an
+     * effect has no way to be handed a texture of its own.
+     */
+    fun effectFragment(fragment: String): String = EffectPreamble + Regex("\\btexture2D\\b").replace(fragment, "cg_picture")
 }

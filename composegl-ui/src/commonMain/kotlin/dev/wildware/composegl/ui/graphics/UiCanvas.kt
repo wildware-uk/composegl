@@ -211,7 +211,8 @@ interface UiCanvas {
      * @param material a picture laid across the face — wood, paper, brushed metal — multiplied into
      *   [face], so one grey grain becomes oak or walnut depending only on what tints it. It takes
      *   the one texture a lit quad has, so a face is a material or a run of colours, never both,
-     *   and it has to be a texture of its own rather than a region of an atlas.
+     *   and it has to be a texture of its own rather than a region of an atlas or a [layer]'s
+     *   picture.
      * @param tiles how many times the material is laid across the face. One stretches it to fit.
      */
     @Suppress("LongParameterList")

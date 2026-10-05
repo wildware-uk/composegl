@@ -39,6 +39,10 @@ class BoundPicture(
  * Its texture coordinates count the way the device's offscreen pictures do: a framebuffer's first
  * row is its bottom one, so an OpenGL layer comes back with `v` and `v2` swapped and nothing
  * downstream has to know.
+ *
+ * It is the bottom-left [width] by [height] pixels of [target], which the canvas's pool often hands
+ * out a little bigger than the layer: so `u2` and `v` are that corner's far edges, and can be less
+ * than one. What lies round the corner is clear.
  */
 class LayerPicture internal constructor(
     val target: DeviceTarget,

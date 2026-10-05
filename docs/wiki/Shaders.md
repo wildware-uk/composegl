@@ -110,7 +110,11 @@ Panel(Modifier.effect(scanlines())) { Terminal() }
 | `u_size` | the area the effect covers, in design units |
 | `u_alpha` | the opacity in force, which your last line should multiply by |
 
-Declare only your own uniforms on top of those.
+Declare only your own uniforms on top of those, and none whose name starts `cg_`: those
+are the toolkit's own. The picture is often the corner of a bigger texture the canvas
+keeps for reuse, so every `texture2D` you write is quietly sent through `cg_picture`,
+which finds your picture there. `v_texCoord` still runs 0 to 1 over your picture, and
+a read past its edge still gets the edge, whatever lies beyond.
 
 ### Uniforms are typed
 

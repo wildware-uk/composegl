@@ -122,7 +122,10 @@ class RecordingDevice(
 
     override fun drawEffect(effect: ShaderEffect, picture: DeviceTexture, quad: EffectQuad, blend: Blend) {
         prepared = true
-        effects += EffectDraw(effect, picture, blend, quad.left, quad.top, quad.right, quad.bottom, quad.alpha)
+        effects += EffectDraw(
+            effect, picture, blend, quad.left, quad.top, quad.right, quad.bottom, quad.alpha,
+            listOf(quad.u, quad.v, quad.u2, quad.v2), quad.textureWidth to quad.textureHeight,
+        )
         calls += "drawEffect(${effect.source.name}, ${name(picture)}, $blend)"
     }
 
@@ -207,5 +210,9 @@ class RecordingDevice(
         val right: Float,
         val bottom: Float,
         val alpha: Float,
+        /** Where the picture lies in [picture]: u, v (its top), u2, v2. */
+        val corners: List<Float> = emptyList(),
+        /** What the shader is told the picture's size is, in pixels. */
+        val pictureSize: Pair<Float, Float> = 0f to 0f,
     )
 }

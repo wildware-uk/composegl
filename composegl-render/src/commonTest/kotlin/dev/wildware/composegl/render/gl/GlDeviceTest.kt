@@ -152,6 +152,43 @@ class GlDeviceTest {
     }
 
     @Test
+    fun `an effect's reads of its picture go through the corner the picture lies in`() {
+        val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
+        val device = GlDevice(gl)
+        device.begin(FrameTarget.Host)
+        device.drawEffect(glow, device.texture(128, 64, smooth = true), EffectQuad(), Blend.PremultipliedSourceOver)
+        device.end()
+
+        val fragment = gl.sources.values.single { "u_alpha" in it && "void main" in it && "cg_picture(" in it }
+        assertTrue("cg_FragColor = cg_picture(u_texture, v_texCoord) * u_alpha;" in fragment, fragment)
+        assertTrue("return texture(picture, cg_pictureAt(at));" in fragment, "the preamble's own read is the dialect's: $fragment")
+    }
+
+    @Test
+    fun `an effect is told where its picture lies and held half a texel inside it`() {
+        val gl = RecordingGl()
+        val device = GlDevice(gl)
+        device.begin(FrameTarget.Host)
+        val quad = EffectQuad().apply {
+            // The bottom-left 96 by 32 of a 128 by 64 picture, its top row first in v as a layer's is.
+            u = 0f
+            v = 0.5f
+            u2 = 0.75f
+            v2 = 0f
+        }
+        device.drawEffect(glow, device.texture(128, 64, smooth = true), quad, Blend.PremultipliedSourceOver)
+        device.end()
+
+        assertEquals(listOf("uniform4f(cg_picturePlace, 0.0, 0.0, 0.75, 0.5)"), gl.named("uniform4f(cg_picturePlace"))
+        val half = 0.5f / 128f
+        val halfUp = 0.5f / 64f
+        assertEquals(
+            listOf("uniform4f(cg_pictureEdges, $half, $halfUp, ${0.75f - half}, ${0.5f - halfUp})"),
+            gl.named("uniform4f(cg_pictureEdges"),
+        )
+    }
+
+    @Test
     fun `an effect quad and the index buffer go up in one copy each`() {
         val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
         val device = GlDevice(gl)
@@ -594,7 +631,7 @@ class GlDeviceTest {
         )
         val effectFragment = gl.sources.values.single { "u_alpha;" in it }
         assertTrue(effectFragment.startsWith("#version 150\nout vec4 cg_FragColor;\nin vec2 v_texCoord;"), effectFragment)
-        assertTrue("cg_FragColor = texture(u_texture, v_texCoord) * u_alpha;" in effectFragment)
+        assertTrue("cg_FragColor = cg_picture(u_texture, v_texCoord) * u_alpha;" in effectFragment)
     }
 
     @Test

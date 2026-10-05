@@ -444,8 +444,12 @@ open class RenderCanvas protected constructor(
         // A material is laid across the face and tinted by the face's colour. It takes the one
         // texture this quad has, so a face is a material or a run of colours, never both — and a
         // material has to be a texture of its own rather than a region of an atlas, because tiling
-        // a region samples its neighbours at every repeat.
+        // a region samples its neighbours at every repeat. A layer's picture is not one either: it
+        // is the corner of a bigger pooled picture, and was always laid on upside down besides.
         val grain = material?.takeIf { resolve(it) }?.let {
+            check(material !is LayerPicture) {
+                "a lit face's material is tiled, so it needs a texture of its own rather than a layer's picture"
+            }
             check(picture.u == 0f && picture.u2 == 1f) {
                 "a lit face's material is tiled, so it needs a texture of its own rather than a region of an atlas"
             }
@@ -779,6 +783,8 @@ open class RenderCanvas protected constructor(
         picture.slice(source)
         val box = state.map(destination)
 
+        // A layer's own picture drawn as an image is held inside its corner as its composite is.
+        if (texture is LayerPicture) holdPicture()
         batch().textured(
             texture = picture.texture,
             left = box.left,
@@ -792,6 +798,7 @@ open class RenderCanvas protected constructor(
             tint = tint.inForce(),
             premultiplied = picture.premultiplied,
         )
+        batch().letGo()
     }
 
     /** The same picture, turned: four corners on the processor, the same quad in the same batch. */
@@ -814,6 +821,7 @@ open class RenderCanvas protected constructor(
         picture.slice(source)
         val box = state.map(destination)
 
+        if (texture is LayerPicture) holdPicture()
         batch().textured(
             texture = picture.texture,
             left = box.left,
@@ -831,6 +839,7 @@ open class RenderCanvas protected constructor(
             tint = tint.inForce(),
             premultiplied = picture.premultiplied,
         )
+        batch().letGo()
     }
 
     override val rotatesImages: Boolean get() = true
@@ -1026,6 +1035,7 @@ open class RenderCanvas protected constructor(
         layer = LayerFrame(area, pixelWidth, pixelHeight)
         target = picture
         setViewport(0, 0, pixelWidth, pixelHeight)
+        // All of it, as [capture] clears.
         device.noScissor()
         device.clear(0f, 0f, 0f, 0f)
         orthographic(projection, area.width, area.height, area.left)
@@ -1045,7 +1055,7 @@ open class RenderCanvas protected constructor(
         setViewport(open.viewport[0], open.viewport[1], open.viewport[2], open.viewport[3])
         applyScissor()
         batch().mask(rounding?.mask)
-        layerPicture(LayerPicture(open.picture, open.pixelWidth, open.pixelHeight, u = 0f, v = 1f, u2 = 1f, v2 = 0f))
+        layerPicture(cornerOf(open.picture, open.pixelWidth, open.pixelHeight))
         // Plainly: where a clip is rounded in place nothing fades or blends, so the opacity and the
         // mode in force are full and ordinary, and a game's drawing knows nothing of either anyway.
         composite(open.area, mirrorX = false, mirrorY = false, tint = Colour.White)
@@ -1205,6 +1215,9 @@ open class RenderCanvas protected constructor(
 
         target = picture
         setViewport(0, 0, pixelWidth, pixelHeight)
+        // All of the picture, not only the corner drawn into: what lies round the corner must read
+        // clear when a turned or stretched picture is filtered at its edge, and a scissored clear is
+        // not a clear of the attachment, so a tiled phone GPU would load the rest from memory.
         device.noScissor()
         device.clear(0f, 0f, 0f, 0f)
         orthographic(projection, area.width, area.height, area.left)
@@ -1238,9 +1251,24 @@ open class RenderCanvas protected constructor(
             layers.release(picture)
         }
 
-        // A framebuffer's first row is its bottom one, so v and v2 are swapped here, once.
-        return LayerPicture(picture, pixelWidth, pixelHeight, u = 0f, v = 1f, u2 = 1f, v2 = 0f)
+        return cornerOf(picture, pixelWidth, pixelHeight)
     }
+
+    /**
+     * The bottom-left [width] by [height] pixels of [picture], where a layer was drawn: the pool
+     * hands out a picture at least the size asked for, often a little bigger.
+     *
+     * A framebuffer's first row is its bottom one, so v and v2 are swapped here, once.
+     */
+    private fun cornerOf(picture: DeviceTarget, width: Int, height: Int) = LayerPicture(
+        picture,
+        width,
+        height,
+        u = 0f,
+        v = height.toFloat() / picture.height,
+        u2 = width.toFloat() / picture.width,
+        v2 = 0f,
+    )
 
     private fun layerPicture(layer: TextureHandle) {
         if (layer is NineRegions || !resolve(layer)) error("this canvas can only draw layers it made, not ${layer::class}")
@@ -1279,9 +1307,28 @@ open class RenderCanvas protected constructor(
         return Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey)
     }
 
+    /**
+     * Holds the batch's reads of the resolved [picture] inside it, half a texel in, until the
+     * composite that follows lets go: a layer is often the corner of a bigger pooled picture, and a
+     * turned or stretched one would otherwise read the clear strip round the corner at its edge.
+     */
+    private fun holdPicture() {
+        val picture = picture
+        val texture = picture.texture
+        val halfAcross = 0.5f / texture.width
+        val halfUp = 0.5f / texture.height
+        batch().holdInside(
+            minOf(picture.u, picture.u2) + halfAcross,
+            minOf(picture.v, picture.v2) + halfUp,
+            maxOf(picture.u, picture.u2) - halfAcross,
+            maxOf(picture.v, picture.v2) - halfUp,
+        )
+    }
+
     private fun composite(destination: Rect, mirrorX: Boolean, mirrorY: Boolean, tint: Colour = fade()) {
         // The mode in force applies to the composite; premultiplied, because a layer's drawing is.
         batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
+        holdPicture()
         val picture = picture
         batch().textured(
             texture = picture.texture,
@@ -1295,6 +1342,7 @@ open class RenderCanvas protected constructor(
             v2 = if (mirrorY) picture.v else picture.v2,
             tint = tint,
         )
+        batch().letGo()
         batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
@@ -1314,6 +1362,7 @@ open class RenderCanvas protected constructor(
         val box = state.map(destination)
 
         batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
+        holdPicture()
         batch().textured(
             texture = picture.texture,
             left = box.left,
@@ -1329,6 +1378,7 @@ open class RenderCanvas protected constructor(
             v2 = picture.v2,
             tint = fade(),
         )
+        batch().letGo()
         batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
@@ -1343,6 +1393,7 @@ open class RenderCanvas protected constructor(
         layerPicture(layer)
 
         batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
+        holdPicture()
         val solid = fade()
         val clear = Colour.Transparent
         val box = state.map(destination)
@@ -1378,6 +1429,7 @@ open class RenderCanvas protected constructor(
                 if (dCover > 0f) solid else clear,
             )
         }
+        batch().letGo()
         batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
@@ -1391,6 +1443,7 @@ open class RenderCanvas protected constructor(
         val flipped = FloatArray(8) { if (it % 2 == 0) state.mapX(corners[it]) else flip(state.mapY(corners[it])) }
 
         batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
+        holdPicture()
         batch().textured(
             texture = picture.texture,
             corners = flipped,
@@ -1400,6 +1453,7 @@ open class RenderCanvas protected constructor(
             v2 = picture.v2,
             tint = fade(),
         )
+        batch().letGo()
         batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 
@@ -1426,6 +1480,7 @@ open class RenderCanvas protected constructor(
         }
 
         batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
+        holdPicture()
         batch().projected(
             texture = picture.texture,
             corners = corners,
@@ -1435,6 +1490,7 @@ open class RenderCanvas protected constructor(
             v2 = picture.v2,
             tint = fade(),
         )
+        batch().letGo()
         batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
 

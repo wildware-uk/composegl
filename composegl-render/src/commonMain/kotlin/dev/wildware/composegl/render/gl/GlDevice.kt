@@ -486,12 +486,15 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         gl.uniform2f(uniform(program, "u_size"), quad.width, quad.height)
         gl.uniform1f(uniform(program, "u_alpha"), quad.alpha)
         effect.uniforms.forEach { (name, value) -> set(uniform(program, name), value) }
+        place(program, picture, quad)
 
+        // The shader sees its picture from 0 to 1, the top at 1 as a framebuffer counts, wherever
+        // the picture lies in the texture: cg_picture maps each read there.
         val floats = checkNotNull(effectFloats)
-        corner(0, quad.left, quad.top, quad.u, quad.v)
-        corner(1, quad.right, quad.top, quad.u2, quad.v)
-        corner(2, quad.right, quad.bottom, quad.u2, quad.v2)
-        corner(3, quad.left, quad.bottom, quad.u, quad.v2)
+        corner(0, quad.left, quad.top, 0f, 1f)
+        corner(1, quad.right, quad.top, 1f, 1f)
+        corner(2, quad.right, quad.bottom, 1f, 0f)
+        corner(3, quad.left, quad.bottom, 0f, 0f)
         floats.put(0, effectCorners, 0, effectCorners.size)
 
         gl.activeTexture(GlConst.TEXTURE0)
@@ -526,6 +529,27 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     private fun uniform(program: EffectProgram, name: String): Int =
         program.uniforms.getOrPut(name) { gl.getUniformLocation(program.name, name) }
 
+    /**
+     * Where in [picture] the effect's picture lies, for `cg_picture`: the texture coordinate of its
+     * bottom-left and how far it reaches, then the box a read is held inside, half a texel in from
+     * each edge so a read past the edge gets the edge, as an exact-size texture's clamp gives.
+     */
+    private fun place(program: EffectProgram, picture: DeviceTexture, quad: EffectQuad) {
+        gl.uniform4f(uniform(program, "cg_picturePlace"), quad.u, quad.v2, quad.u2 - quad.u, quad.v - quad.v2)
+        val halfAcross = 0.5f / picture.width
+        val halfUp = 0.5f / picture.height
+        val left = minOf(quad.u, quad.u2) + halfAcross
+        val right = maxOf(quad.u, quad.u2) - halfAcross
+        val bottom = minOf(quad.v, quad.v2) + halfUp
+        val top = maxOf(quad.v, quad.v2) - halfUp
+        // Less than a texel across holds every read to its middle: GLSL's clamp is undefined the wrong way round.
+        val acrossLow = if (left <= right) left else (left + right) / 2f
+        val acrossHigh = if (left <= right) right else acrossLow
+        val upLow = if (bottom <= top) bottom else (bottom + top) / 2f
+        val upHigh = if (bottom <= top) top else upLow
+        gl.uniform4f(uniform(program, "cg_pictureEdges"), acrossLow, upLow, acrossHigh, upHigh)
+    }
+
     private fun corner(corner: Int, x: Float, y: Float, u: Float, v: Float) {
         val at = corner * ShapeVertex.EffectFloats
         effectCorners[at] = x
@@ -558,7 +582,8 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         // High precision where the device has it, as the shape shader does. A phone's medium
         // precision is 16 bits, and an effect's arithmetic runs out of it without saying so: the
         // dissolve's noise hash drew nothing at all on OpenGL ES 3 until this was highp.
-        val fragment = compile(GlConst.FRAGMENT_SHADER, dialect.fragment(GlslSources.EffectPreamble + source.fragment, highPrecision = true)) {
+        val text = dialect.fragment(GlslSources.effectFragment(source.fragment), highPrecision = true)
+        val fragment = compile(GlConst.FRAGMENT_SHADER, text) {
             gl.deleteShader(vertex)
             throw IllegalArgumentException("the effect shader \"${source.name}\" would not compile (fragment):\n$it")
         }

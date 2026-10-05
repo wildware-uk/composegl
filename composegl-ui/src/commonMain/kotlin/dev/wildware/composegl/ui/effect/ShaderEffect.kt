@@ -26,6 +26,10 @@ import dev.wildware.composegl.ui.graphics.Colour
  * | `u_size` | the area the effect covers, in design units |
  * | `u_alpha` | the opacity in force, which your last line should multiply by |
  *
+ * Names starting `cg_` are the toolkit's own. The picture is often the corner of a bigger texture
+ * kept for reuse, so every `texture2D` is sent through `cg_picture`, which finds it there:
+ * `v_texCoord` still runs 0 to 1 over the picture, and a read past its edge still gets the edge.
+ *
  * ```kotlin
  * val invert = ShaderSource(
  *     name = "invert",

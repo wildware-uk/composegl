@@ -88,7 +88,8 @@ class RenderCanvasTransformTest {
         }
 
         assertEquals(1, device.named("offscreen").size)
-        assertTrue("60x30" in device.named("offscreen").single(), device.named("offscreen").toString())
+        val target = device.named("offscreen").single().substringAfter("offscreen(").substringBefore(",")
+        assertTrue("target(target$target, 0, 0, 60, 30)" in device.calls, device.calls.toString())
     }
 
     @Test
