@@ -50,6 +50,13 @@ import kotlin.math.tan
 private const val DegreesToRadians = (PI / 180.0).toFloat()
 
 /**
+ * How many frames in a row a scale's factor must hold before it is drawn through a transform rather
+ * than a picture: long enough that a factor changing on every other frame never switches, short
+ * enough — a sixth of a second at sixty frames a second — that a panel that has landed is cheap soon.
+ */
+private const val SettledFrames = 10
+
+/**
  * The other half of a frame: a laid-out tree turned into drawing.
  *
  * Layout said where everything is; this walks the tree in order and says what to draw. Each node
@@ -57,11 +64,13 @@ private const val DegreesToRadians = (PI / 180.0).toFloat()
  * chain put in front — which is exactly the order a person reading the modifier chain expects.
  *
  * The pass holds no state of its own beyond the canvas and the camera a `Modifier.perspective` hands
- * down while its subtree is being drawn, which is put back before [draw] returns. So drawing the same
- * tree twice draws the same thing, and a test can draw a tree without a GPU anywhere near it. That also means a game
- * whose canvas does not change can make one of these once and keep it, rather than one a frame —
- * see the demos. [canvas] is public so that a caller holding one can check it is still the right
- * one.
+ * down while its subtree is being drawn, which is put back before [draw] returns. It writes on each
+ * scaled node the factor it was drawn at in this frame, which is how the next frame knows the factor
+ * moved; so drawing the same tree twice in one frame draws the same thing, while a scale that just
+ * changed is a picture until it has held for [SettledFrames] frames and a transform after. A test
+ * can draw a tree without a GPU anywhere near it. That also means a game whose canvas does not
+ * change can make one of these once and keep it, rather than one a frame — see the demos. [canvas]
+ * is public so that a caller holding one can check it is still the right one.
  */
 class DrawPass(val canvas: UiCanvas) {
 
@@ -107,6 +116,7 @@ class DrawPass(val canvas: UiCanvas) {
         // the way down rather than going back to full size.
         if (resolved.scale <= 0f) {
             node.scaleApplied = true
+            scaleMoving(node, resolved.scale)
             return
         }
 
@@ -142,6 +152,9 @@ class DrawPass(val canvas: UiCanvas) {
         // Where a scale grows or shrinks from, in the coordinates the node is drawn in. Alignment
         // with a child of no width is the anchor itself: the left edge, the middle, or the right.
         val scale = resolved.scale
+        // A scale springing in or pulsing is drawn through a picture for as long as it moves. See
+        // [growsInPlace].
+        val steady = !scaleMoving(node, scale)
         val anchorX = if (scale == 1f) 0f else bounds.left + resolved.scaleOrigin.xIn(node.width, 0f)
         val anchorY = if (scale == 1f) 0f else bounds.top + resolved.scaleOrigin.yIn(node.height, 0f)
 
@@ -165,9 +178,9 @@ class DrawPass(val canvas: UiCanvas) {
         // are not a rectangle, so they take a picture of their own rather than sharing one. A slant
         // or a tilt on a canvas that cannot draw it is not worth a picture at all.
         if (resolved.rotation == 0f && !slanted(resolved) && !tilts) {
-            upright(node, resolved, bounds, scale, anchorX, anchorY)
+            upright(node, resolved, bounds, scale, anchorX, anchorY, steady)
         } else {
-            turned(node, resolved, bounds, scale, anchorX, anchorY, outerX, outerY, outerDistance)
+            turned(node, resolved, bounds, scale, anchorX, anchorY, steady, outerX, outerY, outerDistance)
         }
 
         cameraX = outerX
@@ -191,6 +204,7 @@ class DrawPass(val canvas: UiCanvas) {
         scale: Float,
         anchorX: Float,
         anchorY: Float,
+        steady: Boolean,
     ) {
         // Asked of the canvas before any picture is taken for it: one that cannot flip a picture
         // would be handed a capture it then puts down the right way round, which is a picture for
@@ -202,12 +216,26 @@ class DrawPass(val canvas: UiCanvas) {
         if (resolved.effects.isEmpty()) {
             if (scale == 1f && !mirrored) {
                 contents(node, resolved, bounds)
+            } else if (!mirrored && steady && growsInPlace(node, bounds)) {
+                grown(node, resolved, bounds, scale, anchorX, anchorY)
+                node.scaleApplied = true
             } else {
                 // A mirror and a scale are one composite: the same picture, put down somewhere else
                 // and read from the other side.
-                val applied = scaled(node, bounds, bounds.scaledAbout(anchorX, anchorY, scale), mirrored)
-                if (scale != 1f) node.scaleApplied = applied
-                if (mirrored) node.mirrorApplied = applied
+                if (scaled(node, bounds, bounds.scaledAbout(anchorX, anchorY, scale), mirrored)) {
+                    if (scale != 1f) node.scaleApplied = true
+                    if (mirrored) node.mirrorApplied = true
+                } else if (!mirrored && growsInPlace(node, bounds)) {
+                    // Refused — too big for one picture, or a canvas with no offscreen drawing — on
+                    // a canvas that transforms: the transform still draws the scale. Otherwise a
+                    // factor that moves would show at full size until it held still, then shrink.
+                    grown(node, resolved, bounds, scale, anchorX, anchorY)
+                    node.scaleApplied = true
+                } else {
+                    contents(node, resolved, bounds)
+                    if (scale != 1f) node.scaleApplied = false
+                    if (mirrored) node.mirrorApplied = false
+                }
             }
         } else if (mirrored) {
             // An effect's composite takes a shader rather than a mirror, so the mirror is the
@@ -215,6 +243,7 @@ class DrawPass(val canvas: UiCanvas) {
             // sprite, which is the answer a chain written either way round would want.
             val applied = through(resolved.effects.asReversed(), 0, bounds, scale, anchorX, anchorY) {
                 node.mirrorApplied = scaled(node, bounds, bounds, mirrored = true)
+                if (!node.mirrorApplied) contents(node, resolved, bounds)
             }
             if (scale != 1f) node.scaleApplied = applied
         } else {
@@ -243,8 +272,9 @@ class DrawPass(val canvas: UiCanvas) {
      *
      * It is the one operation here that does not share a picture. A scale is a different
      * destination rectangle for a composite that was happening anyway; a turn is not a rectangle at
-     * all, so there is nothing to fold it into. A node that scales *and* turns therefore costs two
-     * pictures, and one that only turns costs one.
+     * all, so there is nothing to fold it into. A node that scales *and* turns costs the turn's one
+     * picture when the scale is drawn through a transform inside it, and two when the scale takes a
+     * picture of its own — see [growsInPlace].
      *
      * The area captured is the node's drawn rectangle grown by the widest bleed in its chain, so a
      * glow reaching past the node turns with it instead of being cut off square at the edge.
@@ -260,6 +290,7 @@ class DrawPass(val canvas: UiCanvas) {
         scale: Float,
         anchorX: Float,
         anchorY: Float,
+        steady: Boolean,
         cameraX: Float,
         cameraY: Float,
         cameraDistance: Float,
@@ -271,11 +302,11 @@ class DrawPass(val canvas: UiCanvas) {
         val area =
             if (bleed > 0f) bounds.inset(-bleed).scaledAbout(anchorX, anchorY, scale) else drawn
 
-        val picture = canvas.layer(area) { upright(node, resolved, bounds, scale, anchorX, anchorY) }
+        val picture = canvas.layer(area) { upright(node, resolved, bounds, scale, anchorX, anchorY, steady) }
         if (picture == null) {
             // The same bargain a scale and an effect make: drawn plainly, the right size and the
             // right way up, rather than not drawn at all.
-            upright(node, resolved, bounds, scale, anchorX, anchorY)
+            upright(node, resolved, bounds, scale, anchorX, anchorY, steady)
             return
         }
 
@@ -418,9 +449,136 @@ class DrawPass(val canvas: UiCanvas) {
         if (span <= 0f) 0.5f else (point - start) / span
 
     /**
+     * Whether [node]'s factor, [scale], has changed within the last [SettledFrames] frames. Written
+     * down on the node as it is asked, by frame rather than by pass: a second pass in the same frame
+     * gets the same answer, and a node drawn for the first time is not moving.
+     *
+     * Held for a few frames rather than one, so a factor that changes on some frames and not others
+     * — a camera that moves on a 60 Hz update drawn at 120 Hz, driving a marker's scale — stays a
+     * picture throughout instead of switching road, and its letters, every other frame.
+     *
+     * A tree whose clocks are never advanced is always in the same frame, so nothing on it is ever
+     * moving, and every scale on it is drawn through a transform.
+     */
+    private fun scaleMoving(node: UiNode, scale: Float): Boolean {
+        val frame = node.tree?.clocks?.frameNanos ?: Long.MIN_VALUE
+        if (frame == Long.MIN_VALUE) return false
+        val last = node.scaleNow
+        if (frame != node.scaleFrame) {
+            node.scaleFrame = frame
+            node.scaleHeld = when {
+                last.isNaN() -> SettledFrames
+                last == scale -> if (node.scaleHeld < SettledFrames) node.scaleHeld + 1 else SettledFrames
+                else -> 0
+            }
+        } else if (!last.isNaN() && last != scale) {
+            // Changed again by a later pass in the same frame: that is movement too.
+            node.scaleHeld = 0
+        }
+        node.scaleNow = scale
+        return node.scaleHeld < SettledFrames
+    }
+
+    /**
+     * Whether a scale on [node] can be drawn through a transform rather than a picture.
+     *
+     * Asked of a steady one: one that has held for [SettledFrames] frames. A factor still moving —
+     * a panel springing in, a pulse — keeps its picture: a letter is put on a whole screen pixel
+     * where it lands, and under a transform each letter lands somewhere new as the factor moves and
+     * jumps on its own, where a picture's letters were placed once and the whole picture slides.
+     * Still, the two look alike, though a letter can sit up to about a pixel apart between them: a
+     * scale that starts or stops moving shifts its words that much, once. Also asked of a moving
+     * one whose picture the canvas refused: with no picture to hold its letters together, the
+     * transform is the only way it is drawn at its factor at all.
+     *
+     * Then it can on a canvas that transforms, unless the node has no area — the picture refuses
+     * one, and its children are drawn plainly at their own size rather than cut to nothing — or
+     * something would come out differently without the picture:
+     *
+     * - **The node or one above it is faded or blends in a mode of its own.** A picture fades as
+     *   one thing and blends as one thing; the same subtree drawn straight fades each part through
+     *   the parts behind it. An alpha a game pushes round the whole tree itself is not seen here.
+     * - **Something under it has a [dev.wildware.composegl.ui.modifier.blend] modifier.** In the
+     *   picture an additive glow adds onto the panel's own transparent pixels and the picture is laid
+     *   over the screen; drawn straight it would add onto whatever is behind the panel, which is a
+     *   brighter glow. Only the modifier is seen: a glow a widget pushes itself, with `pushBlend` in
+     *   a `drawBehind` or its own drawing in `raw`, is drawn as it would be unscaled — onto what is
+     *   behind the panel — while the factor holds still.
+     * - **Something under it has a shader effect.** An effect is handed the size of its area as it
+     *   is drawn, so under a shrinking transform its reach in design units would not shrink with it.
+     *
+     * Asked of the ancestors and the subtree each time rather than counted on the way down, so a
+     * frame that throws leaves nothing behind it. A still scaled node costs a walk to the root and
+     * one over what it holds, once a frame — less than drawing what it holds, which follows.
+     */
+    private fun growsInPlace(node: UiNode, bounds: Rect): Boolean {
+        if (bounds.isEmpty || !canvas.transforms) return false
+        var at: UiNode? = node.parent
+        while (at != null) {
+            if (groups(at.resolved)) return false
+            at = at.parent
+        }
+        return !groups(node.resolved) && !blendsInside(node)
+    }
+
+    /** Whether [resolved] fades or blends in a way a picture of it would do as one object. */
+    private fun groups(resolved: ResolvedModifier): Boolean =
+        resolved.alpha < 1f || (resolved.blend != BlendMode.SourceOver && canvas.supports(resolved.blend))
+
+    /**
+     * Whether anything drawn under [node] blends in a mode of its own or has an effect. Nodes that
+     * draw nothing — fully transparent, scaled to nothing — are not looked into.
+     */
+    private fun blendsInside(node: UiNode): Boolean {
+        val children = node.children
+        for (index in children.indices) {
+            val child = children[index]
+            val inner = child.resolved
+            if (inner.alpha <= 0f || inner.scale <= 0f) continue
+            if (inner.effects.isNotEmpty()) return true
+            if (inner.blend != BlendMode.SourceOver && canvas.supports(inner.blend)) return true
+            if (blendsInside(child)) return true
+        }
+        return false
+    }
+
+    /**
+     * Draws [node]'s contents grown by [scale] about ([anchorX], [anchorY]): one transform round the
+     * subtree, and no picture.
+     *
+     * What a still scale costs on a canvas that can transform. The subtree is drawn straight onto
+     * the screen where the picture would have been put down — no framebuffer switch, no clear, no
+     * second pass over the pixels. Layout is untouched, as with the picture: every rectangle
+     * underneath stays where it was laid out, and the canvas does the arithmetic.
+     *
+     * The node's rectangle is pushed as a clip inside the transform, so it is cut off at the scaled
+     * rectangle exactly as the picture's edge cut it. That clip is the one cost it adds over the
+     * same subtree unscaled: a scissor, which cuts the batch on the way in and again on the way out.
+     * Glyphs are not made again for the scale: text is its ordinary glyphs, grown or shrunk on the
+     * way to the screen, as the picture's were.
+     */
+    private fun grown(
+        node: UiNode,
+        resolved: ResolvedModifier,
+        bounds: Rect,
+        scale: Float,
+        anchorX: Float,
+        anchorY: Float,
+    ) {
+        // A point p lands at anchor + (p - anchor) × scale, which is p × scale + anchor × (1 - scale).
+        canvas.pushTransform(scale, anchorX * (1f - scale), anchorY * (1f - scale), 1f)
+        canvas.pushClip(bounds)
+        contents(node, resolved, bounds)
+        canvas.popClip()
+        canvas.popTransform()
+    }
+
+    /**
      * Draws [node]'s contents into a picture and puts that picture down somewhere else.
      *
-     * The whole of how a scale works. The subtree is captured at the size it was laid out, so
+     * How a scale is drawn when [grown] cannot be: a factor still moving, a mirror, a fade or a blend
+     * mode on the way, a blend mode or an effect under it, a node with no area, or a canvas with no
+     * transform. The subtree is captured at the size it was laid out, so
      * nothing inside it knows the scale is happening — no arithmetic to thread through the walk,
      * no text asked for a font size nobody registered, and every rectangle underneath stays where
      * it was, so the caches keep hitting while the factor animates.
@@ -436,18 +594,15 @@ class DrawPass(val canvas: UiCanvas) {
      * same pair the effect path has always made, and a node whose factor is not one is a node
      * being animated, so it is not the standing-still case the caches exist for.
      *
-     * Returns whether the scale actually happened. A canvas with no offscreen drawing — or a
-     * subtree too big for one picture — hands back nothing and has drawn nothing, so the subtree
-     * is drawn straight, at its ordinary size. That is the bargain a layer already makes, and
-     * saying so out loud is what lets hit testing degrade along with it.
+     * Returns whether the picture was put down. A canvas with no offscreen drawing — or a subtree
+     * too big for one picture — hands back nothing and has drawn nothing, and so has this: the
+     * caller draws the subtree another way, through [grown] where it can and otherwise straight,
+     * at its ordinary size. That is the bargain a layer already makes, and saying so out loud is
+     * what lets hit testing degrade along with it.
      */
     private fun scaled(node: UiNode, bounds: Rect, destination: Rect, mirrored: Boolean): Boolean {
         val resolved = node.resolved
-        val picture = canvas.layer(bounds) { contents(node, resolved, bounds) }
-        if (picture == null) {
-            contents(node, resolved, bounds)
-            return false
-        }
+        val picture = canvas.layer(bounds) { contents(node, resolved, bounds) } ?: return false
         if (mirrored) {
             canvas.drawLayer(picture, destination, resolved.mirrorX, resolved.mirrorY)
         } else {

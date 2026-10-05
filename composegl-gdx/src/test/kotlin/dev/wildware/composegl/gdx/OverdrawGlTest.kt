@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.modifier.background
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.fillMaxSize
@@ -112,11 +113,34 @@ class OverdrawGlTest {
     }
 
     @Test
-    fun `a scale on the GL canvas counts its picture`() = Gl.render {
+    fun `a scale on the GL canvas is painted once where it is drawn`() = Gl.render {
         val backend = GdxBackend(HeadlessFonts.registry())
         val ui = uiTest(Size(Gl.size.toFloat(), Gl.size.toFloat()), backend) {
             Box(Modifier.fillMaxSize()) {
                 Box(Modifier.offset(100f, 100f).size(100f, 100f).scale(0.5f).background(Colour.rgb(0x000000)))
+                OverdrawOverlay(true, cell = 1f)
+            }
+        }
+        try {
+            frame(ui).use {
+                assertBlack(it.at(150, 150), "drawn straight, through a transform: once")
+                assertBlack(it.at(110, 110), "outside where it is drawn: not at all")
+            }
+            val map = ui.overdraw()
+            assertEquals(1, map.at(150f, 150f))
+            assertEquals(0, map.at(110f, 110f))
+        } finally {
+            ui.close()
+            backend.dispose()
+        }
+    }
+
+    @Test
+    fun `a faded scale on the GL canvas counts its picture`() = Gl.render {
+        val backend = GdxBackend(HeadlessFonts.registry())
+        val ui = uiTest(Size(Gl.size.toFloat(), Gl.size.toFloat()), backend) {
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.offset(100f, 100f).size(100f, 100f).alpha(0.5f).scale(0.5f).background(Colour.rgb(0x000000)))
                 OverdrawOverlay(true, cell = 1f)
             }
         }

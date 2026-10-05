@@ -926,8 +926,10 @@ than stretched from a picture, so its edges and its letters stay sharp. Clicks, 
 drags, tooltips, focus rings and `boundsInRoot` all work inside the plane with nothing
 written for them.
 
-This is what `Modifier.scale` cannot do: that is a captured picture magnified, soft past
-about 1.15× and with a ceiling at 4096 pixels. A camera has neither.
+This is what `Modifier.scale` cannot do: its letters are the ordinary ones stretched,
+soft past about 1.15×, and some scales (faded or blended, on the widget or above it;
+mirrored; with an effect, or a glow or an effect inside) are a picture with a ceiling
+at 4096 pixels. A camera has neither.
 
 - **Drag** empty space to pan, and a fast one flings on. A drag that starts on a button
   pans once it has moved further than a click would, and the button is not clicked; a

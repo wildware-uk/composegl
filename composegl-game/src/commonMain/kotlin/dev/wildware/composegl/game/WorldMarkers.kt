@@ -229,9 +229,9 @@ interface WorldMarkerScope {
  * anywhere outside a frame callback is already right, which is the usual case and why this is
  * rarely met.
  *
- * `scaleDistance` is the one thing to be careful with: scaling is drawn through an offscreen
- * picture, as [dev.wildware.composegl.ui.modifier.scale] explains, so it is crisp shrinking and
- * soft growing. Markers that must be sharp at every distance should be laid out at the size they
+ * `scaleDistance` is the one thing to be careful with: a scaled marker's letters are its ordinary
+ * glyphs grown or shrunk, as [dev.wildware.composegl.ui.modifier.scale] explains, so they are crisp
+ * shrinking and soft growing. Markers that must be sharp at every distance should be laid out at the size they
  * are drawn — change what is inside the marker, not the marker's scale.
  *
  * @param projection how the game turns a place in its world into a place on this layer. The same

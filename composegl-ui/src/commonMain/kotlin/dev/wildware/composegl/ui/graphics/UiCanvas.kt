@@ -634,11 +634,11 @@ interface UiCanvas {
      * [translateX] and [translateY]: a point at (x, y) lands at (x × scale + translateX,
      * y × scale + translateY) in the coordinates in force before the push.
      *
-     * The camera a pan-and-zoom canvas is built on. It is not a picture: every rectangle, glyph and
-     * picture is placed where the transform puts it and drawn at that size, so a zoomed-in skill
-     * tree has sharp edges and a map bigger than the screen has no ceiling, which is the difference
-     * from `Modifier.scale`. Thicknesses scale too — a border, a corner, a shadow's spread — because
-     * a border is part of the thing being zoomed.
+     * The camera a pan-and-zoom canvas is built on, and what a still `Modifier.scale` is drawn
+     * with. It is not a picture: every rectangle, glyph and picture is placed where the transform
+     * puts it and drawn at that size, so a zoomed-in skill tree has sharp edges and a map bigger than
+     * the screen has no ceiling. Thicknesses scale too — a border, a corner, a shadow's spread —
+     * because a border is part of the thing being zoomed.
      *
      * Nests by composition, inner first: pushed twice, a point goes through the inner one and then
      * the outer one. A clip pushed inside is the transformed rectangle, so `pushClip` keeps meaning

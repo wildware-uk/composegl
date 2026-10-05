@@ -41,6 +41,7 @@ import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.clipShape
 import dev.wildware.composegl.ui.modifier.drawBehind
 import dev.wildware.composegl.ui.modifier.effect
+import dev.wildware.composegl.ui.modifier.mirror
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.padding
 import dev.wildware.composegl.ui.modifier.scale
@@ -440,11 +441,12 @@ class RoundedClipGlTest {
 
     @Test
     fun `a rounded clip inside a picture keeps its rounded corners where they belong`() {
-        // A scale takes a picture, and the rounded clip inside it is drawn into that picture: top
-        // corners round, bottom ones square, so a mask turned over would show.
+        // A mirrored scale takes a picture (a still plain one is drawn through a transform), and the
+        // rounded clip inside it is drawn into that picture: top corners round, bottom ones square,
+        // so a mask turned over would show. The mirror is side to side, which leaves them as they are.
         val frame = render {
             Box(Modifier.padding(100f)) {
-                Box(Modifier.size(100f).scale(0.9f)) {
+                Box(Modifier.size(100f).scale(0.9f).mirror()) {
                     Box(Modifier.size(100f).clip(Corners.top(40f))) { Box(Modifier.size(100f).background(red)) }
                 }
             }
@@ -457,6 +459,27 @@ class RoundedClipGlTest {
         assertColour(red, frame.at(106, 193), "the bottom-left corner stays square")
         assertColour(red, frame.at(193, 193), "and the bottom-right")
         assertTrue(BatchBreak.Layer in frame.breaks, "the scale really took a picture")
+    }
+
+    @Test
+    fun `a rounded clip inside a still scale keeps its rounded corners where they belong`() {
+        // The same, with no mirror: a still scale is drawn through a transform, and the rounded clip
+        // inside it is trimmed in place through that transform, with no picture at all.
+        val frame = render {
+            Box(Modifier.padding(100f)) {
+                Box(Modifier.size(100f).scale(0.9f)) {
+                    Box(Modifier.size(100f).clip(Corners.top(40f))) { Box(Modifier.size(100f).background(red)) }
+                }
+            }
+        }
+
+        assertColour(red, frame.at(150, 150), "the middle")
+        assertColour(black, frame.at(108, 108), "the top-left corner, rounded away")
+        assertColour(black, frame.at(192, 108), "the top-right one")
+        assertColour(red, frame.at(106, 193), "the bottom-left corner stays square")
+        assertColour(red, frame.at(193, 193), "and the bottom-right")
+        assertColour(black, frame.at(102, 150), "nothing left of the shrunk box")
+        assertTrue(BatchBreak.Layer !in frame.breaks, "no picture: ${frame.breaks}")
     }
 
     /** What a still screen cost: draw calls a frame, and microseconds a frame on the CPU and GPU together. */

@@ -97,8 +97,9 @@ fun scenes(): List<Scene> = listOf(
     Scene("scale") { art ->
         rect(Rect.of(0f, 0f, SceneSize.toFloat(), SceneSize.toFloat()), Ink)
 
-        // What `Modifier.scale` is, with the tree taken away: a picture captured at the size the
-        // thing was laid out, then put down filling a different rectangle. Three tiles, the same
+        // What `Modifier.scale` is while its factor moves, or when it fades, with the tree taken
+        // away: a picture captured at the size the thing was laid out, then put down filling a
+        // different rectangle. (A still one is a transform instead.) Three tiles, the same
         // size in the capture and three sizes on screen.
         //
         // A backend that ignores the destination's size draws three identical tiles, and a backend

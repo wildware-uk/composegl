@@ -185,8 +185,32 @@ class OverdrawTest {
     }
 
     @Test
-    fun `a scale counts the picture and where it is put down`() {
+    fun `a scale counts once where it is drawn`() {
         val ui = open { Box(Modifier.offset(100f, 100f).size(100f, 100f).scale(0.5f).background(Colour.Blue)) }
+        val map = ui.overdraw()
+
+        assertEquals(1, map.at(150f, 150f), "drawn straight, through a transform")
+        assertEquals(0, map.at(110f, 110f), "nothing where the node would be at its full size")
+        assertEquals(0, map.at(90f, 90f))
+    }
+
+    @Test
+    fun `a count after a frame agrees with the frame about a moving scale`() {
+        var factor by mutableStateOf(0.5f)
+        val ui = open { Box(Modifier.offset(100f, 100f).size(100f, 100f).scale(factor).background(Colour.Blue)) }
+        ui.render()
+
+        factor = 0.6f
+        ui.render()
+        assertEquals(2, ui.overdraw().at(150f, 150f), "the frame took a picture of the moving scale, and so does the count")
+
+        repeat(10) { ui.render() }
+        assertEquals(1, ui.overdraw().at(150f, 150f), "settled, it is drawn straight and counted once")
+    }
+
+    @Test
+    fun `a faded scale counts the picture and where it is put down`() {
+        val ui = open { Box(Modifier.offset(100f, 100f).size(100f, 100f).alpha(0.5f).scale(0.5f).background(Colour.Blue)) }
         val map = ui.overdraw()
 
         assertEquals(2, map.at(150f, 150f), "drawn into the picture, then the picture put down")
@@ -206,13 +230,14 @@ class OverdrawTest {
     }
 
     @Test
-    fun `a canvas that cannot take pictures counts a scale once and nothing on the tree changes`() {
+    fun `a canvas that can neither transform nor take pictures counts a scale once and nothing on the tree changes`() {
         val ui = open { Box(Modifier.offset(100f, 100f).size(100f, 100f).scale(0.5f).background(Colour.Blue).testTag("scaled")) }
         val before = ui.node("scaled").boundsInRoot
         assertEquals(Rect(125f, 125f, 175f, 175f), before)
 
         val flat = object : UiCanvas by RecordingCanvas() {
             override val drawsLayers: Boolean get() = false
+            override val transforms: Boolean get() = false
         }
         val map = measureOverdraw(ui.root, like = flat)
 

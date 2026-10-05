@@ -551,14 +551,15 @@ class UiNode(var name: String = "node") {
     val bounds: Rect get() = Rect.of(x, y, width, height)
 
     /**
-     * Whether the last draw pass managed the offscreen picture a [dev.wildware.composegl.ui.modifier.scale]
-     * needs.
+     * Whether the last draw pass managed to draw a [dev.wildware.composegl.ui.modifier.scale] at its
+     * factor: through a transform, or through the offscreen picture it takes when it cannot.
      *
      * Optimistic: a tree that has never been drawn believes its own modifiers, which is what keeps
      * a measure-then-hit-test test — and the first frame of a real screen — behaving as written.
-     * The draw pass clears it when a canvas refuses the picture, and that is what makes the
-     * degraded path honest: a widget drawn at its ordinary size is clicked at its ordinary size
-     * too, one frame later, rather than being clicked where it was supposed to be.
+     * The draw pass clears it when a canvas refuses the picture and the scale cannot be drawn
+     * through a transform instead, and that is what makes the degraded path honest: a widget drawn
+     * at its ordinary size is clicked at its ordinary size too, one frame later, rather than being
+     * clicked where it was supposed to be.
      *
      * The last canvas to draw this node wins. Drawing one tree with two canvases that disagree
      * about offscreen pictures is not a thing a game does, and a shot test that records a tree
@@ -573,10 +574,19 @@ class UiNode(var name: String = "node") {
             tree?.relayout()
         }
 
+    // The scale this node is drawn at in the frame it was last drawn in, that frame's time, and how
+    // many frames in a row its factor has held. Kept per frame rather than per pass, so every pass
+    // over the tree in one frame — the screen's, an overdraw count, a test reading the words —
+    // agrees on whether the factor is moving, and none of them changes the others' answer.
+    internal var scaleNow: Float = Float.NaN
+    internal var scaleFrame: Long = Long.MIN_VALUE
+    internal var scaleHeld: Int = Int.MAX_VALUE
+
     /**
      * This node's own scale as it is actually drawn: what its chain asked for, unless the canvas
-     * refused the picture. The pointer router works the same rectangles out on its way down the tree
-     * and uses the same number, so a tool that follows the pointer's reasoning reads it here.
+     * could draw it neither through a transform nor through a picture. The pointer router works the
+     * same rectangles out on its way down the tree and uses the same number, so a tool that follows
+     * the pointer's reasoning reads it here.
      */
     val drawnScale: Float get() = if (scaleApplied) resolved.scale else 1f
 

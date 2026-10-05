@@ -318,8 +318,9 @@ class PointerRouterTest {
     // The half of Modifier.scale that no screenshot can check. A scale that reached only the
     // drawing would look perfect and take its clicks where the widget used to be.
 
-    /** A canvas that cannot make offscreen pictures, so a scale has nothing to happen in. */
-    private class Plain(canvas: RecordingCanvas = RecordingCanvas()) : UiCanvas by canvas {
+    /** A canvas that can neither make offscreen pictures nor transform: a scale cannot happen on it at all. */
+    private class Bare(canvas: RecordingCanvas = RecordingCanvas()) : UiCanvas by canvas {
+        override val transforms: Boolean get() = false
         override val drawsLayers: Boolean get() = false
         override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? = null
     }
@@ -405,7 +406,7 @@ class PointerRouterTest {
     @Test
     fun `a canvas that refused the picture is clicked where the widget actually is`() {
         screen.box("button", 0f, 0f, 40f, 20f, Modifier.scale(2f).clickable { clicks += 1 })
-        DrawPass(Plain()).draw(screen.root)
+        DrawPass(Bare()).draw(screen.root)
 
         press(50f, 25f)
         release(50f, 25f)
@@ -418,7 +419,7 @@ class PointerRouterTest {
 
     @Test
     fun `a child hanging out of a scaled panel is not clicked where the capture cut it off`() {
-        // A scale captures exactly the panel's own rectangle, so the child is chopped at the
+        // A scale is cut at exactly the panel's own rectangle, so the child is chopped at the
         // panel's edge — the same rule as `Modifier.clip`, arriving without anyone asking for it.
         // Laid out, the child runs 90..130 inside the panel; drawn, it stops at 100 with the
         // panel, and the panel is half size about its centre, so 75 is the last drawn pixel.

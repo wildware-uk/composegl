@@ -53,11 +53,23 @@ class DrawPassTest {
         children.forEach { node.insertAt(node.children.size, it) }
     }
 
-    private fun draw(root: UiNode, constraints: Constraints = Constraints.atMost(500f, 500f)) {
+    private fun draw(root: UiNode, constraints: Constraints = Constraints.atMost(500f, 500f), on: UiCanvas = canvas) {
         tree.root.insertAt(0, root)
         MeasurePass().run(tree.root, constraints)
-        DrawPass(canvas).draw(tree.root)
+        DrawPass(on).draw(tree.root)
         canvas.assertBalanced()
+    }
+
+    /** A backend that makes pictures but cannot transform: every scale is a picture on it. */
+    private class Flat(canvas: RecordingCanvas) : UiCanvas by canvas {
+        override val transforms: Boolean get() = false
+    }
+
+    /** A backend that can neither transform nor make pictures: a scale cannot happen on it at all. */
+    private class Bare(canvas: RecordingCanvas) : UiCanvas by canvas {
+        override val transforms: Boolean get() = false
+        override val drawsLayers: Boolean get() = false
+        override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? = null
     }
 
     private fun kinds() = canvas.calls.map { it::class.simpleName }
@@ -317,10 +329,22 @@ class DrawPassTest {
     }
 
     @Test
-    fun `a scaled node is captured at its own size and drawn into a bigger rectangle`() {
+    fun `a scaled node is drawn bigger through a transform and takes no picture`() {
         val node = node("panel", Modifier.size(40f).scale(2f).background(red))
 
         draw(node)
+
+        assertEquals(listOf("Rectangle"), kinds())
+        val box = canvas.only<DrawCall.Rectangle>().single()
+        assertEquals(Rect(-20f, -20f, 60f, 60f), box.rect, "twice the size, about the node's centre")
+        assertEquals(2f, canvas.scaleOf(box))
+    }
+
+    @Test
+    fun `on a canvas that cannot transform a scaled node is captured at its own size and drawn into a bigger rectangle`() {
+        val node = node("panel", Modifier.size(40f).scale(2f).background(red))
+
+        draw(node, on = Flat(canvas))
 
         // The background is recorded first, at the size the node was laid out: nothing inside a
         // capture knows the scale is happening. Then the picture is put down twice as big, about
@@ -335,6 +359,15 @@ class DrawPassTest {
         val node = node("panel", Modifier.size(40f).scale(2f, Alignment.TopStart).background(red))
 
         draw(node)
+
+        assertEquals(Rect(0f, 0f, 80f, 80f), canvas.only<DrawCall.Rectangle>().single().rect)
+    }
+
+    @Test
+    fun `the origin says which point stays where it is in a picture too`() {
+        val node = node("panel", Modifier.size(40f).scale(2f, Alignment.TopStart).background(red))
+
+        draw(node, on = Flat(canvas))
 
         assertEquals(Rect(0f, 0f, 80f, 80f), canvas.only<DrawCall.Layer>().single().bounds)
     }
@@ -353,12 +386,23 @@ class DrawPassTest {
     @Test
     fun `a clip on a scaled node does not hold the picture inside the node`() {
         // Documented in `Modifier.scale`, and pinned here because it is the one thing about scale
-        // that reads backwards: the clip is a clip on the capture, and the capture is then put
-        // down filling the scaled rectangle. So a clipped 40-pixel box draws 80 pixels, and a
-        // viewport that must not spill puts the clip on the parent instead.
+        // that reads backwards: the clip is a clip on the node as it is drawn, and it is drawn
+        // filling the scaled rectangle. So a clipped 40-pixel box draws 80 pixels, and a viewport
+        // that must not spill puts the clip on the parent instead.
         val node = node("panel", Modifier.size(40f).clip().scale(2f).background(red))
 
         draw(node)
+
+        val box = canvas.only<DrawCall.Rectangle>().single()
+        assertEquals(Rect(-20f, -20f, 60f, 60f), box.rect)
+        assertEquals(Rect(0f, 0f, 60f, 60f), box.clip, "the scaled rectangle, cut only by the screen's edge")
+    }
+
+    @Test
+    fun `a clip on a scaled node does not hold the picture inside the node in a picture either`() {
+        val node = node("panel", Modifier.size(40f).clip().scale(2f).background(red))
+
+        draw(node, on = Flat(canvas))
 
         assertEquals(Rect(-20f, -20f, 60f, 60f), canvas.only<DrawCall.Layer>().single().bounds)
     }
@@ -477,14 +521,29 @@ class DrawPassTest {
 
     @Test
     fun `where a scaled node is drawn is where it says it is`() {
-        // The one assertion holding the two halves of this feature together. Drawing composites a
-        // picture; hit testing and focus walk up the tree with arithmetic. They agree here or a
-        // screen takes its clicks in the wrong place, and no screenshot can tell.
+        // The one assertion holding the two halves of this feature together. Drawing goes through
+        // the canvas's transform; hit testing and focus walk up the tree with arithmetic. They
+        // agree here or a screen takes its clicks in the wrong place, and no screenshot can tell.
         val label = node("label", Modifier.size(20f).background(blue))
         val inner = node("inner", Modifier.size(30f), children = listOf(label))
         val panel = node("panel", Modifier.size(60f).scale(1.5f).background(red), children = listOf(inner))
 
         draw(panel)
+
+        assertRect(
+            canvas.only<DrawCall.Rectangle>().last { it.colour == blue }.rect,
+            tree.root.firstOrNull { it.name == "label" }!!.boundsInRoot,
+            "the label's own idea of where it is",
+        )
+    }
+
+    @Test
+    fun `where a scaled node is drawn into a picture is where it says it is`() {
+        val label = node("label", Modifier.size(20f).background(blue))
+        val inner = node("inner", Modifier.size(30f), children = listOf(label))
+        val panel = node("panel", Modifier.size(60f).scale(1.5f).background(red), children = listOf(inner))
+
+        draw(panel, on = Flat(canvas))
 
         val layer = canvas.only<DrawCall.Layer>().single()
         val drawn = canvas.only<DrawCall.Rectangle>().last { it.colour == blue }.rect
@@ -501,6 +560,18 @@ class DrawPassTest {
         val outer = node("outer", Modifier.size(60f).scale(0.5f), children = listOf(inner))
 
         draw(outer)
+
+        assertEquals(emptyList<DrawCall.Layer>(), canvas.only<DrawCall.Layer>(), "one transform inside the other, no pictures")
+        assertRect(canvas.only<DrawCall.Rectangle>().single().rect, inner.boundsInRoot, "the inner node")
+        assertEquals(1f, inner.scaleInRoot, "half of twice the size is the size it was laid out")
+    }
+
+    @Test
+    fun `a scale inside a scale composes in pictures too`() {
+        val inner = node("inner", Modifier.size(20f).scale(2f).background(blue))
+        val outer = node("outer", Modifier.size(60f).scale(0.5f), children = listOf(inner))
+
+        draw(outer, on = Flat(canvas))
 
         val layers = canvas.only<DrawCall.Layer>()
         assertEquals(2, layers.size, "one picture each, not one picture per factor")
@@ -534,12 +605,12 @@ class DrawPassTest {
     }
 
     @Test
-    fun `a canvas with no pictures draws the subtree once, unscaled, and says so`() {
+    fun `a canvas with no pictures and no transform draws the subtree once, unscaled, and says so`() {
         val node = node("panel", Modifier.size(40f).scale(2f).background(red))
         tree.root.insertAt(0, node)
         MeasurePass().run(tree.root, Constraints.atMost(500f, 500f))
 
-        DrawPass(Plain(canvas)).draw(tree.root)
+        DrawPass(Bare(canvas)).draw(tree.root)
 
         assertEquals(listOf("Rectangle"), kinds(), "drawn straight, exactly once")
         assertEquals(Rect.of(0f, 0f, 40f, 40f), canvas.only<DrawCall.Rectangle>().single().rect)
@@ -555,7 +626,7 @@ class DrawPassTest {
         tree.root.insertAt(0, node)
         MeasurePass().run(tree.root, Constraints.atMost(500f, 500f))
 
-        DrawPass(Plain(canvas)).draw(tree.root)
+        DrawPass(Bare(canvas)).draw(tree.root)
         assertEquals(Rect.of(0f, 0f, 40f, 40f), node.boundsInRoot, "refused, so unscaled")
 
         canvas.clear()
@@ -621,10 +692,22 @@ class DrawPassTest {
     }
 
     @Test
-    fun `a scale and a turn are two pictures, the turn outermost`() {
+    fun `a scale under a turn is drawn through a transform into the turn's one picture`() {
         val node = node("card", Modifier.size(40f).scale(2f).rotate(15f).background(red))
 
         draw(node)
+
+        val layer = canvas.only<DrawCall.Layer>().single()
+        assertEquals(15f, layer.degrees, 0.001f, "the turn's picture, put down turned")
+        assertEquals(Rect(-20f, -20f, 60f, 60f), layer.bounds, "around what the scale drew")
+        assertEquals(Rect(-20f, -20f, 60f, 60f), canvas.only<DrawCall.Rectangle>().single().rect)
+    }
+
+    @Test
+    fun `on a canvas that cannot transform a scale and a turn are two pictures, the turn outermost`() {
+        val node = node("card", Modifier.size(40f).scale(2f).rotate(15f).background(red))
+
+        draw(node, on = Flat(canvas))
 
         val layers = canvas.only<DrawCall.Layer>()
         assertEquals(2, layers.size, "a turn cannot be folded into a rectangle, so it takes its own")
@@ -800,10 +883,21 @@ class DrawPassTest {
     }
 
     @Test
-    fun `a scale under a slant is the picture that gets slanted`() {
+    fun `a scale under a slant is drawn through a transform into the slant's picture`() {
         val node = node("banner", Modifier.size(40f).scale(2f).skew(x = 45f).background(red))
 
         draw(node)
+
+        assertEquals(emptyList<DrawCall.Layer>(), canvas.only<DrawCall.Layer>(), "no picture of the scale's own")
+        assertEquals(Rect(-20f, -20f, 60f, 60f), canvas.only<DrawCall.Rectangle>().single().rect)
+        assertEquals(Rect(-20f, -20f, 60f, 60f), canvas.only<DrawCall.LayerOnto>().single().bounds)
+    }
+
+    @Test
+    fun `on a canvas that cannot transform a scale under a slant is the picture that gets slanted`() {
+        val node = node("banner", Modifier.size(40f).scale(2f).skew(x = 45f).background(red))
+
+        draw(node, on = Flat(canvas))
 
         assertEquals(Rect(-20f, -20f, 60f, 60f), canvas.only<DrawCall.Layer>().single().bounds,
             "the scale's upright composite")

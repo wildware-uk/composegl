@@ -150,9 +150,11 @@ class OverdrawMap(
  *
  * The same draw pass a frame runs, handed a canvas that paints nothing and counts everything, so
  * it counts the calls the frame really makes: a panel, its border, its shadow, every run of text,
- * every picture. A subtree taken into a picture — a scale, a turn, an effect, a shaped clip — is
- * counted twice where it lands, once drawn into the picture and once more when the picture is put
- * down, because that is what the GPU fills.
+ * every picture. A subtree taken into a picture — a turn, an effect, a shaped clip, a scale that is
+ * moving or cannot be drawn through a transform (faded or blending, itself or above it; mirrored;
+ * holding a blend or an effect; with no area; on a canvas that cannot transform) — is counted twice
+ * where it lands, once drawn into the picture and once more when the picture is put down, because
+ * that is what the GPU fills. Any other still scale is drawn straight and counted once.
  *
  * [like] is the canvas the frame really draws into. Asked what it can do — take a picture, turn one,
  * cut one — so the pass takes the same road here as it does there. Null counts as a canvas that can
