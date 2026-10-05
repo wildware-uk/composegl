@@ -4,6 +4,7 @@ import dev.wildware.composegl.ui.debug.BatchBreak
 import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.node.UiNode
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -32,9 +33,27 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     private var used = 0
 
     private var texture: DeviceTexture? = null
-    private var blend = Blend.SourceOver
-    private var mask: ClipMask? = null
     private var drawing = false
+
+    /*
+     * The blend, the rounded clip and the scissor are asked for here and handed on only when a
+     * quad is queued under them, so a change undone before anything was drawn — a clip round a
+     * list scrolled out of sight — cuts nothing. What the queue was queued under is [blend],
+     * [mask] and [scissorOn] with [scissorBox]; what the next quad asks for is the wanted one.
+     */
+    private var blend = Blend.SourceOver
+    private var wantedBlend = Blend.SourceOver
+    private var mask: ClipMask? = null
+    private var wantedMask: ClipMask? = null
+    private var scissorOn = false
+    private val scissorBox = IntArray(4)
+    private var wantedScissor = false
+    private val wantedBox = IntArray(4)
+    private var scissorAsked = false
+
+    /** Why the first change asked for since the queue last caught up would cut it, and while drawing what. */
+    private var askedReason: BatchBreak? = null
+    private var askedBy: UiNode? = null
 
     private val projection = FloatArray(16)
 
@@ -53,7 +72,11 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         renderCalls = 0
         projection.copyInto(this.projection)
         blend = Blend.SourceOver
+        wantedBlend = Blend.SourceOver
+        askedReason = null
+        askedBy = null
         mask = null
+        wantedMask = null
         // A frame that threw between holdInside and letGo must not hold the next one's pictures.
         holding = false
     }
@@ -75,25 +98,134 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
      * How the following quads are combined with what is already there.
      *
      * The one place this batch's blending is decided. What is queued was queued to blend the old
-     * way, so it goes first, blamed on [reason].
+     * way, so it goes first, blamed on [reason] — when the next quad is queued, and only if it is
+     * to blend differently: a mode put back before anything was drawn in it breaks nothing.
      *
      * @param premultiplied true for a layer being drawn back, whose colours are already multiplied
      *   by their own opacity.
      */
     fun blend(mode: BlendMode, premultiplied: Boolean, reason: BatchBreak = BatchBreak.Blend) {
-        flush(reason)
-        blend = Blend.of(mode, premultiplied)
+        wantedBlend = Blend.of(mode, premultiplied)
+        asked(reason)
     }
+
+    /**
+     * Nothing lands outside this box, in the target's pixels counted up from its bottom-left, from
+     * the next quad queued on. Handed to the device then, and only if it differs from the box the
+     * queue was queued under, which goes first, blamed on the clip.
+     */
+    fun scissor(x: Int, y: Int, width: Int, height: Int) {
+        wantedScissor = true
+        wantedBox[0] = x
+        wantedBox[1] = y
+        wantedBox[2] = width
+        wantedBox[3] = height
+        scissorAsked = true
+        asked(BatchBreak.Clip)
+    }
+
+    /** No scissor from the next quad queued on, as [scissor] hands one on. */
+    fun noScissor() {
+        wantedScissor = false
+        scissorAsked = true
+        asked(BatchBreak.Clip)
+    }
+
+    /**
+     * No scissor on the device right now, as a clear of a whole target needs, and none wanted
+     * until [scissor] says otherwise. Whatever is queued goes first.
+     */
+    fun noScissorNow() {
+        flush(BatchBreak.Clip)
+        wantedScissor = false
+        scissorOn = false
+        scissorAsked = false
+        if (!differs()) forgetAsked()
+        device.noScissor()
+    }
+
+    /**
+     * What is queued goes to the device, blamed on [reason], and the device takes the scissor
+     * asked for: before drawing that does not go through the batch — a picture through somebody's
+     * shader, a game's own — and must be cut by the clip in force all the same.
+     */
+    fun flushForDevice(reason: BatchBreak) {
+        flush(reason)
+        catchUpScissor()
+        if (!differs()) forgetAsked()
+    }
+
+    /**
+     * Blames the cut, when it comes, on the first change asked for that still stands — unless
+     * nothing now differs from what the queue holds, when there is nothing to blame.
+     */
+    private fun asked(reason: BatchBreak) {
+        if (!differs()) return forgetAsked()
+        if (askedReason != null) return
+        askedReason = reason
+        askedBy = trace?.node
+    }
+
+    private fun forgetAsked() {
+        askedReason = null
+        askedBy = null
+    }
+
+    /** Whether what the next quad asks for differs from what the queue was queued under. */
+    private fun differs(): Boolean =
+        wantedBlend != blend || wantedMask !== mask || (scissorAsked && !scissorIsWanted())
+
+    /** Before a quad is queued: what it asks for differs from what the queue holds, so the queue goes first. */
+    private fun catchUp() {
+        val reason = askedReason ?: return
+        if (differs()) cut(reason, askedBy)
+        blend = wantedBlend
+        mask = wantedMask
+        catchUpScissor()
+        forgetAsked()
+    }
+
+    private fun catchUpScissor() {
+        if (!scissorAsked) return
+        scissorAsked = false
+        if (scissorIsWanted()) return
+        scissorOn = wantedScissor
+        if (wantedScissor) {
+            wantedBox.copyInto(scissorBox)
+            device.scissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3])
+        } else {
+            device.noScissor()
+        }
+    }
+
+    private fun scissorIsWanted(): Boolean =
+        if (!wantedScissor) {
+            !scissorOn
+        } else {
+            scissorOn && wantedBox[0] == scissorBox[0] && wantedBox[1] == scissorBox[1] &&
+                wantedBox[2] == scissorBox[2] && wantedBox[3] == scissorBox[3]
+        }
 
     /**
      * The rounded clip the following quads are kept inside, or null for none.
      *
-     * What is queued was queued under the old one, so it goes first, blamed on the clip. The batch
-     * holds [next] rather than a copy: whoever filled it flushes before filling it again.
+     * What is queued was queued under the old one, so it goes first, blamed on the clip — when the
+     * next quad is queued, and only if it is to be kept inside a different one. The batch holds
+     * [next] rather than a copy, so whoever fills one in again says so first: see [refilling].
      */
     fun mask(next: ClipMask?) {
-        flush(BatchBreak.Clip)
-        mask = next
+        wantedMask = next
+        asked(BatchBreak.Clip)
+    }
+
+    /**
+     * [mask] is about to be filled in again. Anything still queued inside it goes now, while it
+     * still says where it was: a clip taken off with nothing drawn since leaves the queue holding it.
+     */
+    fun refilling(mask: ClipMask) {
+        if (this.mask !== mask || used == 0) return
+        val reason = askedReason
+        if (reason != null) cut(reason, askedBy) else cut(BatchBreak.Clip, trace?.node)
     }
 
     /**
@@ -102,6 +234,22 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
      */
     fun flush(reason: BatchBreak) {
         if (used == 0) return
+        draw()
+        trace?.record(reason)
+    }
+
+    /** [flush], blamed on [node] — the one that asked for the change — rather than the one drawing now. */
+    private fun cut(reason: BatchBreak, node: UiNode?) {
+        if (used == 0) return
+        draw()
+        val trace = trace ?: return
+        val now = trace.node
+        trace.node = node
+        trace.record(reason)
+        trace.node = now
+    }
+
+    private fun draw() {
         val quads = used / (4 * ShapeVertex.Floats)
         vertices.put(floats, used)
         val mask = mask
@@ -113,7 +261,6 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             device.drawShapes(vertices, quads, checkNotNull(texture), blend, projection, mask)
         }
         renderCalls++
-        trace?.record(reason)
         used = 0
     }
 
@@ -664,6 +811,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     }
 
     private fun use(next: DeviceTexture) {
+        catchUp()
         if (texture != next) {
             flush(BatchBreak.Texture)
             texture = next

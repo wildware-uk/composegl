@@ -1068,12 +1068,11 @@ class GlCanvasTest {
     }
 
     @Test
-    fun `a group with nothing in it costs the flush the push forced, and no more`() {
-        // Honest about what eager blending costs. The mode is set the moment it is pushed rather
-        // than remembered until something draws, because a shader effect changes the same piece of
-        // GL state behind the batch's back and a remembered value would then be wrong. The price
-        // is this: a push sends whatever was already queued, so an empty group can split one draw
-        // call into two. One, not one per quad, and never a lost pixel.
+    fun `a group with nothing in it costs nothing`() {
+        // The mode is remembered until something draws in it, so a group put back before anything
+        // was drawn never splits the batch. A shader effect still changes the blend function behind
+        // the batch's back; the device keeps its own record of what it set and puts it right, which
+        // the next test checks.
         val without = draw {
             rect(Rect.of(0f, 0f, 10f, 10f), red)
             rect(Rect.of(20f, 0f, 10f, 10f), red)
@@ -1086,14 +1085,14 @@ class GlCanvasTest {
         }
 
         assertEquals(1, without.drawCalls)
-        assertEquals(2, with.drawCalls, "one extra, whatever the group would have held")
+        assertEquals(1, with.drawCalls, "no extra for an empty group")
     }
 
     @Test
     fun `a shader effect does not leave the wrong blending behind it`() {
-        // The batch does not remember what it last set, and this is why: the effect changes the
-        // blend function itself. A canvas that believed its own cache would skip putting it back,
-        // and everything drawn after an effect would blend wrongly.
+        // The effect changes the blend function itself. The device remembers what it last set, so
+        // the effect's change has to go into that record: one that missed it would skip putting
+        // the batch's blending back, and everything drawn after an effect would blend wrongly.
         val half = Colour.rgb(0x404040)
         val frame = draw {
             pushBlend(BlendMode.Additive)

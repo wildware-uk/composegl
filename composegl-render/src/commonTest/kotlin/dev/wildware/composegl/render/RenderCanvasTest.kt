@@ -106,6 +106,85 @@ class RenderCanvasTest {
     }
 
     @Test
+    fun `a blend pushed and popped with the same mode adds no draw call`() {
+        val canvas = frame {
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+            pushBlend(BlendMode.SourceOver)
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+            popBlend()
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+        }
+
+        assertEquals(1, canvas.drawCalls)
+    }
+
+    @Test
+    fun `a clip that leaves the scissor as it was adds no draw call`() {
+        val trace = DrawCallTrace()
+        val canvas = frame(canvas(trace)) {
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+            // All of the screen: no scissor, as before.
+            pushClip(Rect.of(0f, 0f, 400f, 300f))
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+            popClip()
+            pushClip(Rect.of(10f, 20f, 100f, 50f))
+            rect(Rect.of(10f, 20f, 10f, 10f), Colour.Red)
+            // The same box inside itself.
+            pushClip(Rect.of(10f, 20f, 100f, 50f))
+            rect(Rect.of(10f, 20f, 10f, 10f), Colour.Red)
+            popClip()
+            rect(Rect.of(10f, 20f, 10f, 10f), Colour.Red)
+            popClip()
+        }
+
+        // Into the box, and the frame's end: nothing else changed the scissor, and leaving the box
+        // with nothing drawn after it cuts nothing.
+        assertEquals(2, canvas.drawCalls, device.calls.toString())
+        assertEquals(1, trace.culprits().single { it.reason == BatchBreak.Clip }.calls)
+        assertEquals(1, device.calls.count { it.startsWith("scissor(") }, device.calls.toString())
+    }
+
+    @Test
+    fun `a clip with nothing drawn inside it adds no draw call`() {
+        val canvas = frame {
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+            pushClip(Rect.of(10f, 20f, 100f, 50f))
+            popClip()
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+        }
+
+        assertEquals(1, canvas.drawCalls)
+        assertEquals(0, device.calls.count { it.startsWith("scissor(") }, device.calls.toString())
+    }
+
+    @Test
+    fun `a rounded clip with nothing drawn inside it adds no draw call`() {
+        val canvas = frame {
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+            pushClip(Rect.of(10f, 20f, 100f, 50f))
+            roundClip(Corners.all(10f))
+            popClip()
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+        }
+
+        assertEquals(1, canvas.drawCalls)
+        assertTrue(device.draws.single().mask == null, "and nothing was drawn inside it")
+    }
+
+    @Test
+    fun `a game's drawing inside a clip is cut by its scissor`() {
+        frame {
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+            pushClip(Rect.of(10f, 20f, 100f, 50f))
+            raw { }
+            popClip()
+        }
+
+        val scissor = device.calls.indexOf("scissor(10, 230, 100, 50)")
+        assertTrue(scissor in 0 until device.calls.indexOf("suspend"), device.calls.toString())
+    }
+
+    @Test
     fun `a target that keeps its top row first has its viewport and scissor and projection turned over`() {
         val canvas = canvas()
         val tall = Viewport(Size(400f, 300f), Size(800f, 800f), ScalePolicy.Fit)

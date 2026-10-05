@@ -101,7 +101,53 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
 
     private class EffectProgram(val name: Int) {
         val uniforms = HashMap<String, Int>()
+
+        /** Whether its sampler has been pointed at unit 0, which it keeps for good. */
+        var sampling = false
     }
+
+    // --- what the context holds ---
+
+    /*
+     * What this device last set on the context, so a draw sends the driver only what changed: on
+     * a phone every call is a trip into the driver. Unknown until set, and all of it forgotten
+     * whenever the device takes the context, at [begin] and after a game's drawing, since the game
+     * may have set anything. The texture is not remembered: an engine binds a game's texture its
+     * own way, sometimes in the middle of a frame, so every draw binds its own.
+     */
+    private var usedProgram = Unknown
+    private var usedArray = Unknown
+    private var usedArrayBuffer = Unknown
+
+    /** Without vertex arrays only: with them the element buffer belongs to the array, set in each once. */
+    private var usedElementBuffer = Unknown
+    private var blendSource = Unknown
+    private var blendDestination = Unknown
+    private var blendOn = false
+    private var scissorTest = Unknown
+    private var scissorSent = false
+    private val sentScissorBox = IntArray(4)
+
+    /** Without vertex arrays: the attributes this device switched on, one bit each. */
+    private var attributesOn = 0
+
+    /** Without vertex arrays: what each attribute points into — [ShapeLayout], [EffectLayout] or nothing yet. */
+    private val pointers = IntArray(ShapeVertex.Attributes.size)
+
+    /*
+     * What belongs to the device's own objects rather than to the context, and so outlives a
+     * hand-back: nobody else binds its vertex arrays or draws with its programs. Forgotten with the
+     * context.
+     */
+    private var shapeArrayLaidOut = false
+    private var effectArrayLaidOut = false
+    private var shapeSampling = false
+    private val sentProjection = FloatArray(16)
+    private var projectionSent = false
+
+    /** The mask's box, corners and scale as last sent, NaN for never: NaN equals nothing, so it always goes. */
+    private val sentMask = FloatArray(10) { Float.NaN }
+    private var sentMaskMode = Float.NaN
 
     /** Keyed by the text, not the object: a shader built fresh every recomposition still hits. */
     private val effectPrograms = HashMap<String, EffectProgram>()
@@ -115,6 +161,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     private fun build() {
         if (built) return
         val caps = caps()
+        forgetObjects()
         shapeProgram = link(
             vertex = caps.dialect.vertex(GlslSources.ShapeVertex),
             fragment = caps.dialect.fragment(GlslSources.ShapeFragment, highPrecision = true),
@@ -146,7 +193,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
      * Uploaded through the element slot, because WebGL refuses a buffer that has ever been bound to
      * the array slot as an index buffer. The element slot belongs to whichever vertex array object is
      * bound, so where there are vertex arrays the device binds its own first rather than writing into
-     * the engine's.
+     * the engine's — and leaves the indices bound in it, where every shape draw wants them.
      */
     private fun uploadIndices(quads: Int) {
         val values = ShortArray(quads * 6)
@@ -166,8 +213,13 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         if (vertexArrays) gl.bindVertexArray(shapeArray)
         gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, indexBuffer)
         gl.bufferData(GlConst.ELEMENT_ARRAY_BUFFER, indices, quads * 6, GlConst.STATIC_DRAW)
-        gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, 0)
-        if (vertexArrays) gl.bindVertexArray(0)
+        if (vertexArrays) {
+            gl.bindVertexArray(0)
+            usedArray = 0
+        } else {
+            gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, 0)
+            usedElementBuffer = 0
+        }
         indexQuads = quads
     }
 
@@ -271,6 +323,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
 
     override fun end() {
         bound = Unknown
+        release()
         if (handOver == HostState.Restore) {
             snapshot.restore(gl, caps().vertexArrays)
             return
@@ -289,6 +342,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
 
     override fun suspend() {
         bound = Unknown
+        release()
         if (handOver == HostState.Restore) snapshot.restore(gl, caps().vertexArrays) else leave()
     }
 
@@ -305,6 +359,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
      */
     override fun suspendInScene() {
         bound = Unknown
+        release()
         if (handOver == HostState.Restore) snapshot.restore(gl, caps().vertexArrays, target = false) else leave()
     }
 
@@ -317,16 +372,12 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     private fun retake() {
         take()
         applyTarget()
-        if (scissorOn) {
-            gl.enable(GlConst.SCISSOR_TEST)
-            gl.scissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3])
-        } else {
-            gl.disable(GlConst.SCISSOR_TEST)
-        }
+        sendScissor()
     }
 
-    /** Everything this renderer relies on, set rather than assumed. */
+    /** Everything this renderer relies on, set rather than assumed, and nothing else assumed either. */
     private fun take() {
+        forget()
         gl.disable(GlConst.DEPTH_TEST)
         gl.disable(GlConst.CULL_FACE)
         gl.disable(GlConst.STENCIL_TEST)
@@ -334,6 +385,48 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         gl.activeTexture(GlConst.TEXTURE0)
         gl.blendEquationSeparate(GlConst.FUNC_ADD, GlConst.FUNC_ADD)
         gl.enable(GlConst.BLEND)
+        blendOn = true
+    }
+
+    /**
+     * The context is about to go back to the engine. Without vertex arrays, the attributes the
+     * device switched on are switched off again, as the engine has always found them; with them,
+     * the device's attribute state is its own array's and the engine never sees it.
+     */
+    private fun release() {
+        var on = attributesOn
+        var index = 0
+        while (on != 0) {
+            if (on and 1 != 0) gl.disableVertexAttribArray(index)
+            on = on ushr 1
+            index++
+        }
+        forget()
+    }
+
+    /** What the context holds is not known any more: the engine may have set anything. */
+    private fun forget() {
+        usedProgram = Unknown
+        usedArray = Unknown
+        usedArrayBuffer = Unknown
+        usedElementBuffer = Unknown
+        blendSource = Unknown
+        blendDestination = Unknown
+        blendOn = false
+        scissorTest = Unknown
+        scissorSent = false
+        attributesOn = 0
+        pointers.fill(Nowhere)
+    }
+
+    /** The device's own objects are new, or gone with the context: nothing set in them is known. */
+    private fun forgetObjects() {
+        shapeArrayLaidOut = false
+        effectArrayLaidOut = false
+        shapeSampling = false
+        projectionSent = false
+        sentMask.fill(Float.NaN)
+        sentMaskMode = Float.NaN
     }
 
     /** [HostState.Leave]'s documented state, short of the framebuffer, viewport and scissor. */
@@ -379,13 +472,27 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         scissorBox[1] = y
         scissorBox[2] = width
         scissorBox[3] = height
-        gl.enable(GlConst.SCISSOR_TEST)
-        gl.scissor(x, y, width, height)
+        sendScissor()
     }
 
     override fun noScissor() {
         scissorOn = false
-        gl.disable(GlConst.SCISSOR_TEST)
+        sendScissor()
+    }
+
+    /** The scissor the device wants, sending only what the context does not already hold. */
+    private fun sendScissor() {
+        if (!scissorOn) {
+            if (scissorTest != Off) gl.disable(GlConst.SCISSOR_TEST)
+            scissorTest = Off
+            return
+        }
+        if (scissorTest != On) gl.enable(GlConst.SCISSOR_TEST)
+        scissorTest = On
+        if (scissorSent && scissorBox.contentEquals(sentScissorBox)) return
+        gl.scissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3])
+        scissorBox.copyInto(sentScissorBox)
+        scissorSent = true
     }
 
     /**
@@ -439,49 +546,144 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     ) {
         build()
         val stream = vertices as? Stream ?: error("these vertices were not made by this device")
-        val vertexArrays = caps().vertexArrays
 
         bindPicture(texture)
-        gl.useProgram(shapeProgram)
-        gl.uniformMatrix4fv(projectionAt, projection)
-        gl.uniform1i(shapeTextureAt, 0)
-        if (mask == null) {
-            gl.uniform1f(maskModeAt, 0f)
-        } else {
-            gl.uniform4f(maskBoxAt, mask.centreX, mask.centreY, mask.halfWidth, mask.halfHeight)
-            gl.uniform4f(maskRadiiAt, mask.topLeft, mask.topRight, mask.bottomRight, mask.bottomLeft)
-            gl.uniform2f(maskScaleAt, mask.pixelsAcross, mask.pixelsUp)
-            // Which half of the colour to trim depends on whether it arrives premultiplied.
-            gl.uniform1f(maskModeAt, if (blend.premultiplied) 2f else 1f)
-        }
+        useProgram(shapeProgram)
+        shapeUniforms(projection, mask, blend)
 
-        if (vertexArrays) gl.bindVertexArray(shapeArray)
-        gl.bindBuffer(GlConst.ARRAY_BUFFER, shapeBuffer)
-        gl.bufferData(GlConst.ARRAY_BUFFER, stream.floats, quads * 4 * ShapeVertex.Floats, GlConst.STREAM_DRAW)
-        val stride = ShapeVertex.Floats * FloatBytes
-        ShapeVertex.Attributes.forEachIndexed { index, attribute ->
-            gl.enableVertexAttribArray(index)
-            gl.vertexAttribPointer(index, attribute.size, GlConst.FLOAT, false, stride, attribute.offset * FloatBytes)
+        // With a vertex array object the layout and the indices are the array's own, set once; without
+        // one they are the context's, and set again only where the engine or an effect moved them.
+        if (caps().vertexArrays) {
+            bindVertexArray(shapeArray)
+            bindArrayBuffer(shapeBuffer)
+            gl.bufferData(GlConst.ARRAY_BUFFER, stream.floats, quads * 4 * ShapeVertex.Floats, GlConst.STREAM_DRAW)
+            if (!shapeArrayLaidOut) {
+                ShapeVertex.Attributes.forEachIndexed { index, _ ->
+                    gl.enableVertexAttribArray(index)
+                    pointShape(index)
+                }
+                shapeArrayLaidOut = true
+            }
+        } else {
+            bindArrayBuffer(shapeBuffer)
+            gl.bufferData(GlConst.ARRAY_BUFFER, stream.floats, quads * 4 * ShapeVertex.Floats, GlConst.STREAM_DRAW)
+            for (index in ShapeVertex.Attributes.indices) {
+                switchOn(index)
+                if (pointers[index] != ShapeLayout) pointShape(index)
+                pointers[index] = ShapeLayout
+            }
+            bindElementBuffer(indexBuffer)
         }
-        gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, indexBuffer)
         applyBlend(blend)
         gl.drawElements(GlConst.TRIANGLES, quads * 6, GlConst.UNSIGNED_SHORT, 0)
+    }
 
-        // With a vertex array object its attribute state is its own; without one, the engine's
-        // attribute state is the context's, so what was switched on is switched off again.
-        if (!vertexArrays) ShapeVertex.Attributes.indices.forEach { gl.disableVertexAttribArray(it) }
-        gl.bindBuffer(GlConst.ARRAY_BUFFER, 0)
-        gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, 0)
-        if (vertexArrays) gl.bindVertexArray(0)
+    /**
+     * The shape program's uniforms, each sent only when it differs from what the program holds: a
+     * uniform is the program's own, so it outlives a game's drawing and is lost only with the context.
+     */
+    private fun shapeUniforms(projection: FloatArray, mask: ClipMask?, blend: Blend) {
+        if (!shapeSampling) {
+            gl.uniform1i(shapeTextureAt, 0)
+            shapeSampling = true
+        }
+        if (!projectionSent || !projection.contentEquals(sentProjection)) {
+            gl.uniformMatrix4fv(projectionAt, projection)
+            projection.copyInto(sentProjection)
+            projectionSent = true
+        }
+        if (mask != null) {
+            val sent = sentMask
+            if (sent[0] != mask.centreX || sent[1] != mask.centreY || sent[2] != mask.halfWidth || sent[3] != mask.halfHeight) {
+                gl.uniform4f(maskBoxAt, mask.centreX, mask.centreY, mask.halfWidth, mask.halfHeight)
+                sent[0] = mask.centreX
+                sent[1] = mask.centreY
+                sent[2] = mask.halfWidth
+                sent[3] = mask.halfHeight
+            }
+            if (sent[4] != mask.topLeft || sent[5] != mask.topRight || sent[6] != mask.bottomRight || sent[7] != mask.bottomLeft) {
+                gl.uniform4f(maskRadiiAt, mask.topLeft, mask.topRight, mask.bottomRight, mask.bottomLeft)
+                sent[4] = mask.topLeft
+                sent[5] = mask.topRight
+                sent[6] = mask.bottomRight
+                sent[7] = mask.bottomLeft
+            }
+            if (sent[8] != mask.pixelsAcross || sent[9] != mask.pixelsUp) {
+                gl.uniform2f(maskScaleAt, mask.pixelsAcross, mask.pixelsUp)
+                sent[8] = mask.pixelsAcross
+                sent[9] = mask.pixelsUp
+            }
+        }
+        // Which half of the colour to trim depends on whether it arrives premultiplied.
+        val mode = when {
+            mask == null -> 0f
+            blend.premultiplied -> 2f
+            else -> 1f
+        }
+        if (mode != sentMaskMode) {
+            gl.uniform1f(maskModeAt, mode)
+            sentMaskMode = mode
+        }
+    }
+
+    private fun pointShape(index: Int) {
+        val attribute = ShapeVertex.Attributes[index]
+        gl.vertexAttribPointer(
+            index,
+            attribute.size,
+            GlConst.FLOAT,
+            false,
+            ShapeVertex.Floats * FloatBytes,
+            attribute.offset * FloatBytes,
+        )
+    }
+
+    /** The effect quad's corner then its texture coordinate, into attributes 0 and 1. */
+    private fun pointEffect(index: Int) {
+        gl.vertexAttribPointer(index, 2, GlConst.FLOAT, false, ShapeVertex.EffectFloats * FloatBytes, index * 2 * FloatBytes)
+    }
+
+    /** Without vertex arrays: [index] switched on unless the device already did. */
+    private fun switchOn(index: Int) {
+        val bit = 1 shl index
+        if (attributesOn and bit != 0) return
+        gl.enableVertexAttribArray(index)
+        attributesOn = attributesOn or bit
+    }
+
+    private fun useProgram(program: Int) {
+        if (usedProgram == program) return
+        gl.useProgram(program)
+        usedProgram = program
+    }
+
+    private fun bindVertexArray(array: Int) {
+        if (usedArray == array) return
+        gl.bindVertexArray(array)
+        usedArray = array
+    }
+
+    private fun bindArrayBuffer(buffer: Int) {
+        if (usedArrayBuffer == buffer) return
+        gl.bindBuffer(GlConst.ARRAY_BUFFER, buffer)
+        usedArrayBuffer = buffer
+    }
+
+    private fun bindElementBuffer(buffer: Int) {
+        if (usedElementBuffer == buffer) return
+        gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, buffer)
+        usedElementBuffer = buffer
     }
 
     override fun drawEffect(effect: ShaderEffect, picture: DeviceTexture, quad: EffectQuad, blend: Blend) {
         build()
-        val vertexArrays = caps().vertexArrays
         val program = effectPrograms.getOrPut(effect.source.fragment) { compileEffect(effect.source) }
-        gl.useProgram(program.name)
+        useProgram(program.name)
 
-        gl.uniform1i(uniform(program, "u_texture"), 0)
+        if (!program.sampling) {
+            gl.uniform1i(uniform(program, "u_texture"), 0)
+            program.sampling = true
+        }
         gl.uniform2f(uniform(program, "u_textureSize"), quad.textureWidth, quad.textureHeight)
         gl.uniform2f(uniform(program, "u_size"), quad.width, quad.height)
         gl.uniform1f(uniform(program, "u_alpha"), quad.alpha)
@@ -502,28 +704,33 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
 
         // Premultiplied, like every other way a layer reaches the screen, combined the way the
         // canvas's blend stack says.
-        val destination = if (blend.additive) GlConst.ONE else GlConst.ONE_MINUS_SRC_ALPHA
-        gl.enable(GlConst.BLEND)
-        gl.blendFuncSeparate(GlConst.ONE, destination, GlConst.ONE, destination)
+        sendBlend(GlConst.ONE, if (blend.additive) GlConst.ONE else GlConst.ONE_MINUS_SRC_ALPHA)
 
-        if (vertexArrays) gl.bindVertexArray(effectArray)
-        gl.bindBuffer(GlConst.ARRAY_BUFFER, effectBuffer)
-        gl.bufferData(GlConst.ARRAY_BUFFER, floats, 4 * ShapeVertex.EffectFloats, GlConst.STREAM_DRAW)
-        val stride = ShapeVertex.EffectFloats * FloatBytes
-        gl.enableVertexAttribArray(0)
-        gl.enableVertexAttribArray(1)
-        gl.vertexAttribPointer(0, 2, GlConst.FLOAT, false, stride, 0)
-        gl.vertexAttribPointer(1, 2, GlConst.FLOAT, false, stride, 2 * FloatBytes)
-        gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, indexBuffer)
-        gl.drawElements(GlConst.TRIANGLES, 6, GlConst.UNSIGNED_SHORT, 0)
-        if (!vertexArrays) {
-            gl.disableVertexAttribArray(0)
-            gl.disableVertexAttribArray(1)
+        if (caps().vertexArrays) {
+            bindVertexArray(effectArray)
+            bindArrayBuffer(effectBuffer)
+            gl.bufferData(GlConst.ARRAY_BUFFER, floats, 4 * ShapeVertex.EffectFloats, GlConst.STREAM_DRAW)
+            if (!effectArrayLaidOut) {
+                for (index in 0..1) {
+                    gl.enableVertexAttribArray(index)
+                    pointEffect(index)
+                }
+                gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, indexBuffer)
+                effectArrayLaidOut = true
+            }
+        } else {
+            bindArrayBuffer(effectBuffer)
+            gl.bufferData(GlConst.ARRAY_BUFFER, floats, 4 * ShapeVertex.EffectFloats, GlConst.STREAM_DRAW)
+            // The shapes' other attributes are left on and pointing into the shapes' buffer, which
+            // holds at least a quad: the effect's program reads none of them.
+            for (index in 0..1) {
+                switchOn(index)
+                if (pointers[index] != EffectLayout) pointEffect(index)
+                pointers[index] = EffectLayout
+            }
+            bindElementBuffer(indexBuffer)
         }
-        gl.bindBuffer(GlConst.ARRAY_BUFFER, 0)
-        gl.bindBuffer(GlConst.ELEMENT_ARRAY_BUFFER, 0)
-        if (vertexArrays) gl.bindVertexArray(0)
-        gl.useProgram(0)
+        gl.drawElements(GlConst.TRIANGLES, 6, GlConst.UNSIGNED_SHORT, 0)
     }
 
     private fun uniform(program: EffectProgram, name: String): Int =
@@ -607,14 +814,22 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     private fun applyBlend(blend: Blend) {
         // The alpha half accumulates rather than interpolates, so what lands in an offscreen picture
         // is premultiplied and a game can put it on a quad without a shader of its own.
-        val destination = if (blend.additive) GlConst.ONE else GlConst.ONE_MINUS_SRC_ALPHA
-        gl.enable(GlConst.BLEND)
-        gl.blendFuncSeparate(
-            if (blend.premultiplied) GlConst.ONE else GlConst.SRC_ALPHA,
-            destination,
-            GlConst.ONE,
-            destination,
+        sendBlend(
+            source = if (blend.premultiplied) GlConst.ONE else GlConst.SRC_ALPHA,
+            destination = if (blend.additive) GlConst.ONE else GlConst.ONE_MINUS_SRC_ALPHA,
         )
+    }
+
+    /** Blending on, colour from [source] onto [destination] and alpha from one onto it, unless it already is. */
+    private fun sendBlend(source: Int, destination: Int) {
+        if (!blendOn) {
+            gl.enable(GlConst.BLEND)
+            blendOn = true
+        }
+        if (source == blendSource && destination == blendDestination) return
+        gl.blendFuncSeparate(source, destination, GlConst.ONE, destination)
+        blendSource = source
+        blendDestination = destination
     }
 
     private fun bindPicture(texture: DeviceTexture) {
@@ -734,6 +949,8 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         // A new context's own framebuffer need not have the old one's name.
         engineFramebuffer = Unknown
         bound = Unknown
+        forget()
+        forgetObjects()
         built = false
         shapeProgram = 0
         indexBuffer = 0
@@ -760,8 +977,17 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     private companion object {
         const val FloatBytes = 4
 
-        /** No framebuffer is ever called this; it stands for one not yet asked about. */
+        /** No framebuffer, program or buffer is ever called this; it stands for one not yet asked about or set. */
         const val Unknown = -1
+
+        /** Whether the scissor test is on, as last sent. */
+        const val Off = 0
+        const val On = 1
+
+        /** What an attribute points into, without vertex arrays. */
+        const val Nowhere = 0
+        const val ShapeLayout = 1
+        const val EffectLayout = 2
     }
 }
 
@@ -773,7 +999,9 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
  * filtering or wrapping.
  *
  * @param bind for an engine that must bind its textures itself (KorGE uploads lazily at bind):
- *   called instead of `bindTexture` whenever the device binds this one.
+ *   called instead of `bindTexture` whenever the device binds this one, in the middle of a frame.
+ *   It binds this texture on the active unit and may upload it and set its parameters; it must
+ *   change nothing else, since the device remembers the rest of the GL state it set.
  */
 class GlDeviceTexture internal constructor(
     val name: Int,

@@ -305,6 +305,17 @@ KorGE's pieces are `KorgeKmlGl.kt`, `KorgeRasteriser` in `KorgeFonts.kt`,
 `KorgeCanvas`. A render texture KorGE reads back top row first is drawn with
 `begin(viewport, target, clear, topRowFirst = true)`.
 
+**Inside a frame, touch nothing but textures.** The device remembers the GL state it set —
+the program, the vertex array, the array and element buffers, blending, the scissor and the
+vertex attributes — and sends only what changed, so it never sets them again on its own.
+Whatever your backend runs while a frame is open, outside `raw { }`, may bind and upload
+textures and set their parameters, and nothing else: a `TextureResolver` resolving a picture
+for the first time, and the `bind` you can pass to `GlDeviceTexture.adopt`. A resolver that
+bound a buffer of its own would leave the next draw writing its vertices into that buffer.
+The device binds a picture's texture for every draw, so a resolver or a `bind` that
+changes which texture is bound is fine. Your engine's own drawing belongs in `raw { }`:
+the device takes everything again after it.
+
 The binding also makes the memory uploads come from: `floats`, `shorts` and `bytes`. The
 renderer fills plain Kotlin arrays and copies them in with `put` (a whole batch of
 vertices in one call), so make `put` one bulk copy, never a loop of single writes:

@@ -464,10 +464,11 @@ Modifier.drawBehind { bounds ->
 
 `degrees` turns clockwise, because y grows downwards here. `destination` is the box
 *before* turning, so the pixels can land outside it. The rays batch together — no
-draw call per ray — but a blend mode is a batch boundary, so push it round the whole
-group rather than per call: a dozen quads between one push and one pop cost two
-boundaries, not twenty-four. To find the nodes that do cut a batch on a running screen,
-see [where the draw calls go](Debugging.md#where-the-draw-calls-go).
+draw call per ray. Changing the blend mode is a batch boundary, but only where something
+is drawn in the new mode after something drawn in the old one: a push and a pop with
+nothing drawn in between cost nothing, so a dozen rays cost the same whether you push
+once round the group or once per ray. To find the nodes that do cut a batch on a running
+screen, see [where the draw calls go](Debugging.md#where-the-draw-calls-go).
 
 Both degrade honestly on a backend that cannot do them: the picture is drawn upright
 and the glow is drawn as ordinary paint. Ask `canvas.rotatesImages` and

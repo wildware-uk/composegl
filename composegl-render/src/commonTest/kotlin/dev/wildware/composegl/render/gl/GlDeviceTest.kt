@@ -144,9 +144,10 @@ class GlDeviceTest {
         // Straight colour trimmed in its opacity, premultiplied in all four, and no mask at all.
         val modes = gl.named("uniform1f(u_maskMode, ").map { it.substringAfter(", ").removeSuffix(")").toFloat() }
         assertEquals(listOf(1f, 2f, 0f), modes)
-        assertEquals(2, gl.named("uniform4f(u_maskBox, 10.5, 20.5, 30.5, 40.5)").size)
-        assertEquals(2, gl.named("uniform4f(u_maskRadii, 1.5, 2.5, 3.5, 4.5)").size)
-        assertEquals(2, gl.named("uniform2f(u_maskScale, 2.5, 3.5)").size)
+        // The same mask twice is sent once: the program keeps it.
+        assertEquals(1, gl.named("uniform4f(u_maskBox, 10.5, 20.5, 30.5, 40.5)").size)
+        assertEquals(1, gl.named("uniform4f(u_maskRadii, 1.5, 2.5, 3.5, 4.5)").size)
+        assertEquals(1, gl.named("uniform2f(u_maskScale, 2.5, 3.5)").size)
         val modeAt = gl.calls.indexOfFirst("uniform1f(u_maskMode, ${modes[0]})")
         assertTrue(modeAt < gl.calls.indexOfFirst("drawElements(6)"), "set before the first draw")
     }
