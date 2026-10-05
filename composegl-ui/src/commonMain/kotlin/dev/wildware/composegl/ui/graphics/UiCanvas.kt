@@ -305,7 +305,7 @@ interface UiCanvas {
     fun text(layout: TextLayout, x: Float, y: Float, colour: Colour, outline: TextOutline?) {
         if (outline != null && outline.isVisible) {
             val ring = outline.colour.scaleAlpha(colour.alphaFraction)
-            outline.forEachStamp { dx, dy -> textRing(layout, x + dx, y + dy, ring) }
+            outline.forEachStamp { dx, dy -> textRing(layout, x, y, dx, dy, ring) }
         }
         text(layout, x, y, colour)
     }
@@ -320,6 +320,20 @@ interface UiCanvas {
      * time, calls this rather than [text] for the copies so that it gets the same treatment.
      */
     fun textRing(layout: TextLayout, x: Float, y: Float, colour: Colour) = text(layout, x, y, colour)
+
+    /**
+     * The same ring copy, given as the letters' own place ([x], [y]) and the copy's offset from it
+     * ([dx], [dy]) rather than the sum of the two.
+     *
+     * The split matters to a backend that snaps letters to the screen's pixels. Snapping each copy's
+     * summed position on its own lets a ring thinner than a pixel land on the next pixel in one line
+     * and on the letter's own pixel in the next, so a paragraph draws some lines bold and some thin.
+     * Given the parts, a backend snaps the letter once and moves every copy by the same whole number
+     * of pixels. The default adds them and stamps through the four-argument [textRing], which is
+     * right for any backend that does not snap. Anything that stamps a ring calls this one.
+     */
+    fun textRing(layout: TextLayout, x: Float, y: Float, dx: Float, dy: Float, colour: Colour) =
+        textRing(layout, x + dx, y + dy, colour)
 
     /** The same, for the ordinary case where the caller already has the point. */
     fun text(layout: TextLayout, at: Offset, colour: Colour, outline: TextOutline?) =

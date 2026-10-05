@@ -460,7 +460,7 @@ private class TypewriterPainter(
         if (ring != null && ring.isVisible) {
             eachCharacter(line, shown, left, top, now) { glyph, x, y, tint ->
                 val faded = ring.colour.scaleAlpha(tint.alphaFraction)
-                ring.forEachStamp { dx, dy -> canvas.textRing(glyph, x + dx, y + dy, faded) }
+                ring.forEachStamp { dx, dy -> canvas.textRing(glyph, x, y, dx, dy, faded) }
             }
         }
         eachCharacter(line, shown, left, top, now) { glyph, x, y, tint ->
