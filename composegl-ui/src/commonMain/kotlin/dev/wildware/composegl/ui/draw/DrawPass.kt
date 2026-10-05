@@ -5,6 +5,7 @@ import dev.wildware.composegl.ui.debug.DebugOverlay
 import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.debug.OverdrawCanvas
 import dev.wildware.composegl.ui.effect.ShaderEffect
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Shape
@@ -457,13 +458,20 @@ class DrawPass(val canvas: UiCanvas) {
 
     /** Everything a node draws: what its chain put behind it, itself, its children, what is in front. */
     private fun contents(node: UiNode, resolved: ResolvedModifier, bounds: Rect) {
-        // A shape a scissor cannot be takes the other road. Asked of the canvas first: one that
-        // cannot cut a picture clips to the node's rectangle below, which is everything still
-        // there, square, rather than nothing. A node with no area takes no picture: the rectangle
-        // clip below is empty and already hides everything, for nothing.
+        // A shape a scissor cannot be takes another road: rounded in place by the canvas where it
+        // can, or a picture cut to the shape. Asked of the canvas first: one that can do neither
+        // clips to the node's rectangle below, which is everything still there, square, rather
+        // than nothing. A node with no area takes neither: the rectangle clip below is empty and
+        // already hides everything, for nothing.
         val shape = resolved.clip?.shape
-        if (shape != null && shape !== Shapes.Rectangle && !bounds.isEmpty && canvas.cutsLayers &&
-            cut(node, resolved, bounds, shape)
+        if (shape != null && shape !== Shapes.Rectangle && !bounds.isEmpty &&
+            (
+                rounded(node, resolved, bounds, shape, despiteRaw = false) ||
+                    canvas.cutsLayers && cut(node, resolved, bounds, shape) ||
+                    // Sent to the cut for a game's drawing, and the picture refused: in place after
+                    // all, which still rounds everything but that drawing, rather than square.
+                    node.clipHoldsRaw && rounded(node, resolved, bounds, shape, despiteRaw = true)
+                )
         ) {
             return
         }
@@ -503,7 +511,10 @@ class DrawPass(val canvas: UiCanvas) {
      * fresh array a frame, the same kind of cost a scale or an effect pays for the frames it is on.
      */
     private fun cut(node: UiNode, resolved: ResolvedModifier, bounds: Rect, shape: Shape): Boolean {
+        val raws = canvas.rawDrawings
         val picture = canvas.layer(bounds) { insideClip(node, resolved, bounds) } ?: return false
+        // Back to rounding in place next frame once a game's drawing is gone from it.
+        node.clipHoldsRaw = canvas.rawDrawings != raws
 
         val behind = resolved.behind
         for (index in 0 until resolved.clipBehind) paint(behind[index], bounds)
@@ -515,6 +526,67 @@ class DrawPass(val canvas: UiCanvas) {
         val inFront = resolved.inFront
         for (index in 0 until resolved.clipInFront) paint(inFront[index], bounds)
         return true
+    }
+
+    /**
+     * [contents], with everything the clip covers drawn inside a rounded clip the canvas trims in
+     * place: what [cut] draws, with no picture taken, on a still frame or a moving one.
+     *
+     * A rounded rectangle, or a circle, which is a square as wide as the box is narrow with its
+     * corners rounded all the way. Chain order is kept the same way [cut] keeps it.
+     *
+     * Returns false, having drawn nothing, for any other shape, or when the canvas will not round
+     * this clip — it cannot at all, or not here, inside another rounded clip or while what is drawn
+     * fades or blends as one piece — and then the caller cuts a picture as before.
+     *
+     * False, too, when a game's own drawing was inside this clip last frame. The canvas trims that
+     * through a picture it opens partway, which is right for the drawing but not for something
+     * additive drawn after it, which would light the picture rather than the card. A cut picture
+     * holds the whole clip from the start, as it always did, so from the frame after one is seen
+     * that is what such a clip gets, until the frame after it is gone. On a canvas that cannot cut
+     * one it stays in place, and [despiteRaw] puts it in place when the cut picture was refused.
+     */
+    private fun rounded(node: UiNode, resolved: ResolvedModifier, bounds: Rect, shape: Shape, despiteRaw: Boolean): Boolean {
+        val square = shape === Shapes.Circle
+        val sentToCut = node.clipHoldsRaw && canvas.cutsLayers && !despiteRaw
+        if (!square && shape !is Shapes.RoundedRect || sentToCut || !canvas.roundsClips) return false
+
+        val behind = resolved.behind
+        for (index in 0 until resolved.clipBehind) paint(behind[index], bounds)
+
+        if (shape is Shapes.RoundedRect) {
+            canvas.pushClip(bounds)
+            canvas.roundClip(shape.corners)
+        } else {
+            // A portrait is nearly always square, and then the box is the node's own rectangle. One
+            // that is not makes a fresh rectangle a frame, the cost a scale already pays.
+            val side = minOf(bounds.width, bounds.height)
+            val box = if (bounds.width == bounds.height) {
+                bounds
+            } else {
+                Rect.of(bounds.left + (bounds.width - side) / 2f, bounds.top + (bounds.height - side) / 2f, side, side)
+            }
+            canvas.pushClip(box)
+            canvas.roundClip(round(side / 2f))
+        }
+        val raws = canvas.rawDrawings
+        insideClip(node, resolved, bounds)
+        node.clipHoldsRaw = canvas.rawDrawings != raws
+        canvas.popClip()
+
+        val inFront = resolved.inFront
+        for (index in 0 until resolved.clipInFront) paint(inFront[index], bounds)
+        return true
+    }
+
+    // The corners of the last circle rounded, handed back while circles keep the same size, as a
+    // row of portraits does: a still screen makes nothing for them.
+    private var circle = Corners.None
+
+    private fun round(radius: Float): Corners {
+        val held = circle
+        if (held.isUniform && held.topLeft == radius) return held
+        return Corners.all(radius).also { circle = it }
     }
 
     /** What a shaped clip covers: the later half of the chain's painting, the content, the children. */

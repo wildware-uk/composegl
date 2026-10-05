@@ -199,7 +199,8 @@ internal class OverdrawCanvas(private val map: OverdrawMap, private val like: Ui
     /**
      * The whole tree, counted. The draw pass writes down on each node whether its scale and mirror
      * really happened, and a picture this canvas takes might be one the real canvas refused, so what
-     * it wrote is put back afterwards.
+     * it wrote is put back afterwards. So is whether a game's drawing was inside a node's rounded
+     * clip: this canvas runs no game's drawing, and the next real frame must not think it gone.
      */
     fun count(root: UiNode) {
         val nodes = ArrayList<UiNode>()
@@ -207,6 +208,7 @@ internal class OverdrawCanvas(private val map: OverdrawMap, private val like: Ui
         val scaled = BooleanArray(nodes.size) { nodes[it].scaleApplied }
         val mirrored = BooleanArray(nodes.size) { nodes[it].mirrorApplied }
         val zoomed = BooleanArray(nodes.size) { nodes[it].cameraApplied }
+        val holdingRaw = BooleanArray(nodes.size) { nodes[it].clipHoldsRaw }
         try {
             DrawPass(this).draw(root)
         } finally {
@@ -214,6 +216,7 @@ internal class OverdrawCanvas(private val map: OverdrawMap, private val like: Ui
                 nodes[index].scaleApplied = scaled[index]
                 nodes[index].mirrorApplied = mirrored[index]
                 nodes[index].cameraApplied = zoomed[index]
+                nodes[index].clipHoldsRaw = holdingRaw[index]
             }
         }
     }

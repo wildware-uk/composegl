@@ -33,6 +33,14 @@ class LayerPool(private val device: GpuDevice, private val spare: Int = SpareFra
         return entry.target
     }
 
+    /**
+     * Keeps [target] from being handed out again until it is [release]d once more: for a picture
+     * still to be read after the layer that made it has given it back.
+     */
+    fun hold(target: DeviceTarget) {
+        entries.firstOrNull { it.target === target }?.busy = true
+    }
+
     fun release(target: DeviceTarget) {
         entries.firstOrNull { it.target === target }?.busy = false
     }

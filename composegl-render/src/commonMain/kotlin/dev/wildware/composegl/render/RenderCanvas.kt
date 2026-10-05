@@ -100,7 +100,78 @@ open class RenderCanvas protected constructor(
     /** The offscreen picture being drawn into, or null when that is the frame's own target. */
     private var layer: LayerFrame? = null
 
+    /** How many pictures deep the drawing is: none on the frame's own target. */
+    private var layerDepth = 0
+
+    /** How many clips are pushed in the picture being drawn into, or in the frame outside any. */
+    private var clipDepth = 0
+
+    /** The rounded clip in force, or null. One at a time: see [roundsClips]. */
+    private var rounding: Rounding? = null
+
+    /** What [clipDepth] was when [rounding] was put on, so the pop that takes it off can be told. */
+    private var roundedAt = 0
+
+    /** The rectangle the last [pushClip] asked for, as it was handed in, and how deep it went. */
+    private var lastClip: Rect? = null
+    private var lastClipDepth = -1
+
+    /**
+     * One rounding per picture depth, refilled as rounded clips come and go. A picture inside a
+     * rounded clip can have a rounded clip of its own while the outer one waits to be put back, so
+     * they cannot share one.
+     */
+    private val roundings = ArrayList<Rounding>()
+
+    /**
+     * A rounded clip in force: the [ClipMask] the device trims with, in its pixels, and the same box
+     * in design units — where it lands, through the transform — for [throughMask] to ask about.
+     */
+    private class Rounding {
+        val mask = ClipMask()
+
+        /** The clip in force where it was put on, through the transform: all an opened picture needs. */
+        var area: Rect = Rect.Zero
+        var left = 0f
+        var top = 0f
+        var right = 0f
+        var bottom = 0f
+        var topLeft = 0f
+        var topRight = 0f
+        var bottomRight = 0f
+        var bottomLeft = 0f
+
+        /**
+         * Whether everything from [l], [t] to [r], [b] is kept whole: inside the box and clear of
+         * every rounded corner, where the mask keeps all of a pixel and trimming it would change
+         * nothing.
+         */
+        fun keepsAll(l: Float, t: Float, r: Float, b: Float): Boolean =
+            l >= left && t >= top && r <= right && b <= bottom &&
+                (l >= left + topLeft || t >= top + topLeft) &&
+                (r <= right - topRight || t >= top + topRight) &&
+                (r <= right - bottomRight || b <= bottom - bottomRight) &&
+                (l >= left + bottomLeft || b <= bottom - bottomLeft)
+    }
+
     private class LayerFrame(val bounds: Rect, val pixelWidth: Int, val pixelHeight: Int)
+
+    /**
+     * The picture a game's own drawing opened inside the rounded clip in force, and what drawing
+     * went back to when it closes: see [intoOpened]. Null while there is none.
+     */
+    private var opened: Opened? = null
+
+    private class Opened(
+        val picture: DeviceTarget,
+        val area: Rect,
+        val pixelWidth: Int,
+        val pixelHeight: Int,
+        val target: FrameTarget,
+        val viewport: IntArray,
+        val layer: LayerFrame?,
+        val projection: FloatArray,
+    )
 
     /** Where the frame is drawn, and where the canvas believes the device is pointed right now. */
     private var frameTarget: FrameTarget = FrameTarget.Host
@@ -162,6 +233,12 @@ open class RenderCanvas protected constructor(
         device.noScissor()
         this.viewport = viewport
         state = CanvasState(Rect.of(0f, 0f, viewport.design.width, viewport.design.height))
+        layer = null
+        layerDepth = 0
+        clipDepth = 0
+        rounding = null
+        opened = null
+        lastClip = null
         antialias = 1f / minOf(viewport.scaleX, viewport.scaleY).coerceAtLeast(0.0001f)
         frameScale = maxOf(viewport.scaleX, viewport.scaleY)
         step = SharpGlyphs.stepOf(frameScale, steady = frameScale == lastFrameScale)
@@ -765,12 +842,214 @@ open class RenderCanvas protected constructor(
 
     override fun pushClip(rect: Rect) {
         state.pushClip(rect)
+        clipDepth++
+        lastClip = rect
+        lastClipDepth = clipDepth
         applyScissor()
     }
 
     override fun popClip() {
+        // A picture opened inside a rounded clip is put down as it ends, while its scissor stands.
+        if (opened != null && rounding != null && clipDepth == roundedAt) closeOpened()
         state.popClip()
+        // What was queued was queued inside the rounding, so it goes first, still trimmed.
+        if (rounding != null && clipDepth == roundedAt) unround()
+        lastClip = null
+        clipDepth--
         applyScissor()
+    }
+
+    /**
+     * In place, while nothing in force needs the picture road instead: no other rounded clip
+     * (the shader keeps one), and nothing fading or blending, which a picture does as one piece and
+     * drawing in place would do part by part.
+     */
+    override val roundsClips: Boolean
+        get() = drawing && rounding == null && device.masks && state.alpha >= 1f && state.blend == BlendMode.SourceOver
+
+    /**
+     * The scissor the push set stays for the square edges, and a [ClipMask] the shape shader trims
+     * every quad to is added for the rounded ones. Nothing, leaving the clip square, when
+     * [roundsClips] says no or the clip just pushed is not the innermost one any more.
+     */
+    override fun roundClip(corners: Corners) {
+        val rect = lastClip
+        if (rect == null || lastClipDepth != clipDepth || !roundsClips) return
+        while (roundings.size <= layerDepth) roundings += Rounding()
+        val rounding = roundings[layerDepth]
+        fill(rounding, rect, corners)
+        rounding.area = state.clip
+        batch().mask(rounding.mask)
+        this.rounding = rounding
+        roundedAt = clipDepth
+    }
+
+    private fun unround() {
+        batch().mask(null)
+        rounding = null
+    }
+
+    /**
+     * [rounding] as [rect] lands, through the transform in force, with [corners] grown by it and
+     * held to half the shorter side: in design units for [Rounding.keepsAll], and in the pixels of
+     * whatever is being drawn into for the device.
+     */
+    private fun fill(rounding: Rounding, rect: Rect, corners: Corners) {
+        val left = state.mapX(rect.left)
+        val top = state.mapY(rect.top)
+        val right = state.mapX(rect.right)
+        val bottom = state.mapY(rect.bottom)
+        val half = minOf(right - left, bottom - top) / 2f
+        val grow = state.transformScale
+        val topLeft = (corners.topLeft * grow).coerceAtMost(half)
+        val topRight = (corners.topRight * grow).coerceAtMost(half)
+        val bottomRight = (corners.bottomRight * grow).coerceAtMost(half)
+        val bottomLeft = (corners.bottomLeft * grow).coerceAtMost(half)
+        rounding.left = left
+        rounding.top = top
+        rounding.right = right
+        rounding.bottom = bottom
+        rounding.topLeft = topLeft
+        rounding.topRight = topRight
+        rounding.bottomRight = bottomRight
+        rounding.bottomLeft = bottomLeft
+
+        val mask = rounding.mask
+        val middleX = (left + right) / 2f
+        val middleY = (top + bottom) / 2f
+        val into = layer
+        // The same pixels the scissor counts in, as the device counts them: up from the bottom.
+        // Only a target that keeps its top row first counts down, so its corners turn over.
+        val down = into == null && topRowFirst
+        mask.centreX = if (into != null) {
+            (middleX - into.bounds.left) * viewport.scaleX
+        } else {
+            viewport.origin.x + middleX * viewport.scaleX
+        }
+        mask.centreY = when {
+            into != null -> into.pixelHeight - (middleY - into.bounds.top) * viewport.scaleY
+            down -> viewport.origin.y + middleY * viewport.scaleY
+            else -> viewport.physical.height - viewport.origin.y - middleY * viewport.scaleY
+        }
+        mask.halfWidth = (right - left) / 2f
+        mask.halfHeight = (bottom - top) / 2f
+        mask.topLeft = if (down) bottomLeft else topLeft
+        mask.topRight = if (down) bottomRight else topRight
+        mask.bottomRight = if (down) topRight else bottomRight
+        mask.bottomLeft = if (down) topLeft else bottomLeft
+        mask.pixelsAcross = viewport.scaleX
+        mask.pixelsUp = viewport.scaleY
+    }
+
+    /**
+     * [draw], a shader effect, which does not go through the batch and so cannot be trimmed by the
+     * mask, drawn into a picture and put down through the mask instead — so an effect inside a
+     * rounded clip loses its corners like everything else.
+     *
+     * The picture is only where [draw] lands — [left], [top], [right], [bottom], already through
+     * the transform — and the clip in force, so a small effect in a big card costs a small picture.
+     * None at all when that lies clear of every rounded corner, where the mask would keep it whole,
+     * or when there is no rounded clip in force or the picture is refused: then [draw] goes straight
+     * to the target, inside the scissor as ever.
+     *
+     * Straight in, too, while a game's drawing has a picture opened (see [intoOpened]): that
+     * picture is trimmed as a whole when the clip ends. The picture is put down at the opacity and
+     * in the mode in force, as an effect is outside a rounded clip.
+     */
+    private inline fun throughMask(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        crossinline draw: () -> Unit,
+    ) {
+        val rounding = rounding
+        val clip = state.clip
+        val l = maxOf(left, clip.left)
+        val t = maxOf(top, clip.top)
+        val r = minOf(right, clip.right)
+        val b = minOf(bottom, clip.bottom)
+        if (rounding == null || opened != null || state.isHidden || r <= l || b <= t || rounding.keepsAll(l, t, r, b)) {
+            draw()
+            return
+        }
+        val area = Rect(l, t, r, b)
+        val picture = capture(area) { draw() }
+        if (picture == null) {
+            draw()
+            return
+        }
+        layerPicture(picture)
+        composite(area, mirrorX = false, mirrorY = false)
+    }
+
+    /**
+     * [draw], a game's own drawing, which does not go through the batch and so cannot be trimmed by
+     * the mask, and can land anywhere: [raw]'s place only moves its origin.
+     *
+     * Inside a rounded clip the first one opens a picture of the whole clip, and everything drawn
+     * from then until the clip is popped goes into it, the game's drawing straight in. The pop puts
+     * it down once, through the mask. So a clip costs one picture however many games' drawings are
+     * in it, as a cut picture did, and what is drawn after one still lands on top of it.
+     *
+     * Straight to the target when there is no rounded clip in force, when what is drawn is hidden,
+     * or when the picture is refused.
+     */
+    final override var rawDrawings = 0
+        private set
+
+    private inline fun intoOpened(draw: () -> Unit) {
+        if (rounding != null && opened == null && !state.isHidden) openPicture()
+        draw()
+    }
+
+    /**
+     * Opens a picture of the rounded clip in force and points drawing at it, the clip stack and
+     * everything else in force kept as they are. Nothing, leaving drawing where it was, when the
+     * picture would be too big or the device draws no pictures.
+     */
+    private fun openPicture() {
+        val area = (rounding ?: return).area
+        if (area.isEmpty || !device.limits.offscreen) return
+        val pixelWidth = ceil(area.width * viewport.scaleX).toInt()
+        val pixelHeight = ceil(area.height * viewport.scaleY).toInt()
+        if (pixelWidth <= 0 || pixelHeight <= 0) return
+        val most = minOf(LayerPool.MaxLayerPixels, device.limits.maxTextureSize)
+        if (pixelWidth > most || pixelHeight > most) return
+
+        // What was queued lands in place, trimmed, before the picture takes over.
+        batch().flush(BatchBreak.Layer)
+        val picture = layers.acquire(pixelWidth, pixelHeight)
+        opened = Opened(picture, area, pixelWidth, pixelHeight, target, viewportBox.copyOf(), layer, projection.copyOf())
+        // Drawn whole into the picture: the picture is trimmed as it is put down.
+        batch().mask(null)
+        layer = LayerFrame(area, pixelWidth, pixelHeight)
+        target = picture
+        setViewport(0, 0, pixelWidth, pixelHeight)
+        device.noScissor()
+        device.clear(0f, 0f, 0f, 0f)
+        orthographic(projection, area.width, area.height, area.left)
+        batch().projection(projection)
+        applyScissor()
+    }
+
+    /** Points drawing back where [openPicture] found it and puts the picture down through the mask. */
+    private fun closeOpened() {
+        val open = opened ?: return
+        batch().flush(BatchBreak.Layer)
+        opened = null
+        layer = open.layer
+        target = open.target
+        open.projection.copyInto(projection)
+        batch().projection(projection)
+        setViewport(open.viewport[0], open.viewport[1], open.viewport[2], open.viewport[3])
+        applyScissor()
+        batch().mask(rounding?.mask)
+        layerPicture(LayerPicture(open.picture, open.pixelWidth, open.pixelHeight, u = 0f, v = 1f, u2 = 1f, v2 = 0f))
+        // Plainly: where a clip is rounded in place nothing fades or blends, so the opacity and the
+        // mode in force are full and ordinary, and a game's drawing knows nothing of either anyway.
+        composite(open.area, mirrorX = false, mirrorY = false, tint = Colour.White)
+        layers.release(open.picture)
     }
 
     override fun pushAlpha(alpha: Float) = state.pushAlpha(alpha)
@@ -885,8 +1164,12 @@ open class RenderCanvas protected constructor(
         check(drawing) { "layer() outside a frame" }
         if (bounds.isEmpty || !device.limits.offscreen) return null
         // Where the picture really lands, so it is taken at the screen's resolution of what is there.
-        val area = state.map(bounds)
+        return capture(state.map(bounds), block)
+    }
 
+    /** [layer], of [area] as it already lands: through the transform in force. */
+    private fun capture(area: Rect, block: () -> Unit): TextureHandle? {
+        if (area.isEmpty || !device.limits.offscreen) return null
         // Screen resolution, rounded up, so nothing falls off an edge that is not a whole pixel.
         val pixelWidth = ceil(area.width * viewport.scaleX).toInt()
         val pixelHeight = ceil(area.height * viewport.scaleY).toInt()
@@ -901,11 +1184,24 @@ open class RenderCanvas protected constructor(
         val previousState = state
         val previousLayer = layer
         val previousProjection = projection.copyOf()
+        val previousRounding = rounding
+        val previousOpened = opened
+        val previousRoundedAt = roundedAt
+        val previousClipDepth = clipDepth
+        val previousLastClip = lastClip
+        val previousLastClipDepth = lastClipDepth
 
         batch().flush(BatchBreak.Layer)
         layer = LayerFrame(area, pixelWidth, pixelHeight)
         // Full opacity and a clip of exactly the layer; the tint and the transform come in with it.
         state = previousState.forLayer(area)
+        // No rounded clip either: the picture is trimmed as it is put down, if it is put down
+        // inside one, and what is drawn into it is drawn whole.
+        layerDepth++
+        clipDepth = 0
+        lastClip = null
+        opened = null
+        if (previousRounding != null) unround()
 
         target = picture
         setViewport(0, 0, pixelWidth, pixelHeight)
@@ -925,6 +1221,15 @@ open class RenderCanvas protected constructor(
             state = previousState
             previousProjection.copyInto(projection)
             batch().projection(projection)
+            layerDepth--
+            clipDepth = previousClipDepth
+            lastClip = previousLastClip
+            lastClipDepth = previousLastClipDepth
+            roundedAt = previousRoundedAt
+            rounding = previousRounding
+            opened = previousOpened
+            // Drawing into an opened picture is not trimmed: the picture is, when it is put down.
+            batch().mask(if (previousOpened == null) previousRounding?.mask else null)
             applyBlend()
             target = previousTarget
             setViewport(previousViewport[0], previousViewport[1], previousViewport[2], previousViewport[3])
@@ -946,7 +1251,15 @@ open class RenderCanvas protected constructor(
         layerPicture(layer)
         val box = state.map(destination)
         if (effect != null) {
-            drawThrough(effect, box)
+            // The shader is somebody else's, so a rounded clip cannot trim it as it draws. The
+            // picture it reads is held meanwhile, so the one it draws into is never the same one.
+            val source = (layer as? LayerPicture)?.target
+            source?.let(layers::hold)
+            throughMask(box.left, box.top, box.right, box.bottom) {
+                layerPicture(layer)
+                drawThrough(effect, box)
+            }
+            source?.let(layers::release)
             return
         }
         composite(box, mirrorX = false, mirrorY = false)
@@ -966,7 +1279,7 @@ open class RenderCanvas protected constructor(
         return Colour((grey shl 24) or (grey shl 16) or (grey shl 8) or grey)
     }
 
-    private fun composite(destination: Rect, mirrorX: Boolean, mirrorY: Boolean) {
+    private fun composite(destination: Rect, mirrorX: Boolean, mirrorY: Boolean, tint: Colour = fade()) {
         // The mode in force applies to the composite; premultiplied, because a layer's drawing is.
         batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
         val picture = picture
@@ -980,7 +1293,7 @@ open class RenderCanvas protected constructor(
             v = if (mirrorY) picture.v2 else picture.v,
             u2 = if (mirrorX) picture.u else picture.u2,
             v2 = if (mirrorY) picture.v else picture.v2,
-            tint = fade(),
+            tint = tint,
         )
         batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
     }
@@ -1187,8 +1500,14 @@ open class RenderCanvas protected constructor(
      */
     protected open fun lend(lent: Any, projection: FloatArray, block: (Any) -> Unit) = block(lent)
 
-    /** The bottom-left corner, because the projection measures y upwards. */
-    override fun raw(destination: Rect, block: (Any) -> Unit) {
+    /**
+     * The bottom-left corner, because the projection measures y upwards.
+     *
+     * [destination] only moves the origin: the block can draw past it, so inside a rounded clip it
+     * goes into the picture of the whole clip, as plain [raw] does.
+     */
+    override fun raw(destination: Rect, block: (Any) -> Unit) = intoOpened {
+        rawDrawings++
         batch().flush(BatchBreak.Raw)
         val moved = transformed(projection.copyOf()).also {
             it[12] += rawX(destination.left) * it[0]
@@ -1197,7 +1516,8 @@ open class RenderCanvas protected constructor(
         runRaw(block, moved)
     }
 
-    override fun raw(block: (Any) -> Unit) {
+    override fun raw(block: (Any) -> Unit) = intoOpened {
+        rawDrawings++
         // Our own quads first, so the game's drawing lands on top of what came before it.
         batch().flush(BatchBreak.Raw)
         runRaw(block, transformed(projection.copyOf()))

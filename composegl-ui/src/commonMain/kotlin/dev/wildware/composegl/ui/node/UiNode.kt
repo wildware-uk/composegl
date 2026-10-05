@@ -420,6 +420,13 @@ class UiNode(var name: String = "node") {
     /** Kept for intrinsic questions, made the first time this node is asked one. See Intrinsics. */
     internal var intrinsics: NodeIntrinsics? = null
 
+    /**
+     * Whether a game's own drawing (`raw`) was inside this node's shaped clip the last frame it was
+     * drawn. A rounded clip that holds one is drawn as a cut picture rather than rounded in place:
+     * see the draw pass.
+     */
+    internal var clipHoldsRaw = false
+
     /** Where this node sits on screen, and where its contents sit inside it. */
     internal val drawnBounds = RectCache()
     internal val drawnContent = RectCache()

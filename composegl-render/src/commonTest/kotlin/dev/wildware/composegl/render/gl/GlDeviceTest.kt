@@ -1,6 +1,7 @@
 package dev.wildware.composegl.render.gl
 
 import dev.wildware.composegl.render.Blend
+import dev.wildware.composegl.render.ClipMask
 import dev.wildware.composegl.render.EffectQuad
 import dev.wildware.composegl.render.FrameTarget
 import dev.wildware.composegl.render.QuadBatch
@@ -113,6 +114,41 @@ class GlDeviceTest {
         val copied = gl.calls.indexOfFirst("copy(floats $floats)")
         val uploaded = gl.calls.indexOfFirst("bufferData(${GlConst.ARRAY_BUFFER}, floats $floats)")
         assertTrue(copied < uploaded, "copied before it goes up")
+    }
+
+    @Test
+    fun `a draw inside a rounded clip hands the shader its mask and one outside switches it off`() {
+        val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
+        val device = GlDevice(gl)
+        assertTrue(device.masks)
+        device.begin(FrameTarget.Host)
+        val texture = device.texture(4, 4, smooth = true)
+        val vertices = device.vertices(8)
+        val mask = ClipMask().apply {
+            centreX = 10.5f
+            centreY = 20.5f
+            halfWidth = 30.5f
+            halfHeight = 40.5f
+            topLeft = 1.5f
+            topRight = 2.5f
+            bottomRight = 3.5f
+            bottomLeft = 4.5f
+            pixelsAcross = 2.5f
+            pixelsUp = 3.5f
+        }
+        device.drawShapes(vertices, 1, texture, Blend.SourceOver, identity, mask)
+        device.drawShapes(vertices, 1, texture, Blend.PremultipliedSourceOver, identity, mask)
+        device.drawShapes(vertices, 1, texture, Blend.SourceOver, identity)
+        device.end()
+
+        // Straight colour trimmed in its opacity, premultiplied in all four, and no mask at all.
+        val modes = gl.named("uniform1f(u_maskMode, ").map { it.substringAfter(", ").removeSuffix(")").toFloat() }
+        assertEquals(listOf(1f, 2f, 0f), modes)
+        assertEquals(2, gl.named("uniform4f(u_maskBox, 10.5, 20.5, 30.5, 40.5)").size)
+        assertEquals(2, gl.named("uniform4f(u_maskRadii, 1.5, 2.5, 3.5, 4.5)").size)
+        assertEquals(2, gl.named("uniform2f(u_maskScale, 2.5, 3.5)").size)
+        val modeAt = gl.calls.indexOfFirst("uniform1f(u_maskMode, ${modes[0]})")
+        assertTrue(modeAt < gl.calls.indexOfFirst("drawElements(6)"), "set before the first draw")
     }
 
     @Test

@@ -518,6 +518,44 @@ interface UiCanvas {
 
     fun popClip()
 
+    /**
+     * Rounds the corners of the clip [pushClip] has just pushed by [corners], each held to half the
+     * shorter side, so a big one makes a pill. The rounding comes off with that clip's [popClip].
+     *
+     * What a rounded `Modifier.clip` and a round `Modifier.clipShape` are drawn with when the canvas
+     * can: everything drawn while the clip is pushed is trimmed to the rounded edge as it lands,
+     * with the same one-pixel soft edge a cut picture has. No picture is taken, on a still frame or
+     * a moving one, which is what [layer] and [cutLayer] cost every frame.
+     *
+     * A call of its own after an ordinary [pushClip], rather than a push of its own, so a canvas
+     * that wraps another and counts or forwards clips still sees every push matched by its pop.
+     *
+     * Ask [roundsClips] first, right before pushing, and call this straight after the push. The
+     * default does nothing, which leaves the clip square: the nearest honest thing a canvas that
+     * cannot round a clip can do, with everything there.
+     */
+    fun roundClip(corners: Corners) = Unit
+
+    /**
+     * Whether [roundClip] would round a clip pushed now.
+     *
+     * Unlike the other questions a canvas answers, this one can change during a frame: a canvas
+     * may round one clip at a time, and may keep a rounded clip that fades or blends as one piece
+     * on the picture road. So it is asked each time, right before the push, and false means the
+     * caller takes a picture and cuts it instead.
+     */
+    val roundsClips: Boolean get() = false
+
+    /**
+     * How many times [raw] has run on this canvas so far, either overload.
+     *
+     * Read before and after drawing something, it says whether a game's own drawing was in it. The
+     * draw pass uses that to draw a rounded clip that holds one as a cut picture from its next
+     * frame: only a picture can trim drawing the canvas did not do itself. Zero, and never moving,
+     * on a canvas that does not count, which then keeps every rounded clip it can round in place.
+     */
+    val rawDrawings: Int get() = 0
+
     /** Everything drawn until the matching [popAlpha] is faded. Nests by multiplication. */
     fun pushAlpha(alpha: Float)
 

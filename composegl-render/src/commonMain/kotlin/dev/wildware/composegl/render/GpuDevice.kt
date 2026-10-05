@@ -107,6 +107,28 @@ interface GpuDevice {
     /** The first [quads] quads of [vertices], through the shape shader, sampling [texture]. */
     fun drawShapes(vertices: VertexStream, quads: Int, texture: DeviceTexture, blend: Blend, projection: FloatArray)
 
+    /**
+     * Whether the shape shader can keep what it draws inside a [ClipMask], so a rounded clip is
+     * drawn in place rather than through a picture. False unless a device says so.
+     */
+    val masks: Boolean get() = false
+
+    /**
+     * The same, with nothing landing outside [mask], or as before when it is null.
+     *
+     * Only called with a mask on a device that [masks]. The default body draws without it, for a
+     * device written before masks existed.
+     */
+    @Suppress("LongParameterList")
+    fun drawShapes(
+        vertices: VertexStream,
+        quads: Int,
+        texture: DeviceTexture,
+        blend: Blend,
+        projection: FloatArray,
+        mask: ClipMask?,
+    ) = drawShapes(vertices, quads, texture, blend, projection)
+
     /** One picture through somebody's shader, on the quad [quad] describes. Premultiplied. */
     fun drawEffect(effect: ShaderEffect, picture: DeviceTexture, quad: EffectQuad, blend: Blend)
 
@@ -199,6 +221,32 @@ enum class Blend(val additive: Boolean, val premultiplied: Boolean) {
             BlendMode.Additive -> if (premultiplied) PremultipliedAdditive else Additive
         }
     }
+}
+
+/**
+ * A rounded rectangle the shape shader keeps what it draws inside: a rounded clip, drawn in place.
+ *
+ * The middle is in pixels of the target, counted from its bottom-left like everything else a device
+ * is handed. The size and the corners are in the canvas's own units, and [pixelsAcross] and
+ * [pixelsUp] say how many pixels one of those is, so a window stretched more one way than the other
+ * still gets round corners, and the soft edge is one pixel wide however big the units are. The
+ * corners are named the way they lie in the target, top meaning up, and are already held to half
+ * the shorter side.
+ *
+ * Mutable, and refilled by the canvas as it goes, so a rounded clip costs no allocation. A device
+ * reads it in [GpuDevice.drawShapes] and keeps nothing.
+ */
+class ClipMask {
+    var centreX = 0f
+    var centreY = 0f
+    var halfWidth = 0f
+    var halfHeight = 0f
+    var topLeft = 0f
+    var topRight = 0f
+    var bottomRight = 0f
+    var bottomLeft = 0f
+    var pixelsAcross = 1f
+    var pixelsUp = 1f
 }
 
 /**
