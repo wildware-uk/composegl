@@ -168,16 +168,50 @@ class RenderCanvasRoundedClipTest {
     }
 
     @Test
-    fun `a rounded clip that fades or blends as one piece is left to a picture`() {
+    fun `a rounded clip that fades as one piece is left to a picture`() {
         frame {
             pushAlpha(0.5f)
             assertFalse(roundsClips, "faded")
             popAlpha()
-            pushBlend(BlendMode.Additive)
-            assertFalse(roundsClips, "added")
-            popBlend()
             assertTrue(roundsClips)
         }
+    }
+
+    @Test
+    fun `a rounded clip pushed under an additive blend is trimmed in place and adds`() {
+        // A glow cut to a card's corners: added part by part, as the same glow with no clip is.
+        frame {
+            pushBlend(BlendMode.Additive)
+            assertTrue(roundsClips, "added")
+            rounded(card, Corners.all(10f))
+            rect(card, Colour.Red)
+            popClip()
+            popBlend()
+        }
+
+        val drawn = device.draws.single()
+        assertEquals(Blend.Additive, drawn.blend)
+        assertNotNull(drawn.mask, "trimmed by the shader")
+        assertEquals(0, device.named("offscreen").size, "no picture")
+    }
+
+    @Test
+    fun `a game's drawing in a rounded clip pushed under an additive blend is added as the clip is`() {
+        // The picture it opens is put down in the mode the clip was pushed under: added, as the cut
+        // picture of the whole clip is from the next frame on. Not identically: in the opened picture
+        // whatever the clip draws after the game's drawing is added onto it, where the cut picture
+        // lays it over it, so that one frame differs wherever the two overlap.
+        frame {
+            pushBlend(BlendMode.Additive)
+            rounded(card, Corners.all(10f))
+            raw {}
+            popClip()
+            popBlend()
+        }
+
+        val composite = device.draws.single()
+        assertEquals(Blend.PremultipliedAdditive, composite.blend)
+        assertNotNull(composite.mask)
     }
 
     @Test

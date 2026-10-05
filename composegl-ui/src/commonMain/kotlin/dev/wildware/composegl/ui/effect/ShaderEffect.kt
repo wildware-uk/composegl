@@ -22,8 +22,8 @@ import dev.wildware.composegl.ui.graphics.Colour
  * |---|---|
  * | `v_texCoord` | where in the picture this pixel is, 0 to 1 |
  * | `u_texture` | the picture: what the interface drew, before the effect |
- * | `u_textureSize` | its size, in real pixels — a blur's step is `1.0 / u_textureSize` |
- * | `u_size` | the area the effect covers, in design units |
+ * | `u_textureSize` | its size, in real pixels — a blur's step is `1.0 / u_textureSize`. Under a still `Modifier.scale` above it the picture is taken at the node's own size and shrunk or grown on the way down, as the scale's own picture was, so a step in these pixels shrinks and grows with the panel too |
+ * | `u_size` | the area the effect covers, in the units it was drawn in — before a still `Modifier.scale` on a node above it or a camera's zoom, so a step measured in it grows and shrinks with them. A scale on the effect's own node is not taken off: its picture is put down at the scaled size, and that is the size the shader is told |
  * | `u_alpha` | the opacity in force, which your last line should multiply by |
  *
  * Names starting `cg_` are the toolkit's own. The picture is often the corner of a bigger texture

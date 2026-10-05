@@ -23,7 +23,7 @@ enum class BatchBreak {
     /**
      * An offscreen picture, opened, closed or put down — a turn, an effect, a shaped clip, or a scale
      * that is moving or cannot be drawn through a transform: faded or blending (itself or above it),
-     * mirrored, holding a blend or an effect, with no area, or on a canvas that cannot transform. Any
+     * mirrored, with an effect of its own, with no area, or on a canvas that cannot transform. Any
      * other still scale is a transform and a [Clip].
      */
     Layer,

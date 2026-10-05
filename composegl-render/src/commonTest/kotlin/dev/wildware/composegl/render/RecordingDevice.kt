@@ -125,6 +125,7 @@ class RecordingDevice(
         effects += EffectDraw(
             effect, picture, blend, quad.left, quad.top, quad.right, quad.bottom, quad.alpha,
             listOf(quad.u, quad.v, quad.u2, quad.v2), quad.textureWidth to quad.textureHeight,
+            quad.width, quad.height,
         )
         calls += "drawEffect(${effect.source.name}, ${name(picture)}, $blend)"
     }
@@ -214,5 +215,8 @@ class RecordingDevice(
         val corners: List<Float> = emptyList(),
         /** What the shader is told the picture's size is, in pixels. */
         val pictureSize: Pair<Float, Float> = 0f to 0f,
+        /** What the shader is told `u_size` is. */
+        val width: Float = 0f,
+        val height: Float = 0f,
     )
 }

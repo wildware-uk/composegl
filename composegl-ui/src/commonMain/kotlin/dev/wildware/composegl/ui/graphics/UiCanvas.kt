@@ -541,8 +541,8 @@ interface UiCanvas {
      * Whether [roundClip] would round a clip pushed now.
      *
      * Unlike the other questions a canvas answers, this one can change during a frame: a canvas
-     * may round one clip at a time, and may keep a rounded clip that fades or blends as one piece
-     * on the picture road. So it is asked each time, right before the push, and false means the
+     * may round one clip at a time, and may keep a rounded clip that fades as one piece on the
+     * picture road. So it is asked each time, right before the push, and false means the
      * caller takes a picture and cuts it instead.
      */
     val roundsClips: Boolean get() = false
@@ -645,7 +645,8 @@ interface UiCanvas {
      * the outer one. A clip pushed inside is the transformed rectangle, so `pushClip` keeps meaning
      * "this box, where I am drawing". [layer] takes a picture of the transformed area at the
      * screen's own resolution and carries the transform in, so an effect on a zoomed node is as
-     * sharp as the node.
+     * sharp as the node; and a shader is told the area's size in the units it was drawn in, before
+     * the transform, so a blur grows and shrinks with the zoom as its bleed does.
      *
      * No flush: the multiply happens to each position as it is queued, so a thousand nodes each
      * pushing their own transform are still one draw call.
