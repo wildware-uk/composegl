@@ -332,11 +332,22 @@ private class TypewriterPainter(
 
     private val scratch = RevealedCharacter()
 
+    // What [lines] were broken from. Layout runs from the root whenever anything on screen changes,
+    // so a line still arriving is measured frame after frame with the same text at the same width,
+    // and breaking it again each time measured the text once a character, every frame (#241).
+    private var measuredText: String? = null
+    private var measuredWidth = Float.NaN
+
     override fun MeasureScope.measure(
         measurables: List<Measurable>,
         constraints: Constraints,
     ): MeasureResult {
-        lines = wrap(state.text, constraints.maxWidth)
+        val text = state.text
+        if (text != measuredText || constraints.maxWidth != measuredWidth) {
+            lines = wrap(text, constraints.maxWidth)
+            measuredText = text
+            measuredWidth = constraints.maxWidth
+        }
         val width = lines.maxOfOrNull { it.whole.size.width } ?: 0f
         val height = lines.size * style.lineHeight
         return layout(constraints.constrainWidth(width), constraints.constrainHeight(height)) {}

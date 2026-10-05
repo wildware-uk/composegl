@@ -16,6 +16,9 @@ import dev.wildware.composegl.ui.layout.MeasurePass
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.text.FontProvider
+import dev.wildware.composegl.ui.text.TextLayout
+import dev.wildware.composegl.ui.text.TextStyle
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -243,5 +246,63 @@ class TypewriterTest {
         assertTrue(drawn.size > 1, "it should have wrapped")
         assertTrue(drawn.all { it.at.x == drawn.first().at.x }, "every line starts at the same edge")
         assertEquals(line.text.replace(" ", ""), shown().replace(" ", ""), "every word is on screen once")
+    }
+
+    // --- what a frame costs (#241) --------------------------------------------------------------
+
+    /** The fonts, counting how often text is measured. */
+    private class CountingFonts(private val inner: FontProvider = MonospaceFontProvider()) : FontProvider {
+        var measured = 0
+        override fun measure(text: String, style: TextStyle, maxWidth: Float): TextLayout {
+            measured++
+            return inner.measure(text, style, maxWidth)
+        }
+
+        override fun metrics(style: TextStyle) = inner.metrics(style)
+    }
+
+    @Test
+    fun `measuring again at the same width does not wrap the text again`() {
+        // Layout runs from the root whenever anything on screen changes, so a line that is still
+        // arriving is measured on frame after frame with the same text at the same width. Slow
+        // enough that no character arrives in these frames: drawing measures each new one once.
+        val fonts = CountingFonts()
+        lateinit var line: TypewriterState
+        host.setContent {
+            ProvideFonts(fonts) {
+                line = rememberTypewriter("one two three four five six seven eight", Clock.Ui)
+                Typewriter(line, Modifier.width(100f), charactersPerSecond = 1f, pauses = false)
+            }
+        }
+        frames(2)
+        val afterFirstLayout = fonts.measured
+
+        frames(10, 16)
+
+        assertTrue(line.revealed < line.text.length, "it should still be arriving")
+        assertEquals(afterFirstLayout, fonts.measured, "ten more layouts at the same width measured text again")
+    }
+
+    @Test
+    fun `a new width wraps the text again`() {
+        val fonts = CountingFonts()
+        var width by mutableStateOf(100f)
+        lateinit var line: TypewriterState
+        host.setContent {
+            ProvideFonts(fonts) {
+                line = rememberTypewriter("one two three four five six seven eight", Clock.Ui)
+                Typewriter(line, Modifier.width(width), charactersPerSecond = 500f, pauses = false)
+            }
+        }
+        frames(6, 40)
+        val narrow = canvas.calls.filterIsInstance<DrawCall.Text>().map { it.at.y }.distinct().size
+        val before = fonts.measured
+
+        width = 400f
+        frames(2, 40)
+
+        assertTrue(fonts.measured > before, "a wider box should be wrapped again")
+        val wide = canvas.calls.filterIsInstance<DrawCall.Text>().map { it.at.y }.distinct().size
+        assertTrue(wide < narrow, "four times the width should need fewer lines ($narrow then $wide)")
     }
 }
