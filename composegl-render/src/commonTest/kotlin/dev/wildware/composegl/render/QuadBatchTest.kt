@@ -4,9 +4,11 @@ import dev.wildware.composegl.ui.debug.BatchBreak
 import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.node.UiNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class QuadBatchTest {
 
@@ -85,6 +87,126 @@ class QuadBatchTest {
 
         assertEquals(listOf(Blend.SourceOver, Blend.Additive), device.draws.map { it.blend })
         assertEquals(listOf(BatchBreak.Blend to 1, BatchBreak.End to 1), reasons(trace))
+    }
+
+    @Test
+    fun `a blend set to the one in force flushes nothing`() {
+        val trace = DrawCallTrace()
+        val batch = QuadBatch(device).also { it.trace = trace }
+        batch.begin(identity)
+        batch.picture(sheet)
+        batch.blend(BlendMode.SourceOver, premultiplied = false)
+        batch.picture(sheet)
+        batch.blend(BlendMode.Additive, premultiplied = false)
+        batch.blend(BlendMode.Additive, premultiplied = false)
+        batch.picture(sheet)
+        batch.end()
+
+        assertEquals(listOf(Blend.SourceOver, Blend.Additive), device.draws.map { it.blend })
+        assertEquals(listOf(BatchBreak.Blend to 1, BatchBreak.End to 1), reasons(trace))
+    }
+
+    @Test
+    fun `a blend or a clip changed and changed back before anything is drawn cuts nothing`() {
+        val trace = DrawCallTrace()
+        val batch = QuadBatch(device).also { it.trace = trace }
+        batch.begin(identity)
+        batch.picture(sheet)
+        batch.blend(BlendMode.Additive, premultiplied = false)
+        batch.scissor(1, 2, 3, 4)
+        // A list scrolled out of sight: its clip and its glow go on and come off with nothing drawn.
+        batch.noScissor()
+        batch.blend(BlendMode.SourceOver, premultiplied = false)
+        batch.picture(sheet)
+        batch.end()
+
+        assertEquals(listOf(2), device.draws.map { it.quads })
+        assertEquals(emptyList(), device.calls.filter { it.startsWith("scissor") || it == "noScissor" })
+        assertEquals(listOf(BatchBreak.End to 1), reasons(trace))
+    }
+
+    @Test
+    fun `a clip reaches the device when something is drawn under it and the cut is blamed on who asked`() {
+        val trace = DrawCallTrace()
+        val batch = QuadBatch(device).also { it.trace = trace }
+        val clipper = UiNode("clipper")
+        val child = UiNode("child")
+        batch.begin(identity)
+        trace.node = clipper
+        batch.picture(sheet)
+        batch.scissor(1, 2, 3, 4)
+        assertEquals(emptyList(), device.calls.filter { it.startsWith("scissor") }, "nothing drawn under it yet")
+
+        trace.node = child
+        batch.picture(sheet)
+        batch.end()
+
+        assertEquals(listOf(1, 1), device.draws.map { it.quads })
+        assertEquals(1, device.calls.count { it == "scissor(1, 2, 3, 4)" })
+        assertTrue(device.calls.indexOf("scissor(1, 2, 3, 4)") > device.calls.indexOfFirst { it.startsWith("drawShapes") }, "after what was queued outside it")
+        val cut = trace.culprits().single()
+        assertEquals(BatchBreak.Clip to clipper, cut.reason to cut.node)
+    }
+
+    @Test
+    fun `a clip reaches the device before drawing that does not go through the batch`() {
+        val batch = QuadBatch(device)
+        batch.begin(identity)
+        batch.picture(sheet)
+        batch.scissor(1, 2, 3, 4)
+        batch.flushForDevice(BatchBreak.Raw)
+
+        assertEquals(1, device.draws.size)
+        assertEquals("scissor(1, 2, 3, 4)", device.calls.last())
+        batch.end()
+    }
+
+    @Test
+    fun `a rounded clip put on and taken off before anything is drawn cuts nothing`() {
+        val batch = QuadBatch(device)
+        batch.begin(identity)
+        batch.picture(sheet)
+        batch.mask(ClipMask())
+        batch.mask(null)
+        batch.picture(sheet)
+        batch.end()
+
+        assertEquals(listOf(2), device.draws.map { it.quads })
+    }
+
+    @Test
+    fun `a rounded clip filled in again draws what was queued inside it as it was`() {
+        val batch = QuadBatch(device)
+        val mask = ClipMask().apply { centreX = 1f }
+        batch.begin(identity)
+        batch.mask(mask)
+        batch.picture(sheet)
+        // Taken off with nothing drawn since, so the queue still holds a quad inside it.
+        batch.mask(null)
+        batch.refilling(mask)
+        mask.centreX = 2f
+        batch.mask(mask)
+        batch.picture(sheet)
+        batch.end()
+
+        assertEquals(listOf(1f, 2f), device.draws.map { it.mask?.centreX })
+    }
+
+    @Test
+    fun `the rounded clip in force set again flushes nothing`() {
+        val batch = QuadBatch(device)
+        val mask = ClipMask()
+        batch.begin(identity)
+        batch.mask(mask)
+        batch.picture(sheet)
+        batch.mask(mask)
+        batch.picture(sheet)
+        batch.mask(null)
+        batch.mask(null)
+        batch.picture(sheet)
+        batch.end()
+
+        assertEquals(listOf(2, 1), device.draws.map { it.quads })
     }
 
     @Test

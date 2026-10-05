@@ -196,6 +196,26 @@ class RenderCanvasRoundedClipTest {
     }
 
     @Test
+    fun `plain drawing round an added rounded clip is cut from it going in and coming out`() {
+        // The blend and the mask both wait for the next quad: the card's glow must still be one
+        // draw call of its own, added and trimmed, between two plain untrimmed ones.
+        frame {
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+            pushBlend(BlendMode.Additive)
+            rounded(card, Corners.all(10f))
+            rect(card, Colour.Red)
+            popClip()
+            popBlend()
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red)
+        }
+
+        assertEquals(
+            listOf(Blend.SourceOver to false, Blend.Additive to true, Blend.SourceOver to false),
+            device.draws.map { it.blend to (it.mask != null) },
+        )
+    }
+
+    @Test
     fun `a game's drawing in a rounded clip pushed under an additive blend is added as the clip is`() {
         // The picture it opens is put down in the mode the clip was pushed under: added, as the cut
         // picture of the whole clip is from the next frame on. Not identically: in the opened picture
@@ -350,6 +370,8 @@ class RenderCanvasRoundedClipTest {
             rounded(card, Corners.all(10f))
             rect(card, Colour.Red)
             popClip()
+            // Something after it, or leaving the clip would cut nothing: the frame's end draws it.
+            rect(card, Colour.Red)
         }
 
         assertEquals(2, trace.culprits().single { it.reason == BatchBreak.Clip }.calls)

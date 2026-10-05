@@ -230,7 +230,7 @@ open class RenderCanvas protected constructor(
         device.begin(into)
         frameTarget = into
         target = into
-        device.noScissor()
+        noScissor()
         this.viewport = viewport
         state = CanvasState(Rect.of(0f, 0f, viewport.design.width, viewport.design.height))
         layer = null
@@ -277,7 +277,7 @@ open class RenderCanvas protected constructor(
         check(drawing) { "end() without a begin()" }
 
         batch().end()
-        device.noScissor()
+        noScissor()
         setViewport(0, 0, viewport.physical.width.roundToInt(), viewport.physical.height.roundToInt())
         drawing = false
         layers.trim()
@@ -892,6 +892,7 @@ open class RenderCanvas protected constructor(
         if (rect == null || lastClipDepth != clipDepth || !roundsClips) return
         while (roundings.size <= layerDepth) roundings += Rounding()
         val rounding = roundings[layerDepth]
+        batch().refilling(rounding.mask)
         fill(rounding, rect, corners)
         rounding.area = state.clip
         batch().mask(rounding.mask)
@@ -1042,7 +1043,7 @@ open class RenderCanvas protected constructor(
         target = picture
         setViewport(0, 0, pixelWidth, pixelHeight)
         // All of it, as [capture] clears.
-        device.noScissor()
+        noScissor()
         device.clear(0f, 0f, 0f, 0f)
         orthographic(projection, area.width, area.height, area.left)
         batch().projection(projection)
@@ -1112,9 +1113,12 @@ open class RenderCanvas protected constructor(
         batch?.blend(state.blend, premultiplied = false)
     }
 
-    /** The scissor follows the clip stack. What is queued was queued under the old clip, so it goes first. */
+    /**
+     * The scissor follows the clip stack. The batch hands it on when something is next drawn, and
+     * cuts what is queued only if it really changed: a clip that works out to the same box, or
+     * one with nothing drawn inside it, costs no draw call.
+     */
     private fun applyScissor() {
-        batch().flush(BatchBreak.Clip)
         val clip = state.clip
         val into = layer
         if (into != null) {
@@ -1134,11 +1138,11 @@ open class RenderCanvas protected constructor(
             left - topLeft.x < 0.5f && top - topLeft.y < 0.5f &&
             bottomRight.x - right < 0.5f && bottomRight.y - bottom < 0.5f
         ) {
-            device.noScissor()
+            batch().noScissor()
             return
         }
 
-        device.scissor(
+        batch().scissor(
             left.roundToInt(),
             (if (topRowFirst) top else viewport.physical.height - bottom).roundToInt(),
             (right - left).roundToInt().coerceAtLeast(0),
@@ -1151,7 +1155,7 @@ open class RenderCanvas protected constructor(
         if (clip.left <= into.bounds.left && clip.top <= into.bounds.top &&
             clip.right >= into.bounds.right && clip.bottom >= into.bounds.bottom
         ) {
-            device.noScissor()
+            batch().noScissor()
             return
         }
 
@@ -1159,13 +1163,16 @@ open class RenderCanvas protected constructor(
         val right = ((clip.right - into.bounds.left) * viewport.scaleX).roundToInt()
         val top = ((clip.top - into.bounds.top) * viewport.scaleY).roundToInt()
         val bottom = ((clip.bottom - into.bounds.top) * viewport.scaleY).roundToInt()
-        device.scissor(
+        batch().scissor(
             left,
             into.pixelHeight - bottom,
             (right - left).coerceAtLeast(0),
             (bottom - top).coerceAtLeast(0),
         )
     }
+
+    /** The scissor off now, for a clear of the whole target. */
+    private fun noScissor() = batch().noScissorNow()
 
     // --- layers ---
 
@@ -1225,7 +1232,7 @@ open class RenderCanvas protected constructor(
         // All of the picture, not only the corner drawn into: what lies round the corner must read
         // clear when a turned or stretched picture is filtered at its edge, and a scissored clear is
         // not a clear of the attachment, so a tiled phone GPU would load the rest from memory.
-        device.noScissor()
+        noScissor()
         device.clear(0f, 0f, 0f, 0f)
         orthographic(projection, area.width, area.height, area.left)
         batch().projection(projection)
@@ -1332,6 +1339,17 @@ open class RenderCanvas protected constructor(
         )
     }
 
+    /**
+     * Plain blending again after a picture went down premultiplied. The picture's own draw call is
+     * cut here rather than when something is next drawn, so it is always blamed on the picture:
+     * plain drawing after it needs a draw call of its own anyway, and a trace that lost the
+     * picture's blame whenever it was the frame's last would not say a picture was taken.
+     */
+    private fun backFromPicture() {
+        batch().flush(BatchBreak.Layer)
+        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
+    }
+
     private fun composite(destination: Rect, mirrorX: Boolean, mirrorY: Boolean, tint: Colour = fade()) {
         // The mode in force applies to the composite; premultiplied, because a layer's drawing is.
         batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
@@ -1350,7 +1368,7 @@ open class RenderCanvas protected constructor(
             tint = tint,
         )
         batch().letGo()
-        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
+        backFromPicture()
     }
 
     override fun drawLayer(
@@ -1386,7 +1404,7 @@ open class RenderCanvas protected constructor(
             tint = fade(),
         )
         batch().letGo()
-        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
+        backFromPicture()
     }
 
     override val turnsLayers: Boolean get() = offscreen
@@ -1437,7 +1455,7 @@ open class RenderCanvas protected constructor(
             )
         }
         batch().letGo()
-        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
+        backFromPicture()
     }
 
     override val cutsLayers: Boolean get() = offscreen
@@ -1461,7 +1479,7 @@ open class RenderCanvas protected constructor(
             tint = fade(),
         )
         batch().letGo()
-        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
+        backFromPicture()
     }
 
     override val drawsLayersOnto: Boolean get() = offscreen
@@ -1498,7 +1516,7 @@ open class RenderCanvas protected constructor(
             tint = fade(),
         )
         batch().letGo()
-        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
+        backFromPicture()
     }
 
     override val tiltsLayers: Boolean get() = offscreen
@@ -1520,8 +1538,9 @@ open class RenderCanvas protected constructor(
      * its bleed does, and as it did when a scale took a picture of the node and shrank that.
      */
     private fun drawThrough(effect: ShaderEffect, destination: Rect, width: Float, height: Float) {
-        // Whatever is queued was queued to land under this, so it goes first.
-        batch().flush(BatchBreak.Shader)
+        // Whatever is queued was queued to land under this, so it goes first, and the clip in force
+        // reaches the device before the shader draws.
+        batch().flushForDevice(BatchBreak.Shader)
 
         val picture = picture
         val quad = effectQuad
@@ -1541,7 +1560,7 @@ open class RenderCanvas protected constructor(
         // The mode in force applies whether or not there is a shader in the way.
         device.drawEffect(effect, picture.texture, quad, Blend.of(state.blend, premultiplied = true))
 
-        batch().blend(state.blend, premultiplied = false, reason = BatchBreak.Layer)
+        backFromPicture()
     }
 
     private fun clipX(x: Float) = x * projection[0] + projection[12]
@@ -1578,7 +1597,7 @@ open class RenderCanvas protected constructor(
      */
     override fun raw(destination: Rect, block: (Any) -> Unit) = intoOpened {
         rawDrawings++
-        batch().flush(BatchBreak.Raw)
+        batch().flushForDevice(BatchBreak.Raw)
         val moved = transformed(projection.copyOf()).also {
             it[12] += rawX(destination.left) * it[0]
             it[13] += rawY(destination.bottom) * it[5]
@@ -1588,8 +1607,9 @@ open class RenderCanvas protected constructor(
 
     override fun raw(block: (Any) -> Unit) = intoOpened {
         rawDrawings++
-        // Our own quads first, so the game's drawing lands on top of what came before it.
-        batch().flush(BatchBreak.Raw)
+        // Our own quads first, so the game's drawing lands on top of what came before it, and the
+        // clip in force on the device, so it is cut by it.
+        batch().flushForDevice(BatchBreak.Raw)
         runRaw(block, transformed(projection.copyOf()))
     }
 

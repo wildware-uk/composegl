@@ -7,6 +7,10 @@ import dev.wildware.composegl.ui.layout.Viewport
 /**
  * How a backend's own texture type reaches the shared canvas: a function from the toolkit's handle
  * to something the device can bind. Null means "not one of ours", and the canvas refuses it by name.
+ *
+ * It is called while a frame is drawing. It may bind and upload textures and set their parameters,
+ * and must leave every other piece of GL state as it found it: the device remembers the program,
+ * buffers, blending, scissor and vertex layout it set, and does not set them again.
  */
 fun interface TextureResolver {
     fun resolve(handle: TextureHandle): BoundPicture?

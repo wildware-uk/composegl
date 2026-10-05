@@ -638,8 +638,8 @@ needs something the queue does not share:
 | Reason | What cut the batch |
 |---|---|
 | `texture` | a picture from a different texture than the one before it |
-| `blend` | `Modifier.blend`, going in and coming out |
-| `clip` | `Modifier.clip`, rounded or not, going in and coming out; also the edge of a still `scale` |
+| `blend` | `Modifier.blend`, going in and coming out — but only where something is drawn in a different mode from what came before it |
+| `clip` | `Modifier.clip`, rounded or not, going in and coming out; also the edge of a still `scale`. A clip with nothing drawn inside it (a list scrolled out of sight), or a square one that cuts no more than the clip around it, cuts nothing |
 | `layer` | an offscreen picture: a turn, an effect, a scale that is moving or cannot be drawn through a transform (faded, blended, mirrored, with an effect of its own, with no area, or on a canvas that cannot transform), a shaped clip that is not round (or a round one inside another, faded, or holding your own `raw` drawing), an effect that reaches a rounded clip's corner, and the first frame a rounded clip holds a `raw` drawing |
 | `shader` | a picture drawn through an effect's shader |
 | `raw` | your own drawing inside `raw { }` |
