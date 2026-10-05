@@ -482,6 +482,36 @@ class RoundedClipGlTest {
         assertTrue(BatchBreak.Layer !in frame.breaks, "no picture: ${frame.breaks}")
     }
 
+    @Test
+    fun `an additive glow cut to a card's corners is trimmed in place and adds as the cut picture did`() {
+        // A blue card, and a red glow over it cut to 30-unit corners: magenta inside, blue at the corners.
+        val glowing: @Composable () -> Unit = {
+            Box(Modifier.padding(100f)) {
+                Box(Modifier.size(100f).background(blue)) {
+                    Box(Modifier.size(100f).clip(corner = 30f).blend(BlendMode.Additive).background(red))
+                }
+            }
+        }
+        val inPlace = render(content = glowing)
+        val cut = render(wrap = { canvas -> object : UiCanvas by canvas { override val roundsClips: Boolean get() = false } }, content = glowing)
+
+        assertColour(Colour.rgb(0xFF00FF), inPlace.at(150, 150), "red added to the card's blue")
+        assertColour(blue, inPlace.at(102, 102), "the top-left corner, cut: the card alone")
+        assertColour(blue, inPlace.at(197, 197), "and the bottom-right")
+        assertTrue(BatchBreak.Layer !in inPlace.breaks, "no picture: ${inPlace.breaks}")
+        assertTrue(BatchBreak.Layer in cut.breaks, "where the cut road took one: ${cut.breaks}")
+        // Only along the four curves, where both soften the edge over a pixel, may the two differ.
+        var differ = 0
+        for (y in 95..205) {
+            for (x in 95..205) {
+                val a = inPlace.at(x, y)
+                val b = cut.at(x, y)
+                if (abs(a.r - b.r) > 0.1f || abs(a.g - b.g) > 0.1f || abs(a.b - b.b) > 0.1f) differ++
+            }
+        }
+        assertTrue(differ < 60, "$differ pixels differ from the cut picture")
+    }
+
     /** What a still screen cost: draw calls a frame, and microseconds a frame on the CPU and GPU together. */
     private class Cost(val drawCalls: Int, val micros: Double)
 

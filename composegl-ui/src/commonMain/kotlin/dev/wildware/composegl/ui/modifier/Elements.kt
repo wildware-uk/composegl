@@ -1459,14 +1459,16 @@ fun Modifier.tint(colour: Colour) = then(TintElement(colour))
  *   that must not spill wants the [clip] on the parent and the `scale` on the child inside it.
  * - **Some scales are always a picture, and a picture has a ceiling.** A node that is faded or
  *   blends in a mode of its own ([alpha] or [blend] on it or above it), one with a [mirror] or an
- *   effect, one with something inside it carrying a [blend] or an effect, one with no area, and
- *   any scale on a canvas that cannot transform are drawn into an offscreen picture that is put
- *   down bigger or smaller, so a fading panel fades as one object and a glow inside it looks as it
- *   always did. A glow a widget pushes itself — `pushBlend` in a [drawBehind], or its own drawing
- *   in `raw` — is not seen, and under a still scale it adds onto what is behind the panel, as it
- *   would unscaled. A canvas can refuse to make the picture — the two backends here refuse one
- *   bigger than 4096 screen pixels a side, which is their limit rather than a rule, and any canvas
- *   with no offscreen drawing refuses every one. Then a scale that could be drawn through a
+ *   effect, one with no area, and any scale on a canvas that cannot transform are drawn into an
+ *   offscreen picture that is put down bigger or smaller, so a fading panel fades as one object.
+ *   What is inside does not matter: under a still scale a [blend] inside adds onto whatever it
+ *   lands on, as it would unscaled — over a see-through part of the panel what is behind shows
+ *   through the glow, where the picture covered it by as much as the glow was opaque: brighter by
+ *   the glow's opacity times what is behind, so over a light backdrop a gold glow can come out
+ *   nearly white — and an [effect] inside takes its own picture at the size the node had in the
+ *   scale's picture, and shrinks or grows with the panel as it did. A canvas can refuse to make a
+ *   picture — the two backends here refuse one bigger than 4096 screen pixels a side, which is
+ *   their limit rather than a rule, and any canvas with no offscreen drawing refuses every one. Then a scale that could be drawn through a
  *   transform is, moving or not, so it keeps its size; any other is drawn plainly, at its
  *   ordinary size, and hit testing goes back to that size with it — present and honest rather
  *   than missing. Ask [dev.wildware.composegl.ui.graphics.UiCanvas.drawsLayers] first if a screen

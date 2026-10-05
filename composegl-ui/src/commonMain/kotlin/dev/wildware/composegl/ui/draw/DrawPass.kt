@@ -10,6 +10,7 @@ import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Shape
 import dev.wildware.composegl.ui.geometry.Shapes
+import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.graphics.box
 import dev.wildware.composegl.ui.graphics.boxShadow
@@ -86,6 +87,12 @@ class DrawPass(val canvas: UiCanvas) {
     private var cameraX = 0f
     private var cameraY = 0f
     private var cameraDistance = 0f
+
+    // How much the still scales being drawn through a transform around the node being drawn grow
+    // it, multiplied together: one outside all of them. An effect's picture is taken with this
+    // taken back off, at the size the node had in those scales' pictures; see [unscaledLayer].
+    // Put back on the way out of each, even when the frame throws.
+    private var grownScale = 1f
 
     /**
      * Where to say which node is being drawn, so a backend's draw calls can be blamed on one.
@@ -492,24 +499,34 @@ class DrawPass(val canvas: UiCanvas) {
      * transform is the only way it is drawn at its factor at all.
      *
      * Then it can on a canvas that transforms, unless the node has no area — the picture refuses
-     * one, and its children are drawn plainly at their own size rather than cut to nothing — or
-     * something would come out differently without the picture:
+     * one, and its children are drawn plainly at their own size rather than cut to nothing — or the
+     * node or one above it is faded or blends in a mode of its own. A picture fades as one thing and
+     * blends as one thing; the same subtree drawn straight fades each part through the parts behind
+     * it. An alpha a game pushes round the whole tree itself is not seen here.
      *
-     * - **The node or one above it is faded or blends in a mode of its own.** A picture fades as
-     *   one thing and blends as one thing; the same subtree drawn straight fades each part through
-     *   the parts behind it. An alpha a game pushes round the whole tree itself is not seen here.
-     * - **Something under it has a [dev.wildware.composegl.ui.modifier.blend] modifier.** In the
-     *   picture an additive glow adds onto the panel's own transparent pixels and the picture is laid
-     *   over the screen; drawn straight it would add onto whatever is behind the panel, which is a
-     *   brighter glow. Only the modifier is seen: a glow a widget pushes itself, with `pushBlend` in
-     *   a `drawBehind` or its own drawing in `raw`, is drawn as it would be unscaled — onto what is
-     *   behind the panel — while the factor holds still.
-     * - **Something under it has a shader effect.** An effect is handed the size of its area as it
-     *   is drawn, so under a shrinking transform its reach in design units would not shrink with it.
+     * What is *under* the node does not matter:
      *
-     * Asked of the ancestors and the subtree each time rather than counted on the way down, so a
-     * frame that throws leaves nothing behind it. A still scaled node costs a walk to the root and
-     * one over what it holds, once a frame — less than drawing what it holds, which follows.
+     * - **A [glow][dev.wildware.composegl.ui.modifier.blend]** is drawn straight, through the
+     *   transform, and adds onto whatever it lands on — exactly as it does on the same panel
+     *   unscaled. Over the panel's own paint that is what the picture did too. Over a part of the
+     *   panel that lets the screen through, what is behind now shows through the glow: in a picture
+     *   the glow was added onto clear pixels, and the picture laid over the screen then covered what
+     *   was behind by as much as the glow is opaque. So such a pixel is brighter by the glow's
+     *   opacity times what is behind it: a spark 80% opaque over a backdrop of (30, 42, 54) gains
+     *   about (24, 34, 43), and over a light backdrop a gold glow can come out nearly white.
+     *
+     *   A factor that is moving still takes the picture, and so does anything inside that is turned
+     *   at all, still or not, or whose own scale moves. So such a glow steps between the two looks
+     *   when its scale starts or stops moving, when a card inside stops swelling, and when its
+     *   angle comes back to nothing — not when it stops turning: a card held at an angle keeps the
+     *   picture's look. An unscaled panel has always done that; a still scaled one used to hide it
+     *   by being a picture throughout.
+     * - **A [shader effect][dev.wildware.composegl.ui.modifier.effect]** still takes its own
+     *   picture, at the size the node had in the scale's picture, and puts it down through the
+     *   transform, so it shrinks or grows with the panel exactly as it did. See [unscaledLayer].
+     *
+     * Asked of the ancestors each time rather than counted on the way down, so a frame that throws
+     * leaves nothing behind it. A still scaled node costs a walk to the root, once a frame.
      */
     private fun growsInPlace(node: UiNode, bounds: Rect): Boolean {
         if (bounds.isEmpty || !canvas.transforms) return false
@@ -518,29 +535,12 @@ class DrawPass(val canvas: UiCanvas) {
             if (groups(at.resolved)) return false
             at = at.parent
         }
-        return !groups(node.resolved) && !blendsInside(node)
+        return !groups(node.resolved)
     }
 
     /** Whether [resolved] fades or blends in a way a picture of it would do as one object. */
     private fun groups(resolved: ResolvedModifier): Boolean =
         resolved.alpha < 1f || (resolved.blend != BlendMode.SourceOver && canvas.supports(resolved.blend))
-
-    /**
-     * Whether anything drawn under [node] blends in a mode of its own or has an effect. Nodes that
-     * draw nothing — fully transparent, scaled to nothing — are not looked into.
-     */
-    private fun blendsInside(node: UiNode): Boolean {
-        val children = node.children
-        for (index in children.indices) {
-            val child = children[index]
-            val inner = child.resolved
-            if (inner.alpha <= 0f || inner.scale <= 0f) continue
-            if (inner.effects.isNotEmpty()) return true
-            if (inner.blend != BlendMode.SourceOver && canvas.supports(inner.blend)) return true
-            if (blendsInside(child)) return true
-        }
-        return false
-    }
 
     /**
      * Draws [node]'s contents grown by [scale] about ([anchorX], [anchorY]): one transform round the
@@ -568,7 +568,13 @@ class DrawPass(val canvas: UiCanvas) {
         // A point p lands at anchor + (p - anchor) × scale, which is p × scale + anchor × (1 - scale).
         canvas.pushTransform(scale, anchorX * (1f - scale), anchorY * (1f - scale), 1f)
         canvas.pushClip(bounds)
-        contents(node, resolved, bounds)
+        val outer = grownScale
+        grownScale = outer * scale
+        try {
+            contents(node, resolved, bounds)
+        } finally {
+            grownScale = outer
+        }
         canvas.popClip()
         canvas.popTransform()
     }
@@ -577,11 +583,10 @@ class DrawPass(val canvas: UiCanvas) {
      * Draws [node]'s contents into a picture and puts that picture down somewhere else.
      *
      * How a scale is drawn when [grown] cannot be: a factor still moving, a mirror, a fade or a blend
-     * mode on the way, a blend mode or an effect under it, a node with no area, or a canvas with no
-     * transform. The subtree is captured at the size it was laid out, so
-     * nothing inside it knows the scale is happening — no arithmetic to thread through the walk,
-     * no text asked for a font size nobody registered, and every rectangle underneath stays where
-     * it was, so the caches keep hitting while the factor animates.
+     * mode on the way, a node with no area, or a canvas with no transform. The subtree is captured
+     * at the size it was laid out, so nothing inside it knows the scale is happening — no arithmetic
+     * to thread through the walk, no text asked for a font size nobody registered, and every
+     * rectangle underneath stays where it was, so the caches keep hitting while the factor animates.
      *
      * The picture is the node's own rectangle and the composite is [destination], which is why a
      * capture is a clip in one direction and no clip at all in the other: a child overflowing the
@@ -692,7 +697,7 @@ class DrawPass(val canvas: UiCanvas) {
      *
      * Returns false, having drawn nothing, for any other shape, or when the canvas will not round
      * this clip — it cannot at all, or not here, inside another rounded clip or while what is drawn
-     * fades or blends as one piece — and then the caller cuts a picture as before.
+     * fades as one piece — and then the caller cuts a picture as before.
      *
      * False, too, when a game's own drawing was inside this clip last frame. The canvas trims that
      * through a picture it opens partway, which is right for the drawing but not for something
@@ -903,13 +908,47 @@ class DrawPass(val canvas: UiCanvas) {
         val area = if (effect.bleed > 0f) bounds.inset(-effect.bleed) else bounds
         // Only this outermost picture is scaled, and the whole bled area with it, so a glow grows
         // with the thing that is glowing instead of staying its own size around it.
-        val picture = canvas.layer(area) { through(effects, index + 1, bounds, 1f, 0f, 0f, body) }
+        val picture = unscaledLayer(area) { through(effects, index + 1, bounds, 1f, 0f, 0f, body) }
         if (picture == null) {
             through(effects, index + 1, bounds, 1f, 0f, 0f, body)
             return false
         }
         canvas.drawLayer(picture, area.scaledAbout(anchorX, anchorY, scale), effect)
         return true
+    }
+
+    /**
+     * [UiCanvas.layer] of [area], taken at the size the node would have had in the pictures of the
+     * still scales around it — the ones drawn through a transform, [grownScale] — and so put down
+     * through them shrunk or grown.
+     *
+     * What an effect under a still scale is drawn into. Before such a scale was drawn through a
+     * transform it was a picture, the effect was taken inside that picture at the node's own size,
+     * and the whole was shrunk on the way to the screen. Taken here at the same size, a shader sees
+     * the same picture whatever it measures in — `u_size`, or the picture's own pixels — and its
+     * reach shrinks with the panel as it did. Taken at the size it lands, a step of one of its
+     * pixels would not shrink, and its spread would run past its bleed, which does.
+     *
+     * Only the factor is taken back off, about the middle of [area]: where the picture is taken
+     * does not matter, only how many pixels it has, and it is put down where it belongs through
+     * the transform in force. A camera's zoom stays on, as it did for the scale's picture.
+     *
+     * Inside, nothing is grown any more, so a still scale inside the effect starts counting again.
+     */
+    private fun unscaledLayer(area: Rect, block: () -> Unit): TextureHandle? {
+        val grown = grownScale
+        if (grown == 1f) return canvas.layer(area, block)
+        val back = 1f / grown
+        val middleX = (area.left + area.right) / 2f
+        val middleY = (area.top + area.bottom) / 2f
+        canvas.pushTransform(back, middleX * (1f - back), middleY * (1f - back), 1f)
+        grownScale = 1f
+        try {
+            return canvas.layer(area, block)
+        } finally {
+            grownScale = grown
+            canvas.popTransform()
+        }
     }
 
     /**

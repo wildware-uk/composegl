@@ -183,9 +183,21 @@ same trade clipping makes in Compose and Flutter: worth it for a card that costs
 picture.
 
 It goes back to a picture in four cases: inside another rounded clip, when it or
-something above it is faded with `alpha` or blended with `blend` (so the subtree still
-fades as one piece), when it holds your own `raw` drawing (above), and on a canvas that
-cannot round a clip in place (`canvas.roundsClips`).
+something above it is faded with `alpha` (so the subtree still fades as one piece), when
+it holds your own `raw` drawing (above), and on a canvas that cannot round a clip in
+place (`canvas.roundsClips`).
+
+Under `blend` it stays in place. A glow cut to a card's corners is trimmed and added part
+by part, exactly as the same glow is with no clip:
+
+```kotlin
+Box(Modifier.fillMaxSize().clip(corner = 12f).blend(BlendMode.Additive).drawBehind { area ->
+    rect(area, shine)    // added onto the card, cut to its corners, no picture
+})
+```
+
+Only where two of its own parts overlap does that differ from the cut picture it used to
+be, which stacked them first and then added the whole: in place each one adds.
 
 Every other shape draws the widget into an offscreen picture and puts it back through
 the shape, with the same soft edge. That is one picture per clipped widget per frame:
@@ -346,17 +358,43 @@ it.
 Some scales are always drawn into an offscreen picture: one that is faded or blends in
 a mode of its own (`alpha` or `blend` on it or on anything above it), so it fades and
 glows as one object rather than part through part; one sharing the widget with a
-`mirror` or an `effect`; one with something inside it carrying a `blend` or an
-`effect`, so a glow or a blur inside looks as it always did; one with no width or
-height; and any scale on a canvas that cannot transform (`canvas.transforms`). A
-picture is taken again every frame. A glow a widget pushes itself — `pushBlend` in a
-`drawBehind`, or its own drawing in `raw` — is not seen: under a still scale it adds
-onto whatever is behind the panel, as it would unscaled, so give it `Modifier.blend`
-if it should add into the panel's own picture. A canvas can refuse to make one, and
-every backend here refuses one bigger than 4096 screen pixels a side. Then a scale
-that could be drawn through a transform is, moving or not, so it keeps its size. Any
-other is drawn plainly, at its ordinary size, and hit testing goes back with it. Ask
-`canvas.drawsLayers` first if a screen would rather pick a different animation.
+`mirror` or an `effect`; one with no width or height; and any scale on a canvas that
+cannot transform (`canvas.transforms`). A picture is taken again every frame. A canvas
+can refuse to make the picture, and every backend here refuses one bigger than 4096
+screen pixels a side. Then a scale that could be drawn through a transform is, moving
+or not, so it keeps its size. Any other is drawn plainly, at its ordinary size, and hit
+testing goes back with it. Ask `canvas.drawsLayers` first if a screen would rather pick
+a different animation.
+
+What is *inside* a still scale does not make it a picture. A glow inside — a `blend`
+on a child, or `pushBlend` in a `drawBehind` — adds onto whatever it lands on, exactly
+as it does on the same panel unscaled. Over the panel's own paint that is what the
+picture did too. Over a part of the panel that lets the screen through, what is behind
+now shows through the glow: a picture laid over the screen covered it by as much as the
+glow was opaque. Such a pixel is brighter by the glow's opacity times what is behind it —
+a spark 80% opaque over a dark blue-grey backdrop of (30, 42, 54) gains about (24, 34,
+43), and over a light backdrop a gold glow can come out nearly white. A scale whose
+factor is moving still takes a picture, and so does a `rotate` at any angle but nought,
+still or not. So a glow under one steps between the two looks as the factor starts or
+stops moving, or as the angle reaches nought — a card held at an angle keeps the
+picture's look — as it always has on an unscaled panel. An `effect` inside — a blur, an outline — takes its own
+picture as always, and shrinks or grows with the panel:
+
+```kotlin
+// A card in a row shrunk to fit: drawn through one transform, no picture of the card.
+Box(Modifier.scale(fit, Alignment.TopStart)) {
+    Box(Modifier.size(120f, 180f).clip(corner = 12f).background(face)) {
+        // Adds onto the card face, as it would unscaled.
+        Box(Modifier.size(120f, 40f).blend(BlendMode.Additive).background(shine))
+        // A 4-unit blur: 2 pixels across when fit is 0.5. Modifier.blur is in composegl-effects.
+        Box(Modifier.size(32f).blur(4f).background(gold))
+    }
+}
+```
+
+The effect's own picture is taken at the size the widget had in the scale's picture
+and shrunk on the way down, so a shader sees the same picture as before whether it
+measures its steps in `u_size` or in the picture's own pixels.
 
 Two scales on one widget multiply, so an arrival animation and a fit correction
 compose. A scale of one costs nothing at all. Zero draws nothing and cannot be

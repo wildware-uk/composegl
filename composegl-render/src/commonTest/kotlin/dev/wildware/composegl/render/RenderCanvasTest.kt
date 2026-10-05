@@ -440,6 +440,25 @@ class RenderCanvasTest {
     }
 
     @Test
+    fun `an effect under a transform is told its size in the units it was drawn in`() {
+        // A blur of 8 units under a half-size transform reaches 4 pixels, as its bleed does.
+        val effect = ShaderEffect(ShaderSource("soft", "void main() { gl_FragColor = texture2D(u_texture, v_texCoord); }"))
+        frame {
+            pushTransform(0.5f, 100f, 0f)
+            val area = Rect.of(0f, 0f, 200f, 100f)
+            val picture = assertNotNull(layer(area) { rect(area, Colour.Red) })
+            drawLayer(picture, area, effect)
+            popTransform()
+        }
+
+        val drawn = device.effects.single()
+        assertEquals(listOf(200f, 100f), listOf(drawn.width, drawn.height), "the node's own size, not the 100 by 50 it lands on")
+        // Where it lands is still through the transform: (100, 0) to (200, 50) of a 400 by 300 design.
+        val corners = listOf(drawn.left, drawn.top, drawn.right, drawn.bottom)
+        assertTrue(corners.zip(listOf(-0.5f, 1f, 0f, 2f / 3f)).all { (actual, expected) -> near(expected, actual) }, "landed at $corners")
+    }
+
+    @Test
     fun `raw lends the engine its state and takes it back`() {
         var lent: Any? = null
         frame {

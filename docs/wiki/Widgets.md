@@ -924,12 +924,14 @@ through and the pointer finds them through, so moving the camera measures and co
 nothing — and a node at three times its size is drawn at three times its size rather
 than stretched from a picture, so its edges and its letters stay sharp. Clicks, hover,
 drags, tooltips, focus rings and `boundsInRoot` all work inside the plane with nothing
-written for them.
+written for them. A shader effect on a node in the world zooms with it too:
+`Modifier.blur(4f)` reaches four world units, so eight pixels at twice the size, as its
+bleed always did.
 
 This is what `Modifier.scale` cannot do: its letters are the ordinary ones stretched,
 soft past about 1.15×, and some scales (faded or blended, on the widget or above it;
-mirrored; with an effect, or a glow or an effect inside) are a picture with a ceiling
-at 4096 pixels. A camera has neither.
+mirrored; with an effect on the widget itself) are a picture with a ceiling at 4096
+pixels. A camera has neither.
 
 - **Drag** empty space to pan, and a fast one flings on. A drag that starts on a button
   pans once it has moved further than a click would, and the button is not clicked; a

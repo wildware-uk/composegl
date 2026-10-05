@@ -870,11 +870,17 @@ open class RenderCanvas protected constructor(
 
     /**
      * In place, while nothing in force needs the picture road instead: no other rounded clip
-     * (the shader keeps one), and nothing fading or blending, which a picture does as one piece and
-     * drawing in place would do part by part.
+     * (the shader keeps one), and nothing fading, which a picture does as one piece and drawing in
+     * place would do part by part.
+     *
+     * A blend mode does not stop it. What is drawn inside is trimmed and added part by part, which
+     * is how a blend is drawn everywhere else, with no clip or a square one: a glow cut to a card's
+     * corners adds onto the card exactly as the same glow does uncut. Only where two of its own
+     * parts overlap does it differ from a cut picture, which laid the parts over each other first
+     * and then added the whole; in place each one adds.
      */
     override val roundsClips: Boolean
-        get() = drawing && rounding == null && device.masks && state.alpha >= 1f && state.blend == BlendMode.SourceOver
+        get() = drawing && rounding == null && device.masks && state.alpha >= 1f
 
     /**
      * The scissor the push set stays for the square edges, and a [ClipMask] the shape shader trims
@@ -1056,8 +1062,9 @@ open class RenderCanvas protected constructor(
         applyScissor()
         batch().mask(rounding?.mask)
         layerPicture(cornerOf(open.picture, open.pixelWidth, open.pixelHeight))
-        // Plainly: where a clip is rounded in place nothing fades or blends, so the opacity and the
-        // mode in force are full and ordinary, and a game's drawing knows nothing of either anyway.
+        // Unfaded: where a clip is rounded in place nothing fades, and a game's drawing knows no
+        // fade anyway. In the mode the clip was pushed under, which is the one in force at its pop:
+        // under an additive one the picture is added, as a cut picture of the whole clip would be.
         composite(open.area, mirrorX = false, mirrorY = false, tint = Colour.White)
         layers.release(open.picture)
     }
@@ -1285,7 +1292,7 @@ open class RenderCanvas protected constructor(
             source?.let(layers::hold)
             throughMask(box.left, box.top, box.right, box.bottom) {
                 layerPicture(layer)
-                drawThrough(effect, box)
+                drawThrough(effect, box, destination.width, destination.height)
             }
             source?.let(layers::release)
             return
@@ -1504,8 +1511,15 @@ open class RenderCanvas protected constructor(
         device.target(target, x, y, width, height)
     }
 
-    /** The resolved picture, through somebody's shader, on a quad worked out here in clip space. */
-    private fun drawThrough(effect: ShaderEffect, destination: Rect) {
+    /**
+     * The resolved picture, through somebody's shader, on a quad worked out here in clip space.
+     *
+     * [destination] is where it lands, through the transform in force. [width] and [height] are
+     * what the shader is told the area is, `u_size`: its size in the units it was drawn in, before
+     * that transform. So a blur of eight units on a node drawn at half size reaches four pixels, as
+     * its bleed does, and as it did when a scale took a picture of the node and shrank that.
+     */
+    private fun drawThrough(effect: ShaderEffect, destination: Rect, width: Float, height: Float) {
         // Whatever is queued was queued to land under this, so it goes first.
         batch().flush(BatchBreak.Shader)
 
@@ -1521,8 +1535,8 @@ open class RenderCanvas protected constructor(
         quad.v2 = picture.v2
         quad.textureWidth = picture.width.toFloat()
         quad.textureHeight = picture.height.toFloat()
-        quad.width = destination.width
-        quad.height = destination.height
+        quad.width = width
+        quad.height = height
         quad.alpha = state.alpha.coerceIn(0f, 1f)
         // The mode in force applies whether or not there is a shader in the way.
         device.drawEffect(effect, picture.texture, quad, Blend.of(state.blend, premultiplied = true))

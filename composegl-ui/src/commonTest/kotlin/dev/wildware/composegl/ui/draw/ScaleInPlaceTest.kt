@@ -240,19 +240,79 @@ class ScaleInPlaceTest {
     }
 
     @Test
-    fun `a glow under a still scale keeps the picture`() {
+    fun `a glow under a still scale draws on its second frame without a picture`() {
         val glow = node("glow", Modifier.size(10f).blend(BlendMode.Additive).background(blue))
-        frame(node("panel", Modifier.size(40f).scale(0.5f), listOf(node("card", Modifier.size(20f), listOf(glow)))))
+        val panel = node("panel", Modifier.size(40f).scale(0.5f, Alignment.TopStart), listOf(node("card", Modifier.size(20f).background(red), listOf(glow))))
 
-        assertEquals(1, layers().size, "it adds onto the panel's own picture, not onto the screen behind it")
+        repeat(2) { at ->
+            frame(panel)
+            assertEquals(emptyList(), layers(), "frame ${at + 1} took no picture")
+            val added = canvas.only<DrawCall.Rectangle>().single { it.colour == blue }
+            assertEquals(BlendMode.Additive, canvas.blendOf(added), "still added, onto the card under it")
+            assertEquals(0.5f, canvas.scaleOf(added), "at the panel's size")
+            assertRect(Rect(0f, 0f, 5f, 5f), added.rect, "where the picture put it")
+        }
     }
 
     @Test
-    fun `an effect under a still scale keeps the picture`() {
-        val blurred = node("blurred", Modifier.size(10f).effect(ShaderEffect(ShaderSource("soft", "void main() { }"), bleed = 4f)).background(blue))
-        frame(node("panel", Modifier.size(40f).scale(0.5f), listOf(blurred)))
+    fun `an effect under a still scale takes only its own picture`() {
+        val soft = ShaderEffect(ShaderSource("soft", "void main() { }"), bleed = 4f)
+        val blurred = node("blurred", Modifier.size(10f).effect(soft).background(blue))
+        frame(node("panel", Modifier.size(40f).scale(0.5f, Alignment.TopStart), listOf(blurred)))
 
-        assertEquals(2, layers().size, "the effect's picture inside the scale's")
+        val picture = layers().single()
+        assertEquals(soft, picture.effect, "the effect's picture, and none for the scale round it")
+        assertEquals(0.5f, canvas.scaleOf(picture), "put down at the panel's size")
+        assertRect(Rect(-2f, -2f, 7f, 7f), picture.bounds, "the bled area, shrunk with the panel")
+        // Taken as the scale's picture took it: at the node's own size, so a shader stepping in the
+        // picture's own pixels sees what it always saw.
+        assertEquals(1f, canvas.scaleOf(canvas.only<DrawCall.Rectangle>().single()), "the box inside it, at its own size")
+    }
+
+    @Test
+    fun `an effect under a still scale that grows is taken at its own size and grown on the way down`() {
+        val soft = ShaderEffect(ShaderSource("soft", "void main() { }"), bleed = 4f)
+        val blurred = node("blurred", Modifier.size(10f).effect(soft).background(blue))
+        frame(node("panel", Modifier.size(40f).scale(2f, Alignment.TopStart), listOf(node("card", Modifier.size(20f), listOf(blurred)))))
+
+        val picture = layers().single()
+        assertEquals(2f, canvas.scaleOf(picture), "put down twice the size")
+        assertRect(Rect(-8f, -8f, 28f, 28f), picture.bounds, "the bled area, grown with the panel")
+        assertEquals(1f, canvas.scaleOf(canvas.only<DrawCall.Rectangle>().single()), "taken at the node's own size")
+    }
+
+    @Test
+    fun `an effect under two still scales is taken with both taken off`() {
+        val soft = ShaderEffect(ShaderSource("soft", "void main() { }"))
+        val blurred = node("blurred", Modifier.size(10f).effect(soft).background(blue))
+        val inner = node("inner", Modifier.size(20f).scale(0.5f, Alignment.TopStart), listOf(blurred))
+        frame(node("outer", Modifier.size(40f).scale(0.5f, Alignment.TopStart), listOf(inner)))
+
+        assertEquals(0.25f, canvas.scaleOf(layers().single()))
+        assertEquals(1f, canvas.scaleOf(canvas.only<DrawCall.Rectangle>().single()))
+    }
+
+    @Test
+    fun `a frame that failed inside a still scale leaves the next frame's effects at their own size`() {
+        val pass = DrawPass(canvas)
+        val broken = node("broken", Modifier.size(10f).drawBehind { error("a widget that failed to draw") })
+        assertTrue(runCatching { frame(node("panel", Modifier.size(40f).scale(0.5f), listOf(broken)), pass) }.isFailure)
+        tree.root.removeAt(0, tree.root.children.size)
+
+        val soft = ShaderEffect(ShaderSource("soft", "void main() { }"))
+        frame(node("plain", Modifier.size(10f).effect(soft).background(blue)), pass)
+
+        assertEquals(1f, canvas.scaleOf(layers().single()), "no scale is around it now")
+        assertEquals(1f, canvas.scaleOf(canvas.only<DrawCall.Rectangle>().single()), "and none is taken off")
+    }
+
+    @Test
+    fun `a glow under a still scale that grows draws without a picture`() {
+        val glow = node("glow", Modifier.size(10f).blend(BlendMode.Additive).background(blue))
+        frame(node("panel", Modifier.size(40f).scale(2f, Alignment.TopStart), listOf(glow)))
+
+        assertEquals(emptyList(), layers())
+        assertEquals(2f, canvas.scaleOf(canvas.only<DrawCall.Rectangle>().single()))
     }
 
     @Test
@@ -268,14 +328,6 @@ class ScaleInPlaceTest {
 
         assertEquals(emptyList(), layers())
         assertEquals(BlendMode.Additive, canvas.blendOf(canvas.only<DrawCall.Rectangle>().single()))
-    }
-
-    @Test
-    fun `a glow that is not drawn does not count`() {
-        val hidden = node("hidden", Modifier.size(10f).alpha(0f).blend(BlendMode.Additive).background(blue))
-        frame(node("panel", Modifier.size(40f).scale(0.5f).background(red), listOf(hidden)))
-
-        assertEquals(emptyList(), layers())
     }
 
     @Test
