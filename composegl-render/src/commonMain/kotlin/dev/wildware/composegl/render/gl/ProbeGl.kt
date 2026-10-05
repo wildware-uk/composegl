@@ -65,6 +65,7 @@ class ProbeGl(private val gl: Gl) : Gl {
         var quadsOutsideTarget = 0
         var quadsOutsideScissor = 0
         var quadsOfNoSize = 0
+        val breaks = HashMap<String, Int>()
         var livePictureBytes = 0L
         /** Distinct offscreen pictures drawn into, as width x height, and how many times. */
         val offscreenTargets = HashMap<String, Int>()
@@ -84,6 +85,8 @@ class ProbeGl(private val gl: Gl) : Gl {
         frame.livePictureBytes = livePictureBytes
         drawnThisFrame.clear()
         pendingReload = -1
+        lastDrawFramebuffer = -2
+        uniformChangesAtLastDraw = 0
         frames += frame
         frame = Frame()
     }
@@ -122,6 +125,12 @@ class ProbeGl(private val gl: Gl) : Gl {
     var whoAsked: (() -> String)? = null
     var livePictureBytes = 0L
     private var pendingReload = -1
+    private var lastDrawFramebuffer = -2
+    private var lastDrawProgram = -1
+    private var lastDrawTexture = -1
+    private val lastDrawBlend = IntArray(4)
+    private val lastDrawScissor = IntArray(5)
+    private var uniformChangesAtLastDraw = 0
 
     private fun uniformKey(at: Int): Long = (program.toLong() shl 32) or (at.toLong() and 0xffffffffL)
 
@@ -306,6 +315,25 @@ class ProbeGl(private val gl: Gl) : Gl {
             }
             pendingReload = -1
         }
+        val texture = textures[GlConst.TEXTURE0] ?: 0
+        val scissorOn = if (caps[GlConst.SCISSOR_TEST] == true) 1 else 0
+        val cause = when {
+            lastDrawFramebuffer != framebuffer -> "first into its target"
+            lastDrawProgram != program -> "program (effect)"
+            lastDrawTexture != texture -> "texture"
+            !lastDrawBlend.contentEquals(blend) -> "blend"
+            lastDrawScissor[0] != scissorOn || (scissorOn == 1 && (lastDrawScissor[1] != scissorBox[0] || lastDrawScissor[2] != scissorBox[1] || lastDrawScissor[3] != scissorBox[2] || lastDrawScissor[4] != scissorBox[3])) -> "scissor"
+            frame.uniformChanges != uniformChangesAtLastDraw -> "uniform (projection or rounded clip)"
+            else -> "nothing changed (full batch or a flush)"
+        }
+        frame.breaks[cause] = (frame.breaks[cause] ?: 0) + 1
+        lastDrawFramebuffer = framebuffer
+        lastDrawProgram = program
+        lastDrawTexture = texture
+        blend.copyInto(lastDrawBlend)
+        lastDrawScissor[0] = scissorOn
+        scissorBox.copyInto(lastDrawScissor, 1)
+        uniformChangesAtLastDraw = frame.uniformChanges
         drawnThisFrame += framebuffer
         val quads = count / 6
         frame.quads += quads
@@ -336,7 +364,6 @@ class ProbeGl(private val gl: Gl) : Gl {
 
     override fun texImage2D(target: Int, level: Int, internalFormat: Int, width: Int, height: Int, format: Int, type: Int, pixels: GlBytes?) {
         count("texImage2D")
-        if (pixels == null) livePictureBytes += width.toLong() * height * 4
         frame.textureAllocations++
         frame.textureAllocationBytes += width.toLong() * height * 4
         textures[activeUnit]?.let { textureSizes[it] = intArrayOf(width, height) }
@@ -379,7 +406,7 @@ class ProbeGl(private val gl: Gl) : Gl {
     override fun framebufferTexture2D(target: Int, attachment: Int, textureTarget: Int, texture: Int, level: Int) {
         count("framebufferTexture2D")
         if (framebuffer > 0) framebufferTextures[framebuffer] = texture
-        pictureTextures += texture
+        if (pictureTextures.add(texture)) textureSizes[texture]?.let { livePictureBytes += it[0].toLong() * it[1] * 4 }
         gl.framebufferTexture2D(target, attachment, textureTarget, texture, level)
     }
 
@@ -578,6 +605,8 @@ fun probeReport(label: String, list: List<ProbeGl.Frame>): String {
         appendLine("blend calls ${med { it.blendCalls }} (changes ${med { it.blendChanges }}), enable/disable ${med { it.capCalls }} (changes ${med { it.capChanges }})")
         appendLine("scissor ${med { it.scissorCalls }} (changes ${med { it.scissorChanges }}), viewport ${med { it.viewportCalls }} (changes ${med { it.viewportChanges }})")
         appendLine("uniform calls ${med { it.uniformCalls }} (changes ${med { it.uniformChanges }})")
+        val causes = list.flatMap { it.breaks.keys }.toSet().sortedByDescending { c -> list.map { it.breaks[c] ?: 0 }.sorted()[list.size / 2] }
+        appendLine("draw calls by why they broke from the last: " + causes.joinToString { c -> "$c ${med { it.breaks[c] ?: 0 }}" })
         appendLine("render pass reloads ${med { it.reloads }} (of the screen ${med { it.screenReloads }}), ${med { it.reloadPixels }} px stored and read back again")
         appendLine("quads covering nothing: off the target ${med { it.quadsOutsideTarget }}, outside the scissor ${med { it.quadsOutsideScissor }}, no size ${med { it.quadsOfNoSize }}")
         appendLine("queries that wait for the driver ${med { it.queries }}, readPixels ${med { it.readPixels }}")
