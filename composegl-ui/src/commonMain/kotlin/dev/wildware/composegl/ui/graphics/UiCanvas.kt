@@ -328,8 +328,8 @@ interface UiCanvas {
      * The split matters to a backend that snaps letters to the screen's pixels. Snapping each copy's
      * summed position on its own lets a ring thinner than a pixel land on the next pixel in one line
      * and on the letter's own pixel in the next, so a paragraph draws some lines bold and some thin.
-     * Given the parts, a backend snaps the letter once and moves every copy by the same whole number
-     * of pixels. The default adds them and stamps through the four-argument [textRing], which is
+     * Given the parts, a backend snaps the letter once and moves every copy by the same offset from
+     * there. The default adds them and stamps through the four-argument [textRing], which is
      * right for any backend that does not snap. Anything that stamps a ring calls this one.
      */
     fun textRing(layout: TextLayout, x: Float, y: Float, dx: Float, dy: Float, colour: Colour) =

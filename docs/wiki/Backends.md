@@ -367,7 +367,7 @@ as you found it.**
 
 A backend that snaps letters to pixels overrides the six-argument
 `textRing(layout, x, y, dx, dy, colour)`: it gets the letters' place and the ring copy's offset
-apart, so it can snap the letters once and move every copy by the same whole pixels. Its default
+apart, so it can snap the letters once and move every copy by the same exact offset. Its default
 adds the two and calls the four-argument `textRing`, which is right for a backend that does not
 snap.
 
