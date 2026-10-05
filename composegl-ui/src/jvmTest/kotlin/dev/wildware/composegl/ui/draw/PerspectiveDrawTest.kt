@@ -202,8 +202,12 @@ class PerspectiveDrawTest {
             }
         }
 
-        // The card is drawn into the scaled box's picture at its laid-out place, seen by the camera.
-        assertEquals(shared(200f, 50f, 150f, 150f, 400f, 30f), canvas.only<DrawCall.TiltedLayer>().single().transform)
+        // The card is tilted at its laid-out place, seen by the camera, and the box's half-size
+        // transform about its middle (200, 50) is applied after: the box keeps the card in the scene.
+        assertEquals(
+            Matrix4.zoom(0.5f, 100f, 25f) * shared(200f, 50f, 150f, 150f, 400f, 30f),
+            canvas.only<DrawCall.TiltedLayer>().single().transform,
+        )
     }
 
     @Test

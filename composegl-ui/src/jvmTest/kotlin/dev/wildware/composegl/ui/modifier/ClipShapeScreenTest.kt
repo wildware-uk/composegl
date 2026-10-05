@@ -152,7 +152,7 @@ class ClipShapeScreenTest {
     fun `a shrunk portrait is cut and clicked round where it is drawn`() {
         // Half size about its middle: drawn from 45 to 95, a circle of radius 25 round 70, 70.
         screen(Modifier.size(100f).scale(0.5f).clipShape(Shapes.Circle)).use { ui ->
-            assertEquals(2, ui.drawn().filterIsInstance<DrawCall.Layer>().size, "the scale's picture and the cut's")
+            assertEquals(1, ui.drawn().filterIsInstance<DrawCall.Layer>().size, "the cut's picture; the scale is a transform")
 
             ui.click(Offset(48f, 48f))
             assertEquals(1, underClicks, "inside the shrunk box but outside its circle")

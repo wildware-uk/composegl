@@ -317,8 +317,8 @@ because a world is a picture rather than a line of text. Three of the patrol hav
 no plate here — their points went off the right-hand side, and `OffScreen.Hide` is
 the default.
 
-`scaleDistance` is the one thing to be careful with: scaling draws through an
-offscreen picture, so it is crisp shrinking and soft growing — see
+`scaleDistance` is the one thing to be careful with: a scaled marker's letters are
+its ordinary ones grown or shrunk, so they are crisp shrinking and soft growing — see
 [[Modifiers]].
 
 ## Cooldowns, hotbars, minimaps, notifications

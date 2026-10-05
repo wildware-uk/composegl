@@ -294,8 +294,7 @@ a tilt inside a tilted card goes back to its own camera, unless that card has a
 picture.
 
 **Scale is for arriving and for fitting.** The widget and everything under it are
-drawn into an offscreen picture at the size layout gave them, and that picture is
-put down bigger or smaller:
+drawn bigger or smaller, about the point you name, without being laid out again:
 
 ```kotlin
 Panel(Modifier.scale(spring.value)) { … }                  // a panel springing in
@@ -326,22 +325,41 @@ To see all three on a running screen, turn on `LayoutOverlay`: blue for the laid
 box, yellow for where a scale draws it, pink for the ink. See
 [Debugging](Debugging.md#the-layout-on-the-screen).
 
-A few things to know. It magnifies a picture, so past about 1.15 it is visibly
-soft and text is soft sooner — a world that wants to be crisp at three times the
-size wants to be *laid out* three times the size. The capture is the widget's own
-rectangle, so anything a child draws outside it is cut off while the scale is on —
-and clicks agree, so what you cannot see you cannot press. The other direction is
-not true: the picture is put down filling the *scaled* rectangle, so `clip()` on the
-same widget does not hold it in. A viewport that must not spill wants the `clip` on
-the parent and the `scale` on the child inside it.
+A few things to know. Once the factor has held still for a few frames (ten — a sixth
+of a second at 60 frames a second) the widget is drawn straight onto the screen
+through one transform, so a panel shrunk to fit costs only a clip at its edge (two
+batch breaks), and boxes and borders stay sharp at any size. While the factor is
+moving — a panel springing in, a pulse — it is drawn into an offscreen picture each
+frame and the picture is grown or shrunk, so its letters slide together instead of
+each one snapping to the pixel grid on its own. The letters can sit up to about a
+pixel apart between the two, so words shift that much, once, as a scale starts or
+stops moving. Text is its ordinary letters grown or shrunk either way, so past about
+1.15 the words are visibly soft — a world that wants to be crisp at three times the
+size wants to be *laid out* three times the size, or to sit under a camera (see
+`PanZoomCanvas`). The widget's own rectangle is a clip, so anything a child draws
+outside it is cut off while the scale is on — and clicks agree, so what you cannot see
+you cannot press. The other direction is not true: the widget is drawn filling the
+*scaled* rectangle, so `clip()` on the same widget does not hold it in. A viewport
+that must not spill wants the `clip` on the parent and the `scale` on the child inside
+it.
 
-A canvas can refuse to make the picture at all, and every backend here refuses one
-bigger than 4096 screen pixels a side. Then the subtree is drawn plainly, at its
-ordinary size, and hit testing goes back with it. Ask `canvas.drawsLayers` first if a
-screen would rather pick a different animation.
+Some scales are always drawn into an offscreen picture: one that is faded or blends in
+a mode of its own (`alpha` or `blend` on it or on anything above it), so it fades and
+glows as one object rather than part through part; one sharing the widget with a
+`mirror` or an `effect`; one with something inside it carrying a `blend` or an
+`effect`, so a glow or a blur inside looks as it always did; one with no width or
+height; and any scale on a canvas that cannot transform (`canvas.transforms`). A
+picture is taken again every frame. A glow a widget pushes itself — `pushBlend` in a
+`drawBehind`, or its own drawing in `raw` — is not seen: under a still scale it adds
+onto whatever is behind the panel, as it would unscaled, so give it `Modifier.blend`
+if it should add into the panel's own picture. A canvas can refuse to make one, and
+every backend here refuses one bigger than 4096 screen pixels a side. Then a scale
+that could be drawn through a transform is, moving or not, so it keeps its size. Any
+other is drawn plainly, at its ordinary size, and hit testing goes back with it. Ask
+`canvas.drawsLayers` first if a screen would rather pick a different animation.
 
 Two scales on one widget multiply, so an arrival animation and a fit correction
-compose. A scale of one takes no picture at all. Zero draws nothing and cannot be
+compose. A scale of one costs nothing at all. Zero draws nothing and cannot be
 clicked or focused, which is what lets a panel arrive from nothing. A negative factor
 throws rather than mirroring — flipping is `mirror()`, below — so hand an anticipate
 easing over as `scale(t.coerceAtLeast(0f))`.

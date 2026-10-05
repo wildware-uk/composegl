@@ -163,9 +163,21 @@ class TintModifierTest {
     }
 
     @Test
-    fun `a tint on a scaled node goes into the picture and not onto it`() {
+    fun `a tint on a scaled node reaches what it draws once`() {
         show {
             Box(Modifier.size(40f, 40f).tint(Colour.Red).scale(1.5f)) {
+                LeafLayout(Modifier.size(10f, 10f).background(Colour.White))
+            }
+        }
+
+        assertEquals(Colour.Red, canvas.tintOf(canvas.only<DrawCall.Rectangle>().single()))
+        assertTrue(canvas.only<DrawCall.Layer>().isEmpty(), "drawn through a transform, no picture")
+    }
+
+    @Test
+    fun `a tint on a faded scaled node goes into the picture and not onto it`() {
+        show {
+            Box(Modifier.size(40f, 40f).alpha(0.5f).tint(Colour.Red).scale(1.5f)) {
                 LeafLayout(Modifier.size(10f, 10f).background(Colour.White))
             }
         }

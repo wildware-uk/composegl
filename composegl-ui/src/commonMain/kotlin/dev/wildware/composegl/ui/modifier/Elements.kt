@@ -1427,12 +1427,14 @@ fun Modifier.tint(colour: Colour) = then(TintElement(colour))
 /**
  * Draws this node, and everything under it, bigger or smaller.
  *
- * **An arrival-and-fit tool, not a camera.** The subtree is drawn into an offscreen picture at its
- * ordinary size and that picture is magnified, so scaling up past about 1.15 is visibly soft and
- * text is soft sooner. It is meant for a panel that springs in, and for the fit correction that
- * shrinks a panel which outgrew its height budget so it lands as one object rather than being
- * re-laid-out. A world that wants to be crisp at three times the size wants to be laid out three
- * times the size.
+ * **An arrival-and-fit tool, not a camera.** While the factor is moving — a panel springing in, a
+ * pulse — the subtree is drawn into an offscreen picture at its ordinary size and the picture is
+ * grown or shrunk. Once it has held still for a few frames it is drawn straight onto the screen
+ * through one transform about [origin], costing only a clip at its edge, and boxes stay sharp at
+ * any size. Text is its ordinary glyphs stretched either way, so past about 1.15 the words are
+ * visibly soft. It is meant for a panel that springs in, and for the fit correction that shrinks a
+ * panel which outgrew its height budget so it lands as one object rather than being re-laid-out. A
+ * world that wants to be crisp at three times the size wants to be laid out three times the size.
  *
  * ```kotlin
  * Panel(Modifier.scale(spring.value)) { … }               // arriving
@@ -1444,28 +1446,36 @@ fun Modifier.tint(colour: Colour) = then(TintElement(colour))
  * move is [dev.wildware.composegl.ui.node.UiNode.boundsInRoot], so clicks and pad focus land on
  * what you can see rather than on where the node would have been.
  *
- * Three things worth knowing before you reach for it:
+ * Four things worth knowing before you reach for it:
  *
- * - **A capture is a clip.** Anything a child draws outside this node's own rectangle — a glow, an
- *   overflowing label — is cut off at the edge the moment the factor is not one, whether or not
- *   there is a [clip] anywhere in the chain. Hit testing and focus agree with it: what the capture
+ * - **Its rectangle is a clip.** Anything a child draws outside this node's own rectangle — a glow,
+ *   an overflowing label — is cut off at the edge the moment the factor is not one, whether or not
+ *   there is a [clip] anywhere in the chain. Hit testing and focus agree with it: what the edge
  *   cut off is not clickable either. It also arrives and leaves *with* the factor, so a figure that
  *   pulses from one loses its glow on the first frame of each punch and has it back at rest.
- * - **A [clip] on the same node does not hold the picture in.** The capture is composited filling
- *   the scaled rectangle, so a scaled node's rectangle *is* the scaled one — `clip().scale(2f)` on
+ * - **A [clip] on the same node does not hold it in.** The node is drawn filling the scaled
+ *   rectangle, so a scaled node's rectangle *is* the scaled one — `clip().scale(2f)` on
  *   a 200-pixel box draws 400 pixels, and `boundsInRoot` and hit testing say the same. A viewport
  *   that must not spill wants the [clip] on the parent and the `scale` on the child inside it.
- * - **There is a ceiling.** A canvas can refuse to make the picture — the two backends here refuse
- *   one bigger than 4096 screen pixels a side, which is their limit rather than a rule, and any
- *   canvas with no offscreen drawing refuses every one. Then the subtree is drawn plainly, at its
- *   ordinary size, and hit testing goes back to that size with it — present and honest rather than
- *   missing. Ask [dev.wildware.composegl.ui.graphics.UiCanvas.drawsLayers] first if a screen would
- *   rather pick a different animation. A subtree that must scale should be viewport-sized with its
+ * - **Some scales are always a picture, and a picture has a ceiling.** A node that is faded or
+ *   blends in a mode of its own ([alpha] or [blend] on it or above it), one with a [mirror] or an
+ *   effect, one with something inside it carrying a [blend] or an effect, one with no area, and
+ *   any scale on a canvas that cannot transform are drawn into an offscreen picture that is put
+ *   down bigger or smaller, so a fading panel fades as one object and a glow inside it looks as it
+ *   always did. A glow a widget pushes itself — `pushBlend` in a [drawBehind], or its own drawing
+ *   in `raw` — is not seen, and under a still scale it adds onto what is behind the panel, as it
+ *   would unscaled. A canvas can refuse to make the picture — the two backends here refuse one
+ *   bigger than 4096 screen pixels a side, which is their limit rather than a rule, and any canvas
+ *   with no offscreen drawing refuses every one. Then a scale that could be drawn through a
+ *   transform is, moving or not, so it keeps its size; any other is drawn plainly, at its
+ *   ordinary size, and hit testing goes back to that size with it — present and honest rather
+ *   than missing. Ask [dev.wildware.composegl.ui.graphics.UiCanvas.drawsLayers] first if a screen
+ *   would rather pick a different animation. A subtree that must scale should be viewport-sized with its
  *   contents offset inside it, not laid out bigger than the screen.
  * - **Factors multiply, the last origin wins.** `scale(0.5f).scale(2f)` is one, which is what makes
  *   an arrival animation and a fit correction composable on the same node.
  *
- * A factor of one costs a comparison and takes no picture at all. Zero draws nothing, the same
+ * A factor of one costs a comparison and nothing else. Zero draws nothing, the same
  * early-out a fully transparent node gets, and nothing inside it can be clicked or focused either.
  *
  * Unlike [alpha], which quietly clamps, this throws on a factor it cannot draw. A negative one would
@@ -1491,8 +1501,8 @@ fun Modifier.scale(factor: Float, origin: Alignment = Alignment.Centre) =
  * Arrow(Modifier.mirror(vertical = pointsDown))
  * ```
  *
- * Built the way [scale] is: the subtree is drawn into an offscreen picture the right way round and
- * that picture is put down read from the other side. Nothing inside knows — so **text inside flips
+ * Built the way a moving [scale] is: the subtree is drawn into an offscreen picture the right way
+ * round and that picture is put down read from the other side. Nothing inside knows — so **text inside flips
  * too** and reads backwards. That is what a mirror is, and it is why this belongs round the art and
  * not round a whole speech bubble: put the portrait in a mirrored node and its name label beside it.
  *
@@ -1527,7 +1537,7 @@ fun Modifier.mirror(horizontal: Boolean = true, vertical: Boolean = false) =
 /**
  * Turns this node and everything under it, clockwise, by [degrees].
  *
- * Built the same way [scale] is: the subtree is drawn into an offscreen picture at the size and
+ * Built the way a moving [scale] is: the subtree is drawn into an offscreen picture at the size and
  * angle it was laid out, and that picture is put down turned. So nothing inside knows it is
  * happening — no angle threaded through the walk, no text asked for a rotated font — and a card
  * leaning as it is dealt costs the same as one lying flat.

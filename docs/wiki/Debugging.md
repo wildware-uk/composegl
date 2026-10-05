@@ -610,10 +610,13 @@ Outside a test, `measureOverdraw(host.root, canvas)` does the same.
 
 Worth knowing:
 
-- A subtree drawn into a picture — a `scale`, a `rotate`, an effect, a shaped clip —
-  counts twice: once into the picture, once where the picture lands. That is what the
-  GPU fills. A rounded clip is counted that way too, although the GL canvas draws it in
-  place and fills it once, so it reads a little high.
+- A subtree drawn into a picture — a `rotate`, an effect, a shaped clip, a `scale`
+  that is moving or cannot be drawn through a transform (faded, blended, mirrored,
+  holding a `blend` or an effect, with no area, or on a canvas that cannot transform:
+  see [[Modifiers]]) — counts twice: once into the picture, once where the picture
+  lands. That is what the GPU fills. Any other still `scale` is drawn straight and
+  counts once. A rounded clip is counted as a picture too, although the GL canvas
+  draws it in place and fills it once, so it reads a little high.
 - A clipped-away or faded-out part counts nothing, as it paints nothing.
 - Only the interface is counted. A 3D world drawn behind it, or anything drawn through
   `raw`, is not. A scrim over the world shows as painted once.
@@ -637,8 +640,8 @@ needs something the queue does not share:
 |---|---|
 | `texture` | a picture from a different texture than the one before it |
 | `blend` | `Modifier.blend`, going in and coming out |
-| `clip` | `Modifier.clip`, rounded or not, going in and coming out |
-| `layer` | an offscreen picture: a scale, a turn, an effect, a shaped clip that is not round (or a round one inside another, faded, blended, or holding your own `raw` drawing), an effect that reaches a rounded clip's corner, and the first frame a rounded clip holds a `raw` drawing |
+| `clip` | `Modifier.clip`, rounded or not, going in and coming out; also the edge of a still `scale` |
+| `layer` | an offscreen picture: a turn, an effect, a scale that is moving or cannot be drawn through a transform (faded, blended, mirrored, holding a `blend` or an effect, with no area, or on a canvas that cannot transform), a shaped clip that is not round (or a round one inside another, faded, blended, or holding your own `raw` drawing), an effect that reaches a rounded clip's corner, and the first frame a rounded clip holds a `raw` drawing |
 | `shader` | a picture drawn through an effect's shader |
 | `raw` | your own drawing inside `raw { }` |
 | `scene` | a `SceneView` rendering your 3D scene, before the frame. Counted as one call, the least it costs. |

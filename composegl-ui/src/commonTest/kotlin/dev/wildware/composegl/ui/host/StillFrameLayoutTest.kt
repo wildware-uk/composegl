@@ -276,7 +276,9 @@ class StillFrameLayoutTest {
         host.setContent {
             LeafLayout(Modifier.size(20f).scale(2f).onPlaced(placed).background(Colour.White), name = "big")
         }
+        // Neither road a scale can take: no transform to draw it straight, and no picture.
         val refuses = object : UiCanvas by RecordingCanvas() {
+            override val transforms: Boolean get() = false
             override fun layer(bounds: Rect, block: () -> Unit): TextureHandle? = null
         }
         val renderer = UiRenderer(host, refuses)
