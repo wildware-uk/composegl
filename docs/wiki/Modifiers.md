@@ -811,7 +811,8 @@ because that is what a scratched surface does to a highlight.
 `tiles` is how many times the grain is laid across the face; `1f` stretches it to fit.
 A material takes the one texture a lit quad has, so **a face is a material or a run of
 colours, never both**, and a material has to be a texture of its own rather than a region
-of an atlas — tiling a region samples whatever was packed beside it at every repeat.
+of an atlas — tiling a region samples whatever was packed beside it at every repeat. A
+picture from `canvas.layer` is not one either: it is refused.
 
 ### A whole panel, and a press
 

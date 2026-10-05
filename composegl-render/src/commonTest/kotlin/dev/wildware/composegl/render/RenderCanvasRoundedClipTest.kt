@@ -335,7 +335,8 @@ class RenderCanvasRoundedClipTest {
         }
 
         val sizes = device.named("offscreen").map { it.substringAfter(", ").removeSuffix(")") }
-        assertEquals(listOf("20x20", "20x20"), sizes, "the icon's own picture and one to trim it in, reused: ${device.calls}")
+        assertEquals(listOf("64x64", "64x64"), sizes, "the icon's own picture and one to trim it in, reused: ${device.calls}")
+        assertTrue(device.named("target(target").all { it.endsWith("0, 0, 20, 20)") }, "each drawn at the icon's size")
         assertEquals(3, device.effects.size)
         assertTrue(device.named("target(target").none { it.endsWith("200, 150)") }, "never a picture of the whole card")
     }
@@ -365,7 +366,9 @@ class RenderCanvasRoundedClipTest {
             popClip()
         }
 
-        assertEquals(listOf("200x150"), device.named("offscreen").map { it.substringAfter(", ").removeSuffix(")") })
+        assertEquals(listOf("256x192"), device.named("offscreen").map { it.substringAfter(", ").removeSuffix(")") })
+        val target = device.named("offscreen").single().substringAfter("offscreen(").substringBefore(",")
+        assertTrue("target(target$target, 0, 0, 200, 150)" in device.calls, "drawn at the whole clip's size: ${device.calls}")
     }
 
     @Test

@@ -256,6 +256,12 @@ class ClipMask {
  * The corners are in clip space, already through the frame's projection: the canvas knows where a
  * design coordinate ends up, the device only knows how to put a picture through a shader. `top` is
  * the clip y of the picture's top edge.
+ *
+ * [u], [v], [u2] and [v2] say where the picture lies in its texture — `(u, v)` its top-left corner,
+ * `(u2, v2)` its bottom-right — which is often a corner of a bigger pooled picture. The shader still
+ * sees the picture from 0 to 1: the device maps its reads there. [textureWidth] and [textureHeight]
+ * are the picture's own size in pixels, what the shader is told as `u_textureSize`, not the
+ * texture's.
  */
 class EffectQuad {
     var left = 0f

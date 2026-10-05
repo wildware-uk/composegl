@@ -4,6 +4,7 @@ import dev.wildware.composegl.ui.debug.BatchBreak
 import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.BlendMode
@@ -224,7 +225,8 @@ class RenderCanvasTest {
         }
 
         val target = canvasTarget(picture) as RecordingDevice.FakeTarget
-        assertEquals("offscreen(${target.id}, 50x20)", device.named("offscreen").single())
+        // A step each way, rounded up: the layer is drawn into its bottom-left 50 by 20.
+        assertEquals("offscreen(${target.id}, 64x64)", device.named("offscreen").single())
         val into = device.calls.indexOf("target(target${target.id}, 0, 0, 50, 20)")
         assertTrue(into > 0, device.calls.toString())
         assertEquals("noScissor", device.calls[into + 1])
@@ -239,12 +241,136 @@ class RenderCanvasTest {
         val composite = device.draws[2]
         assertEquals(Blend.PremultipliedSourceOver, composite.blend)
         assertSame(target.texture, composite.texture)
-        assertEquals(1f, composite.at(1, 16), "the top of the quad reads v = 1, the framebuffer's top row")
+        assertEquals(20f / 64f, composite.at(1, 16), "the top of the quad reads the top row of the used corner")
         // Into the layer, out of it, and back from the premultiplied composite.
         assertEquals(3, trace.culprits().single { it.reason == BatchBreak.Layer }.calls)
     }
 
     private fun canvasTarget(picture: TextureHandle?) = (picture as LayerPicture).target
+
+    /** Each corner's texture coordinates, u then v, in the order the batch wrote them. */
+    private fun RecordingDevice.Draw.textureCorners(): List<Pair<Float, Float>> = (0 until 4).map { at(it, 15) to at(it, 16) }
+
+    @Test
+    fun `a layer that shrank is drawn into the corner of the picture it had`() {
+        val canvas = canvas()
+        frame(canvas) { layer(Rect.of(0f, 0f, 100f, 100f)) { rect(Rect.of(0f, 0f, 1f, 1f), Colour.Red) } }
+        device.calls.clear()
+        device.draws.clear()
+
+        var picture: TextureHandle? = null
+        frame(canvas) {
+            picture = layer(Rect.of(10f, 20f, 90f, 70f)) { rect(Rect.of(10f, 20f, 90f, 70f), Colour.Blue) }
+            drawLayer(assertNotNull(picture), Rect.of(10f, 20f, 90f, 70f))
+        }
+
+        assertTrue(device.named("offscreen").isEmpty(), "no new picture: ${device.calls}")
+        val target = canvasTarget(picture) as RecordingDevice.FakeTarget
+        assertEquals(128 to 128, target.width to target.height)
+        // Drawn into the bottom-left 90 by 70, after the whole picture is cleared.
+        val into = device.calls.indexOf("target(target${target.id}, 0, 0, 90, 70)")
+        assertTrue(into >= 0, device.calls.toString())
+        assertEquals("noScissor", device.calls[into + 1])
+        assertTrue(device.calls[into + 2].startsWith("clear("), "the whole picture, so the strip round the corner reads clear")
+
+        val layer = picture as LayerPicture
+        assertEquals(90 to 70, layer.width to layer.height)
+        assertEquals(listOf(0f, 70f / 128f, 90f / 128f, 0f), listOf(layer.u, layer.v, layer.u2, layer.v2))
+        val composite = device.draws.last()
+        assertSame(target.texture, composite.texture)
+        assertEquals(
+            setOf(0f to 70f / 128f, 90f / 128f to 70f / 128f, 90f / 128f to 0f, 0f to 0f),
+            composite.textureCorners().toSet(),
+            "read back from the corner it was drawn into, at one texel a pixel",
+        )
+    }
+
+    /** What the radii carry at each corner of a quad: a picture's held box, or a shape's corners. */
+    private fun RecordingDevice.Draw.radii(quad: Int): List<List<Float>> =
+        (0 until 4).map { corner -> (24 until 28).map { at(quad * 4 + corner, it) } }
+
+    @Test
+    fun `a layer put down plainly - turned - or as an image holds its reads half a texel inside its corner`() {
+        val canvas = canvas()
+        frame(canvas) { layer(Rect.of(0f, 0f, 100f, 100f)) { rect(Rect.of(0f, 0f, 1f, 1f), Colour.Red) } }
+        device.draws.clear()
+
+        val area = Rect.of(10f, 20f, 90f, 70f)
+        frame(canvas) {
+            val picture = assertNotNull(layer(area) { rect(area, Colour.Blue) })
+            drawLayer(picture, area)
+            drawLayer(picture, area, 30f, 0.5f, 0.5f)
+            image(picture, area, Colour.White)
+            rect(Rect.of(0f, 0f, 10f, 10f), Colour.Red, 4f)
+        }
+
+        val half = 0.5f / 128f
+        val box = listOf(half, half, 90f / 128f - half, 70f / 128f - half)
+        val pooled = device.draws.first { it.texture.width == 128 }.texture
+        val held = device.draws.filter { it.texture === pooled }.flatMap { draw -> (0 until draw.quads).map { draw.radii(it) } }
+        assertEquals(List(3) { List(4) { box } }, held, "the plain composite, the turned one and the image")
+        val shape = device.draws.last()
+        assertTrue(shape.texture !== pooled)
+        assertEquals(List(4) { listOf(4f, 4f, 4f, 4f) }, shape.radii(shape.quads - 1), "a shape after them keeps its corners")
+    }
+
+    @Test
+    fun `a layer's picture is refused as a lit face's material`() {
+        val canvas = canvas()
+        canvas.begin(design)
+        val picture = assertNotNull(canvas.layer(Rect.of(0f, 0f, 100f, 100f)) {})
+        val thrown = assertFailsWith<IllegalStateException> {
+            canvas.relief(Rect.of(0f, 0f, 50f, 50f), Corners.all(4f), face = Colour.White, material = picture)
+        }
+        assertTrue("layer" in thrown.message.orEmpty(), thrown.message)
+    }
+
+    @Test
+    fun `two layers taken before either is put down never share a picture`() {
+        val canvas = canvas()
+        frame(canvas) { layer(Rect.of(0f, 0f, 100f, 100f)) { rect(Rect.of(0f, 0f, 1f, 1f), Colour.Red) } }
+
+        var first: TextureHandle? = null
+        var second: TextureHandle? = null
+        frame(canvas) {
+            first = layer(Rect.of(0f, 0f, 100f, 100f)) { rect(Rect.of(0f, 0f, 100f, 100f), Colour.Red) }
+            second = layer(Rect.of(0f, 0f, 90f, 80f)) { rect(Rect.of(0f, 0f, 90f, 80f), Colour.Blue) }
+            drawLayer(assertNotNull(first), Rect.of(0f, 0f, 100f, 100f))
+            drawLayer(assertNotNull(second), Rect.of(0f, 0f, 90f, 80f))
+        }
+
+        assertTrue(canvasTarget(first) !== canvasTarget(second), "the second would draw over the first")
+    }
+
+    @Test
+    fun `a layer that grows a pixel a frame for thirty frames makes a few pictures - not thirty`() {
+        val canvas = canvas()
+        repeat(30) { frame ->
+            val area = Rect.of(20f, 20f, 90f + frame, 40f + frame)
+            frame(canvas) {
+                val picture = assertNotNull(layer(area) { rect(area, Colour.Red) })
+                drawLayer(picture, area)
+            }
+        }
+
+        assertEquals(listOf("128x64", "128x128"), device.named("offscreen").map { it.substringAfter(", ").removeSuffix(")") })
+    }
+
+    @Test
+    fun `an effect is told where its picture lies in a bigger texture`() {
+        val effect = ShaderEffect(ShaderSource("glow", "void main() { gl_FragColor = texture2D(u_texture, v_texCoord); }"))
+        val canvas = canvas()
+        frame(canvas) { layer(Rect.of(0f, 0f, 100f, 100f)) { rect(Rect.of(0f, 0f, 1f, 1f), Colour.Red) } }
+        frame(canvas) {
+            val picture = assertNotNull(layer(Rect.of(0f, 0f, 90f, 70f)) { rect(Rect.of(0f, 0f, 1f, 1f), Colour.Red) })
+            drawLayer(picture, Rect.of(0f, 0f, 90f, 70f), effect)
+        }
+
+        val drawn = device.effects.single()
+        assertEquals(128 to 128, drawn.picture.width to drawn.picture.height)
+        assertEquals(listOf(0f, 70f / 128f, 90f / 128f, 0f), drawn.corners)
+        assertEquals(90f to 70f, drawn.pictureSize, "the picture's own size, not the texture's")
+    }
 
     @Test
     fun `layers are reused frame after frame and let go when nobody wants them`() {

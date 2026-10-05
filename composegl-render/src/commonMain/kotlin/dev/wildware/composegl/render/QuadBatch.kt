@@ -54,6 +54,8 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         projection.copyInto(this.projection)
         blend = Blend.SourceOver
         mask = null
+        // A frame that threw between holdInside and letGo must not hold the next one's pictures.
+        holding = false
     }
 
     fun end() {
@@ -414,6 +416,33 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     /** What a picture, a glyph or a fan vertex carries: no corners, since it has no shape. */
     private val noRadii = FloatArray(4)
 
+    /** Where a picture's reads are held while [holdInside] is in force: see there. */
+    private val held = FloatArray(4)
+    private var holding = false
+
+    /** What a picture's vertices carry in the radii's place: the box its reads are held in, or nothing. */
+    private val pictureRadii: FloatArray get() = if (holding) held else noRadii
+
+    /**
+     * Until [letGo], every picture written holds its reads inside the texture box [left], [bottom],
+     * [right], [top]: the corner of a pooled picture a layer was drawn into, half a texel in from
+     * each edge. A turned or stretched layer then reads its own edge just past it, as a picture its
+     * own size clamps there, rather than the clear strip round the corner.
+     *
+     * It rides in the radii, which a picture has no use for, so it costs no flush and no varying.
+     */
+    fun holdInside(left: Float, bottom: Float, right: Float, top: Float) {
+        held[0] = left
+        held[1] = bottom
+        held[2] = right
+        held[3] = top
+        holding = true
+    }
+
+    fun letGo() {
+        holding = false
+    }
+
     /**
      * A triangle fan, in coordinates already flipped.
      *
@@ -470,7 +499,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             shadow = Colour.Transparent,
             halfWidth = 0f,
             halfHeight = 0f,
-            radii = noRadii,
+            radii = pictureRadii,
             borderWidth = 0f,
             shadowSpread = 0f,
             // Zero says "this is a picture": the shader skips the distance field entirely.
@@ -534,10 +563,10 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         tint: Colour,
     ) {
         use(texture)
-        flat(corners[6], corners[7], u, v2, tint)
-        flat(corners[0], corners[1], u, v, tint)
-        flat(corners[2], corners[3], u2, v, tint)
-        flat(corners[4], corners[5], u2, v2, tint)
+        flat(corners[6], corners[7], u, v2, tint, pictureRadii)
+        flat(corners[0], corners[1], u, v, tint, pictureRadii)
+        flat(corners[2], corners[3], u2, v, tint, pictureRadii)
+        flat(corners[4], corners[5], u2, v2, tint, pictureRadii)
     }
 
     /**
@@ -575,14 +604,14 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         dx: Float, dy: Float, du: Float, dv: Float, dColour: Colour,
     ) {
         use(texture)
-        flat(ax, ay, au, av, aColour)
-        flat(bx, by, bu, bv, bColour)
-        flat(cx, cy, cu, cv, cColour)
-        flat(dx, dy, du, dv, dColour)
+        flat(ax, ay, au, av, aColour, pictureRadii)
+        flat(bx, by, bu, bv, bColour, pictureRadii)
+        flat(cx, cy, cu, cv, cColour, pictureRadii)
+        flat(dx, dy, du, dv, dColour, pictureRadii)
     }
 
-    /** One vertex of solid colour, with the distance field switched off. */
-    private fun flat(x: Float, y: Float, u: Float, v: Float, colour: Colour) {
+    /** One vertex of solid colour, or of a picture, with the distance field switched off. */
+    private fun flat(x: Float, y: Float, u: Float, v: Float, colour: Colour, radii: FloatArray = noRadii) {
         vertex(
             x = x, y = y, u = u, v = v,
             fill = colour,
@@ -590,7 +619,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             shadow = Colour.Transparent,
             localX = 0f, localY = 0f,
             halfWidth = 0f, halfHeight = 0f,
-            radii = noRadii, borderWidth = 0f, shadowSpread = 0f,
+            radii = radii, borderWidth = 0f, shadowSpread = 0f,
             aa = 0f,
         )
     }
@@ -601,7 +630,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             fill = tint, border = Colour.Transparent, shadow = Colour.Transparent,
             localX = 0f, localY = 0f,
             halfWidth = 0f, halfHeight = 0f,
-            radii = noRadii, borderWidth = 0f, shadowSpread = 0f,
+            radii = pictureRadii, borderWidth = 0f, shadowSpread = 0f,
             aa = 0f,
             w = corners[at + 2],
         )
@@ -628,7 +657,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             shadow = Colour.Transparent,
             localX = 0f, localY = 0f,
             halfWidth = 0f, halfHeight = 0f,
-            radii = noRadii, borderWidth = 0f, shadowSpread = 0f,
+            radii = pictureRadii, borderWidth = 0f, shadowSpread = 0f,
             aa = 0f,
             gradient = kind,
         )

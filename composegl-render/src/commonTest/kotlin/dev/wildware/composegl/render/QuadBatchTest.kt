@@ -32,6 +32,22 @@ class QuadBatchTest {
     }
 
     @Test
+    fun `a picture held inside a box carries it and a frame that never let go does not pass it on`() {
+        val batch = QuadBatch(device)
+        batch.begin(identity)
+        batch.holdInside(0.1f, 0.2f, 0.3f, 0.4f)
+        batch.picture(sheet)
+        // Never let go: the frame threw part way through a composite.
+        batch.end()
+        batch.begin(identity)
+        batch.picture(sheet)
+        batch.end()
+
+        val radii = device.draws.map { draw -> (24 until 28).map { draw.at(0, it) } }
+        assertEquals(listOf(listOf(0.1f, 0.2f, 0.3f, 0.4f), listOf(0f, 0f, 0f, 0f)), radii)
+    }
+
+    @Test
     fun `quads from one texture are one draw call`() {
         val batch = QuadBatch(device)
         batch.begin(identity)
