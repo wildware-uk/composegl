@@ -57,6 +57,15 @@ class ProbeGl(private val gl: Gl) : Gl {
         val quadsByKind = HashMap<String, Int>()
         var screen = 0L
         var phase = ""
+        /** Times a framebuffer already drawn into this frame was bound again and drawn into without a clear. */
+        var reloads = 0
+        var reloadPixels = 0L
+        var screenReloads = 0
+        /** Quads uploaded that cover no pixel: off the target, outside the scissor, or of no size. */
+        var quadsOutsideTarget = 0
+        var quadsOutsideScissor = 0
+        var quadsOfNoSize = 0
+        var livePictureBytes = 0L
         /** Distinct offscreen pictures drawn into, as width x height, and how many times. */
         val offscreenTargets = HashMap<String, Int>()
     }
@@ -66,9 +75,15 @@ class ProbeGl(private val gl: Gl) : Gl {
     val frames = ArrayList<Frame>()
 
     /** Ends the frame being counted and starts the next. */
+    private var lastScreen = 0L
+
     fun endFrame(screenPixels: Long, phase: String = "") {
+        lastScreen = screenPixels
         frame.screen = screenPixels
         frame.phase = phase
+        frame.livePictureBytes = livePictureBytes
+        drawnThisFrame.clear()
+        pendingReload = -1
         frames += frame
         frame = Frame()
     }
@@ -100,6 +115,13 @@ class ProbeGl(private val gl: Gl) : Gl {
     private val framebufferTextures = HashMap<Int, Int>() // framebuffer -> colour texture
     private val pictureTextures = HashSet<Int>() // textures that are an offscreen picture's colour
     private val textureSizes = HashMap<Int, IntArray>()
+    private val drawnThisFrame = HashSet<Int>()
+
+    /** Who asked for a picture, by size, the first time each size was drawn into. Set [whoAsked] to fill it. */
+    val attributions = LinkedHashMap<String, String>()
+    var whoAsked: (() -> String)? = null
+    var livePictureBytes = 0L
+    private var pendingReload = -1
 
     private fun uniformKey(at: Int): Long = (program.toLong() shl 32) or (at.toLong() and 0xffffffffL)
 
@@ -176,6 +198,7 @@ class ProbeGl(private val gl: Gl) : Gl {
         count("clear")
         frame.clears++
         frame.clearedPixels += (viewportBox[2].toLong() * viewportBox[3].toLong())
+        if (pendingReload == framebuffer) pendingReload = -1
         gl.clear(mask)
     }
 
@@ -272,6 +295,18 @@ class ProbeGl(private val gl: Gl) : Gl {
                 frame.offscreenTargets[key] = (frame.offscreenTargets[key] ?: 0) + 1
             }
         }
+        if (pendingReload == framebuffer) {
+            frame.reloads++
+            val picture = framebufferTextures[framebuffer]?.let { textureSizes[it] }
+            if (picture != null) {
+                frame.reloadPixels += picture[0].toLong() * picture[1]
+            } else {
+                frame.screenReloads++
+                frame.reloadPixels += frame.screen.takeIf { it > 0 } ?: lastScreen
+            }
+            pendingReload = -1
+        }
+        drawnThisFrame += framebuffer
         val quads = count / 6
         frame.quads += quads
         measure(quads, offscreen)
@@ -291,7 +326,7 @@ class ProbeGl(private val gl: Gl) : Gl {
     override fun deleteTexture(texture: Int) {
         count("deleteTexture")
         frame.texturesDeleted++
-        pictureTextures.remove(texture)
+        if (pictureTextures.remove(texture)) textureSizes[texture]?.let { livePictureBytes -= it[0].toLong() * it[1] * 4 }
         textureSizes.remove(texture)
         gl.deleteTexture(texture)
     }
@@ -301,6 +336,7 @@ class ProbeGl(private val gl: Gl) : Gl {
 
     override fun texImage2D(target: Int, level: Int, internalFormat: Int, width: Int, height: Int, format: Int, type: Int, pixels: GlBytes?) {
         count("texImage2D")
+        if (pixels == null) livePictureBytes += width.toLong() * height * 4
         frame.textureAllocations++
         frame.textureAllocationBytes += width.toLong() * height * 4
         textures[activeUnit]?.let { textureSizes[it] = intArrayOf(width, height) }
@@ -319,7 +355,16 @@ class ProbeGl(private val gl: Gl) : Gl {
     override fun bindFramebuffer(target: Int, framebuffer: Int) {
         count("bindFramebuffer")
         frame.framebufferBinds++
-        if (this.framebuffer != framebuffer) frame.framebufferSwitches++
+        val picture = framebufferTextures[framebuffer]?.let { textureSizes[it] }
+        val asker = whoAsked
+        if (picture != null && asker != null) {
+            val key = "${picture[0]}x${picture[1]}"
+            if (key !in attributions && attributions.size < 60) attributions[key] = asker()
+        }
+        if (this.framebuffer != framebuffer) {
+            frame.framebufferSwitches++
+            pendingReload = if (framebuffer in drawnThisFrame) framebuffer else -1
+        }
         this.framebuffer = framebuffer
         gl.bindFramebuffer(target, framebuffer)
     }
@@ -406,7 +451,16 @@ class ProbeGl(private val gl: Gl) : Gl {
                 corner[v * 2 + 1] = (ny + 1f) / 2f * viewportBox[3] + viewportBox[1]
             }
             val area = clippedArea(left, bottom, right, top).toLong()
-            if (area <= 0) continue
+            if (area <= 0) {
+                val whole = clippedArea(-1e9f, -1e9f, 1e9f, 1e9f)
+                val onTarget = clippedArea(viewportBox[0].toFloat(), viewportBox[1].toFloat(), (viewportBox[0] + viewportBox[2]).toFloat(), (viewportBox[1] + viewportBox[3]).toFloat())
+                when {
+                    whole < 0.5f -> frame.quadsOfNoSize++
+                    onTarget < 0.5f -> frame.quadsOutsideTarget++
+                    else -> frame.quadsOutsideScissor++
+                }
+                continue
+            }
             val kind = if (effect) "effect" else kindOf(floats, base, texture)
             frame.pixelsByKind[kind] = (frame.pixelsByKind[kind] ?: 0L) + area
             frame.quadsByKind[kind] = (frame.quadsByKind[kind] ?: 0) + 1
@@ -517,12 +571,15 @@ fun probeReport(label: String, list: List<ProbeGl.Frame>): String {
         appendLine("draw calls ${med { it.draws }} (into pictures ${med { it.drawsOffscreen }}, effects ${med { it.effectDraws }}), quads ${med { it.quads }}")
         appendLine("vertex upload bytes ${med { it.vertexBytes }} in ${med { it.bufferUploads }} bufferData")
         appendLine("texture uploads ${med { it.textureUploads }} (${med { it.textureUploadBytes }} bytes), texture storage made ${med { it.textureAllocations }} (${med { it.textureAllocationBytes }} bytes)")
+        appendLine("offscreen picture memory alive at frame end ${med { it.livePictureBytes }} bytes")
         appendLine("framebuffers made ${med { it.framebuffersMade }} deleted ${med { it.framebuffersDeleted }}, textures deleted ${med { it.texturesDeleted }}")
         appendLine("framebuffer binds ${med { it.framebufferBinds }} (switches ${med { it.framebufferSwitches }}), clears ${med { it.clears }} (${med { it.clearedPixels }} px)")
         appendLine("program binds ${med { it.programBinds }} (switches ${med { it.programSwitches }}), texture binds ${med { it.textureBinds }} (switches ${med { it.textureSwitches }})")
         appendLine("blend calls ${med { it.blendCalls }} (changes ${med { it.blendChanges }}), enable/disable ${med { it.capCalls }} (changes ${med { it.capChanges }})")
         appendLine("scissor ${med { it.scissorCalls }} (changes ${med { it.scissorChanges }}), viewport ${med { it.viewportCalls }} (changes ${med { it.viewportChanges }})")
         appendLine("uniform calls ${med { it.uniformCalls }} (changes ${med { it.uniformChanges }})")
+        appendLine("render pass reloads ${med { it.reloads }} (of the screen ${med { it.screenReloads }}), ${med { it.reloadPixels }} px stored and read back again")
+        appendLine("quads covering nothing: off the target ${med { it.quadsOutsideTarget }}, outside the scissor ${med { it.quadsOutsideScissor }}, no size ${med { it.quadsOfNoSize }}")
         appendLine("queries that wait for the driver ${med { it.queries }}, readPixels ${med { it.readPixels }}")
         val screen = list.first().screen
         appendLine("pixels covered: screen ${med { it.hostPixels }}, pictures ${med { it.offscreenPixels }}, masked ${med { it.maskedPixels }}; screen is $screen px, overdraw ${med { if (it.screen > 0) (it.hostPixels + it.offscreenPixels).toDouble() / it.screen else 0.0 }}x")

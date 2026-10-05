@@ -106,6 +106,9 @@ fun main() {
     }
     showcase(Section.Home, still = false, tag = "animated")
     showcase(Section.Game, still = false, tag = "animated")
+    showcase(Section.Animation, still = false, tag = "animated")
+    showcase(Section.Effects, still = false, tag = "animated")
+    showcase(Section.Surfaces, still = false, tag = "animated")
     showcase(Section.Widgets, still = true, scroll = true, tag = "scroll")
     showcase(Section.Gear, still = true, scroll = true, tag = "scroll")
 

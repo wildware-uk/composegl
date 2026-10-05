@@ -21,8 +21,18 @@ internal object GdxProbe {
 
     val gl: Gl get() = probe ?: GdxGl
 
+    private var attributed = 0
+
     init {
-        if (probe != null) Runtime.getRuntime().addShutdownHook(Thread { synchronized(this) { flush() } })
+        if (probe != null) {
+            Runtime.getRuntime().addShutdownHook(Thread { synchronized(this) { flush() } })
+            probe.whoAsked = {
+                Throwable().stackTrace
+                    .filter { (it.className.startsWith("dev.wildware.composegl.ui") || it.className.startsWith("uk.wildware")) }
+                    .take(30)
+                    .joinToString("\n    ") { "${it.className.substringAfterLast('.')}.${it.methodName}:${it.lineNumber}" }
+            }
+        }
     }
 
     @Synchronized
@@ -35,6 +45,10 @@ internal object GdxProbe {
         frameId = id
         val now = System.getProperty("composegl.probe.phase") ?: ""
         probe.endFrame(graphics.backBufferWidth.toLong() * graphics.backBufferHeight, phase)
+        val f = probe.frames.last()
+        val csv = File(file!!.path + ".csv")
+        if (!csv.exists()) csv.writeText("frame,phase,draws,calls,drawsOffscreen,framebuffersMade,textureAllocationBytes,livePictureBytes,reloads,screenReloads,reloadPixels,hostPixels,offscreenPixels,vertexBytes\n")
+        csv.appendText("${probe.frames.size},${f.phase},${f.draws},${f.calls},${f.drawsOffscreen},${f.framebuffersMade},${f.textureAllocationBytes},${f.livePictureBytes},${f.reloads},${f.screenReloads},${f.reloadPixels},${f.hostPixels},${f.offscreenPixels},${f.vertexBytes}\n")
         if (now != phase) {
             flush()
             phase = now
@@ -46,8 +60,11 @@ internal object GdxProbe {
         val list = probe.frames.subList(from, probe.frames.size).filter { it.phase == phase }
         from = probe.frames.size
         if (phase.isEmpty() || list.isEmpty()) return
+        val fresh = probe.attributions.entries.drop(attributed)
+        attributed = probe.attributions.size
         // The first quarter of a phase is it settling in.
         val settled = list.drop(list.size / 4)
-        file?.appendText(probeReport(phase, settled) + "\n")
+        val who = fresh.joinToString("") { (size, stack) -> "picture $size first asked for by:\n    $stack\n" }
+        file?.appendText(probeReport(phase, settled) + who + "\n")
     }
 }
