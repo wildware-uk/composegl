@@ -99,6 +99,13 @@ on. Never label an issue `blocked` or file one as "an owner's call" for a techni
 - Display / GPU: run GL work under `xvfb-run -a`. An NVIDIA RTX 2070 SUPER is present; check
   `nvidia-smi` if rendering looks slow or falls back to software.
 
+## Review rounds
+- This replaces the agent file's five-round cap. Keep going past five rounds while each failed
+  round finds something new and you fix it. Release and label `blocked` only when the same finding
+  comes back after you fixed it, or after round 10. The lead, not the owner, unblocks it.
+- When a rare case keeps failing review, prefer making that case take the old, slower road over
+  piling on special cases; keep the speed-up for the common case.
+
 ## Reviewer reads
 - `AGENTS.md`, `CLAUDE.md`, and the "Standing owner rules" above.
 - The wiki page(s) the change touches in `docs/wiki`.
