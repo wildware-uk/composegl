@@ -108,6 +108,11 @@ on. Never label an issue `blocked` or file one as "an owner's call" for a techni
 
 ## Reviewer reads
 - `AGENTS.md`, `CLAUDE.md`, and the "Standing owner rules" above.
+- Pass this rule to every reviewer: run every command in the foreground under `timeout` (at most
+  600 s each); never `run_in_background` or Monitor. A reviewer is a subagent, and on 2026-10-05
+  two reviewers hung for an hour each waiting for a background Gradle run's notice that never came.
+- A reviewer whose token count has not moved for 20 minutes and that has no running process is
+  hung: TaskStop it and spawn a fresh one for the same round.
 - The wiki page(s) the change touches in `docs/wiki`.
 
 ## Dashboard
