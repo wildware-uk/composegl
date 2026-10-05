@@ -365,6 +365,12 @@ layers, `drawCalls`, `traceDrawCalls` — each have a capability flag and a defa
 degrades rather than fails. **The rule for `raw` and for `layer`: leave your own state
 as you found it.**
 
+A backend that snaps letters to pixels overrides the six-argument
+`textRing(layout, x, y, dx, dy, colour)`: it gets the letters' place and the ring copy's offset
+apart, so it can snap the letters once and move every copy by the same whole pixels. Its default
+adds the two and calls the four-argument `textRing`, which is right for a backend that does not
+snap.
+
 ### The escape hatch, in detail
 
 `raw` is the one optional thing with no sensible degrade: the toolkit cannot
