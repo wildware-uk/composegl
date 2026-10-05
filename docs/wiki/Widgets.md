@@ -246,10 +246,10 @@ Three things worth knowing before you use it:
   nothing. The price is that a tight clip trims it and a background sized to the
   text does not cover it — add `Modifier.padding` of the outline width where
   that matters.
-- **On a screen it snaps to whole pixels.** Where letters are re-cut at the
-  screen's own pixels, every ring copy sits a whole number of pixels off its
-  letter, so every line of a paragraph gets the same weight. A ring thinner
-  than half a pixel still shows: it adds one pixel, to the right and below.
+- **Every line gets the same weight.** Where letters are re-cut at the
+  screen's own pixels and snapped to them, each ring copy is placed its exact
+  offset from its snapped letter, so every line of a paragraph gets the same
+  ring. A ring thinner than a pixel is a faint edge in proportion to its width.
 
 It costs nine times the glyph quads and no extra nodes, draw calls or
 measuring. For one hero label where the alpha has to be exactly right,
