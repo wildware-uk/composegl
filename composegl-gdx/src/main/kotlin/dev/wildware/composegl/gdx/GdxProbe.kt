@@ -47,8 +47,8 @@ internal object GdxProbe {
         probe.endFrame(graphics.backBufferWidth.toLong() * graphics.backBufferHeight, phase)
         val f = probe.frames.last()
         val csv = File(file!!.path + ".csv")
-        if (!csv.exists()) csv.writeText("frame,phase,draws,calls,drawsOffscreen,framebuffersMade,textureAllocationBytes,livePictureBytes,reloads,screenReloads,reloadPixels,hostPixels,offscreenPixels,vertexBytes,reloadTilePixels,screenReloadTilePixels,draws2,draws4,textureOnlyBreaks,checkFramebufferStatus,reloadBoxPixels,screenReloadBoxPixels\n")
-        csv.appendText("${probe.frames.size},${f.phase},${f.draws},${f.calls},${f.drawsOffscreen},${f.framebuffersMade},${f.textureAllocationBytes},${f.livePictureBytes},${f.reloads},${f.screenReloads},${f.reloadPixels},${f.hostPixels},${f.offscreenPixels},${f.vertexBytes},${f.reloadTilePixels},${f.screenReloadTilePixels},${f.draws2},${f.draws4},${f.breaks["texture"] ?: 0},${f.byName["checkFramebufferStatus"] ?: 0},${f.reloadBoxPixels},${f.screenReloadBoxPixels}\n")
+        if (!csv.exists()) csv.writeText("frame,phase,draws,calls,drawsOffscreen,framebuffersMade,textureAllocationBytes,livePictureBytes,reloads,screenReloads,reloadPixels,hostPixels,offscreenPixels,vertexBytes,reloadTilePixels,screenReloadTilePixels,draws2,draws4,textureOnlyBreaks,checkFramebufferStatus,reloadBoxPixels,screenReloadBoxPixels,insidePixels,insideBorderPixels,handBackBreaks\n")
+        csv.appendText("${probe.frames.size},${f.phase},${f.draws},${f.calls},${f.drawsOffscreen},${f.framebuffersMade},${f.textureAllocationBytes},${f.livePictureBytes},${f.reloads},${f.screenReloads},${f.reloadPixels},${f.hostPixels},${f.offscreenPixels},${f.vertexBytes},${f.reloadTilePixels},${f.screenReloadTilePixels},${f.draws2},${f.draws4},${f.breaks["texture"] ?: 0},${f.byName["checkFramebufferStatus"] ?: 0},${f.reloadBoxPixels},${f.screenReloadBoxPixels},${f.insidePixels},${f.insideBorderPixels},${f.breaks.filterKeys { it.contains("hand-back") }.values.sum()}\n")
         if (now != phase) {
             flush()
             phase = now

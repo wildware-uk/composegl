@@ -71,6 +71,9 @@ class ProbeGl(private val gl: Gl) : Gl {
         var screenReloadTilePixels = 0L
         /** The same, counting the bounding box of every tile the resumed pass touches. */
         var reloadBoxPixels = 0L
+        /** Pixels of plain boxes (with and without a border) lying in the box's flat inside: clear of its edge band. */
+        var insidePixels = 0L
+        var insideBorderPixels = 0L
         var screenReloadBoxPixels = 0L
         /** Draw calls there would be if a batch could hold this many textures at once (2 and 4), all else equal. */
         var draws2 = 0
@@ -147,6 +150,7 @@ class ProbeGl(private val gl: Gl) : Gl {
     private val lastDrawScissor = IntArray(5)
     private var uniformChangesAtLastDraw = 0
     private val passTiles = HashSet<Int>()
+    private var handedBack = false
     private var passResumed = false
     private var passScreen = false
     private val run2 = HashSet<Int>()
@@ -268,6 +272,7 @@ class ProbeGl(private val gl: Gl) : Gl {
         count("useProgram")
         frame.programBinds++
         if (this.program != program) frame.programSwitches++
+        if (program == 0) handedBack = true
         this.program = program
         gl.useProgram(program)
     }
@@ -355,6 +360,8 @@ class ProbeGl(private val gl: Gl) : Gl {
         val texture = textures[GlConst.TEXTURE0] ?: 0
         val scissorOn = if (caps[GlConst.SCISSOR_TEST] == true) 1 else 0
         val changed = ArrayList<String>()
+        if (handedBack) changed += "hand-back"
+        handedBack = false
         if (lastDrawFramebuffer != framebuffer) changed += "target"
         if (lastDrawProgram != program) changed += "program"
         if (lastDrawTexture != texture) changed += "texture"
@@ -365,7 +372,7 @@ class ProbeGl(private val gl: Gl) : Gl {
         frame.breaks[cause] = (frame.breaks[cause] ?: 0) + 1
         // The same draws, with batches that could hold 2 or 4 textures: only a change other than
         // the texture, or a texture past the limit, starts a new draw call.
-        val other = changed.any { it != "texture" }
+        val other = changed.any { it != "texture" }  // a hand-back counts as a change too
         for ((set, limit) in listOf(run2 to 2, run4 to 4)) {
             val fresh = set.isEmpty() || other || (texture !in set && set.size >= limit)
             if (fresh) {
@@ -555,6 +562,22 @@ class ProbeGl(private val gl: Gl) : Gl {
                 frame.compositedWhole[key] = (frame.compositedWhole[key] ?: 0L) + whole
             }
             frame.pixelsByKind[kind] = (frame.pixelsByKind[kind] ?: 0L) + area
+            if (kind == "shape" || kind == "shape with border") {
+                val at = base
+                val hw = floats[at + 19]
+                val hh = floats[at + 20]
+                val border = floats[at + 21]
+                val aa = floats[at + 23]
+                val radius = maxOf(floats[at + 24], floats[at + 25], floats[at + 26], floats[at + 27])
+                val inset = radius + aa + maxOf(border, 0f)
+                val quadW = abs(floats[base + 2 * perVertex + 17] - floats[base + 17])
+                val quadH = abs(floats[base + 1 * perVertex + 18] - floats[base + 18])
+                if (quadW > 0f && quadH > 0f) {
+                    val inside = maxOf(0f, 2f * (hw - inset)) * maxOf(0f, 2f * (hh - inset)) / (quadW * quadH)
+                    val px = (area * inside.coerceIn(0f, 1f)).toLong()
+                    if (kind == "shape") frame.insidePixels += px else frame.insideBorderPixels += px
+                }
+            }
             frame.quadsByKind[kind] = (frame.quadsByKind[kind] ?: 0) + 1
             if (offscreen) frame.offscreenPixels += area else frame.hostPixels += area
             if (masked) frame.maskedPixels += area
@@ -674,6 +697,7 @@ fun probeReport(label: String, list: List<ProbeGl.Frame>): String {
         appendLine("draw calls by why they broke from the last: " + causes.joinToString { c -> "$c ${med { it.breaks[c] ?: 0 }}" })
         appendLine("draw calls if a batch held 2 textures ${med { it.draws2 }}, 4 textures ${med { it.draws4 }}")
         appendLine("re-loaded pixels counting only tiles the resumed passes touch: ${med { it.reloadTilePixels }} (screen ${med { it.screenReloadTilePixels }})")
+        appendLine("plain-box pixels in the flat inside: ${med { it.insidePixels }}, bordered-box pixels in the flat inside: ${med { it.insideBorderPixels }}")
         appendLine("re-loaded pixels counting the bounding box of those tiles: ${med { it.reloadBoxPixels }} (screen ${med { it.screenReloadBoxPixels }})")
         val comps = list.flatMap { it.composited.keys }.toSet()
         if (comps.isNotEmpty()) appendLine("pictures put down (picture size: px landed, px before the scissor): " + comps.joinToString { k -> "$k: ${med { it.composited[k] ?: 0L }}, ${med { it.compositedWhole[k] ?: 0L }}" })
