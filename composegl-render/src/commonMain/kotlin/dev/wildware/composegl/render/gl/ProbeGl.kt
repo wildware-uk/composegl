@@ -69,6 +69,9 @@ class ProbeGl(private val gl: Gl) : Gl {
         /** Pixels re-loaded counting only the 16x16 tiles the resumed pass draws into, as a tiler that skips untouched tiles would. */
         var reloadTilePixels = 0L
         var screenReloadTilePixels = 0L
+        /** The same, counting the bounding box of every tile the resumed pass touches. */
+        var reloadBoxPixels = 0L
+        var screenReloadBoxPixels = 0L
         /** Draw calls there would be if a batch could hold this many textures at once (2 and 4), all else equal. */
         var draws2 = 0
         var draws4 = 0
@@ -150,10 +153,15 @@ class ProbeGl(private val gl: Gl) : Gl {
     private val run4 = HashSet<Int>()
 
     private fun finishPass() {
-        if (passResumed) {
+        if (passResumed && passTiles.isNotEmpty()) {
             val px = passTiles.size * 256L
             frame.reloadTilePixels += px
             if (passScreen) frame.screenReloadTilePixels += px
+            val xs = passTiles.map { it % 4096 }
+            val ys = passTiles.map { it / 4096 }
+            val box = (xs.max() - xs.min() + 1).toLong() * (ys.max() - ys.min() + 1) * 256L
+            frame.reloadBoxPixels += box
+            if (passScreen) frame.screenReloadBoxPixels += box
         }
         passTiles.clear()
         passResumed = false
@@ -666,6 +674,7 @@ fun probeReport(label: String, list: List<ProbeGl.Frame>): String {
         appendLine("draw calls by why they broke from the last: " + causes.joinToString { c -> "$c ${med { it.breaks[c] ?: 0 }}" })
         appendLine("draw calls if a batch held 2 textures ${med { it.draws2 }}, 4 textures ${med { it.draws4 }}")
         appendLine("re-loaded pixels counting only tiles the resumed passes touch: ${med { it.reloadTilePixels }} (screen ${med { it.screenReloadTilePixels }})")
+        appendLine("re-loaded pixels counting the bounding box of those tiles: ${med { it.reloadBoxPixels }} (screen ${med { it.screenReloadBoxPixels }})")
         val comps = list.flatMap { it.composited.keys }.toSet()
         if (comps.isNotEmpty()) appendLine("pictures put down (picture size: px landed, px before the scissor): " + comps.joinToString { k -> "$k: ${med { it.composited[k] ?: 0L }}, ${med { it.compositedWhole[k] ?: 0L }}" })
         appendLine("render pass reloads ${med { it.reloads }} (of the screen ${med { it.screenReloads }}), ${med { it.reloadPixels }} px stored and read back again")
