@@ -5,6 +5,7 @@ import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.ScalePolicy
 import dev.wildware.composegl.ui.layout.Viewport
+import dev.wildware.composegl.ui.text.TextOutline
 import dev.wildware.composegl.ui.text.TextStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -294,5 +295,60 @@ class SharpTextTest {
         }
 
         assertEquals(1, device.draws.size, "after the first frame, one texture holds the white block and the copies")
+    }
+
+    /**
+     * The screen pixels every glyph quad of the last draw covers, ring copies and face together.
+     * Each quad is snapped, so its edges sit on whole pixels and the cover is exact.
+     */
+    private fun ink(draw: RecordingDevice.Draw, scale: Float, screenHeight: Float): Int {
+        val covered = HashSet<Long>()
+        for (box in boxes(draw)) {
+            val (left, top, right, bottom) = box.map { it * scale }
+            // y is counted up from the bottom of the screen; turn it into rows from the top.
+            val x0 = kotlin.math.round(left).toInt()
+            val x1 = kotlin.math.round(right).toInt()
+            val y0 = kotlin.math.round(screenHeight - top).toInt()
+            val y1 = kotlin.math.round(screenHeight - bottom).toInt()
+            for (x in minOf(x0, x1) until maxOf(x0, x1)) for (y in minOf(y0, y1) until maxOf(y0, y1)) {
+                covered += x.toLong() shl 32 or y.toLong()
+            }
+        }
+        return covered.size
+    }
+
+    @Test
+    fun `a ring under a pixel wide puts down the same ink wherever its line falls between pixels`() {
+        // The game's Japanese body text at 1280x720: a ring of 0.34 design units is 0.22 of a pixel.
+        val scale = 0.66f
+        val fonts = Fonts()
+        val layout = fonts.measure("H", style)
+        val ring = TextOutline(Colour.Black, width = 0.34f)
+        val inks = (0 until 10).map { tenth ->
+            val device = RecordingDevice()
+            val canvas = RenderCanvas(device, fonts)
+            // Twice round: a held scale is what the copies are made for.
+            repeat(2) {
+                device.draws.clear()
+                canvas.begin(scaled(scale))
+                canvas.text(layout, 10f + tenth * 0.1f, 20f + tenth * 0.1f, Colour.White, ring)
+                canvas.end()
+            }
+            ink(device.draws.single(), scale, 100f * scale)
+        }
+        val face = run {
+            val device = RecordingDevice()
+            val canvas = RenderCanvas(device, fonts)
+            repeat(2) {
+                device.draws.clear()
+                canvas.begin(scaled(scale))
+                canvas.text(layout, 10f, 20f, Colour.White)
+                canvas.end()
+            }
+            ink(device.draws.single(), scale, 100f * scale)
+        }
+
+        assertEquals(1, inks.toSet().size, "one ink count at every sub-pixel offset: $inks")
+        assertTrue(inks.first() > face, "a thin ring still adds weight round the letter: ${inks.first()} against $face")
     }
 }

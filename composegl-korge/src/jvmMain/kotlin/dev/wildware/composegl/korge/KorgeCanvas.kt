@@ -146,6 +146,9 @@ class KorgeCanvas private constructor(
 
     override fun textRing(layout: TextLayout, x: Float, y: Float, colour: Colour) = super.textRing(measured(layout), x, y, colour)
 
+    override fun textRing(layout: TextLayout, x: Float, y: Float, dx: Float, dy: Float, colour: Colour) =
+        super.textRing(measured(layout), x, y, dx, dy, colour)
+
     private fun measured(layout: TextLayout): TextLayout =
         layout as? AtlasTextLayout ?: error("this canvas can only draw text measured by KorgeFonts, not ${layout::class}")
 

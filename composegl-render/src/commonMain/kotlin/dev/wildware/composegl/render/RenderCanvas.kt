@@ -25,6 +25,7 @@ import dev.wildware.composegl.ui.text.TextLayout
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
+import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.roundToInt
 
@@ -487,13 +488,20 @@ open class RenderCanvas protected constructor(
     // --- text and pictures ---
 
     override fun text(layout: TextLayout, x: Float, y: Float, colour: Colour) =
-        drawText(layout, x, y, colour, ring = false)
+        drawText(layout, x, y, 0f, 0f, colour, ring = false)
 
     /** A ring copy leaves picture glyphs out: an emoji has an edge of its own already. */
     override fun textRing(layout: TextLayout, x: Float, y: Float, colour: Colour) =
-        drawText(layout, x, y, colour, ring = true)
+        drawText(layout, x, y, 0f, 0f, colour, ring = true)
 
-    private fun drawText(layout: TextLayout, x: Float, y: Float, colour: Colour, ring: Boolean) {
+    /**
+     * A ring copy whose letters are snapped where the face's are, then moved [dx], [dy] in whole
+     * screen pixels, so every copy of every line sits the same number of pixels off its letter.
+     */
+    override fun textRing(layout: TextLayout, x: Float, y: Float, dx: Float, dy: Float, colour: Colour) =
+        drawText(layout, x, y, dx, dy, colour, ring = true)
+
+    private fun drawText(layout: TextLayout, x: Float, y: Float, dx: Float, dy: Float, colour: Colour, ring: Boolean) {
         if (state.isHidden) return
         val measured = layout as? AtlasTextLayout
             ?: error("this canvas can only draw text measured by its own fonts, not ${layout::class}")
@@ -515,7 +523,7 @@ open class RenderCanvas protected constructor(
             val on = glyph.page ?: continue
             val sharp = if (remade) glyph.sharp(step) else null
             if (sharp != null) {
-                drawSharp(sharp, placed, x, y, if (sharp.colour) pictureTint else tint)
+                drawSharp(sharp, placed, x, y, dx, dy, if (sharp.colour) pictureTint else tint)
                 page = null
                 continue
             }
@@ -524,10 +532,10 @@ open class RenderCanvas protected constructor(
                 texture = on.texture(device)
             }
             val size = on.size.toFloat()
-            val top = state.mapY(y + placed.top)
+            val top = state.mapY(y + dy + placed.top)
             batch().textured(
                 texture = checkNotNull(texture),
-                left = state.mapX(x + placed.left),
+                left = state.mapX(x + dx + placed.left),
                 bottom = flip(top + placed.height * grow),
                 width = placed.width * grow,
                 height = placed.height * grow,
@@ -544,8 +552,13 @@ open class RenderCanvas protected constructor(
      * A glyph's copy made for this frame's scale, in the design-unit place its original was measured
      * into. A letter is placed from its own offsets and snapped to the screen's pixels, so each of its
      * pixels lands on one of the screen's; a picture fills its original's box.
+     *
+     * A ring copy's offset [dx], [dy] is added after the letter is snapped, as whole pixels, so it
+     * moves every copy of every line by the same amount. Snapped together with the letter, a ring
+     * thinner than a pixel reached the next pixel or not depending on where its line fell between
+     * two, and a paragraph drew some lines bold and some thin.
      */
-    private fun drawSharp(sharp: Glyph, placed: PlacedGlyph, x: Float, y: Float, tint: Colour) {
+    private fun drawSharp(sharp: Glyph, placed: PlacedGlyph, x: Float, y: Float, dx: Float, dy: Float, tint: Colour) {
         val on = checkNotNull(sharp.page)
         // Every time: a copy made just now is on the page but not yet uploaded.
         val texture = on.texture(device)
@@ -555,8 +568,8 @@ open class RenderCanvas protected constructor(
         val height: Float
         val grow = state.transformScale
         if (sharp.fillsBox) {
-            left = state.mapX(x + placed.left)
-            top = state.mapY(y + placed.top)
+            left = state.mapX(x + dx + placed.left)
+            top = state.mapY(y + dy + placed.top)
             width = placed.width * grow
             height = placed.height * grow
         } else {
@@ -566,8 +579,8 @@ open class RenderCanvas protected constructor(
             val originY = layer?.bounds?.top ?: 0f
             val atX = state.mapX(x + placed.pen + sharp.xOffset / sharp.pixelsPerUnit)
             val atY = state.mapY(y + placed.baseline + sharp.yOffset / sharp.pixelsPerUnit)
-            left = originX + floor((atX - originX) * scaleX + 0.5f) / scaleX
-            top = originY + floor((atY - originY) * scaleY + 0.5f) / scaleY
+            left = originX + (floor((atX - originX) * scaleX + 0.5f) + wholePixels(dx * grow * scaleX)) / scaleX
+            top = originY + (floor((atY - originY) * scaleY + 0.5f) + wholePixels(dy * grow * scaleY)) / scaleY
             // Made for the nearest step of a zoom, so stretched by whatever the step left over.
             width = sharp.width / sharp.pixelsPerUnit * grow
             height = sharp.height / sharp.pixelsPerUnit * grow
@@ -585,6 +598,17 @@ open class RenderCanvas protected constructor(
             v2 = (sharp.y + sharp.height) / size,
             tint = tint,
         )
+    }
+
+    /**
+     * A ring offset of [pixels] screen pixels as a whole number of them: the nearest, but never none
+     * for an offset that is not zero. A ring under half a pixel wide is still there to add weight,
+     * and rounded to nothing it would vanish from every line instead of from half of them.
+     */
+    private fun wholePixels(pixels: Float): Float = when {
+        pixels > 0f -> max(1f, floor(pixels + 0.5f))
+        pixels < 0f -> -max(1f, floor(-pixels + 0.5f))
+        else -> 0f
     }
 
     /**
