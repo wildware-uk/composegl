@@ -379,8 +379,9 @@ internal class FlingAlarm {
  *
  * A fling belongs to the widget driving it. When the widget leaves — its host disposed with it — or
  * is handed other axes, the fling stops where it is, rather than leaving a state that says it is
- * flinging with nothing to move it. A disposable effect rather than the loop's `finally`, because a
- * disposed host cancels the loop but never runs it again to finish.
+ * flinging with nothing to move it. A disposable effect rather than the loop's `finally`, so the
+ * fling has stopped the moment the widget leaves: a cancelled loop only finishes the next time the
+ * host runs its queued work.
  */
 @Composable
 internal fun DriveFling(one: ScrollAxis, other: ScrollAxis? = null) {
