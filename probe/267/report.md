@@ -61,8 +61,8 @@
   - Mega Merge: everything the game thread did from one frame to the next. 6 runs per side, alternating, with the first quarter of each phase dropped. In runs 4-6, `UiRenderer.render` was also timed on its own: ComposeGL's share, graphics driver included. (#241's "toolkit code" column left the driver out, so the two are not the same measure.)
   - Each CPU figure is the median, across runs, of each run's median frame. Each garbage figure is the mean per frame; it is the same in every run.
   - The one exception is Mega Merge's board.
-    - Before, its frames come in two kinds: ComposeGL's part is either under about 1.6 ms or 4-7 ms, and the mix changes from run to run. So the median flips between the two.
-    - After, they do not split: ComposeGL's part is 0.19-1.60 ms in every frame of runs 4-6.
+    - Before, its frames come in two kinds: ComposeGL's part is either under about 1.6 ms or above 4 ms (mostly 4-7 ms, up to 12, and one frame at 34). The mix changes from run to run, so the median flips between the two.
+    - After, they do not split: ComposeGL's part is 0.19-1.60 ms in every measured frame of runs 4-6.
     - So the board's CPU is given as the mean per frame. That still varies between runs (3.0-6.4 ms before), but every new-build run's mean (1.0-2.9 ms) is below every old-build run's.
 - **Sanity check against #242.** #242 measured nearby commits, not these two: ComposeGL `979a68da`, which already had #234, #236 and #238, and Mega Merge `fc704697`.
   - The before side's showcase and snake GPU estimates match #242's (home 5.3 ms, effects 9.1 ms, snake menu 6.9 ms).
@@ -170,7 +170,8 @@ How to read the tables:
 - **Runs:** 2 passes per side, alternating.
 - **Readings:**
   - A listener round the game logs, every 300 frames, the GL thread's CPU per frame and ComposeGL's `UiRenderer.render` within it. Each CPU figure is a pass's median over the 300-frame windows that lie wholly inside a phase, 5 per phase.
-  - The emulator's own `app_time_stats`, from the game's process only, give the game's time per frame and the frames drawn in each second of the phase. They come from about 30 one-second readings per phase.
+  - The probe also gives each 300-frame window's frame rate. The table's median frame rate is the median of those windows.
+  - The emulator's own `app_time_stats`, from the game's process only, give the game's time per frame and the frames drawn in each second of the phase. They come from about 30 one-second readings per phase. The table's lowest second and seconds under 58 come from these.
 
 | Pass | Cards dealt | Open draft: frames a second, median (lowest second) | seconds under 58 | game's time per frame (`app_time_stats`), ms | GL-thread CPU per frame, ms | of which ComposeGL, ms | Board: GL-thread CPU, ms | of which ComposeGL, ms |
 |---|---|---|---|---|---|---|---|---|
