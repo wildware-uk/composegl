@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
+import dev.wildware.composegl.ui.draw.RectCache
 import dev.wildware.composegl.ui.host.LocalFrameTimes
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
@@ -507,19 +508,28 @@ internal class BarPainter(
     private val thumb: ResolvedStyle,
 ) {
 
+    /**
+     * Where the thumb was last drawn, kept so a still bar draws it without making a rectangle every
+     * frame (#258). A new one is made only when the thumb has moved, grown or been given new bounds.
+     */
+    private val thumbRect = RectCache()
+
     val draw: UiCanvas.(Rect) -> Unit = { bounds ->
         // An axis with nowhere to go has no bar at all, rather than a full-length thumb that
         // refuses to move.
         if (bar.isNeeded) {
             track.background.drawInto(this, bounds, track.tint)
-            val start = bar.thumbStart
-            val end = start + bar.thumbLength
-            val rect = if (bar.vertical) {
-                Rect(bounds.left, bounds.top + start, bounds.right, bounds.top + end)
-            } else {
-                Rect(bounds.left + start, bounds.top, bounds.left + end, bounds.bottom)
-            }
-            thumb.background.drawInto(this, rect, thumb.tint)
+            thumb.background.drawInto(this, thumbIn(bounds), thumb.tint)
         }
+    }
+
+    private fun thumbIn(bounds: Rect): Rect {
+        val start = bar.thumbStart
+        val end = start + bar.thumbLength
+        val left = if (bar.vertical) bounds.left else bounds.left + start
+        val top = if (bar.vertical) bounds.top + start else bounds.top
+        val right = if (bar.vertical) bounds.right else bounds.left + end
+        val bottom = if (bar.vertical) bounds.top + end else bounds.bottom
+        return thumbRect.of(left, top, right, bottom)
     }
 }
