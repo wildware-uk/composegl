@@ -6,15 +6,19 @@
   - Estimated phone GPU time fell **70%** (11.1 → 3.3 ms on a mid-range Mali). It paints half the pixels, a fifth of the offscreen-picture area, and sends 83% fewer GL calls.
   - The game thread's CPU per frame on this desktop fell **74%** (7.4 → 1.9 ms).
   - ComposeGL's own part of it fell **92%** (6.5 → 0.5 ms). That part is `UiRenderer.render`, including the graphics driver's time for the GL calls it makes.
-  - **On Android** (an emulator, release builds), both sides hold the game's 60 fps. But the GL thread's CPU per frame fell **39%** on the open draft (13.6 → 8.4 ms), and ComposeGL's part of it fell 45% (10.2 → 5.6 ms). The old build used 82% of each 16.7 ms frame; the new one uses half.
+  - **On Android** (an emulator, release builds), both sides hold the game's 60 fps. On the open draft the GL thread's CPU per frame fell **29-43%**, and ComposeGL's part of it 40-48%. The range comes from the random deal:
+    - With plain cards: 11.0 → 7.8 ms.
+    - With a glowing card dealt: 15.4 → 8.8 ms.
 - **Showcase and snake:**
   - GL calls per frame are **70-90% lower** on showcase pages, and 49-76% lower on snake.
   - Garbage per frame is **74-99% lower**. Still showcase pages went from 38-142 KB a frame to 2 KB or less; the effects page is the exception at 5 KB.
   - Estimated phone GPU time is **57-74% lower**.
-  - CPU time per frame is **5-63% lower** on the median frame, and 31-67% lower on the fastest tenth of frames (the reading this shared machine disturbs least).
+  - CPU time per frame is **clearly lower on 12 of 17 screens**: 12-63% on the median frame.
+    - "Clearly" means the after run was lower in at least 4 of the 5 back-to-back pairs.
+    - On the other five, the median frame shows no clear change: the moving home and game pages, the still surfaces page, and snake's menu and play. Their fastest tenth of frames (the reading this shared machine disturbs least) is still 31-63% lower.
   - **The one slower reading** is on the moving home page, in its first seconds after a cold start of the desktop JVM.
     - Frames 300-900 cost 27% more on the median frame: 0.48 → 0.61 ms, over 6 alternating runs that do not overlap.
-    - Once warm, after 3,000 frames, the same page is 49% cheaper: 0.38 → 0.19 ms.
+    - Once warm, the same page is 49% cheaper: 0.38 → 0.19 ms, over 1,200 frames measured after a 3,000-frame warm-up.
     - Today's code on that page takes longer to reach full JIT speed. Filed as #268.
 
 **What still costs the most:**
@@ -52,8 +56,13 @@
   - On the real GPU (desktop GL on an RTX 2070 SUPER). Under Xvfb, an ES context only comes from Mesa's software renderer, which would bury ComposeGL's time under the CPU painting pixels.
   - The JVM ran with escape analysis off, so garbage counts match Android's. #241 found desktop and phone within 0-15% that way.
   - Showcase and snake: input and render, timed per frame. 300 warm-up frames, then 600 measured. 5 runs per side, alternating before and after.
+  - The two scroll rows come from their own reruns (review round 1). Each was a fresh JVM holding only those two scenes, with widgets first after the usual 300-frame warm-up. That is colder than the other rows, which ran after earlier scenes had warmed the JIT; #268 is about exactly this. The direction is the same.
   - Mega Merge: everything the game thread did from one frame to the next. 6 runs per side, alternating, with the first quarter of each phase dropped. In runs 4-6, `UiRenderer.render` was also timed on its own: ComposeGL's share, graphics driver included. (#241's "toolkit code" column left the driver out, so the two are not the same measure.)
   - Each CPU figure is the median, across runs, of each run's median frame. Each garbage figure is the mean per frame; it is the same in every run.
+  - The one exception is Mega Merge's board.
+    - Before, its frames come in two kinds: ComposeGL's part is either under about 1.6 ms or 4-7 ms, and the mix changes from run to run. So the median flips between the two.
+    - After, the frames are all alike (0.2-1.2 ms).
+    - So the board's CPU is given as the mean per frame, which is steady across runs.
 - **Sanity check against #242.** #242 measured nearby commits, not these two: ComposeGL `979a68da`, which already had #234, #236 and #238, and Mega Merge `fc704697`.
   - The before side's showcase and snake GPU estimates match #242's (home 5.3 ms, effects 9.1 ms, snake menu 6.9 ms).
   - The draft matches too: 59 draw calls while dealing and 92 open, with 4.88 and 4.21 screens of pixels against #242's 4.87 and 4.2.
@@ -67,8 +76,9 @@
   - Desktop CPU times are far smaller than a phone's; the ratios are the point.
   - This box is shared (load 5-14 during the runs), so one run's CPU can be 2× another's. That is why there are several alternating runs and medians.
 - **Pictures:**
-  - On every showcase page, 48-1,070 pixels differ by 1 level of 255, which cannot be seen. Colours now travel as bytes (#253).
-  - The effects page also differs along its rounded-clip shapes: 2,991 pixels, by at most 34 of 255. Rounded clips are now trimmed in the shader (#236).
+  - Compared by `pixdiff.py` (the largest difference in any one channel, of 255).
+  - On every showcase page, 84-1,120 pixels differ by 1 level, which cannot be seen. One pixel on the widgets page differs by 2. Colours now travel as bytes (#253).
+  - The effects page also differs along its rounded-clip shapes: 3,404 pixels by more than 1, at most 34, all inside those shapes' box. Rounded clips are now trimmed in the shader (#236).
   - Snake differs only where the food lands, which is random. The menu shows the board behind it, so it differs there too.
   - Mega Merge's draft differs only in anti-aliasing along the cards' edges and letters. The cards are now drawn through a transform rather than into a picture and back (#235, #239).
 
@@ -78,7 +88,7 @@ Mega Merge is private, so its pictures are on the dashboard card rather than her
 
 | Screen | Game-thread CPU, ms (6 runs) | ComposeGL's own, ms (runs 4-6; game thread in the same runs) | Garbage per frame, KB, mean (ComposeGL's part) | Draw calls | GL calls | Offscreen pictures (their px) | Pixels painted (screens) | Phone GPU est., ms |
 |---|---|---|---|---|---|---|---|---|
-| Board, still | runs 1.9-6.9 → 0.9-3.2 (too noisy for a %) | runs 0.67-4.77 → 0.29-0.88 | 74 → 45 (-39%); ComposeGL 32 → 6.6 | 39 → 29 | 1,762 → 197 (-89%) | 5 (2.10 M) → 0 (0.00 M) | 0.44 → 0.26 (-42%) | 1.3 → 0.8 (-39%) |
+| Board, still | mean 4.18 → 2.25 (-46%); runs 3.0-6.4 → 1.0-2.9 | mean 2.86 → 0.61 (-79%); runs 2.0-4.0 → 0.4-0.8 | 74 → 45 (-39%); ComposeGL 32 → 6.6 | 39 → 29 | 1,762 → 197 (-89%) | 5 (2.10 M) → 0 (0.00 M) | 0.44 → 0.26 (-42%) | 1.3 → 0.8 (-39%) |
 | Card draft, cards dealing | 8.28 → 3.35 (-59%) | 6.54 → 1.50 (-77%); game thread 8.34 → 3.26 | 331 → 290 (-12%); ComposeGL 112 → 75 | 59 → 48 | 2,738 → 540 (-80%) | 6 (1.31 M) → 2 (0.49 M) | 4.88 → 2.26 (-54%) | 13.5 → 3.6 (-74%) |
 | Card draft, open | 7.38 → 1.90 (-74%) | 6.48 → 0.54 (-92%); game thread 7.22 → 1.92 | 299 → 225 (-25%); ComposeGL 78 → 12 | 92 → 77 | 4,278 → 738 (-83%) | 8 (0.89 M) → 4 (0.16 M) | 4.21 → 2.10 (-50%) | 11.1 → 3.3 (-70%) |
 
@@ -86,18 +96,18 @@ Mega Merge is private, so its pictures are on the dashboard card rather than her
 
 | Screen | CPU, ms | Garbage, KB | Draw calls | GL calls | Offscreen pictures (their px) | Pixels painted (screens) | Phone GPU est., ms |
 |---|---|---|---|---|---|---|---|
-| Home, moving | 0.32 → 0.30 (-5%) | 54 → 4.2 (-92%) | 3 → 3 | 135 → 41 (-70%) | 0 (0.00 M) → 0 (0.00 M) | 1.80 → 1.59 (-12%) | 5.3 → 2.3 (-57%) |
+| Home, moving | 0.32 → 0.30 (-5%); no clear change (lower in 3 of 5 pairs) | 54 → 4.2 (-92%) | 3 → 3 | 135 → 41 (-70%) | 0 (0.00 M) → 0 (0.00 M) | 1.80 → 1.59 (-12%) | 5.3 → 2.3 (-57%) |
 | Widgets, still | 0.36 → 0.18 (-49%) | 64 → 0.3 (-99%) | 6 → 3 | 249 → 41 (-84%) | 0 (0.00 M) → 0 (0.00 M) | 2.64 → 1.95 (-26%) | 8.1 → 2.9 (-65%) |
 | Widgets, finger scrolling | 0.56 → 0.23 (-58%) | 79 → 5.9 (-93%) | 7 → 5 | 283 → 49 (-83%) | 0 (0.00 M) → 0 (0.00 M) | 2.88 → 2.08 (-28%) | 8.9 → 3.0 (-66%) |
-| Game widgets, typewriter running | 0.33 → 0.30 (-10%) | 144 → 4.7 (-97%) | 16 → 15 | 581 → 77 (-87%) | 0 (0.00 M) → 0 (0.00 M) | 2.75 → 2.04 (-26%) | 8.4 → 3.0 (-64%) |
+| Game widgets, typewriter running | 0.33 → 0.30 (-10%); no clear change (lower in 3 of 5 pairs) | 144 → 4.7 (-97%) | 16 → 15 | 581 → 77 (-87%) | 0 (0.00 M) → 0 (0.00 M) | 2.75 → 2.04 (-26%) | 8.4 → 3.0 (-64%) |
 | Animation page, moving | 0.36 → 0.13 (-63%) | 54 → 1.9 (-97%) | 12 → 5 | 458 → 49 (-89%) | 1 (0.31 M) → 0 (0.00 M) | 3.04 → 2.07 (-32%) | 9.4 → 3.0 (-68%) |
 | Effects, still | 0.49 → 0.22 (-55%) | 67 → 5.1 (-92%) | 33 → 20 | 1,224 → 172 (-86%) | 5 (0.44 M) → 2 (0.09 M) | 2.93 → 2.08 (-29%) | 9.1 → 3.1 (-66%) |
-| Surfaces, still | 0.23 → 0.11 (-53%) | 38 → 0.3 (-99%) | 29 → 19 | 1,019 → 105 (-90%) | 0 (0.00 M) → 0 (0.00 M) | 2.68 → 1.97 (-26%) | 8.5 → 3.3 (-62%) |
+| Surfaces, still | 0.23 → 0.11 (-53%); no clear change (lower in 3 of 5 pairs) | 38 → 0.3 (-99%) | 29 → 19 | 1,019 → 105 (-90%) | 0 (0.00 M) → 0 (0.00 M) | 2.68 → 1.97 (-26%) | 8.5 → 3.3 (-62%) |
 | Gear, finger scrolling | 0.55 → 0.39 (-30%) | 63 → 16 (-74%) | 5 → 5 | 207 → 49 (-76%) | 0 (0.00 M) → 0 (0.00 M) | 2.92 → 2.07 (-29%) | 9.0 → 3.0 (-67%) |
 | Text, still | 0.24 → 0.16 (-33%) | 50 → 1.3 (-97%) | 12 → 5 | 449 → 49 (-89%) | 0 (0.00 M) → 0 (0.00 M) | 2.53 → 1.88 (-26%) | 7.7 → 2.7 (-65%) |
 | HUD, still | 0.43 → 0.26 (-40%) | 128 → 2.0 (-98%) | 6 → 5 | 245 → 49 (-80%) | 0 (0.00 M) → 0 (0.00 M) | 2.97 → 2.25 (-24%) | 9.1 → 3.2 (-65%) |
-| Snake, menu | 0.15 → 0.09 (-39%) | 14 → 1.9 (-86%) | 5 → 5 | 204 → 48 (-76%) | 0 (0.00 M) → 0 (0.00 M) | 2.22 → 1.58 (-29%) | 6.9 → 2.3 (-67%) |
-| Snake, playing | 0.06 → 0.06 (-12%) | 7.7 → 1.9 (-75%) | 1 → 1 | 61 → 31 (-49%) | 0 (0.00 M) → 0 (0.00 M) | 1.17 → 0.63 (-46%) | 3.8 → 1.0 (-74%) |
+| Snake, menu | 0.15 → 0.09 (-39%); no clear change (lower in 3 of 5 pairs) | 14 → 1.9 (-86%) | 5 → 5 | 204 → 48 (-76%) | 0 (0.00 M) → 0 (0.00 M) | 2.22 → 1.58 (-29%) | 6.9 → 2.3 (-67%) |
+| Snake, playing | 0.06 → 0.06 (-12%); no clear change (lower in 3 of 5 pairs) | 7.7 → 1.9 (-75%) | 1 → 1 | 61 → 31 (-49%) | 0 (0.00 M) → 0 (0.00 M) | 1.17 → 0.63 (-46%) | 3.8 → 1.0 (-74%) |
 
 <details><summary>The other showcase scenes</summary>
 
@@ -157,24 +167,26 @@ How to read the tables:
   4. The draft is held open for 30 s, then skipped.
   5. Four fruit are dropped, and the board is held for 30 s.
 - **Runs:** 2 passes per side, alternating.
-- **Reading:** a listener round the game logs every 300 frames: the frame rate, the GL thread's CPU per frame, and ComposeGL's `UiRenderer.render` within it. Each figure is the median over the 300-frame windows that lie wholly inside a phase, 10 per side per phase.
+- **Reading:** a listener round the game logs every 300 frames: the frame rate, the GL thread's CPU per frame, and ComposeGL's `UiRenderer.render` within it. Each figure is a pass's median over the 300-frame windows that lie wholly inside a phase, 5 per phase.
 
-| Screen | fps | GL-thread CPU per frame, median, ms | of which ComposeGL (`UiRenderer.render`), ms |
-|---|---|---|---|
-| Card draft, open | 60 → 60 (+0%) | 13.62 → 8.38 (-39%) | 10.15 → 5.60 (-45%) |
-| Board, still | 60 → 60 (+0%) | 7.36 → 6.03 (-18%) | 3.90 → 1.99 (-49%) |
+| Pass | Cards dealt | fps | Open draft: GL-thread CPU per frame, ms | of which ComposeGL, ms | Board: GL-thread CPU, ms | of which ComposeGL, ms |
+|---|---|---|---|---|---|---|
+| before 1 | plain | 60 | 11.00 | 8.26 | 7.24 | 3.88 |
+| after 2 | plain | 60 | 7.80 (−29% on before 1) | 4.95 (−40%) | 5.50 | 1.85 |
+| before 2 | one glowing (uncommon) | 60 | 15.40 | 11.86 | 7.37 | 3.92 |
+| after 1 | one glowing (uncommon) | 60 | 8.79 (−43% on before 2) | 6.18 (−48%) | 6.33 | 1.99 |
 
-- The game asks for 60 fps and both sides hold it, so the gain shows as headroom rather than frame rate. On the open draft, the GL thread was busy for 82% of each 16.7 ms frame before, and 50% after.
-- ComposeGL's part includes every GL call it makes. The emulator makes each call expensive, because it ships the call to the host GPU (#241 saw the same), so ComposeGL's share is much larger here than on the desktop. Cutting GL calls by 83% is most of this drop.
-- The draft's cards are dealt at random, so the two sides show different cards. The board's fruit differ too.
-- #241 saw this draft at 40 fps on the same emulator. That was on other commits of both the game (`1ae4a71e6`) and ComposeGL (`b4d3a7fd`), so it is not comparable with these.
-- Not measured on Android: the draft while the cards deal. It lasts 3 s, shorter than one 300-frame reading.
+- **The deal matters.** The cards are dealt at random, and a glowing uncommon card costs more to draw. So each pass is set against the pass on the other side that dealt the same kind of hand.
+- **Board:** 7.2-7.4 → 5.5-6.3 ms on the GL thread. ComposeGL's part went 3.9 → 1.9-2.0 ms.
+- **Frame rate:** the game asks for 60 fps and both sides hold it. The gain shows as time left over in each 16.7 ms frame, not as frames.
+- **Why ComposeGL's share is large here:** its part includes every GL call it makes, and the emulator makes each call expensive by shipping it to the host GPU (#241 saw the same). So ComposeGL's share is much larger here than on the desktop.
+- **#241's 40 fps** for this draft on the same emulator came from other commits of both the game (`1ae4a71e6`) and ComposeGL (`b4d3a7fd`), so it is not comparable with these.
+- **Not measured on Android:** the draft while the cards deal. It lasts 3 s, shorter than one 300-frame reading.
 
 ### Where the speed came from
 
 - **GL calls, 70-90% fewer:**
   - #244: the device sends only the state that changed, and the batch cuts only on a real change.
-  - #234: a flush hands its vertices to GL in one copy.
   - #238: the window's framebuffer is asked for once a frame, not once per canvas.
 - **Offscreen pictures:**
   - #235 and #239: a still scale, with or without a glow inside, is drawn through a transform. This removed the board's full-screen 1080x1920 caption picture, which was redrawn every frame, and most of the draft's card pictures.
@@ -185,6 +197,7 @@ How to read the tables:
   - #246: a box's flat middle goes through the picture path, and an outline's clear middle is not drawn at all.
   - Pixels painted fell 12-46% on the showcase and snake, mostly through #246. On Mega Merge they fell 42-54%, mostly through fewer offscreen pictures.
 - **CPU:**
+  - #234: a flush hands its vertices to GL in one copy, not one float at a time.
   - #247: layout measures only what changed.
   - #250: a scroll step re-lays out the scroll area rather than recomposing it.
   - `f4e9de04`: a frame where nothing changed skips layout.
@@ -201,13 +214,14 @@ How to read the tables:
 
 ### Did anything go up?
 
-One reading got slower, and it is filed as #268: the moving home page right after a cold start (the last row below). Apart from that, no screen's CPU, garbage, GL calls, draw calls, pixels or GPU estimate went up. Two counts did go up, each from a deliberate change, and neither costs anything that shows:
+One reading got slower, and it is filed as #268: the moving home page right after a cold start (the last row below). Apart from that, no screen's CPU, garbage, GL calls, draw calls, pixels or GPU estimate went up. Three counts did go up, each with the changes, and none costs anything that shows:
 
 | What rose | Where | Before → after | Why | What it costs |
 |---|---|---|---|---|
 | Shader program switches | surfaces page; Mega Merge board; open draft; effects page | 2 → 18; 2 → 16; 14 → 39; 7 → 12 | #245 split the one shape program into three, so that letters, pictures and plain boxes run at full occupancy. Lit surfaces, inner shades and colour runs now switch to the full program. | On the surfaces page, 14 draw calls exist only because of a program change. Even so, draw calls fell overall (29 → 19 there, 92 → 77 on the open draft), GL calls fell 83-90%, and CPU fell on the same screens. |
 | Quads per frame | snake menu; snake playing; draft while dealing | 216 → 255; 114 → 135; 636 → 771 | #246 draws a box as its flat middle plus its edge, so one box can be several quads. | Vertex bytes still fell on all three (105 → 88 KB, 55 → 46 KB, 308 → 265 KB), because a vertex is 88 bytes instead of 124. Pixels and the GPU estimate fell too. |
-| CPU per frame in the first seconds after a cold start | showcase home, moving; frames 300-900 of a fresh desktop JVM | median 0.48 → 0.61 ms (+27%); slowest tenth 1.02 → 1.31 ms | Today's code on this page takes longer to reach full JIT speed. Which code is not known yet: a JFR profile changed the result and caught too few samples. | Up to about 15 seconds after a start. Once warm, the page is 49% cheaper (0.38 → 0.19 ms over 3,000 frames). Filed as #268. Android compiles ahead of time, so a phone may not see it. |
+| Scissor changes | Mega Merge board; draft while dealing; open draft; effects page | 0 → 6; 0 → 11; 6 → 19; 2 → 6 | They rose only on the four screens that lost offscreen pictures (5 → 0, 6 → 2, 8 → 4, 5 → 2). That points to clips now being set on the screen with the scissor, where before they were the edge of a picture. | They are inside the GL-call totals, which fell 80-89% on those screens, and draw calls fell too. |
+| CPU per frame in the first seconds after a cold start | showcase home, moving; frames 300-900 of a fresh desktop JVM | median 0.48 → 0.61 ms (+27%); slowest tenth 1.02 → 1.31 ms | Today's code on this page takes longer to reach full JIT speed. Which code is not known yet: a JFR profile changed the result and caught too few samples. | Up to about 15 seconds after a start. Once warm, the page is 49% cheaper (0.38 → 0.19 ms, 1,200 frames after a 3,000-frame warm-up). Filed as #268. Android compiles ahead of time, so a phone may not see it. |
 
 ### Reproducing
 

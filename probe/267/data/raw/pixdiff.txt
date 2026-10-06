@@ -1,0 +1,19 @@
+showcase-animation-animated.png      differ    328  by more than 1:      0  largest   1  where >1: None
+showcase-effects-animated.png        differ   3793  by more than 1:   3404  largest  34  where >1: (81, 1842, 908, 2021)
+showcase-effects-still.png           differ   3793  by more than 1:   3404  largest  34  where >1: (81, 1842, 908, 2021)
+showcase-game-animated.png           differ   1120  by more than 1:      0  largest   1  where >1: None
+showcase-game-still.png              differ   1120  by more than 1:      0  largest   1  where >1: None
+showcase-gear-scroll-mid.png         differ    499  by more than 1:      0  largest   1  where >1: None
+showcase-gear-scroll.png             differ    220  by more than 1:      0  largest   1  where >1: None
+showcase-gear-still.png              differ    621  by more than 1:      0  largest   1  where >1: None
+showcase-home-animated.png           differ    255  by more than 1:      0  largest   1  where >1: None
+showcase-home-still.png              differ    252  by more than 1:      0  largest   1  where >1: None
+showcase-hud-still.png               differ    841  by more than 1:      0  largest   1  where >1: None
+showcase-surfaces-animated.png       differ     84  by more than 1:      0  largest   1  where >1: None
+showcase-surfaces-still.png          differ     84  by more than 1:      0  largest   1  where >1: None
+showcase-text-still.png              differ    183  by more than 1:      0  largest   1  where >1: None
+showcase-widgets-scroll-mid.png      differ    274  by more than 1:      0  largest   1  where >1: None
+showcase-widgets-scroll.png          differ   1016  by more than 1:      1  largest   2  where >1: (506, 509, 507, 510)
+showcase-widgets-still.png           differ    199  by more than 1:      1  largest   2  where >1: (801, 837, 802, 838)
+snake-menu.png                       differ   2872  by more than 1:   1758  largest  73  where >1: (1001, 70, 1781, 263)
+snake-playing.png                    differ   3775  by more than 1:   1860  largest 237  where >1: (1267, 443, 1728, 957)

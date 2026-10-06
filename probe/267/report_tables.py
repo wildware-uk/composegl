@@ -33,13 +33,18 @@ def table(rows, mm=False):
             g = f"{kb(r['kb'][0])} → {kb(r['kb'][1])} ({pct(*r['kb'])}); ComposeGL {kb(r['ui_kb'][0])} → {kb(r['ui_kb'][1])}"
             cpu = pair(*r['cpu'], ms)
             if key == 'megamerge-board-still':
-                # Its runs swing too far for a percentage to mean anything: give the spread.
-                b_runs, a_runs = r['cpu_runs']
-                cpu = f"runs {min(b_runs):.1f}-{max(b_runs):.1f} → {min(a_runs):.1f}-{max(a_runs):.1f} (too noisy for a %)"
-                ui = f"runs {min(r['ui_runs'][0]):.2f}-{max(r['ui_runs'][0]):.2f} → {min(r['ui_runs'][1]):.2f}-{max(r['ui_runs'][1]):.2f}"
+                # Its frames are bimodal, so the median flips between runs: the mean per frame instead.
+                import statistics
+                bm, am = (statistics.median(v) for v in r['cpu_mean_runs'])
+                bu, au = (statistics.median(v) for v in r['ui_mean_runs'])
+                cpu = f"mean {bm:.2f} → {am:.2f} ({pct(bm, am)}); runs {min(r['cpu_mean_runs'][0]):.1f}-{max(r['cpu_mean_runs'][0]):.1f} → {min(r['cpu_mean_runs'][1]):.1f}-{max(r['cpu_mean_runs'][1]):.1f}"
+                ui = f"mean {bu:.2f} → {au:.2f} ({pct(bu, au)}); runs {min(r['ui_mean_runs'][0]):.1f}-{max(r['ui_mean_runs'][0]):.1f} → {min(r['ui_mean_runs'][1]):.1f}-{max(r['ui_mean_runs'][1]):.1f}"
             out.append(f"| {name} | {cpu} | {ui} | {g} | {common}")
         else:
-            out.append(f"| {name} | {pair(*r['cpu'], ms)} | {pair(*r['kb'], kb)} | {common}")
+            cpu = pair(*r['cpu'], ms)
+            if r['pairs_lower'] < 4:
+                cpu += f"; no clear change (lower in {r['pairs_lower']} of 5 pairs)"
+            out.append(f"| {name} | {cpu} | {pair(*r['kb'], kb)} | {common}")
     return '\n'.join(out)
 MM = [('megamerge-board-still', 'Board, still'), ('megamerge-draft-dealing', 'Card draft, cards dealing'), ('megamerge-draft-open', 'Card draft, open')]
 SC = [('showcase-home-animated', 'Home, moving'), ('showcase-widgets-still', 'Widgets, still'), ('showcase-widgets-scroll', 'Widgets, finger scrolling'),

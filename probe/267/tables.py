@@ -115,6 +115,11 @@ def main():
             'cpu_runs': [tm('before', scene, 'cpu_med'), tm('after', scene, 'cpu_med')],
             'cpu_p10': [med(tm('before', scene, 'cpu_p10')), med(tm('after', scene, 'cpu_p10'))],
             'ui_runs': [tm('before', scene, 'ui_cpu_med'), tm('after', scene, 'ui_cpu_med')],
+            'cpu_mean_runs': [tm('before', scene, 'cpu_mean'), tm('after', scene, 'cpu_mean')],
+            'ui_mean_runs': [tm('before', scene, 'ui_cpu_mean'), tm('after', scene, 'ui_cpu_mean')],
+            # A drop counts as clear when the after run is below the before run in at least 4 of the
+            # 5 back-to-back pairs, to 0.01 ms (review round 2); otherwise the median frame shows no clear change.
+            'pairs_lower': sum(1 for x, y in zip(tm('before', scene, 'cpu_med'), tm('after', scene, 'cpu_med')) if round(y, 2) < round(x, 2)),
             'kb': [med(tm('before', scene, 'kb')), med(tm('after', scene, 'kb'))],
             'ui_cpu': [med(tm('before', scene, 'ui_cpu_med')) if tm('before', scene, 'ui_cpu_med') else None, med(tm('after', scene, 'ui_cpu_med')) if tm('after', scene, 'ui_cpu_med') else None] if scene.startswith('megamerge') else None,
             'ui_kb': [med(tm('before', scene, 'ui_kb')) if tm('before', scene, 'ui_kb') else None, med(tm('after', scene, 'ui_kb')) if tm('after', scene, 'ui_kb') else None] if scene.startswith('megamerge') else None,
