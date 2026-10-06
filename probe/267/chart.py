@@ -36,6 +36,12 @@ for ax, (key, title, fmt) in zip(axes, cols):
         share = a / b if b else 0
         ax.barh(yi, share * 100, height=0.56, color=SERIES, zorder=2)
         change = (a - b) / b * 100
+        if key == 'cpu' and scene == 'megamerge-board-still':
+            # Its runs swing too far for one percentage (#267 review round 1): show the spread.
+            b_runs, a_runs = d[scene]['cpu_runs']
+            ax.text(max(share * 100, 0) + 3, yi + 0.13, 'too noisy for a %', va='center', ha='left', color=INK, fontsize=12, fontweight='bold', zorder=3, bbox=dict(facecolor=SURFACE, edgecolor='none', pad=0.6))
+            ax.text(max(share * 100, 0) + 3, yi - 0.22, f'runs {min(b_runs):.1f}-{max(b_runs):.1f} → {min(a_runs):.1f}-{max(a_runs):.1f} ms', va='center', ha='left', color=INK2, fontsize=10, zorder=3, bbox=dict(facecolor=SURFACE, edgecolor='none', pad=0.6))
+            continue
         ax.text(max(share * 100, 0) + 3, yi + 0.13, f'{change:+.0f}%', va='center', ha='left', color=INK, fontsize=12, fontweight='bold', zorder=3, bbox=dict(facecolor=SURFACE, edgecolor='none', pad=0.6))
         ax.text(max(share * 100, 0) + 3, yi - 0.22, f'{fmt(b)} → {fmt(a)}', va='center', ha='left', color=INK2, fontsize=10, zorder=3, bbox=dict(facecolor=SURFACE, edgecolor='none', pad=0.6))
     ax.axvline(100, color=MUTED, linewidth=1.5, linestyle=(0, (4, 3)), zorder=1)
@@ -52,7 +58,7 @@ axes[0].set_yticks(y)
 axes[0].set_yticklabels([r[1] for r in rows], color=INK, fontsize=12)
 fig.suptitle('ComposeGL per frame: today as a share of 27 Sep (before #234). Shorter bar = cheaper.', x=0.01, ha='left', color=INK, fontsize=16, fontweight='bold')
 fig.text(0.01, 0.015, 'CPU: game thread, desktop JVM, median frame over several runs (Mega Merge: whole game thread). Garbage: bytes allocated per frame, escape analysis off.\n'
-         'Phone GPU: pixels painted x Arm Mali compiler cycles, Mali-G57 MC2, an estimate. Same screens, same machine, same probe on both commits.',
+         'Phone GPU: pixels painted x Arm Mali compiler cycles, Mali-G57 MC2, an estimate. Home, moving: in its first seconds after a cold start it is 27% slower (#268).',
          color=INK2, fontsize=10.5, ha='left', va='bottom')
 fig.tight_layout(rect=(0, 0.06, 1, 0.94))
 out = sys.argv[1] if len(sys.argv) > 1 else f'{S}/before-after.png'
