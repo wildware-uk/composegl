@@ -43,6 +43,7 @@ import java.io.File
 import javax.imageio.ImageIO
 import org.lwjgl.BufferUtils
 import java.lang.management.ManagementFactory
+import org.lwjgl.opengl.GL11
 import org.lwjgl.opengles.GLES20
 
 /**
@@ -62,9 +63,14 @@ fun main() {
     val height = 2400
     // Square, so the showcase can be drawn upright (1080x2400) and snake sideways (2400x1080), each
     // in the bottom-left corner of the same window.
-    val window = GlfwWindow("probe", 2400, 2400, visible = false, vsync = false, context = GlfwContext.Es3)
-    val renderer = GLES20.glGetString(GLES20.GL_RENDERER)
-    val version = GLES20.glGetString(GLES20.GL_VERSION)
+    // Counting runs on OpenGL ES 3, as #242 did. Timing may run on desktop GL instead
+    // (`COMPOSEGL_PROBE_CONTEXT=desktop`): under Xvfb an ES context comes through EGL and so from
+    // Mesa's software renderer, while desktop GL can reach the real GPU.
+    Raw.desktop = System.getenv("COMPOSEGL_PROBE_CONTEXT") == "desktop"
+    val context = if (Raw.desktop) GlfwContext.Desktop else GlfwContext.Es3
+    val window = GlfwWindow("probe", 2400, 2400, visible = false, vsync = false, context = context)
+    val renderer = Raw.string(GLES20.GL_RENDERER)
+    val version = Raw.string(GLES20.GL_VERSION)
     val report = StringBuilder("renderer $renderer, $version, window ${width}x$height\n")
 
     val fonts = StbFonts(pageSize = 2048)
@@ -73,7 +79,7 @@ fun main() {
     fonts.register("body", typeface, listOf(13, 16, 20))
     fonts.register("display", typeface, listOf(34))
 
-    val gl = GlfwContext.Es3.binding
+    val gl = context.binding
     val sheet = GlTexture.decode(resource("ui/ui.png"), gl = gl)
     val coins = GlTexture.rgba(CoinFrames * CoinSize, CoinSize, coinSheet(), smooth = false, gl = gl)
     val atlas = showcaseAtlas(sheet.region(80, 0, 24, 24), coins) { texture, left, top, w, h -> texture.region(left, top, w, h) }
@@ -97,11 +103,11 @@ fun main() {
             val wall = ArrayList<Long>()
             try {
                 for (frame in 0 until total) {
-                    GLES20.glViewport(0, 0, 2400, 2400)
-                    GLES20.glClearColor(0.043f, 0.055f, 0.075f, 1f)
-                    GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+                    Raw.viewport(0, 0, 2400, 2400)
+                    Raw.clearColor(0.043f, 0.055f, 0.075f, 1f)
+                    Raw.clear(GLES20.GL_COLOR_BUFFER_BIT)
                     // The GPU is idle when a frame starts, so no measured call waits for an earlier frame.
-                    GLES20.glFinish()
+                    Raw.finish()
                     val c0 = threads.currentThreadCpuTime
                     val b0 = threads.currentThreadAllocatedBytes
                     val w0 = System.nanoTime()
@@ -130,9 +136,9 @@ fun main() {
         val canvas = GlCanvas(fonts, probe)
         try {
             for (frame in 0 until frames) {
-                GLES20.glViewport(0, 0, 2400, 2400)
-                GLES20.glClearColor(0.043f, 0.055f, 0.075f, 1f)
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+                Raw.viewport(0, 0, 2400, 2400)
+                Raw.clearColor(0.043f, 0.055f, 0.075f, 1f)
+                Raw.clear(GLES20.GL_COLOR_BUFFER_BIT)
                 run(probe, canvas, frame)
                 if (frame == frames - 1) save(File(out, "$name.png"), shotWidth, shotHeight)
                 window.present()
@@ -285,9 +291,21 @@ private fun timingReport(label: String, cpu: List<Long>, bytes: List<Long>, wall
     }
 }
 
+/** The few raw GL calls the probe makes itself, on whichever API the window has. */
+private object Raw {
+    var desktop = false
+    fun string(name: Int): String? = if (desktop) GL11.glGetString(name) else GLES20.glGetString(name)
+    fun viewport(x: Int, y: Int, w: Int, h: Int) = if (desktop) GL11.glViewport(x, y, w, h) else GLES20.glViewport(x, y, w, h)
+    fun clearColor(r: Float, g: Float, b: Float, a: Float) = if (desktop) GL11.glClearColor(r, g, b, a) else GLES20.glClearColor(r, g, b, a)
+    fun clear(mask: Int) = if (desktop) GL11.glClear(mask) else GLES20.glClear(mask)
+    fun finish() = if (desktop) GL11.glFinish() else GLES20.glFinish()
+    fun readPixels(x: Int, y: Int, w: Int, h: Int, format: Int, type: Int, into: java.nio.ByteBuffer) =
+        if (desktop) GL11.glReadPixels(x, y, w, h, format, type, into) else GLES20.glReadPixels(x, y, w, h, format, type, into)
+}
+
 private fun save(file: File, width: Int, height: Int) {
     val pixels = BufferUtils.createByteBuffer(width * height * 4)
-    GLES20.glReadPixels(0, 0, width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, pixels)
+    Raw.readPixels(0, 0, width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, pixels)
     val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
     for (y in 0 until height) for (x in 0 until width) {
         val at = ((height - 1 - y) * width + x) * 4
