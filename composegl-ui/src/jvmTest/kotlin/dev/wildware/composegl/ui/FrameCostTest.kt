@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.backend.MonospaceFontProvider
 import dev.wildware.composegl.ui.draw.DrawPass
@@ -507,8 +508,91 @@ class FrameCostTest {
     }
 
     /**
-     * What a still frame of the HUD with [boxes] plain boxes beside it allocates: the fewest of five
-     * rounds of twenty. [beforeEach] runs before every frame.
+     * An idle scroll area costs nothing on a frame where something else on screen changed: here the
+     * HUD's ammo count, changing every frame as a timer would. Nothing about the scroll areas
+     * changes, so nothing about them may cost anything (#259).
+     *
+     * Not to the byte, unlike a still frame: a frame that recomposes and lays out text wanders by a
+     * few bytes from one measurement to the next with nothing different on screen, up to a dozen
+     * measured. Anything the areas made themselves would be at least sixteen bytes each, 240 for
+     * fifteen.
+     */
+    @Test
+    @Tag("allocation")
+    fun `idle scroll areas cost a frame where something else changed no more than clipped boxes`() {
+        hud()
+        val renderer = UiRenderer(host, Silent())
+        renderer.focus = FocusManager(host.root)
+        val viewport = Viewport.oneToOne(Size(1280f, 720f))
+        windows = 15
+        // Between two numbers as wide as each other, so every frame lays out the same amount of text.
+        val tick = { ammo = if (ammo == 148) 147 else 148 }
+
+        window = Window.Clipped
+        val clipped = stillFrameCost(renderer, viewport, boxes = 0, beforeEach = tick)
+        window = Window.Scroll
+        val scrollAreas = stillFrameCost(renderer, viewport, boxes = 0, beforeEach = tick)
+
+        assertTrue(
+            scrollAreas - clipped < 64,
+            "fifteen idle scroll areas cost a changing frame $scrollAreas bytes, against $clipped with fifteen clipped boxes",
+        )
+    }
+
+    /**
+     * A change anywhere on screen does no work in an idle scroll area at all, not even a check.
+     *
+     * Each one's fling loop used to sleep in a snapshot flow, which hears about every state change
+     * there is so it can ask whether one of its own was among them. It made no garbage and woke
+     * nothing, but every change anywhere ran one such question per scroll area on the screen (#259).
+     * Now an area is woken by its own fling and by nothing else.
+     *
+     * Timed, so the bound is loose: a hundred and fifty areas against a hundred and fifty clipped
+     * boxes. Measured with this test run alone, a change took 5.9 us with the areas against 0.4 us
+     * with the boxes before, and 0.33 us against 0.35 us after. Run after other tests both figures
+     * are higher, by whatever their closed screens left listening (#264), which is why the bound is
+     * against the boxes and not a fixed time.
+     */
+    @Test
+    fun `a change elsewhere costs idle scroll areas nothing`() {
+        hud()
+        windows = 150
+        // Read by nothing: the change itself, and whatever hears about every change, is all a round
+        // of these costs.
+        var elsewhere by mutableIntStateOf(0)
+        val change = {
+            elsewhere++
+            Snapshot.sendApplyNotifications()
+        }
+
+        window = Window.Clipped
+        repeat(3) { frame() }
+        val clipped = nanosEach(change)
+        window = Window.Scroll
+        repeat(3) { frame() }
+        val scrollAreas = nanosEach(change)
+
+        assertTrue(
+            scrollAreas < clipped * 2 + 500,
+            "a change with 150 idle scroll areas on screen took $scrollAreas ns, against $clipped ns with 150 clipped boxes",
+        )
+    }
+
+    /** How long [what] takes, in nanoseconds: the fastest of five rounds of two thousand, after a warm-up. */
+    private fun nanosEach(what: () -> Unit): Long {
+        repeat(20_000) { what() }
+        var least = Long.MAX_VALUE
+        repeat(5) {
+            val start = System.nanoTime()
+            repeat(2_000) { what() }
+            least = minOf(least, System.nanoTime() - start)
+        }
+        return least / 2_000
+    }
+
+    /**
+     * What a frame of the HUD with [boxes] plain boxes beside it allocates: the fewest of five rounds
+     * of twenty. Still, unless [beforeEach] changes something; it runs before every frame.
      */
     private fun stillFrameCost(renderer: UiRenderer, viewport: Viewport, boxes: Int, beforeEach: () -> Unit = {}): Long {
         plain = boxes

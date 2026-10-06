@@ -118,6 +118,82 @@ class IdleScrollUiTest {
     }
 
     @Test
+    fun `an area still wakes for a flick after another area showing its state leaves`() {
+        // Each area's loop is woken by the state it shows. The one that leaves stops waking only its
+        // own: the one left behind is still woken when its state is flung.
+        val state = ScrollState()
+        var second by mutableStateOf(true)
+        val ui = open {
+            Row {
+                ScrollArea(Modifier.size(200f).testTag("first"), state, bars = false) { Tall() }
+                if (second) ScrollArea(Modifier.size(200f).testTag("second"), state, bars = false) { Tall() }
+            }
+        }
+
+        second = false
+        ui.settle()
+        ui.flick(Offset(100f, 180f), Offset(100f, 60f))
+
+        assertTrue(state.y > 120f, "the area left behind carried on past the finger: ${state.y}")
+        assertFalse(state.isFlinging, "and came to rest")
+        ui.assertAsleep("after its fling the screen")
+    }
+
+    @Test
+    fun `an area that leaves or is handed another state is woken by the old one no more`() {
+        // A state can outlive its screen, remembered and saved, so every area that ever showed it
+        // must take its loop back with it rather than leave the state ringing a dead one.
+        val first = ScrollState()
+        val second = ScrollState()
+        var current by mutableStateOf(first)
+        var shown by mutableStateOf(true)
+        var twice by mutableStateOf(true)
+        val ui = open {
+            Row {
+                if (shown) ScrollArea(Modifier.size(200f), current, bars = false) { Tall() }
+                if (twice) ScrollArea(Modifier.size(200f), first, bars = false) { Tall() }
+            }
+        }
+        assertEquals(2, first.down.drivers, "two areas show the first state and a fling on it wakes both")
+        assertEquals(2, first.across.drivers, "sideways too")
+
+        twice = false
+        ui.settle()
+        assertEquals(1, first.down.drivers, "the area that left is woken no more")
+        assertEquals(1, first.across.drivers)
+
+        current = second
+        ui.settle()
+        assertEquals(0, first.down.drivers, "nor is an area handed another state")
+        assertEquals(0, first.across.drivers)
+        assertEquals(1, second.down.drivers, "the new state wakes it instead")
+
+        shown = false
+        ui.settle()
+        assertEquals(0, second.down.drivers, "an area that leaves takes its loop with it")
+        assertEquals(0, second.across.drivers)
+    }
+
+    @Test
+    fun `a closed screen leaves nothing for its scroll states to wake`() {
+        val area = ScrollState()
+        val list = LazyListState()
+        val ui = open {
+            Row {
+                ScrollArea(Modifier.size(200f), area, bars = false) { Tall() }
+                LazyColumn(100, Modifier.size(200f), list, bars = false) { Box(Modifier.fillMaxWidth().height(40f)) }
+            }
+        }
+        assertEquals(1, area.down.drivers)
+        assertEquals(1, list.axis.drivers)
+
+        ui.close()
+        assertEquals(0, area.down.drivers, "a scroll state kept past its screen wakes nothing of it")
+        assertEquals(0, area.across.drivers)
+        assertEquals(0, list.axis.drivers, "nor does a lazy list's")
+    }
+
+    @Test
     fun `a flick on a lazy list wakes it and it sleeps again once stopped`() {
         val state = LazyListState()
         val ui = open {
