@@ -9,7 +9,9 @@ import dev.wildware.composegl.ui.node.UiNode
  *
  * Handed to a node as its [content][UiNode.content], it tells the toolkit's own measuring to leave
  * it out: [measureOverdraw] does not run it, so an overlay's outlines are never counted as the
- * screen's paint, and a [FrameBudget] does not list the node among the busiest. The overlays in
+ * screen's paint, and a [FrameBudget] does not list the node among the busiest. It is drawn
+ * wherever its node is, even where its node's box is off the screen, because it draws over all of
+ * it. The overlays in
  * `composegl-debug` are all one, and each leaves the others out of the tree it walks by it. A
  * game's own debug overlay implements it to be treated the same way.
  */

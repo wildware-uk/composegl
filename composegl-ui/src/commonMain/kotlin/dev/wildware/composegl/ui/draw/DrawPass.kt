@@ -17,6 +17,7 @@ import dev.wildware.composegl.ui.graphics.boxShadow
 import dev.wildware.composegl.ui.graphics.border
 import dev.wildware.composegl.ui.graphics.borders
 import dev.wildware.composegl.ui.layout.Padding
+import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.modifier.BackgroundElement
 import dev.wildware.composegl.ui.modifier.BrushBackgroundElement
 import dev.wildware.composegl.ui.modifier.BorderElement
@@ -64,11 +65,14 @@ private const val SettledFrames = 10
  * paints what its chain put behind it, then its own content, then its children, then anything the
  * chain put in front — which is exactly the order a person reading the modifier chain expects.
  *
- * The pass holds no state of its own beyond the canvas and the camera a `Modifier.perspective` hands
- * down while its subtree is being drawn, which is put back before [draw] returns. It writes on each
- * scaled node the factor it was drawn at in this frame, which is how the next frame knows the factor
- * moved; so drawing the same tree twice in one frame draws the same thing, while a scale that just
- * changed is a picture until it has held for [SettledFrames] frames and a transform after. A test
+ * The pass holds no state of its own beyond the canvas and what the walk carries down — the camera
+ * a `Modifier.perspective` hands down while its subtree is being drawn, and the part of the canvas
+ * the screen can see through the clips and transforms the walk is inside — which is put back
+ * before [draw] returns. A subtree whose drawing cannot reach that part is not drawn at all; see
+ * [draw]. It writes on each scaled node the factor it was drawn at in this frame, which is how the
+ * next frame knows the factor moved; so drawing the same tree twice in one frame draws the same
+ * thing, while a scale that just changed is a picture until it has held for [SettledFrames] frames
+ * and a transform after. A test
  * can draw a tree without a GPU anywhere near it. That also means a game whose canvas does not
  * change can make one of these once and keep it, rather than one a frame — see the demos. [canvas]
  * is public so that a caller holding one can check it is still the right one.
@@ -101,17 +105,65 @@ class DrawPass(val canvas: UiCanvas) {
      */
     var trace: DrawCallTrace? = null
 
+    // The part of the canvas that drawing can still reach the screen through, in the coordinates
+    // the node being drawn is drawn in: the screen, cut down by every clip the walk is inside and
+    // carried back through every transform and picture it is drawing through. A node whose reach
+    // misses it is skipped with everything under it. Infinite where nothing is known.
+    private var seenLeft = Float.NEGATIVE_INFINITY
+    private var seenTop = Float.NEGATIVE_INFINITY
+    private var seenRight = Float.POSITIVE_INFINITY
+    private var seenBottom = Float.POSITIVE_INFINITY
+
+    // How far past a clip's edge drawing can still show, in the design units of the frame being
+    // drawn: two pixels, for a scissor rounded to whole pixels and the soft edge of a shape.
+    private var slack = 2f
+
     /** Draws [node] and everything under it. [origin] is where its parent's content box starts. */
     fun draw(node: UiNode, origin: Offset = Offset.Zero) = draw(node, origin.x, origin.y)
 
     /**
+     * Draws the tree at [root] into a frame the canvas opened with `begin(viewport)`, skipping what
+     * cannot reach the screen.
+     *
+     * That frame shows [viewport]'s design rectangle and nothing outside it, so a node whose drawing
+     * cannot reach that rectangle — a row of a long page below the fold — is not drawn, and nor is
+     * anything under it. The other overloads do not know the screen, and skip only what the clips
+     * under the node they are handed cut off. What a [dev.wildware.composegl.ui.host.UiRenderer]
+     * calls each frame.
+     */
+    fun draw(root: UiNode, viewport: Viewport) {
+        val pixel = minOf(viewport.scaleX, viewport.scaleY)
+        slack = if (pixel > 0f) 2f / pixel else Float.POSITIVE_INFINITY
+        seenLeft = -slack
+        seenTop = -slack
+        seenRight = viewport.design.width + slack
+        seenBottom = viewport.design.height + slack
+        walk(root, 0f, 0f)
+    }
+
+    /**
      * The same, as two floats.
      *
-     * What the walk itself uses. A tree is drawn from its parent's corner, and building an [Offset]
-     * to carry two numbers one level down is an object per node per frame for a screen that is
-     * standing still.
+     * A tree is drawn from its parent's corner, and building an [Offset] to carry two numbers one
+     * level down is an object per node per frame for a screen that is standing still.
+     *
+     * A node is skipped with its whole subtree when nothing it draws can reach the screen: its
+     * reach — its box, grown by what its chain paints past it and by its children, worked out by
+     * layout — misses a clip it is inside. Only the clips under [node] count here; the overload that
+     * takes a viewport counts the screen's edge too. Where a node's reach is not known it is drawn.
      */
     fun draw(node: UiNode, originX: Float, originY: Float) {
+        // From the top each time, so a frame that threw part-way leaves nothing behind it.
+        slack = 2f
+        seenLeft = Float.NEGATIVE_INFINITY
+        seenTop = Float.NEGATIVE_INFINITY
+        seenRight = Float.POSITIVE_INFINITY
+        seenBottom = Float.POSITIVE_INFINITY
+        walk(node, originX, originY)
+    }
+
+    /** One node and everything under it: what [draw] does, from inside the walk. */
+    private fun walk(node: UiNode, originX: Float, originY: Float) {
         val resolved = node.resolved
 
         // Nothing under a fully transparent node can be seen, so nothing under it is drawn. A
@@ -127,13 +179,18 @@ class DrawPass(val canvas: UiCanvas) {
             return
         }
 
+        val left = originX + node.rawX
+        val top = originY + node.rawY
+        // Nor anything that cannot reach the part of the canvas the screen shows. A reach that is
+        // not known is infinite, and never misses.
+        if (left + node.reachRight <= seenLeft || left + node.reachLeft >= seenRight ||
+            top + node.reachBottom <= seenTop || top + node.reachTop >= seenBottom
+        ) {
+            return
+        }
+
         // Kept on the node and handed back when it has not moved; see RectCache.
-        val bounds = node.drawnBounds.of(
-            originX + node.rawX,
-            originY + node.rawY,
-            originX + node.rawX + node.rawWidth,
-            originY + node.rawY + node.rawHeight,
-        )
+        val bounds = node.drawnBounds.of(left, top, left + node.rawWidth, top + node.rawHeight)
         // This node until it is done, then whoever was being drawn around it, so a batch cut by a
         // parent's clip coming off after its children is the parent's.
         val trace = trace
@@ -198,6 +255,67 @@ class DrawPass(val canvas: UiCanvas) {
         if (blended) canvas.popBlend()
         if (faded) canvas.popAlpha()
         trace?.node = outer
+    }
+
+    // --- what the screen can see of what is being drawn now ---
+    //
+    // Each caller keeps the four edges as they were in locals and hands them back to [seeAgain] on
+    // the way out: the stack holds them, so a pass made and dropped every frame makes nothing for
+    // them. A frame that throws leaves them wherever it got to, and [draw] starts from the top.
+
+    /** Puts back the area seen, as a caller kept it. */
+    private fun seeAgain(left: Float, top: Float, right: Float, bottom: Float) {
+        seenLeft = left
+        seenTop = top
+        seenRight = right
+        seenBottom = bottom
+    }
+
+    /** A clip of [rect]: the screen sees only what is inside both. */
+    private fun seeInside(rect: Rect) {
+        seenLeft = maxOf(seenLeft, rect.left - slack)
+        seenTop = maxOf(seenTop, rect.top - slack)
+        seenRight = minOf(seenRight, rect.right + slack)
+        seenBottom = minOf(seenBottom, rect.bottom + slack)
+    }
+
+    /**
+     * A picture of [rect]: everything inside it may reach the screen, however it is then put down.
+     * Nothing outside it can.
+     */
+    private fun seeOnly(rect: Rect) {
+        seenLeft = rect.left - slack
+        seenTop = rect.top - slack
+        seenRight = rect.right + slack
+        seenBottom = rect.bottom + slack
+    }
+
+    /**
+     * A transform that puts a point p at p × [scale] + ([moveX], [moveY]): the area seen, in the
+     * coordinates drawn in under it. [scale] is above nothing wherever this is called.
+     */
+    private fun seeThrough(scale: Float, moveX: Float, moveY: Float) {
+        seenLeft = (seenLeft - moveX) / scale
+        seenTop = (seenTop - moveY) / scale
+        seenRight = (seenRight - moveX) / scale
+        seenBottom = (seenBottom - moveY) / scale
+    }
+
+    /**
+     * A picture of [taken] put down over [destination], the same way up: the part of [taken] that
+     * lands where the screen sees.
+     */
+    private fun seeBack(taken: Rect, destination: Rect) {
+        if (taken.width <= 0f || taken.height <= 0f || destination.width <= 0f || destination.height <= 0f) {
+            seeOnly(taken)
+            return
+        }
+        val acrossX = taken.width / destination.width
+        val acrossY = taken.height / destination.height
+        seenLeft = maxOf(taken.left - slack, taken.left + (seenLeft - destination.left) * acrossX)
+        seenTop = maxOf(taken.top - slack, taken.top + (seenTop - destination.top) * acrossY)
+        seenRight = minOf(taken.right + slack, taken.left + (seenRight - destination.left) * acrossX)
+        seenBottom = minOf(taken.bottom + slack, taken.top + (seenBottom - destination.top) * acrossY)
     }
 
     /**
@@ -309,7 +427,16 @@ class DrawPass(val canvas: UiCanvas) {
         val area =
             if (bleed > 0f) bounds.inset(-bleed).scaledAbout(anchorX, anchorY, scale) else drawn
 
-        val picture = canvas.layer(area) { upright(node, resolved, bounds, scale, anchorX, anchorY, steady) }
+        val picture = canvas.layer(area) {
+            val wasLeft = seenLeft
+            val wasTop = seenTop
+            val wasRight = seenRight
+            val wasBottom = seenBottom
+            // What reaches the picture is what is inside it, wherever the turn then puts it.
+            seeOnly(area)
+            upright(node, resolved, bounds, scale, anchorX, anchorY, steady)
+            seeAgain(wasLeft, wasTop, wasRight, wasBottom)
+        }
         if (picture == null) {
             // The same bargain a scale and an effect make: drawn plainly, the right size and the
             // right way up, rather than not drawn at all.
@@ -568,6 +695,12 @@ class DrawPass(val canvas: UiCanvas) {
         // A point p lands at anchor + (p - anchor) × scale, which is p × scale + anchor × (1 - scale).
         canvas.pushTransform(scale, anchorX * (1f - scale), anchorY * (1f - scale), 1f)
         canvas.pushClip(bounds)
+        val wasLeft = seenLeft
+        val wasTop = seenTop
+        val wasRight = seenRight
+        val wasBottom = seenBottom
+        seeThrough(scale, anchorX * (1f - scale), anchorY * (1f - scale))
+        seeInside(bounds)
         val outer = grownScale
         grownScale = outer * scale
         try {
@@ -575,6 +708,7 @@ class DrawPass(val canvas: UiCanvas) {
         } finally {
             grownScale = outer
         }
+        seeAgain(wasLeft, wasTop, wasRight, wasBottom)
         canvas.popClip()
         canvas.popTransform()
     }
@@ -607,7 +741,18 @@ class DrawPass(val canvas: UiCanvas) {
      */
     private fun scaled(node: UiNode, bounds: Rect, destination: Rect, mirrored: Boolean): Boolean {
         val resolved = node.resolved
-        val picture = canvas.layer(bounds) { contents(node, resolved, bounds) } ?: return false
+        val picture = canvas.layer(bounds) {
+            val wasLeft = seenLeft
+            val wasTop = seenTop
+            val wasRight = seenRight
+            val wasBottom = seenBottom
+            // The picture is the node's box, and only the part of it put down where the screen
+            // shows can be seen: the screen carried back through the scale. A mirror is rare
+            // enough to take the whole box.
+            if (mirrored) seeOnly(bounds) else seeBack(bounds, destination)
+            contents(node, resolved, bounds)
+            seeAgain(wasLeft, wasTop, wasRight, wasBottom)
+        } ?: return false
         if (mirrored) {
             canvas.drawLayer(picture, destination, resolved.mirrorX, resolved.mirrorY)
         } else {
@@ -645,13 +790,23 @@ class DrawPass(val canvas: UiCanvas) {
         // the node's own bounds anyway, so clipping it would change nothing. A node part-way through
         // an `animateContentSize` clips too, for as long as its contents are a different size from it.
         val clipped = resolved.clip != null || node.isResizing
-        if (clipped) canvas.pushClip(bounds)
+        val wasLeft = seenLeft
+        val wasTop = seenTop
+        val wasRight = seenRight
+        val wasBottom = seenBottom
+        if (clipped) {
+            canvas.pushClip(bounds)
+            seeInside(bounds)
+        }
 
         // By zIndex, not by source order, and the same list the pointer walks backwards — so what
         // is drawn on top is what gets the click. Nearly always `children` itself.
         inside(node, resolved, bounds, node.drawOrder)
 
-        if (clipped) canvas.popClip()
+        if (clipped) {
+            seeAgain(wasLeft, wasTop, wasRight, wasBottom)
+            canvas.popClip()
+        }
 
         val inFront = resolved.inFront
         for (index in inFront.indices) paint(inFront[index], bounds)
@@ -672,7 +827,16 @@ class DrawPass(val canvas: UiCanvas) {
      */
     private fun cut(node: UiNode, resolved: ResolvedModifier, bounds: Rect, shape: Shape): Boolean {
         val raws = canvas.rawDrawings
-        val picture = canvas.layer(bounds) { insideClip(node, resolved, bounds) } ?: return false
+        val picture = canvas.layer(bounds) {
+            val wasLeft = seenLeft
+            val wasTop = seenTop
+            val wasRight = seenRight
+            val wasBottom = seenBottom
+            // Put down where it was taken, so the clips outside still cut it.
+            seeInside(bounds)
+            insideClip(node, resolved, bounds)
+            seeAgain(wasLeft, wasTop, wasRight, wasBottom)
+        } ?: return false
         // Back to rounding in place next frame once a game's drawing is gone from it.
         node.clipHoldsRaw = canvas.rawDrawings != raws
 
@@ -730,9 +894,15 @@ class DrawPass(val canvas: UiCanvas) {
             canvas.pushClip(box)
             canvas.roundClip(round(side / 2f))
         }
+        val wasLeft = seenLeft
+        val wasTop = seenTop
+        val wasRight = seenRight
+        val wasBottom = seenBottom
+        seeInside(bounds)
         val raws = canvas.rawDrawings
         insideClip(node, resolved, bounds)
         node.clipHoldsRaw = canvas.rawDrawings != raws
+        seeAgain(wasLeft, wasTop, wasRight, wasBottom)
         canvas.popClip()
 
         val inFront = resolved.inFront
@@ -777,18 +947,23 @@ class DrawPass(val canvas: UiCanvas) {
             return
         }
         val padding = resolved.padding
-        canvas.pushClip(
-            run.window.of(
-                bounds.left + padding.left,
-                bounds.top + padding.top,
-                bounds.right - padding.right,
-                bounds.bottom - padding.bottom,
-            ),
+        val window = run.window.of(
+            bounds.left + padding.left,
+            bounds.top + padding.top,
+            bounds.right - padding.right,
+            bounds.bottom - padding.bottom,
         )
+        canvas.pushClip(window)
+        val wasLeft = seenLeft
+        val wasTop = seenTop
+        val wasRight = seenRight
+        val wasBottom = seenBottom
+        seeInside(window)
         val offset = run.offset
         if (offset < run.content) shifted(node, resolved, bounds, children, -offset)
         val behind = run.distance - offset
         if (behind < run.visible) shifted(node, resolved, bounds, children, behind)
+        seeAgain(wasLeft, wasTop, wasRight, wasBottom)
         canvas.popClip()
     }
 
@@ -814,7 +989,7 @@ class DrawPass(val canvas: UiCanvas) {
         }
         val camera = resolved.camera
         if (camera == null) {
-            for (index in children.indices) draw(children[index], bounds.left + dx, bounds.top)
+            for (index in children.indices) walk(children[index], bounds.left + dx, bounds.top)
         } else {
             seen(node, resolved, camera, bounds.left + dx, bounds.top, children)
         }
@@ -855,27 +1030,41 @@ class DrawPass(val canvas: UiCanvas) {
         if (!zooms) {
             for (index in children.indices) {
                 val child = children[index]
-                if (node.showsChild(child)) draw(child, worldX - padding.left, worldY - padding.top)
+                if (node.showsChild(child)) walk(child, worldX - padding.left, worldY - padding.top)
             }
             return
         }
 
         canvas.pushTransform(zoom, worldX, worldY, camera.textZoom)
+        val wasLeft = seenLeft
+        val wasTop = seenTop
+        val wasRight = seenRight
+        val wasBottom = seenBottom
+        seeThrough(zoom, worldX, worldY)
         camera.drawBackground(canvas, node.visibleWorld(camera))
         for (index in children.indices) {
             val child = children[index]
             if (!node.showsChild(child)) continue
             val pin = child.resolved.worldPosition
             if (pin == null || pin.scaleWithZoom) {
-                draw(child, -padding.left, -padding.top)
+                walk(child, -padding.left, -padding.top)
             } else {
                 // Inside the zoom: a point p lands at pin × zoom + (p − pin), which is p ÷ zoom
                 // moved by pin × (zoom − 1) ÷ zoom before the zoom multiplies it back.
-                canvas.pushTransform(1f / zoom, pin.x * (zoom - 1f) / zoom, pin.y * (zoom - 1f) / zoom, 1f / camera.textZoom)
-                draw(child, -padding.left, -padding.top)
+                val shiftX = pin.x * (zoom - 1f) / zoom
+                val shiftY = pin.y * (zoom - 1f) / zoom
+                canvas.pushTransform(1f / zoom, shiftX, shiftY, 1f / camera.textZoom)
+                val zoomedLeft = seenLeft
+                val zoomedTop = seenTop
+                val zoomedRight = seenRight
+                val zoomedBottom = seenBottom
+                seeThrough(1f / zoom, shiftX, shiftY)
+                walk(child, -padding.left, -padding.top)
+                seeAgain(zoomedLeft, zoomedTop, zoomedRight, zoomedBottom)
                 canvas.popTransform()
             }
         }
+        seeAgain(wasLeft, wasTop, wasRight, wasBottom)
         canvas.popTransform()
     }
 
@@ -909,7 +1098,16 @@ class DrawPass(val canvas: UiCanvas) {
         val area = if (effect.bleed > 0f) bounds.inset(-effect.bleed) else bounds
         // Only this outermost picture is scaled, and the whole bled area with it, so a glow grows
         // with the thing that is glowing instead of staying its own size around it.
-        val picture = unscaledLayer(area) { through(effects, index + 1, bounds, 1f, 0f, 0f, body) }
+        val picture = unscaledLayer(area) {
+            val wasLeft = seenLeft
+            val wasTop = seenTop
+            val wasRight = seenRight
+            val wasBottom = seenBottom
+            // A shader may read any of its picture into what it writes, so all of it is drawn.
+            seeOnly(area)
+            through(effects, index + 1, bounds, 1f, 0f, 0f, body)
+            seeAgain(wasLeft, wasTop, wasRight, wasBottom)
+        }
         if (picture == null) {
             through(effects, index + 1, bounds, 1f, 0f, 0f, body)
             return false

@@ -26,7 +26,7 @@ import kotlin.time.TimeSource
  * val changed = budget.recompose { host.frame(nanos) }
  * budget.layout { MeasurePass().run(host.root, viewport) }
  * canvas.begin(viewport)
- * budget.draw { draw.draw(host.root) }
+ * budget.draw { draw.draw(host.root, viewport) }
  * canvas.end()
  * budget.endFrame(canvas.drawCalls, changed)
  * ```

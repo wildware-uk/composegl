@@ -30,6 +30,7 @@ import dev.wildware.composegl.ui.text.TextStyle
 import dev.wildware.composegl.ui.widget.LocalTextOutline
 import dev.wildware.composegl.ui.widget.LocalTextScale
 import dev.wildware.composegl.ui.widget.rememberFonts
+import dev.wildware.composegl.ui.modifier.drawsOutside
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -257,7 +258,8 @@ fun CompassBar(
         painter.measuring(pinSize, hasDistances, hasPins)
     }
 
-    LeafLayout(modifier, name = "compass", measurePolicy = measure, draw = draw)
+    // A heading's name, a pin's distance and the arrow of a pin off the strip hang past its box.
+    LeafLayout(modifier.drawsOutside(), name = "compass", measurePolicy = measure, draw = draw)
 }
 
 /** How a distance is written under a pin when a game has not said otherwise. */

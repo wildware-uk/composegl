@@ -27,6 +27,7 @@ import dev.wildware.composegl.ui.text.TextStyle
 import dev.wildware.composegl.ui.widget.LocalTextOutline
 import dev.wildware.composegl.ui.widget.rememberFonts
 import dev.wildware.composegl.ui.widget.rememberScaled
+import dev.wildware.composegl.ui.modifier.drawsOutside
 
 /**
  * A place in the game's world. Mutable on purpose: the layer owns one and lends it out.
@@ -272,7 +273,8 @@ fun DamageNumberLayer(
         }
     }
 
-    LeafLayout(modifier.fillMaxSize(), name = "damage", draw = painter.draw)
+    // A number rises and drifts from wherever its anchor is seen, past the layer's edge if it likes.
+    LeafLayout(modifier.fillMaxSize().drawsOutside(), name = "damage", draw = painter.draw)
 }
 
 /**

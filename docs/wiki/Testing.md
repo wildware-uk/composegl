@@ -135,7 +135,7 @@ back stack, so `OnBack` and prompts work as they do in a game.
 | `holdStick(x, y, millis)` · `cursor` | a pad driving a `VirtualCursor`: push, wait, let go |
 | `advanceBy(millis)` | game time passing, a frame at a time |
 | `assertFocused` · `assertText` · `assertExists` · `assertDoesNotExist` | what the screen shows |
-| `node(tag)` · `texts(tag)` · `text(tag)` | the same, to read rather than assert |
+| `node(tag)` · `texts(tag)` · `text(tag)` | the same, to read rather than assert. Read off a drawing, so words a clip inside the tagged node cuts off whole — the rows of a list scrolled out of its area — are not there |
 | `render()` | one whole frame into the backend's canvas |
 | `pointerIcon` | the shape the mouse cursor was given, like `PointerIcon.Text` over a field |
 
@@ -334,6 +334,14 @@ The calls are a sealed hierarchy — `Rectangle`, `Border`, `Shadow`, `Text`, `I
 `RotatedImage`, `Fan`, `Layer`, `Raw` — all data classes, so you can assert on exactly
 what you care about. `Image` and `RotatedImage` share a `Pictured` supertype, for a
 test that only cares that a picture was drawn.
+
+Only what can be seen is drawn, so only that is recorded: a widget whose drawing
+cannot reach the screen or a clip it is inside — a row scrolled out of its area — makes
+no calls at all (see *Drawing outside the box* under *Your own drawing* in
+[Modifiers](Modifiers.md#the-list)). A frame
+from `render()` knows the screen, and so does `DrawPass.draw(root, viewport)`; a
+`DrawPass` you hand only a node knows only the clips inside it, so it records
+everything else wherever it is.
 
 Three things worth knowing:
 

@@ -260,6 +260,11 @@ class ResolvedModifier private constructor(
      * [dev.wildware.composegl.ui.widget.worldPosition].
      */
     val worldPosition: dev.wildware.composegl.ui.widget.WorldPositionElement? = null,
+    /**
+     * Whether this node said it draws outside its own box where layout cannot see, so it is drawn
+     * wherever it is. See [dev.wildware.composegl.ui.modifier.drawsOutside].
+     */
+    val drawsOutside: Boolean = false,
 ) {
 
     val hasPainting: Boolean get() = behind.isNotEmpty() || inFront.isNotEmpty()
@@ -367,6 +372,7 @@ class ResolvedModifier private constructor(
             var contextMenu: ContextMenuElement? = null
             var camera: dev.wildware.composegl.ui.node.ContentCamera? = null
             var worldPosition: dev.wildware.composegl.ui.widget.WorldPositionElement? = null
+            var drawsOutside = false
 
             modifier.fold(Unit) { _, element ->
                 when (element) {
@@ -526,6 +532,7 @@ class ResolvedModifier private constructor(
                     is PlacementFrameElement -> placementFrame = element.frame
                     // A choice: a node scrolls one way at one speed, so the later one is it.
                     is MarqueeElement -> marquee = element
+                    is DrawsOutsideElement -> drawsOutside = true
                     else -> Unit   // elements later milestones add, meaningless to layout and drawing
                 }
             }
@@ -548,6 +555,7 @@ class ResolvedModifier private constructor(
                 sizeChanged.toList(), placed.toList(), contentSize,
                 placement, placementFrame, marquee,
                 shortcutKeys.toList(), shortcutGamepad.toList(), contextMenu, camera, worldPosition,
+                drawsOutside,
             )
         }
     }

@@ -130,7 +130,8 @@ class UiRenderer(
 
         canvas.begin(viewport)
         drawBehind?.invoke(canvas)
-        budget.draw { draw.draw(host.root) }
+        // Handed the viewport, so what cannot reach the screen is not drawn.
+        budget.draw { draw.draw(host.root, viewport) }
         canvas.end()
 
         // After end(), because that is when the last batch is actually handed over.

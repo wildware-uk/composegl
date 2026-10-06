@@ -29,6 +29,7 @@ import dev.wildware.composegl.ui.text.TextGuides
 import dev.wildware.composegl.ui.text.TextLayout
 import dev.wildware.composegl.ui.text.TextOutline
 import dev.wildware.composegl.ui.text.TextStyle
+import dev.wildware.composegl.ui.modifier.drawsOutside
 import kotlin.math.sin
 
 /**
@@ -307,7 +308,9 @@ fun Typewriter(
     // told to draw is not what it was told last time.
     val draw = remember(painter, state.revealed, state.pulse) { painter.drawAt(state.revealed) }
 
-    LeafLayout(modifier, name = "typewriter", measurePolicy = painter, draw = draw)
+    // An effect moves each character wherever it likes, and a word longer than the line runs past
+    // its end.
+    LeafLayout(modifier.drawsOutside(), name = "typewriter", measurePolicy = painter, draw = draw)
 }
 
 /**

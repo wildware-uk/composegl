@@ -539,7 +539,8 @@ class MarqueeTest {
 
             assertEquals(Rect(20f, 20f, 140f, 60f), ui.node("strip").boundsInRoot)
             assertEquals(20f, rect(Red).rect.left)
-            assertEquals(220f, rect(Blue).rect.left)
+            // Laid out at 220, wholly past the slot's end at 140: cut off whole, so not drawn.
+            assertTrue(ui.record().only<DrawCall.Rectangle>().none { it.colour == Blue }, "the box past the slot")
 
             ui.advanceBy(1_500)
             val red = rect(Red)

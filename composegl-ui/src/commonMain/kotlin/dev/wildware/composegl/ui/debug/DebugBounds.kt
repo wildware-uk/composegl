@@ -54,7 +54,12 @@ internal object DebugBounds {
     }
 
     /** The size of [rect], rounded to whole units, as `120x40`. */
-    fun label(rect: Rect): String = "${rounded(rect.width)}x${rounded(rect.height)}"
+    fun label(rect: Rect): String = label(rect.width, rect.height)
+
+    private fun label(width: Float, height: Float): String = "${rounded(width)}x${rounded(height)}"
+
+    /** How wide the label's chip is on a box this size. */
+    fun chipWidth(width: Float, height: Float): Float = 2 * Pad + label(width, height).length * Advance - Pixel
 
     /**
      * The chip in the top-left corner, inside the box so a clip round the box keeps it, and the digits
@@ -62,7 +67,7 @@ internal object DebugBounds {
      */
     private fun drawLabel(canvas: UiCanvas, rect: Rect, colour: Colour) {
         val text = label(rect)
-        val chip = Rect.of(rect.left, rect.top, 2 * Pad + text.length * Advance - Pixel, ChipHeight)
+        val chip = Rect.of(rect.left, rect.top, chipWidth(rect.width, rect.height), ChipHeight)
         canvas.rect(chip, colour)
 
         val luminance = (colour.red * 299 + colour.green * 587 + colour.blue * 114) / 1000
