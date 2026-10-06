@@ -1406,4 +1406,11 @@ open class RenderCanvas protected constructor(
             into[15] = 1f
         }
     }
+
+    /**
+     * PROFILING ONLY (#267): a shim so a game written against today's API builds against this old
+     * commit. Today's canvas remembers the window's framebuffer and is told when it changes (#238);
+     * this one asks the driver for it at every begin, so there is nothing to tell it.
+     */
+    fun hostTargetChanged() = Unit
 }
