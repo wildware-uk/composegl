@@ -5,10 +5,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Composition
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.ExperimentalComposeRuntimeApi
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.tooling.setObserver
 import dev.wildware.composegl.ui.animation.Clocks
 import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.debug.FrameBudget
@@ -257,6 +259,11 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
      * still screen really is asleep rather than waking the recomposer every frame to do nothing.
      */
     internal val hasPendingWork: Boolean get() = recomposer.hasPendingWork
+
+    /** Starts counting every recompose scope this screen runs. See [RecomposeCounter]. */
+    @OptIn(ExperimentalComposeRuntimeApi::class)
+    internal fun countRecompositions(): RecomposeCounter =
+        RecomposeCounter().also { it.handle = composition.setObserver(it) }
 
     /** Whether the last [frame] said it changed, so a layout change in the same frame counts once. */
     private var lastFrameChanged = false

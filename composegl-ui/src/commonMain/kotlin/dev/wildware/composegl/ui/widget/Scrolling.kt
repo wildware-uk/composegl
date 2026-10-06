@@ -87,8 +87,13 @@ internal interface ScrollAxis {
  * The fling decays exponentially rather than in a straight line, because a flick that stops dead
  * reads as the list hitting something. Hitting an actual end does stop it dead, which is the one
  * time that reading is right.
+ *
+ * @param moved called whenever a scroll, a step of a fling or a jump moves [position]: what lets a
+ *   [ScrollArea] mark its node for layout instead of being composed again to move its contents.
+ *   Not called when layout itself pulls the position back inside a shrunken end, since that same
+ *   layout is already placing the contents there.
  */
-internal class MeasuredAxis(initial: Float = 0f) : ScrollAxis {
+internal class MeasuredAxis(initial: Float = 0f, private val moved: (() -> Unit)? = null) : ScrollAxis {
 
     override var position: Float by mutableStateOf(initial)
         private set
@@ -114,12 +119,12 @@ internal class MeasuredAxis(initial: Float = 0f) : ScrollAxis {
 
     override fun scrollTo(position: Float) {
         stop()
-        settle(position)
+        move(position)
     }
 
     override fun scrollBy(delta: Float): Boolean {
         val before = position
-        settle(position + delta)
+        move(position + delta)
         return position != before
     }
 
@@ -134,7 +139,7 @@ internal class MeasuredAxis(initial: Float = 0f) : ScrollAxis {
     override fun advance(seconds: Float) {
         if (seconds <= 0f || !isFlinging) return
         val before = position
-        settle(position - velocity * seconds)
+        move(position - velocity * seconds)
         if (position == before) {
             velocity = 0f
             return
@@ -148,6 +153,13 @@ internal class MeasuredAxis(initial: Float = 0f) : ScrollAxis {
         this.visible = visible
         this.total = total
         settle(position)
+    }
+
+    /** To [wanted], clamped, telling [moved] when that went anywhere. */
+    private fun move(wanted: Float) {
+        val before = position
+        settle(wanted)
+        if (position != before) moved?.invoke()
     }
 
     private fun settle(wanted: Float) {

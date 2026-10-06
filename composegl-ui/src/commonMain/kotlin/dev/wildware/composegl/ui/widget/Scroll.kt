@@ -1,6 +1,7 @@
 package dev.wildware.composegl.ui.widget
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import dev.wildware.composegl.ui.focus.RevealHandler
 import dev.wildware.composegl.ui.geometry.Size
@@ -8,19 +9,20 @@ import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Constraints
 import dev.wildware.composegl.ui.layout.IntrinsicMeasurable
-import dev.wildware.composegl.ui.layout.Layout
 import dev.wildware.composegl.ui.layout.LayoutDirection
 import dev.wildware.composegl.ui.layout.LocalLayoutDirection
 import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
+import dev.wildware.composegl.ui.layout.NodeLayout
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.PlacementFrame
 import dev.wildware.composegl.ui.modifier.PlacementFrameElement
 import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.onPointer
 import dev.wildware.composegl.ui.modifier.onReveal
+import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.saveable.rememberSaveable
 
 /**
@@ -36,8 +38,25 @@ import dev.wildware.composegl.ui.saveable.rememberSaveable
  */
 class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
 
-    internal val across = MeasuredAxis(initialX)
-    internal val down = MeasuredAxis(initialY)
+    internal val across = MeasuredAxis(initialX, ::moved)
+    internal val down = MeasuredAxis(initialY, ::moved)
+
+    /**
+     * The nodes of the [ScrollArea]s showing this: nearly always one, and none while it is off the
+     * screen.
+     *
+     * A scroll moves nothing but where the contents are placed, so a step marks these nodes for
+     * layout and nothing is composed again for it: not an area, not its bars. Every area showing the
+     * state is marked, so two panes scrolling together — or the same list in two windows — all
+     * follow. An area adds its node when it starts showing this state and takes away only its own
+     * when it stops, so a state remembered past its screen keeps none of that screen alive.
+     */
+    internal val nodes = ArrayList<UiNode>(1)
+
+    private fun moved() {
+        // By index: a fling steps this every frame, and an iterator per step is garbage per frame.
+        for (index in nodes.indices) nodes[index].invalidate()
+    }
 
     val x: Float get() = across.position
 
@@ -162,7 +181,21 @@ fun ScrollArea(
         }
     }
 
-    Layout(
+    // Nothing here reads where the area is scrolled to. A step marks the node for layout through the
+    // state instead, and the policy reads the offsets as it places, so scrolling composes nothing.
+    val policy = remember(state, horizontal, vertical, bars, barThickness) {
+        ScrollPolicy(state, horizontal, vertical, bars, barThickness)
+    }
+    val made = remember { MadeNode() }
+    DisposableEffect(state) {
+        // Made by now: the node is made as the composition is applied, and effects start after.
+        val node = made.node ?: return@DisposableEffect onDispose {}
+        state.nodes += node
+        // Only its own: another area showing the same state still wants its steps.
+        onDispose { state.nodes -= node }
+    }
+
+    NodeLayout(
         modifier = modifier.onReveal(reveal).onPointer(drag).clip().then(PlacementFrameElement(frame)),
         name = "scroll",
         content = {
@@ -172,8 +205,14 @@ fun ScrollArea(
                 ScrollBar(state.across, vertical = false, style = style, gestures = gestures)
             }
         },
-        measurePolicy = ScrollPolicy(state, state.x, state.y, horizontal, vertical, bars, barThickness),
+        measurePolicy = policy,
+        made = { made.node = it },
     )
+}
+
+/** The node a [ScrollArea] made, once it has made one, for its state to mark when it scrolls. */
+private class MadeNode {
+    var node: UiNode? = null
 }
 
 /**
@@ -185,8 +224,6 @@ fun ScrollArea(
  */
 private class ScrollPolicy(
     private val state: ScrollState,
-    private val offsetX: Float,
-    private val offsetY: Float,
     private val horizontal: Boolean,
     private val vertical: Boolean,
     private val bars: Boolean,
@@ -207,8 +244,9 @@ private class ScrollPolicy(
         val height = constraints.constrainHeight(inside.height)
         state.measured(Size(width, height), Size(inside.width, inside.height))
 
-        // Read back rather than reused: measuring clamps, and a list that shrank is already
-        // somewhere else by now.
+        // Read here, after the state has been told its size, rather than while composing: telling it
+        // clamps, so a list that shrank is already somewhere else by now, and a scroll step reaches
+        // this through the node being marked for layout, not through a new policy.
         val x = state.x
         val y = state.y
 
