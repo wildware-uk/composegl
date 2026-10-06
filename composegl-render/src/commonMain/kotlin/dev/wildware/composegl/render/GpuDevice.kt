@@ -129,6 +129,24 @@ interface GpuDevice {
         mask: ClipMask?,
     ) = drawShapes(vertices, quads, texture, blend, projection)
 
+    /**
+     * The same, through [program]: every quad in [vertices] is one [program] draws. [ShapeProgram.Full]
+     * draws every quad there is.
+     *
+     * The default body draws through the one program a device written before there were several
+     * has, which draws everything.
+     */
+    @Suppress("LongParameterList")
+    fun drawShapes(
+        vertices: VertexStream,
+        quads: Int,
+        texture: DeviceTexture,
+        blend: Blend,
+        projection: FloatArray,
+        mask: ClipMask?,
+        program: ShapeProgram,
+    ) = drawShapes(vertices, quads, texture, blend, projection, mask)
+
     /** One picture through somebody's shader, on the quad [quad] describes. Premultiplied. */
     fun drawEffect(effect: ShaderEffect, picture: DeviceTexture, quad: EffectQuad, blend: Blend)
 
@@ -140,6 +158,33 @@ interface GpuDevice {
 
     /** Lets go of everything this device built. What was never built is not touched. */
     fun close()
+}
+
+/**
+ * Which of the shape programs a draw goes through. The shader is one text either way (see
+ * `render.gl.GlslSources.ShapeFragment`); what differs is which paths are compiled in.
+ */
+enum class ShapeProgram {
+
+    /**
+     * Letters, pictures, boxes, borders, shadows and two-colour gradients: nearly every pixel. It
+     * leaves out the heavy paths so it needs fewer registers, and a phone GPU keeps more pixels in
+     * flight at once.
+     */
+    Common,
+
+    /**
+     * What [Common] draws, for pictures held inside the corner of a bigger pooled picture (see
+     * [QuadBatch.holdInside]). Holding a read takes a value every letter would otherwise have to
+     * load too, so only these pay for it.
+     */
+    Held,
+
+    /**
+     * Everything [Common] draws, and the three paths it leaves out: a lit surface, a gradient of more
+     * than two colours, and a shade inside a shape.
+     */
+    Full,
 }
 
 /** What a device can do. */

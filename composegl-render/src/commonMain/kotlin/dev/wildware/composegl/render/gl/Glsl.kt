@@ -93,7 +93,22 @@ enum class GlslDialect(
 /** The shaders every device on OpenGL compiles, written once as GLSL ES 1.00 style source. */
 object GlslSources {
 
-    val ShapeVertex = """
+    /**
+     * What `CG_SMALL` means: `mediump` in the common shape program on an ES device, and nothing
+     * anywhere else. Written in front of both halves of each shape program, so a varying is the same
+     * width on both sides of it whatever a driver's linker thinks of a mismatch.
+     */
+    private val SmallNumbers = """
+        #if defined(GL_ES) && !defined(CG_FULL)
+        #define CG_SMALL mediump
+        #else
+        #define CG_SMALL
+        #endif
+
+    """.trimIndent() + "\n"
+
+    /** The shape vertex shader, for every shape program: see [ShapeFragment]. */
+    val ShapeVertex = SmallNumbers + """
         attribute vec3 a_position;
         attribute vec4 a_color;
         attribute vec4 a_borderColor;
@@ -107,15 +122,15 @@ object GlslSources {
 
         uniform mat4 u_projTrans;
 
-        varying vec4 v_color;
-        varying vec4 v_borderColor;
-        varying vec4 v_shadowColor;
+        varying CG_SMALL vec4 v_color;
+        varying CG_SMALL vec4 v_borderColor;
+        varying CG_SMALL vec4 v_shadowColor;
         varying vec2 v_texCoord;
         varying vec2 v_local;
         varying vec2 v_halfSize;
-        varying vec3 v_shape;
+        varying CG_SMALL vec3 v_shape;
         varying vec4 v_radii;
-        varying vec3 v_gradient;
+        varying CG_SMALL vec3 v_gradient;
 
         void main() {
             v_color = a_color;
@@ -134,7 +149,30 @@ object GlslSources {
         }
     """.trimIndent()
 
-    val ShapeFragment = """
+    /**
+     * The shape fragment shader, as one text that compiles to three programs: the common one, the
+     * full one when it is prefixed with [FullShape], and the held one when it is prefixed with
+     * [HeldShape].
+     *
+     * The full program draws everything. The common one leaves out the three paths few pixels take
+     * — a lit surface, a gradient of more than two colours, a shade inside a shape — which are the
+     * ones that need the most registers. Without them, and with its colours and its small per-quad
+     * numbers read at `mediump` on an ES device, a Mali GPU fits it in 32 registers and runs it at
+     * full occupancy: twice the pixels in flight of the full program. Positions, half sizes, radii
+     * and texture coordinates stay at full width in every program, so a wide panel keeps an exact edge and a
+     * big glyph page stays sharp. A desktop GL has no `mediump` and compiles every program as written.
+     *
+     * The full program keeps every number at full width, because there the colour slots carry more
+     * than colours: a run of stops reads its strip's ends from the shadow colour, and a lit face its
+     * run's width from the spread, both texture coordinates.
+     *
+     * The held program is the common one with one read put back: a picture in the corner of a
+     * bigger pooled picture is held inside that corner, which takes the radii. A GPU reads every
+     * varying a path might need before it starts, so in the common program that read would cost
+     * every letter a third more; only held pictures pay for it, and they are a draw of their own
+     * anyway, from a texture nothing else uses.
+     */
+    val ShapeFragment = SmallNumbers + """
         uniform sampler2D u_texture;
 
         // The rounded clip in force, if any: see ClipMask. The middle in pixels of the target, the
@@ -146,15 +184,17 @@ object GlslSources {
         uniform vec2 u_maskScale;
         uniform float u_maskMode;
 
-        varying vec4 v_color;
-        varying vec4 v_borderColor;
-        varying vec4 v_shadowColor;
+        // CG_SMALL is mediump in the common program on an ES device: a colour, and the border width,
+        // spread, softened edge and gradient kind and axis, which never need more than three figures.
+        varying CG_SMALL vec4 v_color;
+        varying CG_SMALL vec4 v_borderColor;
+        varying CG_SMALL vec4 v_shadowColor;
         varying vec2 v_texCoord;
         varying vec2 v_local;
         varying vec2 v_halfSize;
-        varying vec3 v_shape;
+        varying CG_SMALL vec3 v_shape;
         varying vec4 v_radii;
-        varying vec3 v_gradient;
+        varying CG_SMALL vec3 v_gradient;
 
         // Distance from a point to the edge of a rounded box: negative inside, positive out.
         float roundedBox(vec2 point, vec2 extent, float radius) {
@@ -162,6 +202,7 @@ object GlslSources {
             return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
         }
 
+        #ifdef CG_FULL
         // Which way the edge lies from a point inside a rounded box: the way the distance grows.
         // The same arithmetic as roundedBox, differentiated by hand rather than sampled, so a
         // normal costs no extra texture reads and is exact on the straight sides.
@@ -174,6 +215,8 @@ object GlslSources {
             }
             return normalize(way) * sign(point + vec2(0.0001, 0.0001));
         }
+
+        #endif
 
         // Which corner's radius a point is under: the one in the same quarter of the box. The
         // radii are top-left, then clockwise, and y counts upwards here.
@@ -196,6 +239,7 @@ object GlslSources {
             return vec4(mix(from.rgb * from.a, to.rgb * to.a, t) / a, a);
         }
 
+        #ifdef CG_FULL
         // How steeply the surface climbs a fraction [along] of the way up the edge, for each of the
         // three shapes an edge can be. A chamfer climbs at a constant angle, a fillet rolls over,
         // and a dome keeps curving across the whole face.
@@ -213,6 +257,7 @@ object GlslSources {
 
         // Where a lit surface stops climbing straight towards white and starts easing into it.
         const float Knee = 0.8;
+        #endif
 
         vec4 shaded() {
             vec4 sampled = texture2D(u_texture, v_texCoord);
@@ -226,10 +271,16 @@ object GlslSources {
                 // it, as a picture its own size is clamped at its edge, rather than reading the clear
                 // strip round it. Only there: everywhere else, and for text and shapes, the one plain
                 // read straight from the varying stands. See holdInside.
+                //
+                // Not in the common program: a GPU reads every varying a path might need before it
+                // starts, so the radii would cost every letter a third more. Held pictures take the
+                // held program, which is the common one with this read put back.
+                #if defined(CG_FULL) || defined(CG_HELD)
                 if (v_radii.z > 0.0) {
                     vec2 held = clamp(v_texCoord, v_radii.xy, v_radii.zw);
                     if (held != v_texCoord) sampled = texture2D(u_texture, held);
                 }
+                #endif
                 if (v_gradient.x > 0.5 && sampled.a > 0.0) sampled = vec4(sampled.rgb / sampled.a, sampled.a);
                 return v_color * sampled;
             }
@@ -241,6 +292,7 @@ object GlslSources {
             float distance = roundedBox(v_local, v_halfSize, radius);
             float coverage = 1.0 - smoothstep(-aa, aa, distance);
 
+            #ifdef CG_FULL
             // A lit surface rather than a filled one: the shape is given a height along its edge,
             // the normal of that height is worked out here, and one light is shone on it. What
             // comes out is the difference the light makes — dark where it falls away, bright where
@@ -331,6 +383,7 @@ object GlslSources {
                 relief.rgb = mix(relief.rgb, vec3(1.0), clamp(shine, 0.0, 1.0));
                 return vec4(relief.rgb, relief.a * coverage);
             }
+            #endif
 
             // A gradient. Two colours mix in the vertex, the end riding in the border's slot; a run
             // of stops is a strip of the atlas, and where it is rides in the shadow's slot.
@@ -339,13 +392,16 @@ object GlslSources {
             // reads the strip itself, and the quad's own texture coordinate is that strip's start,
             // so it takes its colour from the strip alone rather than multiplying by it twice.
             vec4 texel = sampled;
+            #ifdef CG_FULL
             if (v_gradient.x > 2.5) texel = vec4(1.0);
+            #endif
             if (v_gradient.x > 0.5) {
                 bool outwards = v_gradient.x > 1.5 && v_gradient.x < 2.5 || v_gradient.x > 3.5;
                 float along = outwards
                     ? length(v_local / max(v_halfSize, vec2(0.0001)))
                     : dot(v_local, v_gradient.yz) + 0.5;
                 along = clamp(along, 0.0, 1.0);
+                #ifdef CG_FULL
                 if (v_gradient.x > 2.5) {
                     vec2 from = v_shadowColor.xy;
                     vec2 to = v_shadowColor.zw;
@@ -353,7 +409,9 @@ object GlslSources {
                     // The strip is premultiplied, so that the GPU's own mixing is the right mix.
                     if (strip.a > 0.0) strip = vec4(strip.rgb / strip.a, strip.a);
                     fill = strip * v_color;
-                } else {
+                } else
+                #endif
+                {
                     fill = between(v_color, v_borderColor, along);
                 }
             }
@@ -372,7 +430,9 @@ object GlslSources {
                 // Outside the shape only, falling off across the spread.
                 float shade = (1.0 - smoothstep(0.0, spread, max(distance, 0.0)));
                 result = over(result, vec4(v_shadowColor.rgb, v_shadowColor.a * shade));
-            } else if (spread < 0.0) {
+            }
+            #ifdef CG_FULL
+            else if (spread < 0.0) {
                 // Inside the shape, falling off inwards from the edge, and moved by the offset that
                 // rides in the gradient's axis: a shade along one edge is what makes a box look
                 // moulded rather than flat. Kept to the shape by its own coverage.
@@ -387,6 +447,7 @@ object GlslSources {
                 float shade = 1.0 - smoothstep(hard, 1.0, along);
                 result = over(vec4(v_shadowColor.rgb, v_shadowColor.a * shade * coverage), result);
             }
+            #endif
 
             return result;
         }
@@ -411,6 +472,15 @@ object GlslSources {
             gl_FragColor = colour;
         }
     """.trimIndent()
+
+    /**
+     * What makes [ShapeVertex] and [ShapeFragment] the full program: written in front of each, after
+     * the dialect's header.
+     */
+    const val FullShape = "#define CG_FULL\n"
+
+    /** The same for the held program: the common one, and the read that holds a picture inside a pooled corner. */
+    const val HeldShape = "#define CG_HELD\n"
 
     /** An effect's quad, already in clip space: no projection to get wrong. */
     val EffectVertex = """

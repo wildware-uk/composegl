@@ -662,7 +662,8 @@ Brush.radialRamp(Brush.Stop(0f, clear), Brush.Stop(0.6f, clear), Brush.Stop(1f, 
 puts each colour where you say, as a fraction of the run from 0 at the start to 1 at
 the end, and `radialRamp` runs outwards from the middle instead. The ends are held:
 anything before the first stop is the first colour, anything after the last is the
-last. A run costs no more than two colours do — see *They cost one draw call* below.
+last. A run is drawn from the same atlas as a flat colour, but through the renderer's
+heavier program — see *What they cost* below.
 
 **Borders can be one-sided, dashed or dotted.** `BorderSide(width, colour, style)` is
 one edge, and `Modifier.border(left =, top =, right =, bottom =)` takes any of the four;
@@ -793,8 +794,8 @@ Modifier.relief(corner = 30f, face = leaf, gloss = 0.5f, polish = 0.45f)
 ```
 
 Left out, it lies over whatever fill is underneath — useful over a gradient or a picture,
-at the cost of that washing. Either way it is one draw call, and nothing is sampled: the
-normal is worked out from the same distance field that rounds the corners.
+at the cost of that washing. Either way nothing is sampled: the normal is worked out from
+the same distance field that rounds the corners.
 
 **`hardness` says what kind of edge the light makes.** At `0f` the shade fades the
 whole way in: a fillet, a moulded plastic button. Near `1f` it holds its strength and
@@ -897,9 +898,15 @@ Box(
 Hovering turns the light up rather than changing a colour: the same surface catching more
 of the same light, which is what a mouse resting on a real one would do.
 
-**They cost one draw call.** A fill, two shades and an outline batch into a single
-draw. A multi-stop gradient is baked into a 64-pixel strip of the same atlas a flat
-colour comes from, so a gradient button batches with flat panels too.
+**What they cost.** A lit surface, an inner shade and a gradient of more than two
+colours are the heaviest things the renderer draws, so they go through a program of
+their own. Everything else goes through a lighter one that a phone's GPU runs much
+faster: a letter in half the time on a mid-range Mali. Each switch between the two is
+a draw call. A `moulded` button is three: the fill, both shades together, then the
+outline. A multi-stop gradient is baked into a 64-pixel strip of the same atlas a flat
+colour comes from, so it costs no texture switch, only the program one. Lit buttons in
+a row share one heavy draw only when nothing else is drawn between them. The frame
+budget overlay names these calls `program` — see [[Debugging]].
 
 **How far this goes.** The picture below is a bought art sheet of casual-game
 interface pieces, drawn again with these modifiers and no art at all — no texture, no

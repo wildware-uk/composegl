@@ -6,6 +6,7 @@ import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.node.UiNode
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -33,6 +34,9 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     private var used = 0
 
     private var texture: DeviceTexture? = null
+
+    /** Which shape program what is queued needs: see [ShapeProgram]. */
+    private var program = ShapeProgram.Common
     private var drawing = false
 
     /*
@@ -252,14 +256,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     private fun draw() {
         val quads = used / (4 * ShapeVertex.Floats)
         vertices.put(floats, used)
-        val mask = mask
-        // The call every device has had all along when there is no mask, so one written before
-        // masks existed is handed exactly what it always was.
-        if (mask == null) {
-            device.drawShapes(vertices, quads, checkNotNull(texture), blend, projection)
-        } else {
-            device.drawShapes(vertices, quads, checkNotNull(texture), blend, projection, mask)
-        }
+        device.drawShapes(vertices, quads, checkNotNull(texture), blend, projection, mask, program)
         renderCalls++
         used = 0
     }
@@ -311,7 +308,8 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         val u = white.u
         val v = white.v
 
-        use(white.texture)
+        // A shade inside the shape is one of the paths only the full program has.
+        use(white.texture, if (shadowSpread < 0f) ShapeProgram.Full else ShapeProgram.Common)
         quad(
             left = left - margin,
             bottom = bottom - margin,
@@ -391,7 +389,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         radii[2] = bottomRight.coerceIn(0f, most)
         radii[3] = bottomLeft.coerceIn(0f, most)
 
-        use(white.texture)
+        use(white.texture, ShapeProgram.Full)
         quad(
             left = left - aa,
             bottom = bottom - aa,
@@ -431,9 +429,11 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     /**
      * One rounded box filled from a strip of the atlas: a gradient of more than two colours.
      *
-     * The same quad and the same distance field as [shape], so it batches with everything else on
-     * the page. Where the strip is rides in the shadow colour's slot, which a gradient never uses,
-     * so the border's slot is free and a run of stops can carry an outline in the same quad.
+     * The same quad and the same distance field as [shape], and the strip is on the same texture
+     * flat colour comes from, so it costs no texture switch. It does need the full program
+     * ([ShapeProgram.Full]), so it shares a draw call only with lit surfaces, inside shades and other
+     * runs drawn next to it. Where the strip is rides in the shadow colour's slot, which a gradient
+     * never uses, so the border's slot is free and a run of stops can carry an outline in the same quad.
      *
      * @param tint what the strip is multiplied by: the alpha and tint in force.
      * @param u where the strip starts, in texture coordinates, and [u2] where it ends.
@@ -470,7 +470,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         radii[3] = bottomLeft.coerceIn(0f, most)
         val margin = maxOf(-borderWidth, 0f) + aa
 
-        use(white.texture)
+        use(white.texture, ShapeProgram.Full)
         quad(
             left = left - margin,
             bottom = bottom - margin,
@@ -533,7 +533,11 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         val u = white.u
         val v = white.v
 
-        use(white.texture)
+        // The common program reads the axis at mediump on a phone, whose smallest ordinary number
+        // is 2^-14: a gradient stretched past about 16,000 units each way, across a box wide enough
+        // for that to show, takes the full program instead, which reads it whole.
+        val fits = radial || fitsSmall(axisX, halfWidth + aa) && fitsSmall(axisY, halfHeight + aa)
+        use(white.texture, if (fits) ShapeProgram.Common else ShapeProgram.Full)
         quad(
             left = left - aa,
             bottom = bottom - aa,
@@ -557,6 +561,16 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         )
     }
 
+    /**
+     * Whether a gradient axis of [axis] a unit still says what it should at `mediump`, over a box
+     * reaching [half] units each side of its middle: big enough to be an ordinary number there, or
+     * too small to move the gradient a thousandth of the way however it is rounded.
+     */
+    private fun fitsSmall(axis: Float, half: Float): Boolean {
+        val size = abs(axis)
+        return size >= SmallestMedium || size * half < 1f / 1024f
+    }
+
     /** The four radii of the box being written, top-left then clockwise. Read straight after. */
     private val radii = FloatArray(4)
 
@@ -571,12 +585,21 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     private val pictureRadii: FloatArray get() = if (holding) held else noRadii
 
     /**
+     * The program a picture written now needs: a held one reads its radii, which the common program
+     * leaves out. [ShapeProgram.Held] is the light one that reads them; the full one does too, since
+     * it draws everything.
+     */
+    private val pictureProgram: ShapeProgram get() = if (holding) ShapeProgram.Held else ShapeProgram.Common
+
+    /**
      * Until [letGo], every picture written holds its reads inside the texture box [left], [bottom],
      * [right], [top]: the corner of a pooled picture a layer was drawn into, half a texel in from
      * each edge. A turned or stretched layer then reads its own edge just past it, as a picture its
      * own size clamps there, rather than the clear strip round the corner.
      *
-     * It rides in the radii, which a picture has no use for, so it costs no flush and no varying.
+     * It rides in the radii, which a picture has no use for. The common program does not read them,
+     * so a held picture is drawn through [ShapeProgram.Held]: a draw call of its own beside unheld
+     * quads, but it is one anyway, since a held picture is a pooled layer's own texture.
      */
     fun holdInside(left: Float, bottom: Float, right: Float, top: Float) {
         held[0] = left
@@ -632,7 +655,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         tint: Colour,
         premultiplied: Boolean = false,
     ) {
-        use(texture)
+        use(texture, pictureProgram)
         quad(
             left = left,
             bottom = bottom,
@@ -687,7 +710,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         val top = bottom + height
         val kind = if (premultiplied) ShapeVertex.PremultipliedPicture else 0f
 
-        use(texture)
+        use(texture, pictureProgram)
         // Anticlockwise from the bottom-left, exactly as `quad` winds it, so the indices fit.
         turned(left, bottom, pivotX, pivotY, turnCos, turnSin, u, v2, tint, kind)
         turned(left, top, pivotX, pivotY, turnCos, turnSin, u, v, tint, kind)
@@ -709,7 +732,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         v2: Float,
         tint: Colour,
     ) {
-        use(texture)
+        use(texture, pictureProgram)
         flat(corners[6], corners[7], u, v2, tint, pictureRadii)
         flat(corners[0], corners[1], u, v, tint, pictureRadii)
         flat(corners[2], corners[3], u2, v, tint, pictureRadii)
@@ -731,7 +754,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         v2: Float,
         tint: Colour,
     ) {
-        use(texture)
+        use(texture, pictureProgram)
         deep(corners, 9, u, v2, tint)
         deep(corners, 0, u, v, tint)
         deep(corners, 3, u2, v, tint)
@@ -750,7 +773,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         cx: Float, cy: Float, cu: Float, cv: Float, cColour: Colour,
         dx: Float, dy: Float, du: Float, dv: Float, dColour: Colour,
     ) {
-        use(texture)
+        use(texture, pictureProgram)
         flat(ax, ay, au, av, aColour, pictureRadii)
         flat(bx, by, bu, bv, bColour, pictureRadii)
         flat(cx, cy, cu, cv, cColour, pictureRadii)
@@ -810,14 +833,22 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         )
     }
 
-    private fun use(next: DeviceTexture) {
+    /**
+     * Makes room for one quad from [next], drawn through [needs]. What is queued goes first when it
+     * was queued under another blend, clip or scissor, was from another texture, needs another
+     * program, or fills the batch.
+     */
+    private fun use(next: DeviceTexture, needs: ShapeProgram = ShapeProgram.Common) {
         catchUp()
         if (texture != next) {
             flush(BatchBreak.Texture)
             texture = next
+        } else if (needs != program) {
+            flush(BatchBreak.Program)
         } else if (used + 4 * ShapeVertex.Floats > capacity) {
             flush(BatchBreak.Full)
         }
+        program = needs
     }
 
     @Suppress("LongParameterList")
@@ -890,6 +921,12 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         floats[at + 2] = colour.blue / 255f
         floats[at + 3] = colour.alphaFraction
         return at + 4
+    }
+
+    private companion object {
+
+        /** The smallest ordinary number `mediump` promises: 2^-14. Smaller ones may read as zero. */
+        const val SmallestMedium = 1f / 16384f
     }
 }
 

@@ -6,6 +6,7 @@ import dev.wildware.composegl.render.ClipMask
 import dev.wildware.composegl.render.EffectQuad
 import dev.wildware.composegl.render.FrameTarget
 import dev.wildware.composegl.render.RenderCanvas
+import dev.wildware.composegl.render.ShapeProgram
 import dev.wildware.composegl.render.ShapeVertex
 import dev.wildware.composegl.render.TextureResolver
 import dev.wildware.composegl.render.VertexStream
@@ -46,13 +47,14 @@ class GlDeviceStateTest {
             vertices = device.vertices(8)
         }
 
+        /** The common shape program, the first one made, which [draw] draws through. */
         val shapeProgram: String get() = gl.named("createProgram=").first().substringAfter('=')
         val shapeBuffer: String get() = gl.named("createBuffer=")[0].substringAfter('=')
         val indexBuffer: String get() = gl.named("createBuffer=")[2].substringAfter('=')
         val shapeArray: String get() = gl.named("createVertexArray=").first().substringAfter('=')
 
         fun draw(texture: Int = 0, blend: Blend = Blend.SourceOver, projection: FloatArray, mask: ClipMask? = null) =
-            device.drawShapes(vertices, 1, textures[texture], blend, projection, mask)
+            device.drawShapes(vertices, 1, textures[texture], blend, projection, mask, ShapeProgram.Common)
 
         /** What [block] sent the driver. */
         fun sent(block: () -> Unit): List<String> {

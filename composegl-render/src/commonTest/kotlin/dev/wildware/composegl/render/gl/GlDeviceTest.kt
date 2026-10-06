@@ -6,6 +6,7 @@ import dev.wildware.composegl.render.EffectQuad
 import dev.wildware.composegl.render.FrameTarget
 import dev.wildware.composegl.render.QuadBatch
 import dev.wildware.composegl.render.RenderCanvas
+import dev.wildware.composegl.render.ShapeProgram
 import dev.wildware.composegl.render.ShapeVertex
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.effect.ShaderSource
@@ -622,7 +623,7 @@ class GlDeviceTest {
         device.drawEffect(glow.copy(source = glow.source.copy()), picture, EffectQuad(), Blend.PremultipliedSourceOver)
         device.end()
 
-        assertEquals(2, gl.named("createProgram").size, "the shape program and one effect program")
+        assertEquals(4, gl.named("createProgram").size, "the three shape programs and one effect program")
         assertEquals(
             listOf(
                 "blendFuncSeparate(${GlConst.ONE}, ${GlConst.ONE}, ${GlConst.ONE}, ${GlConst.ONE})",
@@ -655,8 +656,73 @@ class GlDeviceTest {
         assertFalse(device.prepared)
         drawOne(gl, device)
 
-        assertEquals(2, gl.named("createProgram").size)
+        assertEquals(6, gl.named("createProgram").size, "all three shape programs, built again")
         assertEquals(0, gl.named("delete").count { !it.startsWith("deleteShader") }, "those names died with the context")
+    }
+
+    /** The program whose fragment shader is the one [fragment] picks, as [gl] made it. */
+    private fun programOf(gl: RecordingGl, fragment: (String) -> Boolean): String {
+        val shader = gl.sources.entries.single { (_, source) -> "gl_Position" !in source && fragment(source) }.key
+        return gl.named("attachShader(").single { it.endsWith(", $shader)") }.substringAfter('(').substringBefore(',')
+    }
+
+    @Test
+    fun `all three shape programs are built up front - each with its switch after the header`() {
+        val gl = RecordingGl(GlProfile(GlApi.Es, 3, 0))
+        GlDevice(gl).prepare()
+
+        assertEquals(3, gl.named("createProgram").size, "no shader is compiled in the middle of a frame later")
+        listOf("#define CG_FULL\n", "#define CG_HELD\n").forEach { switch ->
+            val switched = gl.sources.values.filter { switch in it }
+            assertEquals(2, switched.size, "both halves of the program have $switch")
+            switched.forEach { assertTrue(it.startsWith("#version 300 es\n"), it.take(80)) }
+        }
+        assertEquals(2, gl.sources.values.count { "#define CG_FULL" !in it && "#define CG_HELD" !in it }, "and the common program's have neither")
+    }
+
+    @Test
+    fun `a draw goes through the program it asks for and a device not told draws through the full one`() {
+        val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
+        val device = GlDevice(gl)
+        device.begin(FrameTarget.Host)
+        val texture = device.texture(4, 4, smooth = true)
+        val vertices = device.vertices(8)
+        device.drawShapes(vertices, 1, texture, Blend.SourceOver, identity, null, ShapeProgram.Common)
+        device.drawShapes(vertices, 1, texture, Blend.SourceOver, identity, null, ShapeProgram.Held)
+        device.drawShapes(vertices, 1, texture, Blend.SourceOver, identity, null, ShapeProgram.Full)
+        device.drawShapes(vertices, 1, texture, Blend.SourceOver, identity)
+        device.end()
+
+        val common = programOf(gl) { "#define CG_FULL" !in it && "#define CG_HELD" !in it && "u_maskBox" in it }
+        val held = programOf(gl) { "#define CG_HELD" in it }
+        val full = programOf(gl) { "#define CG_FULL" in it }
+        assertEquals(
+            listOf("useProgram($common)", "useProgram($held)", "useProgram($full)"),
+            gl.named("useProgram(").filter { it != "useProgram(0)" },
+            "the last draw is the full program again, already in use",
+        )
+        // Each program has its own uniforms, so each sets its projection the first time it draws.
+        assertEquals(3, gl.named("uniformMatrix4fv(u_projTrans)").size)
+    }
+
+    @Test
+    fun `each program remembers its own uniforms - going back to one sends what changed while another drew`() {
+        val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
+        val device = GlDevice(gl)
+        device.begin(FrameTarget.Host)
+        val texture = device.texture(4, 4, smooth = true)
+        val vertices = device.vertices(8)
+        val moved = identity.copyOf().also { it[12] = 0.5f }
+        device.drawShapes(vertices, 1, texture, Blend.SourceOver, identity, null, ShapeProgram.Common)
+        device.drawShapes(vertices, 1, texture, Blend.SourceOver, moved, null, ShapeProgram.Full)
+        device.drawShapes(vertices, 1, texture, Blend.SourceOver, moved, null, ShapeProgram.Common)
+        device.drawShapes(vertices, 1, texture, Blend.SourceOver, moved, null, ShapeProgram.Full)
+        device.end()
+
+        // The common program still held the first projection when it came back, so it is sent the
+        // new one; the full program already had it, so nothing is sent the second time it draws.
+        assertEquals(3, gl.named("uniformMatrix4fv(u_projTrans)").size, "${gl.named("uniformMatrix4fv")}")
+        assertEquals(4, gl.named("useProgram(").count { it != "useProgram(0)" })
     }
 
     @Test
@@ -664,7 +730,7 @@ class GlDeviceTest {
         val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
         val device = drawOne(gl)
         device.close()
-        assertEquals(1, gl.named("deleteProgram").size)
+        assertEquals(3, gl.named("deleteProgram").size, "all three shape programs")
         assertEquals(3, gl.named("deleteBuffer").size)
         assertEquals(2, gl.named("deleteVertexArray").size)
     }

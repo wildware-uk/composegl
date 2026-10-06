@@ -1,5 +1,7 @@
 package dev.wildware.composegl.lwjgl3
 
+import dev.wildware.composegl.ui.debug.BatchBreak
+import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
@@ -112,27 +114,32 @@ class MouldedBoxGlTest {
         assertTrue(top < bottom - 20, "the top inside edge is the shaded one: top $top, bottom $bottom")
     }
 
+    /** What cut each of a frame's draw calls, the frame's own end included, in the order they happened. */
+    private fun reasons(trace: DrawCallTrace) = trace.culprits(withEnd = true).map { it.reason to it.calls }
+
     @Test
-    fun `a whole moulded button is still one draw call`() {
-        var calls = 0
+    fun `a whole moulded button is three draw calls - its two shades together through the full program`() {
+        val trace = DrawCallTrace()
         Gl.render {
             val canvas = GlCanvas(null)
             try {
                 Gl.gl.clearColor(0f, 0f, 0f, 1f)
                 Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
+                canvas.traceDrawCalls(trace)
                 canvas.begin(viewport)
                 canvas.rect(box, green, Corners.all(10f))
                 canvas.innerShade(box, Colour.White.scaleAlpha(0.35f), depth = 6f, corners = Corners.all(10f), offsetY = 6f)
                 canvas.innerShade(box, ink.scaleAlpha(0.5f), depth = 6f, corners = Corners.all(10f), offsetY = -6f)
                 canvas.borderOutside(box, ink, width = 4f, corners = Corners.all(10f))
                 canvas.end()
-                calls = canvas.drawCalls
             } finally {
                 canvas.close()
             }
         }
 
-        assertEquals(1, calls, "fill, two shades and an outline all batch into one draw")
+        // The fill, then both shades in one draw, then the outline: one texture throughout, so the
+        // only breaks are into the full program and back out of it.
+        assertEquals(listOf(BatchBreak.Program to 2, BatchBreak.End to 1), reasons(trace))
     }
 
     @Test
@@ -164,28 +171,30 @@ class MouldedBoxGlTest {
     }
 
     @Test
-    fun `a run of stops still batches with the panel behind it`() {
+    fun `a run of stops shares the panel's texture and breaks only for its program`() {
         val fonts = StbFonts().apply {
             register("body", javaClass.getResourceAsStream("/fonts/DejaVuSans.ttf")!!.readBytes(), listOf(16))
         }
-        var calls = 0
+        val trace = DrawCallTrace()
         Gl.render {
             val canvas = GlCanvas(fonts)
             try {
                 Gl.gl.clearColor(0f, 0f, 0f, 1f)
                 Gl.gl.clear(GL11.GL_COLOR_BUFFER_BIT)
+                canvas.traceDrawCalls(trace)
                 canvas.begin(viewport)
                 canvas.rect(Rect.of(10f, 10f, 200f, 160f), ink)
                 canvas.rect(box, Brush.evenly(listOf(green, Colour.White, ink)), Corners.all(8f))
                 canvas.end()
-                calls = canvas.drawCalls
             } finally {
                 canvas.close()
                 fonts.close()
             }
         }
 
-        assertEquals(1, calls, "the strip is on the page solid colour comes from")
+        // The strip is on the page solid colour comes from, so no texture break: the one break is
+        // the run of stops going through the full program.
+        assertEquals(listOf(BatchBreak.Program to 1, BatchBreak.End to 1), reasons(trace))
     }
 
     @Test
