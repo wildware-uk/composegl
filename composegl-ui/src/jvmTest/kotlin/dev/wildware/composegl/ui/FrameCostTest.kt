@@ -336,8 +336,9 @@ class FrameCostTest {
     }
 
     /**
-     * The frame a game actually runs: [UiRenderer] with a [FocusManager], which walks the whole tree
-     * every frame to keep focus on something real. Something has focus, as it does on a menu.
+     * The frame a game actually runs: [UiRenderer] with a [FocusManager], which keeps focus on
+     * something real — on a still frame by seeing that nothing has moved. Something has focus, as it
+     * does on a menu.
      */
     @Test
     @Tag("allocation")
@@ -360,16 +361,15 @@ class FrameCostTest {
         }
         val perFrame = (allocatedBytes() - before) / 20
 
-        // A ratchet: 416 bytes today, from about 2,140. What is left is the focus refresh's own list
-        // of focusable nodes and where focus was last seen, a few small objects a frame (#251), and
-        // nothing per node: the next test holds that.
-        assertTrue(perFrame < 768, "a still frame of a whole HUD through the renderer allocated $perFrame bytes")
+        // A ratchet: 248 bytes today, from 416 and about 2,140 before that. The focus refresh's own
+        // list of focusable nodes and where focus was last seen are gone: on a frame where the tree
+        // did not change it makes nothing (#251). Nothing is made per node: the next test holds that.
+        assertTrue(perFrame < 384, "a still frame of a whole HUD through the renderer allocated $perFrame bytes")
     }
 
     /**
-     * The same frame costs nothing per node: the focus refresh walks the whole tree twice a frame,
-     * once for a focus trap and once for the focusable nodes, and an iterator per node per walk was
-     * how a still screen on a phone made most of its garbage (#248).
+     * The same frame costs nothing per node. On a still frame the focus refresh does not walk the
+     * tree at all (#251); the next test holds the frames where it does.
      */
     @Test
     @Tag("allocation")
@@ -383,6 +383,31 @@ class FrameCostTest {
         val more = stillFrameCost(renderer, viewport, boxes = 80)
 
         assertEquals(fewer, more, "seventy more nodes on a still screen should cost not one byte more a frame")
+    }
+
+    /**
+     * A frame where the focus refresh does look costs nothing per node either. It walks the whole
+     * tree twice, once for a focus trap and once for the focusable nodes, on every frame something
+     * changes — every frame of an animated screen — and an iterator per node per walk was how a
+     * screen on a phone made most of its garbage (#248). The refresh is told to look again before
+     * each frame, so the screen around it stays still and the walks are all that is measured.
+     */
+    @Test
+    @Tag("allocation")
+    fun `a frame where focus looks again costs nothing per node`() {
+        hud()
+        val renderer = UiRenderer(host, Silent())
+        val focus = FocusManager(host.root)
+        renderer.focus = focus
+        val viewport = Viewport.oneToOne(Size(1280f, 720f))
+
+        val walked = focus.walks
+        val fewer = stillFrameCost(renderer, viewport, boxes = 10) { focus.lookAgain() }
+        val more = stillFrameCost(renderer, viewport, boxes = 80) { focus.lookAgain() }
+
+        // Two walks a frame, a trap and the focusable nodes, over the 2 x (10 + 5 x 20) frames above.
+        assertTrue(focus.walks - walked >= 2 * 220, "the refresh did not walk the tree on every frame measured")
+        assertEquals(fewer, more, "seventy more nodes for focus to walk should cost not one byte more a frame")
     }
 
     /**
@@ -408,10 +433,14 @@ class FrameCostTest {
         assertEquals(clipped, scrollAreas, "fifteen still scroll areas should cost not one byte more a frame than fifteen clipped boxes")
     }
 
-    /** What a still frame of the HUD with [boxes] plain boxes beside it allocates: the fewest of five rounds of twenty. */
-    private fun stillFrameCost(renderer: UiRenderer, viewport: Viewport, boxes: Int): Long {
+    /**
+     * What a still frame of the HUD with [boxes] plain boxes beside it allocates: the fewest of five
+     * rounds of twenty. [beforeEach] runs before every frame.
+     */
+    private fun stillFrameCost(renderer: UiRenderer, viewport: Viewport, boxes: Int, beforeEach: () -> Unit = {}): Long {
         plain = boxes
         repeat(10) {
+            beforeEach()
             wall += 16_000_000L
             renderer.render(viewport, wall)
         }
@@ -421,6 +450,7 @@ class FrameCostTest {
         repeat(5) {
             val before = allocatedBytes()
             repeat(20) {
+                beforeEach()
                 wall += 16_000_000L
                 renderer.render(viewport, wall)
             }

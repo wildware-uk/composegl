@@ -66,12 +66,15 @@ class UiRenderer(
      * the trees — a [dev.wildware.composegl.ui.world.WorldPanel] on a wall — that have a host but
      * never come through here.
      *
-     * Two reasons to leave it null. A game whose [onLaidOut] already calls `refresh` is done, and
-     * setting this as well would refresh twice; note that the refresh here happens *before*
-     * [onLaidOut], since routing input needs focus already settled, so a game that moves a pointer
-     * inside [onLaidOut] and refreshes after it is not the same order and should keep its own.
-     * And `refresh` builds a fresh list of focusable nodes every call, so setting this costs an
-     * allocation a frame — small, but this project counts them. The [budget] does not show it: its
+     * One reason to leave it null: a game whose [onLaidOut] already calls `refresh` is done. Note
+     * that the refresh here happens *before* [onLaidOut], since routing input needs focus already
+     * settled, so a game that moves a pointer inside [onLaidOut] and refreshes after it is not the
+     * same order and should keep its own.
+     *
+     * Setting it costs a still frame nothing: `refresh` returns at once when neither the tree nor
+     * focus has moved. On a frame that changed, it walks the tree and builds a list of the
+     * focusable nodes: a few small objects, a list that grows with the focusable nodes, and nothing
+     * for any other node. The [budget] does not show it: its
      * three numbers are the recompose, the layout and the draw, and the refresh is outside all
      * three, so a game that wants to know what it costs has to measure it itself.
      */

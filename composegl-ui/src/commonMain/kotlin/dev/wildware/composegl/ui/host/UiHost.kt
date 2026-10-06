@@ -401,7 +401,7 @@ private fun UiHost.layOut(constraints: Constraints, x: Float, y: Float): Boolean
  * node, and the rectangle a scrolling list is handed there is whatever the layout wrote — run it
  * first and the list scrolls to where that node was a frame ago. It is outside the budget's
  * wrappers because the budget splits a frame into the three passes and this is none of them; the
- * testing wiki says the same about the allocation it costs.
+ * testing wiki says what it costs.
  */
 private fun UiHost.settleWith(
     focus: FocusManager?,

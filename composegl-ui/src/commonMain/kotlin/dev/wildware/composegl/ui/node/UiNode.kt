@@ -1176,8 +1176,9 @@ class UiNode(var name: String = "node") {
     /**
      * This node and everything under it, parents before children.
      *
-     * Walked by index, so a walk allocates nothing: focus walks the whole tree every frame, and
-     * games ask their trees questions every frame, and an iterator per node is garbage on a phone.
+     * Walked by index, so a walk allocates nothing: focus walks the whole tree on every frame that
+     * changes, games ask their trees questions every frame, and an iterator per node is garbage on
+     * a phone.
      */
     fun forEach(action: (UiNode) -> Unit) {
         action(this)
@@ -1290,6 +1291,7 @@ class UiTree(val root: UiNode = UiNode("root")) {
         changed = true
         layoutStale = true
         measureAll = true
+        version++
     }
 
     /**
@@ -1322,8 +1324,25 @@ class UiTree(val root: UiNode = UiNode("root")) {
         node.markForMeasure()
         changed = true
         layoutStale = true
+        version++
         if (counting) node.noteChange(clocks.frameNanos, redrawOnly = false)
     }
+
+    /**
+     * Goes up whenever what the tree holds changes: a node added, removed or moved, a chain, policy
+     * or content changed, or a layout pass that moved a box. A redraw alone leaves it where it is,
+     * because a picture moving changes nothing anybody reads off the nodes.
+     *
+     * What a reader that works something out from the whole tree compares with the number it saw
+     * last, to know the answer it has is still the answer: the focus refresh, which on a still
+     * screen would otherwise walk every node twice a frame to find what it found the frame before.
+     *
+     * A node moved by writing its `x` or `y` by hand is not noticed. In a tree placed by hand — a
+     * `TestTree` — call [invalidate] after moving it. In a tree a host lays out, move a node with its
+     * modifiers instead: an `x` written by hand lasts only until a layout places that node again.
+     */
+    internal var version = 0L
+        private set
 
     // --- whether the rectangles the tree holds are still the answer ---
     //
@@ -1376,7 +1395,10 @@ class UiTree(val root: UiNode = UiNode("root")) {
             laidOutY = y
             laidOutOnce = true
         }
-        if (moved) layoutStale = true
+        if (moved) {
+            layoutStale = true
+            version++
+        }
     }
 
     /** Whether a pass over [root] has ever finished. */
@@ -1390,6 +1412,8 @@ class UiTree(val root: UiNode = UiNode("root")) {
      */
     internal fun relayout() {
         layoutStale = true
+        // Where a node is drawn has moved even if the layout that follows moves no box.
+        version++
     }
 
     /**
