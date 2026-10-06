@@ -328,8 +328,8 @@ override fun put(at: Int, from: FloatArray, offset: Int, count: Int) {
 }
 ```
 
-Copy the bits, not the numbers. A vertex is 25 four-byte slots (`ShapeVertex`), and two of
-them, the fill and the border, are a colour's four bytes, red first, riding in a float's place.
+Copy the bits, not the numbers. A vertex is 22 four-byte slots (`ShapeVertex`), and three of
+them, the fill, the border and the shadow, are a colour's four bytes, red first, riding in a float's place.
 Their bits often look like a NaN (opaque white is one), so a copy that reads each float as a
 number and writes it back, through a JavaScript number say, can change the colour. A bulk
 `put`, `copyInto` or `toRawBits` keeps them. Make the buffer native byte order, as it already
