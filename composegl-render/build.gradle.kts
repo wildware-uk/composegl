@@ -126,3 +126,6 @@ val deviceNeutral = tasks.register<BytecodeReferenceCheck>("checkDeviceNeutral")
 }
 
 tasks.named("check") { dependsOn(confinement, noEngineTypes, deviceNeutral) }
+
+// The frame's own allocation tests, again with escape analysis off: what Android counts.
+allocationTests()
