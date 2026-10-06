@@ -140,6 +140,7 @@ class UiRenderer(
         drawBehind?.invoke(canvas)
         budget.draw { draw.draw(host.root) }
         canvas.end()
+        RenderProbe.hook?.mark(3)
 
         // After end(), because that is when the last batch is actually handed over.
         budget.endFrame(canvas.drawCalls, redrew)

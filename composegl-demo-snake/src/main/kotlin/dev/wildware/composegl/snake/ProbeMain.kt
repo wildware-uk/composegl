@@ -103,6 +103,14 @@ fun main() {
             val cpu = ArrayList<Long>()
             val bytes = ArrayList<Long>()
             val wall = ArrayList<Long>()
+            val pace = System.getenv("COMPOSEGL_PROBE_PACE")?.toLongOrNull()
+            val marks = LongArray(8)
+            val phases = ArrayList<LongArray>()
+            dev.wildware.composegl.ui.host.RenderProbe.hook = object : dev.wildware.composegl.ui.host.RenderProbe.Hook {
+                override fun begin() = java.util.Arrays.fill(marks, 0L)
+                override fun end() {}
+                override fun mark(at: Int) { marks[at] = threads.currentThreadCpuTime }
+            }
             try {
                 for (frame in 0 until total) {
                     Raw.viewport(0, 0, 2400, 2400)
@@ -110,6 +118,7 @@ fun main() {
                     Raw.clear(GLES20.GL_COLOR_BUFFER_BIT)
                     // The GPU is idle when a frame starts, so no measured call waits for an earlier frame.
                     Raw.finish()
+                    if (frame % 100 == 0 || frame == warm || frame == total - 1) println("PROBE-FRAME $frame uptime ${ManagementFactory.getRuntimeMXBean().uptime}")
                     val c0 = threads.currentThreadCpuTime
                     val b0 = threads.currentThreadAllocatedBytes
                     val w0 = System.nanoTime()
@@ -121,14 +130,17 @@ fun main() {
                         cpu += c1 - c0
                         bytes += b1 - b0
                         wall += w1 - w0
+                        phases += longArrayOf(marks[0] - c0, marks[1] - marks[0], marks[2] - marks[1], marks[3] - marks[2], marks[4] - c0, marks[5] - marks[4], marks[6] - marks[5], marks[7] - marks[6], marks[0] - marks[7])
                     }
                     if (frame == total - 1) save(File(out, "$name.png"), shotWidth, shotHeight)
                     window.present()
+                    // A game's pace rather than flat out: COMPOSEGL_PROBE_PACE milliseconds asleep after each frame.
+                    pace?.let { Thread.sleep(it) }
                 }
                 val text = timingReport(name, cpu, bytes, wall)
                 report.append(text).append('\n')
                 println(text)
-                File(out, "$name.csv").writeText("cpu_ns,alloc_bytes,wall_ns\n" + cpu.indices.joinToString("") { "${cpu[it]},${bytes[it]},${wall[it]}\n" })
+                File(out, "$name.csv").writeText("cpu_ns,alloc_bytes,wall_ns,recompose_ns,layout_ns,focus_ns,draw_ns,clocks_ns,apply_ns,sendframe_ns,drain_ns,tail_ns\n" + cpu.indices.joinToString("") { "${cpu[it]},${bytes[it]},${wall[it]},${phases[it].joinToString(",")}\n" })
             } finally {
                 canvas.close()
             }

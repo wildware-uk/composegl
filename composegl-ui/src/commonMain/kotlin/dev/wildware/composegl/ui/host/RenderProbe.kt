@@ -8,6 +8,7 @@ object RenderProbe {
     interface Hook {
         fun begin()
         fun end()
+        fun mark(at: Int) {}
     }
 
     var hook: Hook? = null
