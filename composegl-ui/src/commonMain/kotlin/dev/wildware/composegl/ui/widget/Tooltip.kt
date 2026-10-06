@@ -16,19 +16,19 @@ import dev.wildware.composegl.ui.animation.FloatVectoriser
 import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.wait
+import dev.wildware.composegl.ui.focus.FocusWithinHandler
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.graphics.textRun
-import dev.wildware.composegl.ui.focus.FocusWithinHandler
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.input.PointerEvent
 import dev.wildware.composegl.ui.input.PointerHandler
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.layout.MeasurePolicy
-import dev.wildware.composegl.ui.layout.PlacedHandler
+import dev.wildware.composegl.ui.layout.quietPlaced
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.interaction
@@ -156,8 +156,10 @@ fun Tooltip(
     // Written after layout, and only when the thing actually moved. `boundsInRoot` is where it is
     // drawn, so a tooltip on something inside a scaled panel points at where that thing ended up
     // rather than where it was laid out.
+    // Read only by the drawing and the pointer, never while measuring, so it does not make the
+    // pass after it measure everything: a list of rows with tooltips scrolls at the cost of the list.
     val placed = remember(anchor) {
-        PlacedHandler { node ->
+        quietPlaced { node ->
             anchor.bounds = node.boundsInRoot
             anchor.scale = node.scaleInRoot
         }

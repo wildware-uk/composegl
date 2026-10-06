@@ -341,7 +341,11 @@ class UiNode(var name: String = "node") {
             reportedWidth = width
             reportedHeight = height
             val size = Size(width, height)
-            for (index in sizeHandlers.indices) sizeHandlers[index].onSizeChanged(size)
+            for (index in sizeHandlers.indices) {
+                val handler = sizeHandlers[index]
+                handler.onSizeChanged(size)
+                if (handler.readByLayout) toldSomethingALayoutMayRead()
+            }
         }
 
         if (placeHandlers.isEmpty()) {
@@ -351,9 +355,26 @@ class UiNode(var name: String = "node") {
             val now = inRoot(0f, 0f, width, height, placedCache)
             if (now !== reportedPlace) {
                 reportedPlace = now
-                for (index in placeHandlers.indices) placeHandlers[index].onPlaced(this)
+                for (index in placeHandlers.indices) {
+                    val handler = placeHandlers[index]
+                    handler.onPlaced(this)
+                    if (handler.readByLayout) toldSomethingALayoutMayRead()
+                }
             }
         }
+    }
+
+    /**
+     * A handler that has not said otherwise was just told something, and what it does with it is
+     * its own business: an arrow's layout may keep the button's node, or a copy of its rectangle in
+     * a plain field, and read that while it measures. Nothing marks that layout as changed, and it
+     * would be skipped. So the next pass measures every node, as every pass after a move used to —
+     * which is what such a layout has always relied on. A handler that says
+     * [readByLayout][dev.wildware.composegl.ui.layout.PlacedHandler.readByLayout] is false costs
+     * nothing of the kind, and the library's own say so wherever that is true.
+     */
+    private fun toldSomethingALayoutMayRead() {
+        tree?.measureEverythingNext()
     }
 
     /**
@@ -382,9 +403,9 @@ class UiNode(var name: String = "node") {
 
     // --- what the layout pass uses again every pass ---
     //
-    // A pass runs over the whole tree on every frame where anything changed — every frame of a
-    // scroll or an animation — and the three objects below are the ones it would otherwise make
-    // fresh for every node every time. They hold no state that outlives a pass; see MeasurePass for why that is safe.
+    // A pass runs on every frame where anything changed — every frame of a scroll or an animation —
+    // and the three objects below are the ones it would otherwise make fresh for every node it
+    // measures every time. They hold no state that outlives a pass; see MeasurePass for why that is safe.
 
     internal val measurable = OnceMeasurable(this)
 
@@ -475,10 +496,55 @@ class UiNode(var name: String = "node") {
 
     // --- filled in by layout, meaningless before the first pass ---
 
-    var x = 0f
-    var y = 0f
-    var width = 0f
-    var height = 0f
+    // Each read also tells a layout that is measuring right now that it read a rectangle; see
+    // [readsRectangles]. Outside a pass, and inside one between policies, that costs one read of a
+    // global and a null check.
+    var x: Float
+        get() {
+            noteRead()
+            return rawX
+        }
+        set(value) {
+            rawX = value
+        }
+    var y: Float
+        get() {
+            noteRead()
+            return rawY
+        }
+        set(value) {
+            rawY = value
+        }
+    var width: Float
+        get() {
+            noteRead()
+            return rawWidth
+        }
+        set(value) {
+            rawWidth = value
+        }
+    var height: Float
+        get() {
+            noteRead()
+            return rawHeight
+        }
+        set(value) {
+            rawHeight = value
+        }
+
+    // The same four, read without telling anybody: for the draw pass, which reads every node's
+    // rectangle every frame it draws and never runs inside a measure policy. Anything that can run
+    // inside one reads the four above instead.
+    internal var rawX = 0f
+    internal var rawY = 0f
+    internal var rawWidth = 0f
+    internal var rawHeight = 0f
+
+    /** If a layout is measuring, it read where this node is: from the last pass, as far as it knows. */
+    private fun noteRead() {
+        val reader = measuringNow ?: return
+        reader.readsRectangles = true
+    }
 
     // The rectangle the last pass to reach this node finished with, and before the first the one a
     // new node starts with: what anything that asked where it was would have been told. What tells
@@ -912,10 +978,103 @@ class UiNode(var name: String = "node") {
         return Offset(x / scale, y / scale)
     }
 
-    /** Tells the tree that this frame is not the same as the last one, and that this node is why. */
+    /**
+     * Tells the tree that this frame is not the same as the last one, and that this node is why.
+     *
+     * The next layout runs this node's measure policy again, and its parent's, and so on up to the
+     * root — but nothing else: a node beside it that nothing changed and that is offered the same
+     * room as last time keeps its size and where its children are. So a policy that reads something
+     * layout cannot see, a state holder's field say, calls this on its own node when that changes.
+     */
     fun invalidate() {
-        tree?.invalidate(this)
+        val tree = tree
+        // A node with no tree still keeps its mark, for a test that builds nodes by hand and runs
+        // a pass over them itself.
+        if (tree == null) markForMeasure() else tree.invalidate(this)
     }
+
+    // --- what lets a layout pass skip the parts of the tree nothing changed ---
+
+    /**
+     * Whether the next pass to reach this node has to run its measure policy: the node changed, or
+     * something under it did, since the policy last ran. True for a node never measured.
+     *
+     * A node that is clean and is offered the same room as last time is not measured again. It
+     * keeps its size, and its children keep their places, which are relative to it. See
+     * [dev.wildware.composegl.ui.layout.MeasurePass].
+     */
+    internal var needsMeasure = true
+
+    /**
+     * Marks this node and every ancestor to be measured by the next pass.
+     *
+     * All the way up, even past ancestors already marked. A mark can be left behind on a node its
+     * parent chose not to measure — a list item scrolled out of sight, a page not shown — while the
+     * parent's own mark is cleared, and a walk that stopped there would leave a change underneath
+     * it unseen by everything above. A tree is a couple of dozen deep, and a frame changes a handful
+     * of nodes.
+     */
+    internal fun markForMeasure() {
+        needsMeasure = true
+        var up = parent
+        while (up != null) {
+            up.needsMeasure = true
+            up = up.parent
+        }
+    }
+
+    /**
+     * The same, but only up to [asker], which is being measured right now and will reach this node:
+     * for a node an intrinsic question ran the measure of. Nothing at all when this node is the
+     * asker, which is measured next anyway. Up to the root when nobody is measuring.
+     */
+    internal fun markForMeasureBelow(asker: UiNode?) {
+        if (this === asker) return
+        needsMeasure = true
+        var up = parent
+        while (up != null && up !== asker) {
+            up.needsMeasure = true
+            up = up.parent
+        }
+    }
+
+    /**
+     * Whether this node's measure policy, the last time it ran, read a rectangle layout writes: the
+     * `x`, `y`, `width` or `height` of any node, or anything worked out from them, like
+     * `boundsInRoot` or `toLocal`. Its own count: while a policy runs, its own rectangle is still
+     * the one the last pass gave it. Noticed rather than declared, so a layout written to line
+     * itself up with something elsewhere on the screen keeps working without saying so.
+     *
+     * Such a node is measured on every pass that runs, as every node was before passes skipped the
+     * parts nothing changed: it keeps itself and its ancestors marked. What it read moves without
+     * telling it, and the pass that follows one which moved something is how it catches up.
+     */
+    internal var readsRectangles = false
+
+    /** The pass that last ran this node's policy, so a skipped node knows which children it reached. */
+    internal var policyRanIn: dev.wildware.composegl.ui.layout.MeasurePass? = null
+
+    /**
+     * How many nodes in this subtree have an `onSizeChanged`, an `onPlaced` or an
+     * `animatePlacement`, counting only the children the last pass to measure each node reached.
+     * A pass that skips a subtree with any in it still tells them: an ancestor moving moves them on
+     * screen.
+     */
+    internal var watchersInside = 0
+
+    /**
+     * How many nodes in this subtree have a policy that reads something from outside the tree — a
+     * picture's size — counted the same way. A pass about to skip a subtree with any in it asks
+     * them first; see [dev.wildware.composegl.ui.layout.ReadsOutsideTree].
+     */
+    internal var outsideReadersInside = 0
+
+    /**
+     * On a node a pass was run from: whether a pass over it began and never finished. A layout that
+     * threw part-way leaves rectangles half written and nodes marked as measured, so the next pass
+     * from here measures everything.
+     */
+    internal var passUnfinished = false
 
     // --- structure. Only the applier calls these; the tests call them directly too, because a
     // tree operation that needs a whole Compose runtime to test is a tree operation nobody tests.
@@ -928,7 +1087,7 @@ class UiNode(var name: String = "node") {
         cachedDrawOrder = null
         // The child is what appeared, so the child is what changed. A removal or a move below is the
         // parent's, because what is left to point at is the parent.
-        tree?.invalidate(child)
+        child.invalidate()
     }
 
     internal fun removeAt(index: Int, count: Int) {
@@ -992,6 +1151,11 @@ class UiNode(var name: String = "node") {
             tree?.addScene(this)
         }
         this.tree = tree
+        // Measured afresh wherever it lands: a marquee starts from rest there, and the room it is
+        // offered is not the room it last had. The pass that last measured it, which holds the
+        // root it was laid out from, is let go of.
+        needsMeasure = true
+        policyRanIn = null
         onTreeChanged?.invoke()
         if (tree == null) {
             forgetReportedLayout()
@@ -1116,13 +1280,46 @@ class UiTree(val root: UiNode = UiNode("root")) {
         root.becomeRootOf(this)
     }
 
+    /**
+     * Tells the tree that something changed without saying which node: the next frame is drawn and
+     * laid out again, and that layout runs every node's measure policy rather than only the ones
+     * that changed. For a game that changed something the tree cannot see and does not know where
+     * it shows; naming the node with [UiNode.invalidate] costs only that node and its ancestors.
+     */
     fun invalidate() {
+        changed = true
+        layoutStale = true
+        measureAll = true
+    }
+
+    /**
+     * The next pass over [root] measures every node, without saying the picture changed: one that
+     * moves anything says so itself. For a handler told something a layout may read.
+     */
+    internal fun measureEverythingNext() {
+        measureAll = true
+        layoutStale = true
+    }
+
+    /**
+     * The next frame is a changed one and is laid out, but only the nodes already marked are
+     * measured again. What the host says every frame a resize is under way: the resizing node marks
+     * itself, and nothing else has changed.
+     */
+    internal fun invalidateFrame() {
         changed = true
         layoutStale = true
     }
 
+    /**
+     * Whether the next pass over [root] runs every policy, because something changed and nobody
+     * said where. Cleared when that pass begins.
+     */
+    internal var measureAll = false
+
     /** The same, naming the node that changed, so it is counted while the tree is counting. */
     internal fun invalidate(node: UiNode) {
+        node.markForMeasure()
         changed = true
         layoutStale = true
         if (counting) node.noteChange(clocks.frameNanos, redrawOnly = false)
@@ -1168,7 +1365,9 @@ class UiTree(val root: UiNode = UiNode("root")) {
      * there is wherever the last pass left them: a node placed later in the same pass has not been
      * placed yet. So after a pass that moved something the next frame lays out again, by when
      * everything it reads has stopped moving, and what it read is put right. A pass that moved
-     * nothing would read exactly what it read before, and is not run.
+     * nothing would read exactly what it read before, and is not run. That later pass skips every
+     * node nothing changed, but not one of those layouts: a policy seen reading a rectangle is
+     * measured on every pass. See [UiNode.readsRectangles].
      */
     internal fun laidOut(node: UiNode, constraints: Constraints, x: Float, y: Float, moved: Boolean) {
         if (node === root) {
@@ -1365,6 +1564,17 @@ class UiTree(val root: UiNode = UiNode("root")) {
 
 /** The frame time of a node that has not changed since counting began. */
 const val NeverChanged = Long.MIN_VALUE
+
+/**
+ * The node whose measure policy is running right now, or null between policies — while a pass does
+ * its own bookkeeping, which reads rectangles as a matter of course — and outside passes.
+ *
+ * One for everything rather than one per tree, so a layout that lines itself up with a node in
+ * another tree, or with one in no tree at all, is noticed too. Layout runs on the thread that calls
+ * the host's frame, as composition does; two passes on two threads at the same moment could each
+ * take the other's reads as their own.
+ */
+internal var measuringNow: UiNode? = null
 
 /** The two kinds of change a frame can note on one node, as bits of `UiNode.countedKinds`. */
 private const val ComposeKind = 1

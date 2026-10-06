@@ -252,7 +252,7 @@ internal class PlacementAnimation : FrameWaiter {
             it.stopWaiting(this)
             clocks?.ended(checkNotNull(playing))
             val sliding = node
-            if (sliding != null) it.invalidate(sliding) else it.invalidate()
+            if (sliding != null) it.invalidate(sliding) else it.invalidateFrame()
         }
         tree = null
         clocks = null

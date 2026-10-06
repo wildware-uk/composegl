@@ -16,6 +16,7 @@ import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
+import dev.wildware.composegl.ui.layout.ReadsOutsideTree
 import dev.wildware.composegl.ui.layout.Placeable
 import dev.wildware.composegl.ui.layout.countIn
 import dev.wildware.composegl.ui.modifier.Modifier
@@ -267,7 +268,17 @@ private class LazyGridPolicy(
     private val across: Float,
     private val bars: Boolean,
     private val thickness: Float,
-) : MeasurePolicy {
+) : MeasurePolicy, ReadsOutsideTree {
+
+    // Where the window stood the last time this measured. The position is read live, below, and
+    // code can scroll the list from a frame callback after this frame's recomposition — nothing in
+    // the tree hears that until the next one. A pass that runs for any other reason asks, and
+    // measures the list again if it has moved, so its rows are placed on the frame it moved in.
+    private var placedAt = Float.NaN
+
+    override val changedOutside: Boolean
+        get() = state.position != placedAt
+
 
     override fun MeasureScope.measure(
         measurables: List<Measurable>,
@@ -331,6 +342,7 @@ private class LazyGridPolicy(
         // Sizes first, then the window: scrolling is clamped against an estimate built from them.
         state.lines.measuredViewport(if (vertical) height else width)
         val scrolled = state.position
+        placedAt = scrolled
 
         val bar = if (bars) {
             measurables[itemCount].measure(

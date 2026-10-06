@@ -119,20 +119,26 @@ class GameFrameCostTest {
             DrawPass(silent).draw(host.root)
         }
 
-        val before = allocatedBytes()
-        repeat(20) {
-            wall += 16_000_000L
-            host.frame(wall)
-            MeasurePass().run(host.root, Constraints.atMost(1280f, 720f))
-            DrawPass(silent).draw(host.root)
-        }
-        val perFrame = (allocatedBytes() - before) / 20
+        // Twice: as a still frame really is laid out, which measures nothing, and with every node
+        // measured, as a frame that changed the whole screen is — the pass that would make
+        // something per node if anything did.
+        for (everything in listOf(false, true)) {
+            val before = allocatedBytes()
+            repeat(20) {
+                wall += 16_000_000L
+                host.frame(wall)
+                if (everything) host.tree.invalidate()
+                MeasurePass().run(host.root, Constraints.atMost(1280f, 720f))
+                DrawPass(silent).draw(host.root)
+            }
+            val perFrame = (allocatedBytes() - before) / 20
 
-        // Where it stands today, measured: about 40 bytes of it is the layout pass and 40 the
-        // draw. Neither pass makes anything per node any more — what is left is the recomposer
-        // being asked for a frame it has nothing to do in, plus the throwaway passes this loop
-        // makes itself. A ratchet rather than a target.
-        assertTrue(perFrame < 1_536, "a still frame of a whole HUD allocated $perFrame bytes")
+            // Where it stands today, measured: about 40 bytes of it is the layout pass and 40 the
+            // draw. Neither pass makes anything per node any more — what is left is the recomposer
+            // being asked for a frame it has nothing to do in, plus the throwaway passes this loop
+            // makes itself. A ratchet rather than a target.
+            assertTrue(perFrame < 1_536, "a still frame of a whole HUD allocated $perFrame bytes (every node measured: $everything)")
+        }
     }
 
     @Test

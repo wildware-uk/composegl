@@ -129,10 +129,10 @@ class DrawPass(val canvas: UiCanvas) {
 
         // Kept on the node and handed back when it has not moved; see RectCache.
         val bounds = node.drawnBounds.of(
-            originX + node.x,
-            originY + node.y,
-            originX + node.x + node.width,
-            originY + node.y + node.height,
+            originX + node.rawX,
+            originY + node.rawY,
+            originX + node.rawX + node.rawWidth,
+            originY + node.rawY + node.rawHeight,
         )
         // This node until it is done, then whoever was being drawn around it, so a batch cut by a
         // parent's clip coming off after its children is the parent's.
@@ -162,8 +162,8 @@ class DrawPass(val canvas: UiCanvas) {
         // A scale springing in or pulsing is drawn through a picture for as long as it moves. See
         // [growsInPlace].
         val steady = !scaleMoving(node, scale)
-        val anchorX = if (scale == 1f) 0f else bounds.left + resolved.scaleOrigin.xIn(node.width, 0f)
-        val anchorY = if (scale == 1f) 0f else bounds.top + resolved.scaleOrigin.yIn(node.height, 0f)
+        val anchorX = if (scale == 1f) 0f else bounds.left + resolved.scaleOrigin.xIn(node.rawWidth, 0f)
+        val anchorY = if (scale == 1f) 0f else bounds.top + resolved.scaleOrigin.yIn(node.rawHeight, 0f)
 
         // The camera this node's own tilt is seen by is the one handed down to it. What it hands
         // its subtree is its own perspective if it has one; otherwise nothing if it tilts, because
@@ -174,8 +174,8 @@ class DrawPass(val canvas: UiCanvas) {
         val outerY = cameraY
         val outerDistance = cameraDistance
         if (resolved.perspective > 0f) {
-            cameraX = bounds.left + resolved.perspectiveOrigin.xIn(node.width, 0f)
-            cameraY = bounds.top + resolved.perspectiveOrigin.yIn(node.height, 0f)
+            cameraX = bounds.left + resolved.perspectiveOrigin.xIn(node.rawWidth, 0f)
+            cameraY = bounds.top + resolved.perspectiveOrigin.yIn(node.rawHeight, 0f)
             cameraDistance = resolved.perspective
         } else if (tilts) {
             cameraDistance = 0f

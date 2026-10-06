@@ -456,13 +456,20 @@ And on a JVM you can assert on the garbage:
 val before = allocatedBytes()
 repeat(20) {
     host.frame(wall)
+    host.tree.invalidate()                      // measure every node, not only what changed
     MeasurePass().run(host.root, constraints)
     DrawPass(silent).draw(host.root)
 }
 assertTrue((allocatedBytes() - before) / 20 < 1_536)
 ```
 
-`FrameCostTest` in `composegl-ui` does exactly this over a twenty-widget HUD. It is
+The `invalidate()` matters. A pass measures only the nodes that changed since the
+last one, so over a still screen it measures nothing and a guard without it would
+never see what measuring costs. `invalidate()` with no node named makes the next
+pass measure every node, the way a frame that changed the whole screen does.
+
+`FrameCostTest` in `composegl-ui` does exactly this over a twenty-widget HUD, with
+and without the `invalidate()`. It is
 a ratchet: when the number goes down, the bar goes down with it — it has come from
 13,247 bytes a frame to 1,178. That test is what caught text being laid out again
 on every pass, and the placement block every layout was making per node per frame.

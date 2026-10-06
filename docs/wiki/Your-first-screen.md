@@ -123,7 +123,8 @@ uses. See [Testing](Testing).
 `settle`, and so the renderer, skips step 2 on a frame where nothing changed: no
 state written, no input, no resize under way, and the same viewport as last time.
 The furniture is already where it goes, so nobody lays it out again. Written out by
-hand as above, the measure runs every frame; that is fine, just not free.
+hand as above, the pass runs every frame, but it only measures what changed since
+the last one — on a still frame, nothing — so that is cheap too.
 
 If your game draws into the *same* canvas as the interface — a 2D game putting
 its board under its HUD, say — you do not need to write it out. Hand the drawing

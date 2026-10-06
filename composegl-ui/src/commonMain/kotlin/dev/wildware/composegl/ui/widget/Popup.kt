@@ -291,6 +291,10 @@ private class PopupPlacement(private val entry: PopupEntry) : MeasurePolicy {
         val host = entry.slot?.parent
         val anchorNode = entry.anchor.node
         val at = if (host != null && anchorNode != null) anchorNode.boundsIn(host) else Rect.Zero
+        // An anchor not made yet is one this placement will read once it is, without anything here
+        // changing to say so: counted as a read already, so the slot is measured again on the pass
+        // after the anchor is placed rather than left in the corner.
+        if (anchorNode == null || host == null) entry.slot?.readsRectangles = true
 
         val below = (height - at.bottom - PopupGap).coerceAtLeast(0f)
         val above = (at.top - PopupGap).coerceAtLeast(0f)

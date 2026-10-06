@@ -28,10 +28,10 @@ import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
-import dev.wildware.composegl.ui.layout.PlacedHandler
 import dev.wildware.composegl.ui.layout.Row
-import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.layout.VerticalAlignment
+import dev.wildware.composegl.ui.layout.quietPlaced
+import dev.wildware.composegl.ui.layout.quietSized
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.animateContentSize
 import dev.wildware.composegl.ui.modifier.clickable
@@ -176,11 +176,12 @@ fun CollapsingHeader(
             }
         },
     )
-    val placedHeader = remember(folding) { PlacedHandler { folding.header = it } }
-    val placedBody = remember(folding) { PlacedHandler { folding.body = it } }
+    // For focus, and for state read while composing, never read while measuring.
+    val placedHeader = remember(folding) { quietPlaced { folding.header = it } }
+    val placedBody = remember(folding) { quietPlaced { folding.body = it } }
     val within = remember(folding) { FocusWithinHandler { folding.focusInside = it } }
     val sized = remember(folding) {
-        SizeChangedHandler { if (!folding.expanded && it.height <= 0f) folding.shown = false }
+        quietSized { if (!folding.expanded && it.height <= 0f) folding.shown = false }
     }
     val bodyStyle = rememberStyle("$style.body")
 

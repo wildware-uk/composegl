@@ -226,7 +226,7 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
 
         // A resize stepped by layout moves only if this frame is laid out, so a frame with one under
         // way on a moving clock is a changed frame — including the first, which has not moved yet.
-        if (clocks.isResizing) tree.invalidate()
+        if (clocks.isResizing) tree.invalidateFrame()
 
         val changed = tree.consumeChanges()
         if (changed) changedFrames++
@@ -300,10 +300,14 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
  * ```
  *
  * A frame where nothing has changed the tree since it was last laid out, at the same size, skips
- * the layout: every rectangle is already the answer. A layout policy that reads something the
- * tree is never told about — a game's own field, read while measuring — is therefore laid out
- * again only when something else changes. Read it while composing instead, or call
+ * the layout: every rectangle is already the answer. A frame where something did change measures
+ * only the nodes that changed and the path from each up to the root; a node beside them, offered
+ * the same room as last time, keeps its size. A layout policy that reads something the tree is
+ * never told about — a game's own field, read while measuring — is therefore laid out again only
+ * when its own node changes. Read it while composing instead, or call
  * [UiNode.invalidate][dev.wildware.composegl.ui.node.UiNode.invalidate] on the node when it moves.
+ * Where other nodes are is the exception: a policy that reads that is noticed doing so and is
+ * measured on every pass.
  *
  * @param focus the manager to refresh, or null for a screen that has none. It is an argument
  *   rather than something the host holds because a game usually has more than one — a heads-up
