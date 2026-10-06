@@ -7,7 +7,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import dev.wildware.composegl.ui.draw.RectCache
 import dev.wildware.composegl.ui.host.LocalFrameTimes
@@ -34,7 +33,7 @@ import dev.wildware.composegl.ui.skin.rememberStates
 import dev.wildware.composegl.ui.skin.rememberStyle
 import kotlin.math.abs
 import kotlin.math.pow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.channels.Channel
 
 /**
  * One axis that can be scrolled, as everything that moves one needs to see it.
@@ -73,10 +72,21 @@ internal interface ScrollAxis {
     fun fling(velocity: Float)
 
     /**
-     * Whether a fling is carrying it. Snapshot state, so the loop that drives a fling can sleep
-     * until this turns true rather than asking every frame.
+     * Whether a fling is carrying it. Snapshot state, so a composable that reads it is recomposed
+     * when a fling starts and when it stops. The loop that drives a fling does not watch it: it is
+     * woken by the fling itself, through [wakeOnFling].
      */
     val isFlinging: Boolean
+
+    /**
+     * Rings [alarm] each time this axis is flung, until [stopWaking]: how the loop that drives a
+     * fling sleeps while there is none. Every loop driving this axis has its own, so one state shown
+     * in two places wakes both.
+     */
+    fun wakeOnFling(alarm: FlingAlarm)
+
+    /** No longer rings [alarm]. */
+    fun stopWaking(alarm: FlingAlarm)
 
     /** One frame of a fling. [seconds] is real time, so the feel does not follow the frame rate. */
     fun advance(seconds: Float)
@@ -110,6 +120,15 @@ internal class MeasuredAxis(initial: Float = 0f, private val moved: (() -> Unit)
     override var isFlinging: Boolean by mutableStateOf(false)
         private set
 
+    /** The loops driving this axis: nearly always one, and none while it is off the screen. */
+    private val alarms = ArrayList<FlingAlarm>(1)
+
+    /**
+     * How many loops a fling here wakes. One per widget showing this axis, so a widget that has left
+     * or been handed another state is no longer counted, and a state kept past its screen holds none.
+     */
+    val drivers: Int get() = alarms.size
+
     private var velocity = 0f
         set(value) {
             val was = field != 0f
@@ -135,6 +154,16 @@ internal class MeasuredAxis(initial: Float = 0f, private val moved: (() -> Unit)
 
     override fun fling(velocity: Float) {
         this.velocity = if (abs(velocity) < MinimumFling) 0f else velocity
+        // By index: no iterator for a flick.
+        if (this.velocity != 0f) for (index in alarms.indices) alarms[index].ring()
+    }
+
+    override fun wakeOnFling(alarm: FlingAlarm) {
+        alarms += alarm
+    }
+
+    override fun stopWaking(alarm: FlingAlarm) {
+        alarms -= alarm
     }
 
     override fun advance(seconds: Float) {
@@ -311,16 +340,42 @@ internal class ScrollGestures {
 }
 
 /**
+ * What wakes a sleeping fling loop: its axes ring it when a fling starts, and nothing else does.
+ *
+ * Rung by the fling itself rather than heard through a snapshot flow over [ScrollAxis.isFlinging].
+ * A snapshot flow is told about every state change there is, so that it can ask whether one of its
+ * own was among them. It made no garbage and woke nothing, but on a screen where something changes
+ * every frame it asked that once per idle scroll area every frame (#259).
+ *
+ * Conflated, so a ring that arrives while the loop is still awake is kept: the loop finds it when
+ * it next goes to sleep, and looks again rather than missing a fling. Safe to ring from any thread.
+ */
+internal class FlingAlarm {
+
+    private val rings = Channel<Unit>(Channel.CONFLATED)
+
+    fun ring() {
+        rings.trySend(Unit)
+    }
+
+    suspend fun sleep() {
+        rings.receive()
+    }
+}
+
+/**
  * Keeps a fling going, one frame at a time, and asks for no frames while nothing is flinging.
  *
  * A loop waiting on every frame in case a fling started would keep the Compose recomposer awake on
  * every frame of a still screen: one scroll area anywhere and the screen is never idle. So it
- * sleeps until an axis says it is flinging, and goes back to sleep once every axis has stopped.
+ * sleeps until one of its axes is flung, which rings its [FlingAlarm], and goes back to sleep once
+ * every axis has stopped. Nothing else wakes it, however much else on the screen changes.
  *
- * Waking costs the fling nothing. The release that starts it is input, between frames, and a frame
- * publishes state changes before it sends the frame — so the loop wakes in time to be handed that
- * same frame. Its first step is timed from the host's frame before, which is when the finger was
- * last seen, just as it would be had the loop been watching all along.
+ * Waking costs the fling nothing. The release that starts it is input, between frames, and the ring
+ * queues the loop on the host's dispatcher, which a frame drains before it sends the frame — so the
+ * loop wakes in time to be handed that same frame. Its first step is timed from the host's frame
+ * before, which is when the finger was last seen, just as it would be had the loop been watching
+ * all along.
  *
  * A fling belongs to the widget driving it. When the widget leaves — its host disposed with it — or
  * is handed other axes, the fling stops where it is, rather than leaving a state that says it is
@@ -330,15 +385,20 @@ internal class ScrollGestures {
 @Composable
 internal fun DriveFling(one: ScrollAxis, other: ScrollAxis? = null) {
     val frames = LocalFrameTimes.current
+    val alarm = remember { FlingAlarm() }
     DisposableEffect(one, other) {
+        one.wakeOnFling(alarm)
+        other?.wakeOnFling(alarm)
         onDispose {
+            one.stopWaking(alarm)
+            other?.stopWaking(alarm)
             one.stop()
             other?.stop()
         }
     }
     LaunchedEffect(one, other, frames) {
         while (true) {
-            snapshotFlow { one.isFlinging || other?.isFlinging == true }.first { it }
+            while (!flinging(one, other)) alarm.sleep()
             var last = 0L
             var going = withFrameNanos { now ->
                 last = now
@@ -360,8 +420,10 @@ private fun step(one: ScrollAxis, other: ScrollAxis?, nanos: Long): Boolean {
     val seconds = nanos.toFloat() / 1_000_000_000f
     one.advance(seconds)
     other?.advance(seconds)
-    return one.isFlinging || other?.isFlinging == true
+    return flinging(one, other)
 }
+
+private fun flinging(one: ScrollAxis, other: ScrollAxis?): Boolean = one.isFlinging || other?.isFlinging == true
 
 /**
  * One scrollbar: a track with something to drag on it.
