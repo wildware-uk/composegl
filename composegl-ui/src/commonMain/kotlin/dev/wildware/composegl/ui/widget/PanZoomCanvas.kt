@@ -60,6 +60,7 @@ import dev.wildware.composegl.ui.modifier.size
 import dev.wildware.composegl.ui.node.CameraElement
 import dev.wildware.composegl.ui.node.ContentCamera
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.node.visibleWorld
 import dev.wildware.composegl.ui.skin.WidgetState
 import dev.wildware.composegl.ui.skin.styled
 import kotlin.math.floor
@@ -345,20 +346,34 @@ internal class PanZoomCamera(private val state: PanZoomState) : ContentCamera {
 
     override val zoom: Float get() = state.zoom
 
-    override fun panX(atZoom: Float): Float =
-        if (atZoom == state.zoom) state.pan.x else state.viewport.width / 2f - state.centre.x * atZoom
+    // In plain numbers rather than through `pan` and `centre`, which are points made each time they
+    // are read: these are asked several times a canvas every frame it is drawn (#262).
+    override fun panX(atZoom: Float): Float {
+        if (atZoom == state.zoom) return state.panX
+        val half = state.viewport.width / 2f
+        return half - (half - state.panX) / state.zoom * atZoom
+    }
 
-    override fun panY(atZoom: Float): Float =
-        if (atZoom == state.zoom) state.pan.y else state.viewport.height / 2f - state.centre.y * atZoom
+    override fun panY(atZoom: Float): Float {
+        if (atZoom == state.zoom) return state.panY
+        val half = state.viewport.height / 2f
+        return half - (half - state.panY) / state.zoom * atZoom
+    }
+
     override val textZoom: Float get() = state.textZoom
 
     override fun attach(node: UiNode) {
         state.node = node
     }
 
-    override fun drawBackground(canvas: UiCanvas, visible: Rect) {
+    /** The part of the world last handed to [background], handed again while the view stands still. */
+    private var visible: Rect? = null
+
+    override fun drawBackground(canvas: UiCanvas, node: UiNode) {
         val draw = background ?: return
-        canvas.draw(visible)
+        val seen = node.visibleWorld(this, visible)
+        visible = seen
+        canvas.draw(seen)
     }
 }
 

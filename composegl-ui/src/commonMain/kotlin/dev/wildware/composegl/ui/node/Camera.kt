@@ -39,8 +39,11 @@ internal interface ContentCamera {
     /** Told which node it is on each time that node is laid out or drawn, so a move can redraw it. */
     fun attach(node: UiNode)
 
-    /** Draws under the children, in world coordinates, with [visible] the part of the world seen. */
-    fun drawBackground(canvas: UiCanvas, visible: Rect)
+    /**
+     * Draws under the children of [node], in world coordinates, if there is anything to draw there.
+     * The part of the world seen is [UiNode.visibleWorld], worked out only when something is drawn.
+     */
+    fun drawBackground(canvas: UiCanvas, node: UiNode)
 }
 
 /** Puts [camera] on a node. See [ContentCamera]. */
@@ -79,15 +82,23 @@ internal fun UiNode.childOffsetY(child: UiNode): Float {
     return resolved.padding.top * (1f - scale) + camera.panY(zoom) + pin * (zoom - scale)
 }
 
-/** The part of the world this node shows, in world units. */
-internal fun UiNode.visibleWorld(camera: ContentCamera): Rect {
+/**
+ * The part of the world this node shows, in world units: [reuse] itself when that is what it shows,
+ * so a view that has not moved is not made again every frame.
+ */
+internal fun UiNode.visibleWorld(camera: ContentCamera, reuse: Rect?): Rect {
     val zoom = appliedZoom(camera)
     val padding = resolved.padding
     val width = (this.width - padding.horizontal).coerceAtLeast(0f)
     val height = (this.height - padding.vertical).coerceAtLeast(0f)
     val panX = camera.panX(zoom)
     val panY = camera.panY(zoom)
-    return Rect(-panX / zoom, -panY / zoom, (width - panX) / zoom, (height - panY) / zoom)
+    val left = -panX / zoom
+    val top = -panY / zoom
+    val right = (width - panX) / zoom
+    val bottom = (height - panY) / zoom
+    if (reuse != null && reuse.left == left && reuse.top == top && reuse.right == right && reuse.bottom == bottom) return reuse
+    return Rect(left, top, right, bottom)
 }
 
 /**

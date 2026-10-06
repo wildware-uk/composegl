@@ -12,6 +12,7 @@ import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.TextureHandle
+import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.debug.FrameBudget
 import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Size
@@ -57,6 +58,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.lang.management.ManagementFactory
+import java.util.Collections
+import java.util.IdentityHashMap
 
 /**
  * What a whole screen costs when nothing on it is changing.
@@ -110,6 +113,9 @@ class FrameCostTest {
     /** Whether the scrolling windows show their scrollbars. */
     private var bars by mutableStateOf(false)
 
+    /** What the pan-and-zoom windows draw under their children, if anything. */
+    private var backdrop by mutableStateOf<(UiCanvas.(Rect) -> Unit)?>(null)
+
     /** A combat HUD: about twenty widgets, the sort of thing a game actually leaves on screen. */
     private fun hud() {
         host.setContent {
@@ -119,7 +125,7 @@ class FrameCostTest {
                     repeat(windows) {
                         when (window) {
                             Window.Scroll -> ScrollArea(Modifier.size(40f), bars = bars) { Box(Modifier.size(40f, 400f)) {} }
-                            Window.PanZoom -> PanZoomCanvas(modifier = Modifier.size(40f)) { Box(Modifier.size(40f, 400f)) {} }
+                            Window.PanZoom -> PanZoomCanvas(modifier = Modifier.size(40f), background = backdrop) { Box(Modifier.size(40f, 400f)) {} }
                             Window.Clipped -> Box(Modifier.size(40f).clip()) { Box(Modifier.size(40f, 400f)) {} }
                         }
                     }
@@ -473,8 +479,7 @@ class FrameCostTest {
      * moved, and made garbage doing it: 8,296 bytes a frame more than the boxes for fifteen of them
      * (#257).
      *
-     * The host's frame alone, not the drawing after it: drawing a canvas makes a rectangle or two of
-     * its own, which is a cost of drawing rather than of asking for frames (#262).
+     * The host's frame alone, not the drawing after it, which the next test holds (#262).
      */
     @Test
     @Tag("allocation")
@@ -493,6 +498,73 @@ class FrameCostTest {
         val canvases = stillHostFrameCost()
 
         assertEquals(clipped, canvases, "fifteen still pan-and-zoom canvases should cost the host not one byte more a frame than fifteen clipped boxes")
+    }
+
+    /**
+     * Drawing a pan-and-zoom canvas on a still screen costs a frame no more than the clipped box it
+     * is drawn as, on a canvas that draws it through a transform and on one that cannot. Asking the
+     * camera where the world is used to make a point each time it was asked — four or six times a
+     * canvas a frame — and the part of the world in view was a new rectangle every frame even with
+     * nothing to hand it to: about 95 bytes a canvas a frame (#262).
+     */
+    @Test
+    @Tag("allocation")
+    fun `still pan-and-zoom canvases cost a frame no more than clipped boxes`() {
+        hud()
+        windows = 15
+        // As the host-frame test above: the boxes track interface time too (#263).
+        host.clocks.register(Clock.Ui)
+
+        val silent = Silent()
+        val renderer = UiRenderer(host, silent)
+        renderer.focus = FocusManager(host.root)
+        val viewport = Viewport.oneToOne(Size(1280f, 720f))
+        for (transforms in listOf(false, true)) {
+            silent.transforms = transforms
+            window = Window.Clipped
+            val clipped = stillFrameCost(renderer, viewport, boxes = 0)
+            window = Window.PanZoom
+            val canvases = stillFrameCost(renderer, viewport, boxes = 0)
+
+            assertEquals(clipped, canvases, "fifteen still pan-and-zoom canvases should cost not one byte more a frame than fifteen clipped boxes (transforms: $transforms)")
+        }
+    }
+
+    /**
+     * A canvas with something to draw under its children hands it the part of the world in view
+     * without making it again every frame: a still view is the same rectangle, frame after frame.
+     */
+    @Test
+    @Tag("allocation")
+    fun `a still pan-and-zoom background is handed the same view without making it again`() {
+        var drawn = 0
+        // Every rectangle handed over, by identity: a still view handed again is the same one.
+        val handed = Collections.newSetFromMap(IdentityHashMap<Rect, Boolean>())
+        backdrop = { visible ->
+            drawn++
+            handed += visible
+        }
+        hud()
+        windows = 15
+        host.clocks.register(Clock.Ui)
+        val renderer = UiRenderer(host, Silent(transforms = true))
+        renderer.focus = FocusManager(host.root)
+        val viewport = Viewport.oneToOne(Size(1280f, 720f))
+
+        window = Window.Clipped
+        val clipped = stillFrameCost(renderer, viewport, boxes = 0)
+        window = Window.PanZoom
+        drawn = 0
+        val canvases = stillFrameCost(renderer, viewport, boxes = 0)
+
+        assertEquals(15 * 110, drawn, "every canvas should have drawn its background on every frame")
+        handed.clear()
+        repeat(5) {
+            wall += 16_000_000L
+            renderer.render(viewport, wall)
+        }
+        assertEquals(15, handed.size, "each still canvas should be handed one rectangle, the same one every frame")
+        assertEquals(clipped, canvases, "fifteen still pan-and-zoom canvases with backgrounds should cost not one byte more a frame than fifteen clipped boxes")
     }
 
     /** What the host's own frame of a still screen allocates, undrawn: the fewest of five rounds of twenty. */
@@ -646,7 +718,7 @@ class FrameCostTest {
     }
 
     /** A canvas that draws nothing and keeps nothing, for measuring what the toolkit itself costs. */
-    private class Silent : dev.wildware.composegl.ui.graphics.UiCanvas {
+    private class Silent(override var transforms: Boolean = false) : UiCanvas {
         override fun rect(rect: Rect, colour: Colour, corner: Float) = Unit
         override fun border(rect: Rect, colour: Colour, width: Float, corner: Float) = Unit
         override fun shadow(rect: Rect, colour: Colour, spread: Float, corner: Float) = Unit
