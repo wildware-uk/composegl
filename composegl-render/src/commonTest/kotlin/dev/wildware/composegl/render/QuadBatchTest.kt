@@ -63,6 +63,7 @@ class QuadBatchTest {
         }
         assertEquals(0xFF030201.toInt(), draw.bits(4, "a_color"), "a picture's tint, in the next quad")
         assertEquals(0, draw.bits(4, "a_borderColor"), "and no border")
+        assertEquals(listOf(0x50 / 255f, 0x60 / 255f, 0x70 / 255f, 0x80 / 255f), draw.border(0), "read back as the GPU reads it")
     }
 
     @Test
