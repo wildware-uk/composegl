@@ -266,6 +266,13 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
      *
      * The corners are named as they look on screen. Each is held to half the box's shorter side.
      *
+     * A plain box — a fill, perhaps a border, nothing cast — that is big enough is split: its
+     * middle, where no corner, border or soft edge reaches, is a flat quad the shader treats as a
+     * picture of the white spot, and the band round it is four strips through the distance field.
+     * Big panels are most of what a screen paints, and the picture path is the cheapest thing the
+     * shader does. The pixels are the ones the single quad drew. An outline's clear middle is left
+     * out, so it is four quads; under a premultiplied blend a box keeps its one quad.
+     *
      * @param white where solid colour is sampled from.
      * @param borderWidth how thick the border is, drawn inside the edge; negative draws it outside.
      * @param shadowSpread how far the shadow reaches outside the shape; negative shades inside it.
@@ -307,33 +314,113 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         radii[3] = bottomLeft.coerceIn(0f, most)
         val u = white.u
         val v = white.v
+        val outerLeft = left - margin
+        val outerBottom = bottom - margin
+        val outerRight = left + width + margin
+        val outerTop = bottom + height + margin
 
-        // A shade inside the shape is one of the paths only the full program has.
-        use(white.texture, if (shadowSpread < 0f) ShapeProgram.Full else ShapeProgram.Common)
-        quad(
-            left = left - margin,
-            bottom = bottom - margin,
-            right = left + width + margin,
-            top = bottom + height + margin,
-            centreX = left + halfWidth,
-            centreY = bottom + halfHeight,
-            u = u, v = v, u2 = u, v2 = v,
-            fill = fill,
-            border = border,
-            shadow = shadow,
-            halfWidth = halfWidth,
-            halfHeight = halfHeight,
-            radii = radii,
-            borderWidth = borderWidth,
-            shadowSpread = shadowSpread,
-            aa = aa,
-            // A shade inside the shape has no gradient, so its offset and how hard it falls ride
-            // in the gradient's slots: the axis, and the kind as a negative number.
-            gradient = if (shadowSpread < 0f) -shadowHardness.coerceIn(0f, 0.95f) else 0f,
-            gradientX = if (shadowSpread < 0f) shadowOffsetX else 0f,
-            gradientY = if (shadowSpread < 0f) shadowOffsetY else 0f,
-        )
+        // A shade inside the shape is one of the paths only the full program has. Every part of
+        // the box, its flat middle too, goes through the one program, so splitting it never cuts
+        // the batch: every program has the picture path.
+        val program = if (shadowSpread < 0f) ShapeProgram.Full else ShapeProgram.Common
+
+        /** Part of the box's quad, through the distance field: the whole of it, or a strip of its edge. */
+        fun part(partLeft: Float, partBottom: Float, partRight: Float, partTop: Float) {
+            use(white.texture, program)
+            quad(
+                left = partLeft,
+                bottom = partBottom,
+                right = partRight,
+                top = partTop,
+                centreX = left + halfWidth,
+                centreY = bottom + halfHeight,
+                u = u, v = v, u2 = u, v2 = v,
+                fill = fill,
+                border = border,
+                shadow = shadow,
+                halfWidth = halfWidth,
+                halfHeight = halfHeight,
+                radii = radii,
+                borderWidth = borderWidth,
+                shadowSpread = shadowSpread,
+                aa = aa,
+                // A shade inside the shape has no gradient, so its offset and how hard it falls ride
+                // in the gradient's slots: the axis, and the kind as a negative number.
+                gradient = if (shadowSpread < 0f) -shadowHardness.coerceIn(0f, 0.95f) else 0f,
+                gradientX = if (shadowSpread < 0f) shadowOffsetX else 0f,
+                gradientY = if (shadowSpread < 0f) shadowOffsetY else 0f,
+            )
+        }
+
+        // Plain: nothing cast, or nothing to see in what is. Zero soft edge would say "a picture".
+        // Under a premultiplied blend — a layer being drawn back, never a box in practice — the
+        // box keeps its one quad: there a colour with no opacity is not nothing, and the middle
+        // would have to copy exactly what the distance field makes of one.
+        // [wantedBlend] is what the box will be drawn under, whatever is still queued.
+        if (aa > 0f && (shadowSpread == 0f || shadow.alpha == 0) && !wantedBlend.premultiplied) {
+            // Where the distance field stops changing anything: past the soft edge, and past a
+            // border drawn inside. Every pixel further in comes out the fill, exactly.
+            val flatFrom = aa + maxOf(borderWidth, 0f)
+            val topLeftIn = flatInset(radii[0], flatFrom)
+            val topRightIn = flatInset(radii[1], flatFrom)
+            val bottomRightIn = flatInset(radii[2], flatFrom)
+            val bottomLeftIn = flatInset(radii[3], flatFrom)
+            val innerLeft = left + maxOf(topLeftIn, bottomLeftIn)
+            val innerRight = left + width - maxOf(topRightIn, bottomRightIn)
+            val innerBottom = bottom + maxOf(bottomLeftIn, bottomRightIn)
+            val innerTop = bottom + height - maxOf(topLeftIn, topRightIn)
+            if (innerRight > innerLeft && innerTop > innerBottom &&
+                (innerRight - innerLeft) * (innerTop - innerBottom) >= MinFlatPixels * aa * aa
+            ) {
+                // The band round the middle: the bottom and top strips the whole width, the sides
+                // between them. Every pixel of the one quad lands in exactly one of the five, and
+                // the first corner written is still the box's outer bottom-left.
+                part(outerLeft, outerBottom, outerRight, innerBottom)
+                part(outerLeft, innerTop, outerRight, outerTop)
+                part(outerLeft, innerBottom, innerLeft, innerTop)
+                part(innerRight, innerBottom, outerRight, innerTop)
+                // A clear middle changes no pixel under a straight blend — its colour is weighed by
+                // its opacity and its opacity adds nothing — so an outline leaves it out.
+                if (fill.alpha > 0) {
+                    use(white.texture, program)
+                    quad(
+                        left = innerLeft,
+                        bottom = innerBottom,
+                        right = innerRight,
+                        top = innerTop,
+                        centreX = 0f,
+                        centreY = 0f,
+                        u = u, v = v, u2 = u, v2 = v,
+                        fill = fill,
+                        border = Colour.Transparent,
+                        shadow = Colour.Transparent,
+                        halfWidth = 0f,
+                        halfHeight = 0f,
+                        radii = noRadii,
+                        borderWidth = 0f,
+                        shadowSpread = 0f,
+                        // Zero says "a picture": the white spot times the fill, and nothing else.
+                        aa = 0f,
+                    )
+                }
+                return
+            }
+        }
+
+        part(outerLeft, outerBottom, outerRight, outerTop)
     }
+
+    /**
+     * How far in from both of its edges a corner of [radius] lets the flat middle begin: where the
+     * distance field is at least [flatFrom] inside the box.
+     *
+     * Past a corner no rounder than [flatFrom], that is [flatFrom]. A rounder corner's curve cuts
+     * across the middle's corner instead: a point `a` in from both edges is `√2·(radius − a)` from
+     * the curve's centre, so `radius − √2·(radius − a)` inside, which is [flatFrom] at the `a`
+     * given here.
+     */
+    private fun flatInset(radius: Float, flatFrom: Float): Float =
+        if (radius <= flatFrom) flatFrom else radius - (radius - flatFrom) * InverseRootTwo
 
     /**
      * One rounded box as a lit surface: the difference a light makes to it, over whatever is under.
@@ -924,9 +1011,18 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     }
 
     private companion object {
-
         /** The smallest ordinary number `mediump` promises: 2^-14. Smaller ones may read as zero. */
         const val SmallestMedium = 1f / 16384f
+
+        /**
+         * The fewest pixels a plain box's flat middle covers before it is drawn on its own: 64 by
+         * 64. Splitting costs four more quads, sixteen vertices of 31 floats written, uploaded and
+         * shaded, against at least 0.62 Mali-G57 cycles saved on each pixel of the middle. Much
+         * smaller and the vertices cost about what the pixels save.
+         */
+        const val MinFlatPixels = 4096f
+
+        const val InverseRootTwo = 0.70710677f
     }
 }
 
