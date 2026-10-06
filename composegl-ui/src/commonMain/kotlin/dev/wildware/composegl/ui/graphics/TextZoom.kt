@@ -19,10 +19,15 @@ object TextZoom {
     /** [zoom] to the nearest of [Steps]. One for anything that is not a positive, finite number. */
     fun snap(zoom: Float): Float {
         if (!zoom.isFinite() || zoom <= 0f) return 1f
-        var best = Steps[0]
-        for (step in Steps) {
+        // Over plain numbers by index: the renderer asks this for every box it draws on a zoomed
+        // plane, and walking the list made an iterator each time (#262).
+        var best = steps[0]
+        for (index in steps.indices) {
+            val step = steps[index]
             if (kotlin.math.abs(step - zoom) < kotlin.math.abs(best - zoom)) best = step
         }
         return best
     }
+
+    private val steps = Steps.toFloatArray()
 }

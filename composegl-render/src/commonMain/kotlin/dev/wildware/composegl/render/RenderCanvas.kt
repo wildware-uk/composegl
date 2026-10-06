@@ -332,15 +332,18 @@ open class RenderCanvas protected constructor(
     private fun gradient(rect: Rect, brush: Brush, topLeft: Float, topRight: Float, bottomRight: Float, bottomLeft: Float) {
         if (state.isHidden || rect.isEmpty) return
         if (brush is Brush.Ramp && ramp(rect, brush, topLeft, topRight, bottomRight, bottomLeft)) return
-        val box = state.map(rect)
+        val left = state.mapX(rect.left)
+        val bottom = state.mapY(rect.bottom)
+        val width = state.mapX(rect.right) - left
+        val height = bottom - state.mapY(rect.top)
         // Worked out in the toolkit's coordinates, then y flipped. A radial gradient has no axis.
-        val axis = (brush as? Brush.Linear)?.axis(box.width, box.height) ?: (brush as? Brush.Ramp)?.straight?.axis(box.width, box.height)
+        val axis = (brush as? Brush.Linear)?.axis(width, height) ?: (brush as? Brush.Ramp)?.straight?.axis(width, height)
         batch().gradient(
             white = white(),
-            left = box.left,
-            bottom = flip(box.bottom),
-            width = box.width,
-            height = box.height,
+            left = left,
+            bottom = flip(bottom),
+            width = width,
+            height = height,
             start = brush.first.inForce(),
             end = brush.last.inForce(),
             radial = brush is Brush.Radial || (brush as? Brush.Ramp)?.radial == true,
@@ -367,13 +370,16 @@ open class RenderCanvas protected constructor(
         val spot = pages.ramps.spotFor(brush) ?: return false
         val page = spot.page
         val size = page.size.toFloat()
-        val box = state.map(rect)
+        val left = state.mapX(rect.left)
+        val bottom = state.mapY(rect.bottom)
+        val width = state.mapX(rect.right) - left
+        val height = bottom - state.mapY(rect.top)
         // The run's direction worked out as two numbers rather than a brush and an offset, since
         // this is every run of stops every frame (#252). A run outwards from the middle has none.
         var axisX = 0f
         var axisY = 0f
         if (!brush.radial) {
-            Brush.Linear.axisOf(brush.degrees, box.width, box.height) { x, y ->
+            Brush.Linear.axisOf(brush.degrees, width, height) { x, y ->
                 axisX = x
                 axisY = y
             }
@@ -384,10 +390,10 @@ open class RenderCanvas protected constructor(
             texture = page.texture(device),
             whiteU = (spot.x + 0.5f) / size,
             whiteV = v,
-            left = box.left,
-            bottom = flip(box.bottom),
-            width = box.width,
-            height = box.height,
+            left = left,
+            bottom = flip(bottom),
+            width = width,
+            height = height,
             tint = Colour.White.inForce(),
             radial = brush.radial,
             axisX = axisX,
@@ -479,7 +485,8 @@ open class RenderCanvas protected constructor(
         tiles: Float,
     ) {
         if (state.isHidden || rect.isEmpty || depth <= 0f || strength <= 0f) return
-        val box = state.map(rect)
+        val left = state.mapX(rect.left)
+        val bottom = state.mapY(rect.bottom)
         // A material is laid across the face and tinted by the face's colour. It takes the one
         // texture this quad has, so a face is a material or a run of colours, never both — and a
         // material has to be a texture of its own rather than a region of an atlas, because tiling
@@ -510,10 +517,10 @@ open class RenderCanvas protected constructor(
                 runPage != null -> WhiteSpot(runPage.texture(device), 0f, 0f)
                 else -> white()
             },
-            left = box.left,
-            bottom = flip(box.bottom),
-            width = box.width,
-            height = box.height,
+            left = left,
+            bottom = flip(bottom),
+            width = state.mapX(rect.right) - left,
+            height = bottom - state.mapY(rect.top),
             topLeft = state.mapLength(corners.topLeft),
             topRight = state.mapLength(corners.topRight),
             bottomRight = state.mapLength(corners.bottomRight),
@@ -579,14 +586,17 @@ open class RenderCanvas protected constructor(
         shadowOffsetY: Float = 0f,
         shadowHardness: Float = 0f,
     ) {
-        val box = state.map(rect)
+        // Through the transform as four numbers rather than a moved rectangle: this is every box
+        // drawn, and under a pan-and-zoom canvas every one of them is moved (#262).
+        val left = state.mapX(rect.left)
+        val bottom = state.mapY(rect.bottom)
         val grow = state.transformScale
         batch().shape(
             white = white(),
-            left = box.left,
-            bottom = flip(box.bottom),
-            width = box.width,
-            height = box.height,
+            left = left,
+            bottom = flip(bottom),
+            width = state.mapX(rect.right) - left,
+            height = bottom - state.mapY(rect.top),
             fill = fill.inForce(),
             // Top is still top: the flip moves the box, and the batch's own up is the screen's up.
             topLeft = topLeft * grow,
@@ -820,16 +830,17 @@ open class RenderCanvas protected constructor(
         if (state.isHidden || destination.isEmpty) return
         if (texture is NineRegions || !resolve(texture)) notOnePicture(texture)
         picture.slice(source)
-        val box = state.map(destination)
+        val left = state.mapX(destination.left)
+        val bottom = state.mapY(destination.bottom)
 
         val layer = texture is LayerPicture
         if (layer) layerAsImage()
         batch().textured(
             texture = picture.texture,
-            left = box.left,
-            bottom = flip(box.bottom),
-            width = box.width,
-            height = box.height,
+            left = left,
+            bottom = flip(bottom),
+            width = state.mapX(destination.right) - left,
+            height = bottom - state.mapY(destination.top),
             u = picture.left,
             v = picture.top,
             u2 = picture.right,
@@ -877,19 +888,23 @@ open class RenderCanvas protected constructor(
         if (state.isHidden || destination.isEmpty) return
         if (texture is NineRegions || !resolve(texture)) notOnePicture(texture)
         picture.slice(source)
-        val box = state.map(destination)
+        val left = state.mapX(destination.left)
+        val top = state.mapY(destination.top)
+        val bottom = state.mapY(destination.bottom)
+        val width = state.mapX(destination.right) - left
+        val height = bottom - top
 
         val layer = texture is LayerPicture
         if (layer) layerAsImage()
         batch().textured(
             texture = picture.texture,
-            left = box.left,
-            bottom = flip(box.bottom),
-            width = box.width,
-            height = box.height,
-            pivotX = box.left + box.width * pivotX,
+            left = left,
+            bottom = flip(bottom),
+            width = width,
+            height = height,
+            pivotX = left + width * pivotX,
             // The pivot is a fraction from the top, and this is where it meets a y that counts up.
-            pivotY = flip(box.top + box.height * pivotY),
+            pivotY = flip(top + height * pivotY),
             degrees = degrees,
             u = picture.left,
             v = picture.top,

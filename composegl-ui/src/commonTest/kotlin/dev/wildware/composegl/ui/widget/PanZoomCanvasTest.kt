@@ -35,6 +35,8 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -528,6 +530,31 @@ class PanZoomCanvasTest {
         assertEquals(Rect(-300f, -250f, 700f, 550f), painted.rect, "and draws in world units")
         val node = canvas.only<DrawCall.Rectangle>().first { it.colour == Colour.rgb(0x334455) }
         assertTrue(canvas.calls.indexOf(painted) < canvas.calls.indexOf(node), "under the children")
+    }
+
+    /**
+     * A view that has not moved is handed to the background as the same rectangle, frame after
+     * frame, rather than a new one each time; once the hand moves it, it is handed where it went
+     * (#262).
+     */
+    @Test
+    fun `a still view is handed to the background again and a moved one anew`() {
+        val camera = state()
+        val handed = mutableListOf<Rect>()
+        val ui = open { Tree(camera, background = { visible -> handed += visible }) }
+
+        ui.drawn()
+        val still = handed.last()
+        ui.drawn()
+        assertSame(still, handed.last(), "a view that has not moved is the same rectangle")
+
+        ui.press(Offset(40f, 40f))
+        ui.dragTo(Offset(100f, 70f))
+        ui.release()
+        ui.drawn()
+
+        assertEquals(Rect(240f, 220f, 640f, 520f), handed.last(), "the view the hand moved to")
+        assertNotSame(still, handed.last())
     }
 
     @Test

@@ -39,7 +39,6 @@ import dev.wildware.composegl.ui.modifier.ShadowElement
 import dev.wildware.composegl.ui.node.ContentCamera
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.node.showsChild
-import dev.wildware.composegl.ui.node.visibleWorld
 import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.geometry.Matrix4
@@ -1024,7 +1023,9 @@ class DrawPass(val canvas: UiCanvas) {
         node.cameraApplied = zooms
         val padding = resolved.padding
         // Nothing zoomed to nothing can be seen, and a divide by it would put the world nowhere.
-        val zoom = if (!zooms) 1f else camera.zoom.takeIf { it > 0f } ?: return
+        // Asked as a plain number: `takeIf` would box it, every canvas every frame (#262).
+        val zoom = if (!zooms) 1f else camera.zoom
+        if (!(zoom > 0f)) return
         val worldX = left + padding.left + camera.panX(zoom)
         val worldY = top + padding.top + camera.panY(zoom)
         if (!zooms) {
@@ -1041,7 +1042,7 @@ class DrawPass(val canvas: UiCanvas) {
         val wasRight = seenRight
         val wasBottom = seenBottom
         seeThrough(zoom, worldX, worldY)
-        camera.drawBackground(canvas, node.visibleWorld(camera))
+        camera.drawBackground(canvas, node)
         for (index in children.indices) {
             val child = children[index]
             if (!node.showsChild(child)) continue

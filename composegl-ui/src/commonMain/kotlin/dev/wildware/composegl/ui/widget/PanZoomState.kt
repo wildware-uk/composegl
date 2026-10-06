@@ -68,8 +68,15 @@ class PanZoomState(
     var zoom: Float by mutableStateOf(startZoom)
         private set
 
-    private var panX: Float by mutableStateOf(0f)
-    private var panY: Float by mutableStateOf(0f)
+    /**
+     * [pan] as two numbers, for the draw pass and the pointer, which ask for it several times a canvas
+     * every frame: a point each time would be garbage a still canvas makes every frame (#262).
+     */
+    internal var panX: Float by mutableStateOf(0f)
+        private set
+
+    internal var panY: Float by mutableStateOf(0f)
+        private set
 
     /** Where world (0, 0) is seen, from the corner of the canvas's content. */
     val pan: Offset get() = Offset(panX, panY)

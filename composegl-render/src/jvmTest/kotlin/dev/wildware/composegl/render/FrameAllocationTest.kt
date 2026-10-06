@@ -1,10 +1,12 @@
 package dev.wildware.composegl.render
 
 import dev.wildware.composegl.ui.effect.ShaderEffect
+import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.Brush
 import dev.wildware.composegl.ui.graphics.Colour
+import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.layout.ScalePolicy
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.text.TextStyle
@@ -84,9 +86,17 @@ class FrameAllocationTest {
         }
     }
 
+    /** A picture of the game's own, bound once, as a backend's resolver keeps one per handle. */
+    private class Icon : TextureHandle {
+        override val width = 16
+        override val height = 16
+    }
+
     private val fonts = Fonts()
     private val device = QuietDevice()
-    private val canvas = RenderCanvas(device, fonts)
+    private val icon = Icon()
+    private val bound = BoundPicture(device.texture(16, 16, smooth = true))
+    private val canvas = RenderCanvas(device, fonts, TextureResolver { if (it === icon) bound else null })
     private val label = fonts.measure("Allocation free", TextStyle(family = "body", size = 16f))
 
     private val panel = Rect.of(10f, 10f, 200f, 40f)
@@ -206,6 +216,50 @@ class FrameAllocationTest {
         val eight = perFrame(viewport, units = 8)
 
         assertEquals(one, eight, "eight times the drawing should cost not one byte more a frame")
+    }
+
+    private val glow = Brush.radial(Colour.White, Colour(0xFF000000.toInt()))
+    private val tile = Rect.of(220f, 10f, 32f, 32f)
+    private val corners = Corners(4f, 8f, 4f, 8f)
+
+    /**
+     * One unit of a pan-and-zoom canvas's world: the panels and labels of [unit], and a shadow, a
+     * run of stops, a radial glow, a lit face and a picture upright and turned.
+     */
+    private fun worldUnit() {
+        unit()
+        canvas.shadow(panel, Colour(0x80000000.toInt()), 6f, 4f)
+        canvas.rect(rounded, stops, 6f)
+        canvas.rect(tile, glow, 4f)
+        canvas.relief(tile, corners)
+        canvas.image(icon, tile, Colour.White, null)
+        canvas.image(icon, tile, 30f)
+    }
+
+    /** A frame of [times] world units drawn through a transform, as a canvas draws its children. */
+    private fun panned(viewport: Viewport) {
+        canvas.begin(viewport)
+        canvas.pushTransform(1.5f, 40f, -25f, 1.5f)
+        repeat(times) { worldUnit() }
+        canvas.popTransform()
+        canvas.end()
+    }
+
+    /**
+     * Drawing through a pushed transform — a pan-and-zoom canvas's children, a still scaled node —
+     * costs nothing per thing drawn. Every box used to be moved into a new rectangle on its way to
+     * the batch: 32 bytes a panel, a picture or a lit face, every frame (#262).
+     */
+    @Test
+    fun `a still frame drawn through a transform costs the same however much is drawn in it`() {
+        val viewport = viewport(1f)
+        val costs = listOf(1, 8).map { units ->
+            times = units
+            repeat(20) { panned(viewport) }
+            Allocation.leastOf { repeat(10) { panned(viewport) } } / 10
+        }
+
+        assertEquals(costs[0], costs[1], "eight times the drawing through a transform should cost not one byte more a frame")
     }
 
     @Test
