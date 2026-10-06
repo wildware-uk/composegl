@@ -717,6 +717,17 @@ plain rectangles and lines, so every backend gets them without doing anything.
 
 ![a header divider, tabs with an underline, dashed and dotted boxes](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-borders.png)
 
+A line as thick as its box is short, or thicker, fills the box the way a solid one does,
+still broken: the box is dashed along its longer side, and dots are as big as the box is
+thin. Rounded corners stay round, as a solid border's do, wherever the canvas can round
+a clip. The GL renderer can, except while the box is fading or inside another rounded
+clip, where they come out square:
+
+```kotlin
+// 4 wide on a box only 3 tall: a 3-tall strip of dashes, never a crash.
+Box(Modifier.size(120f, 3f).border(accent, width = 4f, style = BorderStyle.Dashed(on = 6f, off = 4f)))
+```
+
 And what `padding` does to what is inside it:
 
 ![the same blue box inside a dark one, without and with padding](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-padding.png)

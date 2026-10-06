@@ -117,6 +117,68 @@ class BorderGlTest {
         }
     }
 
+    /**
+     * A drop zone 110 across whose 8-wide dashed outline is squeezed by a click to a box 6 tall.
+     * 110 at 10 on and 10 off is six dashes, so the first runs 0 to 10 and the second 20 to 30.
+     */
+    @Test
+    fun `clicking a dashed zone flatter than its line draws it as a dashed strip`() = Gl.render {
+        val backend = GdxBackend(HeadlessFonts.registry())
+        val ui = uiTest(Size(Gl.size.toFloat(), Gl.size.toFloat()), backend) {
+            var flat by remember { mutableStateOf(false) }
+            Box(
+                Modifier.size(110f, if (flat) 6f else 60f).clickable { flat = true }.testTag("zone")
+                    .border(blue, width = 8f, corner = 6f, style = BorderStyle.Dashed(on = 10f, off = 10f)),
+            )
+        }
+        try {
+            ui.click("zone")
+
+            frame(ui).use {
+                assertColour(Color.BLUE, it.at(5, 1), "the strip starts on a dash at its top")
+                assertColour(Color.BLUE, it.at(5, 4), "that fills it to its bottom")
+                assertColour(Color.BLACK, it.at(15, 3), "then a gap")
+                assertColour(Color.BLUE, it.at(25, 3), "then the next dash")
+                assertColour(Color.BLACK, it.at(5, 9), "and nothing spills below the box")
+            }
+        } finally {
+            ui.close()
+            backend.dispose()
+        }
+    }
+
+    /**
+     * A 60 square zone with corners of 20 whose dashed line, 80 wide, swallows it once clicked.
+     * 60 across at 10 on and 10 off is four dashes of about 8.6 with gaps as long, so dashes run
+     * 0 to 8.6, 17.1 to 25.7, 34.3 to 42.9 and 51.4 to 60, each the full height.
+     */
+    @Test
+    fun `a rounded zone its dashed line swallows keeps its round corners`() = Gl.render {
+        val backend = GdxBackend(HeadlessFonts.registry())
+        val ui = uiTest(Size(Gl.size.toFloat(), Gl.size.toFloat()), backend) {
+            var wide by remember { mutableStateOf(false) }
+            Box(
+                Modifier.size(60f, 60f).clickable { wide = true }.testTag("zone")
+                    .border(blue, width = if (wide) 80f else 4f, corner = 20f, style = BorderStyle.Dashed(on = 10f, off = 10f)),
+            )
+        }
+        try {
+            ui.click("zone")
+
+            frame(ui).use {
+                assertColour(Color.BLUE, it.at(3, 30), "the first dash runs down the left")
+                assertColour(Color.BLACK, it.at(13, 30), "then a gap")
+                assertColour(Color.BLUE, it.at(21, 3), "the second dash reaches the top inside the curve")
+                assertColour(Color.BLACK, it.at(2, 2), "but nothing is drawn past the top-left curve")
+                assertColour(Color.BLUE, it.at(56, 30), "the last dash runs down the right")
+                assertColour(Color.BLACK, it.at(57, 57), "and stops at the bottom-right curve, as a solid border's corner does")
+            }
+        } finally {
+            ui.close()
+            backend.dispose()
+        }
+    }
+
     private inline fun <T> Pixmap.use(block: (Pixmap) -> T): T = try {
         block(this)
     } finally {

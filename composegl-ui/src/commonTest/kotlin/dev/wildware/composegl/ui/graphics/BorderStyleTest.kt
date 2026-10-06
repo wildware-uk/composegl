@@ -187,6 +187,115 @@ class BorderStyleTest {
     }
 
     @Test
+    fun `a broken line thicker than its box fills it - square or rounded - and never throws`() {
+        val box = Rect.of(0f, 0f, 20f, 20f)
+        for (style in listOf(BorderStyle.Dashed(on = 6f, off = 4f), BorderStyle.Dotted)) {
+            for (corners in listOf(Corners.None, Corners.single(8f), Corners.top(8f))) {
+                val canvas = RecordingCanvas()
+
+                canvas.border(box, white, 30f, corners, style)
+
+                val drawn = canvas.only<DrawCall.Rectangle>().map { it.rect }
+                assertTrue(drawn.isNotEmpty(), "$style $corners: something is drawn")
+                drawn.forEach {
+                    assertTrue(it.top == box.top && it.bottom == box.bottom, "$style $corners: filling the box top to bottom: $it")
+                    assertTrue(it.left >= box.left && it.right <= box.right, "$style $corners: and never spilling out: $it")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a dashed line thicker than a flat box is that box dashed along its length`() {
+        val canvas = RecordingCanvas()
+        val strip = Rect.of(0f, 0f, 100f, 3f)
+
+        canvas.border(strip, white, 4f, 0f, BorderStyle.Dashed(on = 6f, off = 4f))
+
+        val dashes = canvas.only<DrawCall.Rectangle>().map { it.rect }.sortedBy { it.left }
+        assertEquals(10, dashes.size, "100 along at 6 on and 4 off is ten dashes, as a thinner line would be")
+        dashes.forEach { assertEquals(3f, it.height, "each the strip's whole height: $it") }
+        near(strip.left, dashes.first().left, "starting on a dash")
+        near(strip.right, dashes.last().right, "and ending on one")
+    }
+
+    @Test
+    fun `a broken line thicker than a tall box is broken down its length`() {
+        val dotted = RecordingCanvas()
+
+        dotted.border(Rect.of(0f, 0f, 20f, 220f), white, 30f, 0f, BorderStyle.Dotted)
+
+        val dots = dotted.only<DrawCall.Rectangle>().map { it.rect }
+        assertEquals(6, dots.size, "220 down is six dots of 20 and five gaps of 20: $dots")
+        dots.forEach {
+            near(20f, it.width, "square dots as wide as the box: $it")
+            near(20f, it.height, "and as tall: $it")
+        }
+
+        val dashed = RecordingCanvas()
+        val strip = Rect.of(0f, 0f, 3f, 100f)
+
+        dashed.border(strip, white, 4f, 0f, BorderStyle.Dashed(on = 6f, off = 4f))
+
+        val dashes = dashed.only<DrawCall.Rectangle>().map { it.rect }.sortedBy { it.top }
+        assertEquals(10, dashes.size, "100 down at 6 on and 4 off is ten dashes: $dashes")
+        dashes.forEach {
+            assertTrue(it.left == strip.left && it.right == strip.right, "each the strip's whole width: $it")
+            near(dashes.first().height, it.height, "and all as long as each other: $it")
+        }
+        near(strip.top, dashes.first().top, "starting on a dash")
+        near(strip.bottom, dashes.last().bottom, "and ending on one")
+    }
+
+    /** A canvas that rounds clips in place the way the GL one does, writing down each rounding. */
+    private class Rounding(val inner: RecordingCanvas) : UiCanvas by inner {
+        val rounded = ArrayList<Pair<Rect, Corners>>()
+        private var pushed: Rect? = null
+        override val roundsClips: Boolean get() = true
+
+        override fun pushClip(rect: Rect) {
+            pushed = rect
+            inner.pushClip(rect)
+        }
+
+        override fun roundClip(corners: Corners) {
+            rounded += checkNotNull(pushed) { "rounded with nothing pushed" } to corners
+        }
+    }
+
+    @Test
+    fun `a rounded box a broken line swallows keeps its round corners where the canvas rounds clips`() {
+        val box = Rect.of(10f, 10f, 60f, 60f)
+        val canvas = Rounding(RecordingCanvas())
+
+        canvas.border(box, white, 80f, Corners.top(20f), BorderStyle.Dashed(on = 6f, off = 4f))
+
+        assertEquals(listOf(box to Corners.top(20f)), canvas.rounded, "drawn inside a clip rounded as the box is")
+        val dashes = canvas.inner.only<DrawCall.Rectangle>()
+        assertTrue(dashes.size > 1, "broken into dashes: $dashes")
+        dashes.forEach { assertEquals(box, it.clip, "every dash inside that clip: $it") }
+        canvas.inner.assertBalanced()
+
+        val square = Rounding(RecordingCanvas())
+        square.border(box, white, 80f, 0f, BorderStyle.Dashed(on = 6f, off = 4f))
+        assertTrue(square.rounded.isEmpty(), "a square box needs no clip")
+    }
+
+    @Test
+    fun `dots on a line thicker than its box are as big as the box is thin`() {
+        val canvas = RecordingCanvas()
+
+        canvas.border(Rect.of(0f, 0f, 220f, 20f), white, 30f, 0f, BorderStyle.Dotted)
+
+        val dots = canvas.only<DrawCall.Rectangle>().map { it.rect }
+        assertEquals(6, dots.size, "220 along is six dots of 20 and five gaps of 20")
+        dots.forEach {
+            near(20f, it.width, "square dots, as long as the line drawn is thick")
+            near(20f, it.height, "which is the box's height, not the 30 asked for")
+        }
+    }
+
+    @Test
     fun `nothing is drawn for no width or an empty box`() {
         val canvas = RecordingCanvas()
 
