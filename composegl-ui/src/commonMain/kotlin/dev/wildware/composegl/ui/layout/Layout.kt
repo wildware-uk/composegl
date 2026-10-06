@@ -38,11 +38,43 @@ fun Layout(
     draw: (UiCanvas.(Rect) -> Unit)? = null,
     content: @Composable () -> Unit = {},
     measurePolicy: MeasurePolicy,
+) = LayoutNode({ UiNode() }, modifier, name, draw, content, measurePolicy)
+
+/**
+ * A [Layout] that hands [made] the node it makes, once, as it is made.
+ *
+ * For a widget whose state moves its node between recompositions — a scroll step — and so marks
+ * the node for layout itself rather than being composed again to do it. [made] runs as the
+ * composition is applied, before any effect under it starts, so an effect can already read what it
+ * was handed.
+ */
+@Composable
+internal fun NodeLayout(
+    modifier: Modifier,
+    name: String,
+    content: @Composable () -> Unit,
+    measurePolicy: MeasurePolicy,
+    made: (UiNode) -> Unit,
+) = LayoutNode({ UiNode().also(made) }, modifier, name, null, content, measurePolicy)
+
+/**
+ * The node behind [Layout] and [NodeLayout], written once so the two cannot drift apart. Inline, so
+ * a `Layout` costs no more groups than when this was written inside it.
+ */
+@Composable
+@Suppress("NOTHING_TO_INLINE")
+private inline fun LayoutNode(
+    noinline factory: () -> UiNode,
+    modifier: Modifier,
+    name: String,
+    noinline draw: (UiCanvas.(Rect) -> Unit)?,
+    noinline content: @Composable () -> Unit,
+    measurePolicy: MeasurePolicy,
 ) {
     val sounds = LocalUiSounds.current
     val direction = LocalLayoutDirection.current
     ComposeNode<UiNode, UiApplier>(
-        factory = { UiNode() },
+        factory = factory,
         update = {
             set(name) { this.name = it }
             set(sounds) { this.sounds = it }
