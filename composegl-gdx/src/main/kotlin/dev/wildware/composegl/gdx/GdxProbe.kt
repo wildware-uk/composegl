@@ -34,7 +34,8 @@ internal object GdxProbe {
     private var attributed = 0
 
     // --- timing ---
-    private val threads = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
+    // Only when timing: Android has no java.lang.management, and GdxCanvas loads this object everywhere.
+    private val threads by lazy { ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean }
     private var cpuAt = 0L
     private var bytesAt = 0L
     private var wallAt = 0L
