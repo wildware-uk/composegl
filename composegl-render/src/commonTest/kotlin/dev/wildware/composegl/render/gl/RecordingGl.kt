@@ -37,6 +37,13 @@ class RecordingGl(
     /** The calls whose names start with [prefix]. */
     fun named(prefix: String): List<String> = calls.filter { it.startsWith(prefix) }
 
+    /** Nothing for a float, the usual; a packed colour says what it is. */
+    private fun typeName(type: Int, normalized: Boolean): String = when {
+        type == GlConst.FLOAT && !normalized -> ""
+        type == GlConst.UNSIGNED_BYTE && normalized -> ", normalised bytes"
+        else -> ", type $type normalised $normalized"
+    }
+
     private fun log(call: String) {
         calls += call
     }
@@ -152,7 +159,7 @@ class RecordingGl(
     override fun enableVertexAttribArray(index: Int) = log("enableVertexAttribArray($index)")
     override fun disableVertexAttribArray(index: Int) = log("disableVertexAttribArray($index)")
     override fun vertexAttribPointer(index: Int, size: Int, type: Int, normalized: Boolean, stride: Int, offset: Int) =
-        log("vertexAttribPointer($index, $size, $stride, $offset)")
+        log("vertexAttribPointer($index, $size${typeName(type, normalized)}, $stride, $offset)")
     override fun createVertexArray(): Int = made("createVertexArray")
     override fun bindVertexArray(array: Int) = log("bindVertexArray($array)")
     override fun deleteVertexArray(array: Int) = log("deleteVertexArray($array)")

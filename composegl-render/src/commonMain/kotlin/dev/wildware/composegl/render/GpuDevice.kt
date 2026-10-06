@@ -101,7 +101,7 @@ interface GpuDevice {
      */
     fun clear(red: Float, green: Float, blue: Float, alpha: Float)
 
-    /** Vertex storage for [quads] quads of [ShapeVertex.Floats] floats a vertex, owned by the device. */
+    /** Vertex storage for [quads] quads of [ShapeVertex.Floats] four-byte slots a vertex, owned by the device. */
     fun vertices(quads: Int): VertexStream
 
     /** The first [quads] quads of [vertices], through the shape shader, sampling [texture]. */
@@ -242,7 +242,10 @@ interface VertexStream {
 
     operator fun set(index: Int, value: Float)
 
-    /** The first [count] floats of [from], written from the start in one copy. */
+    /**
+     * The first [count] slots of [from], written from the start in one copy. Bit for bit: a packed
+     * colour rides in a float's place, and its bits may be a NaN's that a copy by value would change.
+     */
     fun put(from: FloatArray, count: Int)
 }
 

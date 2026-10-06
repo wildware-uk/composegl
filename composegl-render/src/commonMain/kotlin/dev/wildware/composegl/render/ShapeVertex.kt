@@ -1,8 +1,17 @@
 package dev.wildware.composegl.render
 
+import dev.wildware.composegl.ui.graphics.Colour
+
 /**
- * The one vertex layout every device consumes: 31 floats, described per vertex so that boxes with
- * different radii, borders, shadows and two-colour gradients all batch together.
+ * The one vertex layout every device consumes: 25 slots of four bytes, described per vertex so that
+ * boxes with different radii, borders, shadows and two-colour gradients all batch together.
+ *
+ * Every slot is a float but two. The fill and the border are each one slot holding the colour's four
+ * bytes, red first, which the GPU reads as four normalised unsigned bytes: one store to write rather
+ * than four floats worked out by division. The batch writes them through a float array, so those
+ * slots' bits may look like a NaN — opaque white is one — and every copy between the batch and the
+ * GPU must move the bits, never the number. The shadow's slot stays four floats: a run of gradient
+ * stops writes texture coordinates there.
  *
  * A rounded corner, a border and a soft shadow are three ways of asking how far a pixel is from the
  * edge of a rounded box, so they are one shader doing one distance calculation. Every shape program
@@ -10,29 +19,48 @@ package dev.wildware.composegl.render
  */
 object ShapeVertex {
 
-    class Attribute(val name: String, val size: Int, val offset: Int)
+    /**
+     * One input of the shape shader: [size] components from slot [offset] on. [packed] says the
+     * components are bytes in one slot, read as fractions of 255, rather than a float each.
+     */
+    class Attribute(val name: String, val size: Int, val offset: Int, val packed: Boolean = false) {
+
+        /** How many four-byte slots it takes. */
+        val slots: Int get() = if (packed) 1 else size
+    }
 
     val Attributes: List<Attribute> = listOf(
         // x, y and a w that is one for everything except a tilted picture.
         Attribute("a_position", 3, 0),
-        Attribute("a_color", 4, 3),
-        Attribute("a_borderColor", 4, 7),
-        Attribute("a_shadowColor", 4, 11),
-        Attribute("a_texCoord0", 2, 15),
-        Attribute("a_local", 2, 17),
-        Attribute("a_halfSize", 2, 19),
+        Attribute("a_color", 4, 3, packed = true),
+        Attribute("a_borderColor", 4, 4, packed = true),
+        Attribute("a_shadowColor", 4, 5),
+        Attribute("a_texCoord0", 2, 9),
+        Attribute("a_local", 2, 11),
+        Attribute("a_halfSize", 2, 13),
         // Border width, shadow spread, antialias width. Zero antialias says "a picture".
         //
         // A negative border width draws the border outside the edge rather than inside it, and a
         // negative spread shades inside the shape rather than casting outside it.
-        Attribute("a_shape", 3, 21),
-        Attribute("a_radii", 4, 24),
+        Attribute("a_shape", 3, 15),
+        Attribute("a_radii", 4, 18),
         // Kind, then the axis. For a picture the kind says whether its texture is premultiplied.
         // A shape with no gradient and a shade falling inside it carries the shade's offset here.
-        Attribute("a_gradient", 3, 28),
+        Attribute("a_gradient", 3, 22),
     )
 
-    const val Floats = 31
+    /** How many four-byte slots a vertex is: 100 bytes. Named for the float array the batch writes them into. */
+    const val Floats = 25
+
+    /**
+     * [colour] as the one slot a packed attribute reads: its bytes red, green, blue, alpha in memory,
+     * which on every little-endian device the toolkit runs on is the integer `0xAABBGGRR`. Not a
+     * number: its bits are the colour, and may be a NaN's.
+     */
+    internal fun packed(colour: Colour): Float {
+        val argb = colour.argb
+        return Float.fromBits(argb and 0xFF00FF00.toInt() or (argb ushr 16 and 0xFF) or (argb and 0xFF shl 16))
+    }
 
     /** The first gradient float of a shape: a straight gradient, or one outwards from the middle. */
     const val Linear = 1f

@@ -67,6 +67,29 @@ class GlDeviceTest {
     }
 
     @Test
+    fun `the fill and border are read as four normalised bytes and everything else as floats`() {
+        listOf(GlProfile(GlApi.Desktop, 3, 2, core = true), GlProfile(GlApi.Es, 2, 0)).forEach { profile ->
+            val gl = RecordingGl(profile)
+            drawOne(gl)
+
+            val stride = 25 * 4
+            val expected = listOf(
+                "vertexAttribPointer(0, 3, $stride, 0)",
+                "vertexAttribPointer(1, 4, normalised bytes, $stride, 12)",
+                "vertexAttribPointer(2, 4, normalised bytes, $stride, 16)",
+                "vertexAttribPointer(3, 4, $stride, 20)",
+                "vertexAttribPointer(4, 2, $stride, 36)",
+                "vertexAttribPointer(5, 2, $stride, 44)",
+                "vertexAttribPointer(6, 2, $stride, 52)",
+                "vertexAttribPointer(7, 3, $stride, 60)",
+                "vertexAttribPointer(8, 4, $stride, 72)",
+                "vertexAttribPointer(9, 3, $stride, 88)",
+            )
+            assertEquals(expected, gl.named("vertexAttribPointer"), "$profile")
+        }
+    }
+
+    @Test
     fun `GL 2 with the vertex array extension uses one`() {
         val gl = RecordingGl(GlProfile(GlApi.Desktop, 2, 1), extensions = setOf("GL_ARB_vertex_array_object"))
         assertTrue(drawOne(gl).usesVertexArrays)

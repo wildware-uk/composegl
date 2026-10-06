@@ -17,7 +17,8 @@ import kotlin.math.sin
  * One copy for every backend, so a draw-call trace means the same thing whichever one is drawing.
  * The coordinates reaching here already count y upwards: the canvas flips once on the way in.
  *
- * Colours are four floats per vertex. Every colour arriving has already had the canvas's alpha and
+ * A vertex carries its fill and border as the colour's own four bytes, one slot each, and its shadow
+ * as four floats: see [ShapeVertex]. Every colour arriving has already had the canvas's alpha and
  * tint stacks multiplied into it, so this batch has no idea either exists.
  */
 class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048) {
@@ -1013,8 +1014,9 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         out[at++] = x
         out[at++] = y
         out[at++] = w
-        at = writeColour(fill, at)
-        at = writeColour(border, at)
+        // The colour's bytes as they are, one store each; the GPU reads them as fractions of 255.
+        out[at++] = ShapeVertex.packed(fill)
+        out[at++] = ShapeVertex.packed(border)
         // A strip of the atlas rides where the shadow's colour would be: a gradient never casts one.
         if (ramp != null) {
             out[at++] = ramp[0]
@@ -1043,7 +1045,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         used = at
     }
 
-    /** Four floats, red first. The toolkit's packed integer undone once, here. */
+    /** The shadow's four floats, red first. The toolkit's packed integer undone once, here. */
     private fun writeColour(colour: Colour, at: Int): Int {
         floats[at] = colour.red / 255f
         floats[at + 1] = colour.green / 255f
@@ -1058,7 +1060,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
 
         /**
          * The fewest pixels a plain box's flat middle covers before it is drawn on its own: 64 by
-         * 64. Splitting costs four more quads, sixteen vertices of 31 floats written, uploaded and
+         * 64. Splitting costs four more quads, sixteen vertices of 100 bytes written, uploaded and
          * shaded, against at least 0.62 Mali-G57 cycles saved on each pixel of the middle. Much
          * smaller and the vertices cost about what the pixels save.
          */
