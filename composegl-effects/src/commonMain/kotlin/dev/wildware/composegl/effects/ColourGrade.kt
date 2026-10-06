@@ -18,6 +18,10 @@ import dev.wildware.composegl.ui.modifier.effect
  * Every number is a multiplier with 1 meaning unchanged, so the default of this function is a
  * no-op — an animation can start from it.
  *
+ * Light over a clear part — an additive glow, colour with no opacity of its own — darkens, greys
+ * and tints with everything else, but brightness or contrast above one does not make it brighter
+ * than it came.
+ *
  * @param brightness multiplies the colour. Below one darkens, above one blows out.
  * @param contrast pushes away from mid grey. Zero is flat grey, one is unchanged.
  * @param saturation mixes towards grey. Zero is black and white, above one is lurid.
@@ -59,24 +63,26 @@ private val ColourGradeShader = ShaderSource(
 
         void main() {
             vec4 picture = texture2D(u_texture, v_texCoord);
+            float coverage = picture.a;
 
-            // Undo the premultiply first. Grading the stored value instead would make a
-            // half-transparent red grade differently from an opaque one, which is not what anybody
-            // means by turning the brightness down.
-            vec3 colour = picture.a > 0.0 ? picture.rgb / picture.a : vec3(0.0);
-
-            colour *= u_brightness;
-            colour = (colour - 0.5) * u_contrast + 0.5;
+            // Graded as stored, premultiplied, with every step a straight colour's own step carried
+            // through by the opacity: so a half-transparent red grades as an opaque one does. Not
+            // divided by the opacity first, because light has none: an additive glow over a clear
+            // part is colour with an alpha of nought, and dividing would lose it.
+            vec3 colour = picture.rgb * u_brightness;
+            colour = (colour - 0.5 * coverage) * u_contrast + 0.5 * coverage;
             // The eye's own weighting: green carries most of what we read as brightness, blue
             // almost none. An even third each turns a red panel into a much lighter grey than it
             // looked.
             float grey = dot(colour, vec3(0.299, 0.587, 0.114));
             colour = mix(vec3(grey), colour, u_saturation);
             colour *= u_tint.rgb;
-            colour = clamp(colour, 0.0, 1.0);
+            // Paint no brighter than white at its own opacity; light, which has more colour than
+            // opacity, no brighter than it came.
+            float ceiling = max(coverage, max(picture.r, max(picture.g, picture.b)));
+            colour = clamp(colour, 0.0, ceiling);
 
-            float alpha = picture.a * u_tint.a;
-            gl_FragColor = vec4(colour * alpha, alpha) * u_alpha;
+            gl_FragColor = vec4(colour, coverage) * u_tint.a * u_alpha;
         }
     """.trimIndent(),
 )

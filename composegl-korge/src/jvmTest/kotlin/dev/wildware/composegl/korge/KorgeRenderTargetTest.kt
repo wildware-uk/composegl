@@ -2,11 +2,14 @@ package dev.wildware.composegl.korge
 
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.ScalePolicy
 import dev.wildware.composegl.ui.layout.Viewport
 import korlibs.graphics.readColor
 import korlibs.image.bitmap.Bitmap32
+import korlibs.image.color.RGBA
+import korlibs.korge.view.SolidRect
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -183,6 +186,90 @@ class KorgeRenderTargetTest {
         } finally {
             KorgeGl.render { view.removeFromParent() }
             target.close()
+            canvas.close()
+        }
+    }
+
+    @Test
+    fun `light in the picture keeps its opacity so a KorGE view still shows it`() {
+        // Red paint on the left half, clear on the right, and half-opaque blue light across the
+        // middle of both, laid by KorGE's own view over a grey floor. KorGE's sprite batch throws
+        // away a pixel with no opacity, so in a KorGE texture light keeps the opacity it always had:
+        // over the clear part it covers half the floor and adds its blue.
+        val canvas = KorgeCanvas()
+        val target = KorgeRenderTarget(100, 100)
+        val floor = SolidRect(korlibs.math.geom.Size(400.0, 400.0), RGBA(0x40, 0x40, 0x40))
+        val view = KorgeRenderTargetView(target)
+        try {
+            KorgeGl.render { ctx ->
+                target.draw(canvas, ctx) {
+                    canvas.rect(Rect.of(0f, 0f, 50f, 100f), Colour.rgb(0xFF0000))
+                    canvas.pushBlend(BlendMode.Additive)
+                    canvas.rect(Rect.of(25f, 0f, 50f, 100f), Colour(0x800000FF.toInt()))
+                    canvas.popBlend()
+                }
+                view.x = 150.0
+                view.y = 150.0
+                KorgeGl.stage.addChild(floor)
+                KorgeGl.stage.addChild(view)
+            }
+            KorgeGl.frames(3)
+            val window = KorgeGl.window()
+
+            val grey = 0x40 / 255f
+            assertColour(Rgb(1f, 0f, 0x80 / 255f), window.at(185, 200), "the light added onto the red paint")
+            val half = 0x20 / 255f
+            assertColour(Rgb(half, half, 0xA0 / 255f), window.at(215, 200), "the light alone, over half the floor")
+            assertColour(Rgb(grey, grey, grey), window.at(240, 200), "the floor through the clear part")
+        } finally {
+            KorgeGl.render {
+                view.removeFromParent()
+                floor.removeFromParent()
+            }
+            target.close()
+            canvas.close()
+        }
+    }
+
+    @Test
+    fun `on the window light in a turned picture adds onto what is behind as drawn straight`() {
+        // Light only on the window's own framebuffer: there KorGE lays nothing down after us, so a
+        // picture's light adds no opacity and goes down exactly as the same light drawn straight.
+        val canvas = KorgeCanvas()
+        val area = Rect.of(150f, 150f, 100f, 100f)
+        val light = Colour(0x800000FF.toInt())
+        try {
+            fun frame(turned: Boolean): Bitmap32 = KorgeGl.render { ctx ->
+                canvas.begin(Viewport(Size(400f, 400f), Size(ctx.mainFrameBuffer.width.toFloat(), ctx.mainFrameBuffer.height.toFloat()), ScalePolicy.Stretch), ctx)
+                canvas.rect(Rect.of(0f, 0f, 400f, 400f), Colour.rgb(0x404040))
+                if (turned) {
+                    val picture = checkNotNull(
+                        canvas.layer(area) {
+                            canvas.pushBlend(BlendMode.Additive)
+                            canvas.rect(area, light)
+                            canvas.popBlend()
+                        },
+                    ) { "this driver gave us no layer" }
+                    canvas.drawLayer(picture, area, 90f, 0.5f, 0.5f)
+                } else {
+                    canvas.pushBlend(BlendMode.Additive)
+                    canvas.rect(area, light)
+                    canvas.popBlend()
+                }
+                canvas.end()
+                Bitmap32(ctx.mainFrameBuffer.width, ctx.mainFrameBuffer.height, premultiplied = false).also {
+                    ctx.ag.readColor(ctx.mainFrameBuffer, it)
+                }
+            }
+            val straight = frame(turned = false)
+            val turned = frame(turned = true)
+            val middleX = straight.width / 2
+            val middleY = straight.height / 2
+
+            val grey = 0x40 / 255f
+            assertColour(Rgb(grey, grey, 0xC0 / 255f), straight.at(middleX, middleY), "straight, the light adds onto the grey")
+            assertColour(straight.at(middleX, middleY), turned.at(middleX, middleY), "through a turned picture, the same")
+        } finally {
             canvas.close()
         }
     }

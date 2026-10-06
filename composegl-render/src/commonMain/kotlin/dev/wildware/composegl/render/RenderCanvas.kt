@@ -230,6 +230,13 @@ open class RenderCanvas protected constructor(
     override fun begin(viewport: Viewport) = begin(viewport, FrameTarget.Host)
 
     /**
+     * Whether light keeps its opacity in the frames begun from now on: see [Blend.lightCovers]. For
+     * a backend whose engine lays a texture down through a program that throws away a pixel with no
+     * opacity, while it draws into one. Off, light adds colour and no opacity.
+     */
+    protected var lightCovers = false
+
+    /**
      * Sets up for a frame in [viewport]'s design coordinates, drawn into [into].
      *
      * @param clear what to fill the target with first, or null to draw over what is there.
@@ -243,6 +250,7 @@ open class RenderCanvas protected constructor(
      */
     fun begin(viewport: Viewport, into: FrameTarget, clear: Colour?, topRowFirst: Boolean) {
         check(!drawing) { "begin() was called twice without an end()" }
+        batch().lightCovers = lightCovers
         this.topRowFirst = topRowFirst
         drawing = true
         begun = true
@@ -814,8 +822,8 @@ open class RenderCanvas protected constructor(
         picture.slice(source)
         val box = state.map(destination)
 
-        // A layer's own picture drawn as an image is held inside its corner as its composite is.
-        if (texture is LayerPicture) holdPicture()
+        val layer = texture is LayerPicture
+        if (layer) layerAsImage()
         batch().textured(
             texture = picture.texture,
             left = box.left,
@@ -826,10 +834,29 @@ open class RenderCanvas protected constructor(
             v = picture.top,
             u2 = picture.right,
             v2 = picture.bottom,
-            tint = tint.inForce(),
-            premultiplied = picture.premultiplied,
+            tint = if (layer) premultiplied(tint.inForce()) else tint.inForce(),
+            premultiplied = picture.premultiplied && !layer,
         )
         batch().letGo()
+        if (layer) backFromPicture()
+    }
+
+    /**
+     * A layer's own picture drawn as an image goes down as its composite does: premultiplied, and
+     * held inside its corner. Light in a layer has colour and no opacity of its own, so a picture
+     * straightened into plain blending, as any other premultiplied picture drawn as an image is,
+     * would lose it. The tint is premultiplied to match, by [premultiplied].
+     */
+    private fun layerAsImage() {
+        batch().blend(state.blend, premultiplied = true, reason = BatchBreak.Layer)
+        holdPicture()
+    }
+
+    /** [colour] with its colour multiplied by its own opacity, for a tint under a premultiplied blend. */
+    private fun premultiplied(colour: Colour): Colour {
+        val alpha = colour.alpha
+        fun times(channel: Int) = (channel * alpha + 127) / 255
+        return Colour((alpha shl 24) or (times(colour.red) shl 16) or (times(colour.green) shl 8) or times(colour.blue))
     }
 
     /** The same picture, turned: four corners on the processor, the same quad in the same batch. */
@@ -852,7 +879,8 @@ open class RenderCanvas protected constructor(
         picture.slice(source)
         val box = state.map(destination)
 
-        if (texture is LayerPicture) holdPicture()
+        val layer = texture is LayerPicture
+        if (layer) layerAsImage()
         batch().textured(
             texture = picture.texture,
             left = box.left,
@@ -867,10 +895,11 @@ open class RenderCanvas protected constructor(
             v = picture.top,
             u2 = picture.right,
             v2 = picture.bottom,
-            tint = tint.inForce(),
-            premultiplied = picture.premultiplied,
+            tint = if (layer) premultiplied(tint.inForce()) else tint.inForce(),
+            premultiplied = picture.premultiplied && !layer,
         )
         batch().letGo()
+        if (layer) backFromPicture()
     }
 
     override val rotatesImages: Boolean get() = true
@@ -1292,7 +1321,8 @@ open class RenderCanvas protected constructor(
         device.clear(0f, 0f, 0f, 0f)
         orthographic(projection, area.width, area.height, area.left)
         batch().projection(projection)
-        // Plain blending inside: adding into transparent black then compositing is not adding.
+        // Plain blending inside: the mode in force out here is the composite's, so a glowing group's
+        // parts cover one another in the picture and the whole is added once as it goes down.
         applyBlend()
 
         try {
@@ -1614,7 +1644,7 @@ open class RenderCanvas protected constructor(
         quad.height = height
         quad.alpha = state.alpha.coerceIn(0f, 1f)
         // The mode in force applies whether or not there is a shader in the way.
-        device.drawEffect(effect, picture.texture, quad, Blend.of(state.blend, premultiplied = true))
+        device.drawEffect(effect, picture.texture, quad, Blend.of(state.blend, premultiplied = true, lightCovers))
 
         backFromPicture()
     }

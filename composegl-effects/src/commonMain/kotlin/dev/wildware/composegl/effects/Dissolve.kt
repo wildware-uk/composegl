@@ -97,11 +97,11 @@ private val DissolveShader = ShaderSource(
             // which is what makes it look like burning rather than like fading.
             float rim = keep * (1.0 - smoothstep(u_progress + u_softness, u_progress + u_softness * 2.0, pattern));
 
-            vec3 colour = picture.a > 0.0 ? picture.rgb / picture.a : vec3(0.0);
-            colour = mix(colour, u_edge.rgb, rim * u_edge.a);
-
-            float alpha = picture.a * keep;
-            gl_FragColor = vec4(colour * alpha, alpha) * u_alpha;
+            // Worked on the stored, premultiplied colour rather than divided by the opacity first,
+            // so light, which has none, burns away with the rest rather than being lost. The rim is
+            // paint, at the pixel's own opacity.
+            vec3 colour = mix(picture.rgb, u_edge.rgb * picture.a, rim * u_edge.a);
+            gl_FragColor = vec4(colour, picture.a) * keep * u_alpha;
         }
     """.trimIndent(),
 )

@@ -68,6 +68,16 @@ class PreviewRendererTest {
     }
 
     @Test
+    fun `light over nothing in a transparent preview keeps its colour and enough opacity to show it`() {
+        val image = render(sample("glow"))
+
+        // Light has no opacity of its own in the picture; a PNG needs some to show it.
+        assertPixel(0x800000FF.toInt(), image, 25, 10, "half-opaque blue light over nothing")
+        assertPixel(0xFF4040C0.toInt(), image, 15, 10, "the light added onto the grey paint")
+        assertEquals(0, image.getRGB(35, 10) ushr 24, "nothing past both")
+    }
+
+    @Test
     fun `a transparent preview stays transparent and a faded square keeps its colour`() {
         val image = render(sample("see-through"))
 
@@ -98,7 +108,7 @@ class PreviewRendererTest {
         )
 
         assertEquals(emptyMap<String, Throwable>(), report.failed)
-        assertEquals(listOf("fade-in.png", "menu.png", "see-through.png", "squares.png"), out.list()!!.sorted())
+        assertEquals(listOf("fade-in.png", "glow.png", "menu.png", "see-through.png", "squares.png"), out.list()!!.sorted())
         val squares = ImageIO.read(File(out, "squares.png"))
         assertEquals(480 to 60, squares.width to squares.height)
         assertPixel(0xFFFF0000.toInt(), squares, 15, 15, "the file holds the drawing")

@@ -51,6 +51,11 @@ import dev.wildware.composegl.ui.graphics.Colour
  * be the same — that is what makes a soft edge blend without a dark halo round it. In practice:
  * multiply the whole of your answer by its own alpha, and by `u_alpha`.
  *
+ * Light is the exception to dividing it out. A glow drawn with `BlendMode.Additive` over a clear
+ * part of the picture adds colour and no opacity, so it arrives with an alpha of nought, and
+ * dividing by that loses it. A step that only multiplies or mixes the colour can work on what is
+ * stored instead and keeps it; the shipped colour grade and dissolve do.
+ *
  * ## When it does not compile
  *
  * The backend throws, with the driver's own message and [name] in it. A shader that does not

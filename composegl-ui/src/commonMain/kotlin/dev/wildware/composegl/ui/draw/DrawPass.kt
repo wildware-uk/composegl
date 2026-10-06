@@ -700,11 +700,12 @@ class DrawPass(val canvas: UiCanvas) {
      * fades as one piece — and then the caller cuts a picture as before.
      *
      * False, too, when a game's own drawing was inside this clip last frame. The canvas trims that
-     * through a picture it opens partway, which is right for the drawing but not for something
-     * additive drawn after it, which would light the picture rather than the card. A cut picture
-     * holds the whole clip from the start, as it always did, so from the frame after one is seen
-     * that is what such a clip gets, until the frame after it is gone. On a canvas that cannot cut
-     * one it stays in place, and [despiteRaw] puts it in place when the cut picture was refused.
+     * through a picture it opens partway, which lands the drawing's see-through pixels on clear
+     * rather than on the card, and at a game's default blend they come out a little faint there.
+     * Light drawn after it adds onto the card all the same. A cut picture holds the whole
+     * clip from the start, as it always did, so from the frame after one is seen that is what such
+     * a clip gets, until the frame after it is gone. On a canvas that cannot cut one it stays in
+     * place, and [despiteRaw] puts it in place when the cut picture was refused.
      */
     private fun rounded(node: UiNode, resolved: ResolvedModifier, bounds: Rect, shape: Shape, despiteRaw: Boolean): Boolean {
         val square = shape === Shapes.Circle

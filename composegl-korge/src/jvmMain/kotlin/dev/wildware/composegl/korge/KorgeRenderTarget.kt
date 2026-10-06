@@ -29,6 +29,11 @@ import korlibs.math.geom.slice.RectSlice
  * ordinary blend for a screen or an additive one for a hologram. The LibGDX backend's
  * `GdxRenderTarget`, for KorGE.
  *
+ * Light drawn into it with an additive blend keeps its opacity, unlike on the other backends, where
+ * it has none of its own. KorGE's sprite batch throws away any pixel with no opacity, so light
+ * without would vanish wherever the panel is clear. So a glow over a clear part covers what is
+ * behind it by its opacity, as it always has here.
+ *
  * ```kotlin
  * val target = KorgeRenderTarget(512, 256)
  * addUpdater { /* each frame, in a render: */ }

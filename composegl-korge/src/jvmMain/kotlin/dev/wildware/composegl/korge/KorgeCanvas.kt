@@ -91,6 +91,11 @@ class KorgeCanvas private constructor(
 
         attach(context, ag)
         try {
+            // KorGE lays a texture down through its sprite batch, whose program throws away every
+            // pixel with no opacity: light added onto a clear part with none would vanish. So in a
+            // texture light keeps its opacity, as it always did, and covers what is behind by that
+            // much; on the window it adds and covers nothing.
+            lightCovers = framebuffer.isTexture
             // KorGE draws into a texture the other way up and reads it back that way too.
             begin(viewport, FrameTarget.Host, clear = null, topRowFirst = framebuffer.isTexture && context.flipRenderTexture)
             if (warmUpWanted) {

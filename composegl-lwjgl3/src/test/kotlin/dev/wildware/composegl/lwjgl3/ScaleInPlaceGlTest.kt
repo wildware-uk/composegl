@@ -309,9 +309,9 @@ class ScaleInPlaceGlTest {
             println("glow over grey: in place $now, unscaled $plain, picture $before")
 
             assertTrue(now.zip(plain).all { (a, b) -> abs(a - b) <= 2 }, "the same as unscaled: $now against $plain")
-            // The trade, pinned. The picture covered the grey by the glow's own opacity: 0x20 of it
-            // left, against 0x40 now.
-            assertTrue(now.zip(before).all { (a, b) -> a - b in 0x1C..0x24 }, "brighter than the picture by half the grey: $now against $before")
+            // And the same as the picture: light adds no opacity to it, so the picture laid over the
+            // grey adds the glow onto it rather than covering it by the glow's own opacity.
+            assertTrue(now.zip(before).all { (a, b) -> abs(a - b) <= 2 }, "the same as the picture: $now against $before")
             assertEquals(0, pictures, "no picture")
         } finally {
             canvas.close()

@@ -12,6 +12,8 @@ import dev.wildware.composegl.ui.graphics.Colour
  *
  * What comes out is **premultiplied**: draw the quad with `glBlendFunc(GL_ONE,
  * GL_ONE_MINUS_SRC_ALPHA)` for an ordinary screen, or `glBlendFunc(GL_ONE, GL_ONE)` for a hologram.
+ * Light drawn into it with an additive blend has no opacity of its own, so either way it adds onto
+ * the scene, as it looks drawn straight.
  *
  * ```kotlin
  * val target = GlRenderTarget(512, 256)

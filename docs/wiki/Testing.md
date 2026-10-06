@@ -603,7 +603,7 @@ picture is taken.
 |---|---|
 | `width`, `height` | the picture, and the screen the content is laid out in. 400 by 200 if left out |
 | `name` | the file, `<name>.png`. The function's name if left out. `menus/pause` writes into a `menus` folder |
-| `background` | `0xAARRGGBB` behind the content. Opaque black if left out; zero alpha keeps the PNG transparent |
+| `background` | `0xAARRGGBB` behind the content. Opaque black if left out; zero alpha keeps the PNG transparent, and light over nothing (an additive glow) gets just enough opacity to show its colour, as it looks over black |
 
 A preview takes no arguments. It can be a top-level function or sit in an `object`
 or a `companion object` (`@JvmStatic` or not), and it can be private. Anything else — parameters, not `@Composable`, inside a

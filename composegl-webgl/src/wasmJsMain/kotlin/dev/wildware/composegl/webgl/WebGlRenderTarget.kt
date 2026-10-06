@@ -13,7 +13,9 @@ import org.khronos.webgl.WebGLTexture
  * scene, a minimap, a card being flipped. The shared [RenderTarget], with WebGL objects for the game.
  *
  * What comes out is **premultiplied**, as on the desktop, so a game puts it on a quad with
- * `gl.blendFunc(ONE, ONE_MINUS_SRC_ALPHA)` and needs no shader of its own.
+ * `gl.blendFunc(ONE, ONE_MINUS_SRC_ALPHA)` and needs no shader of its own. Light drawn into it with
+ * an additive blend has no opacity of its own, so that quad adds it onto the scene, as it looks
+ * drawn straight.
  *
  * @param depth give it a depth buffer, for a page drawing its own 3D scene into it. Cleared with the
  *   colour by every [draw]; without one a scene comes out inside-out.

@@ -576,11 +576,12 @@ interface UiCanvas {
      *
      * Inside [layer] the mode starts again at [BlendMode.SourceOver], the same reset the clip and
      * the opacity already get, and whatever was in force out here is back afterwards. It has to
-     * be: a layer's picture starts as transparent black, so adding into it and then compositing
-     * the result the ordinary way is not the same as adding onto the screen. To make a whole group
-     * glow, push the mode round the [drawLayer] rather than round the [layer] — and that holds
-     * whether or not the [drawLayer] has a [dev.wildware.composegl.ui.effect.ShaderEffect] on it,
-     * so a blurred group glows the same as an unblurred one.
+     * be: the mode in force where the picture is put down is the one it goes down with, so carried
+     * inside as well it would apply twice, and a glowing group's own parts would add into one
+     * another instead of covering. To make a whole group glow, push the mode round the
+     * [drawLayer] rather than round the [layer] — and that holds whether or not the [drawLayer]
+     * has a [dev.wildware.composegl.ui.effect.ShaderEffect] on it, so a blurred group glows the
+     * same as an unblurred one.
      *
      * Both do nothing by default, and then everything draws [BlendMode.SourceOver] — a glow reads
      * as a coloured smudge, which is what it looked like before this existed. Ask [supports]

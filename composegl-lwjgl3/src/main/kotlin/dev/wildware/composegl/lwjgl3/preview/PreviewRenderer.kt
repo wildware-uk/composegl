@@ -37,6 +37,10 @@ class PreviewRenderer(val backend: Lwjgl3Backend) {
      *
      * A render target holds premultiplied colour, and a PNG holds straight colour; a half-faded
      * panel written without dividing would come out darker in the picture than in the game.
+     *
+     * Light — an additive glow over a clear part — is colour with less opacity than colour, or none,
+     * which a PNG cannot hold. Such a pixel is written with just enough opacity to carry its
+     * colour, so it looks as it does in the game over black, rather than vanishing or going white.
      */
     private fun read(target: GlRenderTarget): BufferedImage {
         val width = target.width
@@ -48,11 +52,10 @@ class PreviewRenderer(val backend: Lwjgl3Backend) {
             for (x in 0 until width) {
                 // OpenGL hands back the bottom row first.
                 val at = ((height - 1 - y) * width + x) * 4
-                val alpha = bytes[at + 3].toInt() and 0xFF
-                fun straight(channel: Int): Int {
-                    val premultiplied = bytes[at + channel].toInt() and 0xFF
-                    return if (alpha == 0) 0 else minOf(255, (premultiplied * 255 + alpha / 2) / alpha)
-                }
+                fun stored(channel: Int) = bytes[at + channel].toInt() and 0xFF
+                val alpha = maxOf(stored(3), stored(0), stored(1), stored(2))
+                fun straight(channel: Int): Int =
+                    if (alpha == 0) 0 else minOf(255, (stored(channel) * 255 + alpha / 2) / alpha)
                 image.setRGB(x, y, (alpha shl 24) or (straight(0) shl 16) or (straight(1) shl 8) or straight(2))
             }
         }

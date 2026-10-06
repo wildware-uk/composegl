@@ -14,6 +14,9 @@ import dev.wildware.composegl.ui.modifier.effect
  * opaque, so a rounded panel gets a rounded outline and a piece of text gets outlined letters. That
  * is what makes it useful in a game — a selected unit, a highlighted card, readable text over a
  * bright background — and it is the one effect here that a border modifier cannot do.
+ *
+ * Light is not a shape. An additive glow over a clear part adds colour and no opacity, so the line
+ * runs round the paint, and the glow lies over it.
  */
 fun outline(colour: Colour, width: Float = 2f): ShaderEffect {
     require(width >= 0f) { "An outline cannot be $width thick." }

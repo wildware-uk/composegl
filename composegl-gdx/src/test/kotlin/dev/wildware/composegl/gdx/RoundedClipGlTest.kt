@@ -276,6 +276,30 @@ class RoundedClipGlTest {
     }
 
     @Test
+    fun `on its first frame an additive shine after a game's drawing in a rounded card lights the card too`() {
+        // The first frame opens a picture at the game's drawing and draws the rest of the card into
+        // it. Light adds no opacity to that picture, so the shine adds onto the card's blue under
+        // it, as it does from the second frame on, rather than covering it.
+        val frame = render(frames = 1) {
+            card {
+                Box(Modifier.size(100f).background(blue)) {
+                    Box(
+                        Modifier.size(100f).drawBehind { rect ->
+                            raw(rect) { lent -> (lent as Batch).draw(white(), 0f, 0f, 20f, 20f) }
+                        },
+                    )
+                    Box(Modifier.offset(30f, 30f).size(40f).blend(BlendMode.Additive).background(red))
+                }
+            }
+        }
+
+        assertColour(Colour.rgb(0xFF00FF), frame.at(150, 150), "red added to the card's blue")
+        assertColour(Colour.White, frame.at(115, 185), "the game's drawing")
+        assertColour(black, frame.at(103, 196), "its corner, cut with the card's")
+        assertTrue(BatchBreak.Layer in frame.breaks, "through a picture: ${frame.breaks}")
+    }
+
+    @Test
     fun `on its first frame a game's drawing in a rounded card is trimmed through one picture`() {
         val frame = render(frames = 1) {
             card {

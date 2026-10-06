@@ -253,20 +253,31 @@ interface VertexStream {
  * How a quad is combined with what is under it. The toolkit's [BlendMode], and whether the colour
  * arriving is already multiplied by its own opacity.
  *
- * The alpha half always accumulates (`ONE, ONE_MINUS_SRC_ALPHA` or `ONE, ONE`), so what lands in an
- * offscreen picture is premultiplied.
+ * The alpha half accumulates paint (`ONE, ONE_MINUS_SRC_ALPHA`), so what lands in an offscreen picture
+ * is premultiplied. Under an additive blend it keeps what is there (`ZERO, ONE`): light adds colour and
+ * no coverage, so a premultiplied composite of the picture adds it onto whatever the picture is laid
+ * over, as drawing it straight would.
+ *
+ * Unless [lightCovers]: then light's opacity accumulates too (`ONE, ONE`), for a target whose
+ * engine throws away a pixel with no opacity when it lays the target down, as KorGE's sprite batch
+ * does. There light keeps the opacity it always had, and covers what is behind by that much.
  */
-enum class Blend(val additive: Boolean, val premultiplied: Boolean) {
+enum class Blend(val additive: Boolean, val premultiplied: Boolean, val lightCovers: Boolean = false) {
     SourceOver(additive = false, premultiplied = false),
     Additive(additive = true, premultiplied = false),
     PremultipliedSourceOver(additive = false, premultiplied = true),
     PremultipliedAdditive(additive = true, premultiplied = true),
+    AdditiveCovering(additive = true, premultiplied = false, lightCovers = true),
+    PremultipliedAdditiveCovering(additive = true, premultiplied = true, lightCovers = true),
     ;
 
     companion object {
-        fun of(mode: BlendMode, premultiplied: Boolean): Blend = when (mode) {
+        fun of(mode: BlendMode, premultiplied: Boolean, lightCovers: Boolean = false): Blend = when (mode) {
             BlendMode.SourceOver -> if (premultiplied) PremultipliedSourceOver else SourceOver
-            BlendMode.Additive -> if (premultiplied) PremultipliedAdditive else Additive
+            BlendMode.Additive -> when {
+                lightCovers -> if (premultiplied) PremultipliedAdditiveCovering else AdditiveCovering
+                else -> if (premultiplied) PremultipliedAdditive else Additive
+            }
         }
     }
 }
