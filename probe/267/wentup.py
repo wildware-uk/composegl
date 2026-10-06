@@ -13,6 +13,8 @@ def parse(path):
         if m: d['progsw'] = int(m.group(2))
         m = re.match(r'draw calls (\d+).*quads (\d+)', line)
         if m: d['draws'] = int(m.group(1)); d['quads'] = int(m.group(2))
+        m = re.match(r'blend calls \d+ \(changes \d+\), enable/disable (\d+) \(changes (\d+)\)', line)
+        if m: d['caps'] = int(m.group(2))
         m = re.match(r'scissor (\d+) \(changes (\d+)\)', line)
         if m: d['scissor'] = int(m.group(2))
         m = re.match(r'pictures drawn into (\d+)', line)
@@ -30,4 +32,4 @@ for kind, files in [('showcase', ('sc/count-before/report.txt', 'sc/count-after/
     for scene in a:
         if scene not in b: continue
         x, y = b[scene], a[scene]
-        print(f"{kind}-{scene:28} progsw {x['progsw']:>3}->{y['progsw']:<3} quads {x['quads']:>5}->{y['quads']:<5} vertexKB {x['vb']/1024:7.1f}->{y['vb']/1024:<7.1f} draws {x['draws']:>3}->{y['draws']:<3} cut-by-program-only {x['prog_only']}->{y['prog_only']} any-program {x['prog_any']}->{y['prog_any']} scissor-changes {x['scissor']}->{y['scissor']} pictures {x['pics']}->{y['pics']}")
+        print(f"{kind}-{scene:28} progsw {x['progsw']:>3}->{y['progsw']:<3} quads {x['quads']:>5}->{y['quads']:<5} vertexKB {x['vb']/1024:7.1f}->{y['vb']/1024:<7.1f} draws {x['draws']:>3}->{y['draws']:<3} cut-by-program-only {x['prog_only']}->{y['prog_only']} any-program {x['prog_any']}->{y['prog_any']} scissor-changes {x['scissor']}->{y['scissor']} enable-disable-changes {x['caps']}->{y['caps']} pictures {x['pics']}->{y['pics']}")
