@@ -17,8 +17,8 @@ import kotlin.math.sin
  * One copy for every backend, so a draw-call trace means the same thing whichever one is drawing.
  * The coordinates reaching here already count y upwards: the canvas flips once on the way in.
  *
- * A vertex carries its fill and border as the colour's own four bytes, one slot each, and its shadow
- * as four floats: see [ShapeVertex]. Every colour arriving has already had the canvas's alpha and
+ * A vertex carries its fill, border and shadow as each colour's own four bytes, one slot each: see
+ * [ShapeVertex]. Every colour arriving has already had the canvas's alpha and
  * tint stacks multiplied into it, so this batch has no idea either exists.
  */
 class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048) {
@@ -526,11 +526,14 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
      * The same quad and the same distance field as [shape], and the strip is on the same texture
      * flat colour comes from, so it costs no texture switch. It does need the full program
      * ([ShapeProgram.Full]), so it shares a draw call only with lit surfaces, inside shades and other
-     * runs drawn next to it. Where the strip is rides in the shadow colour's slot, which a gradient
-     * never uses, so the border's slot is free and a run of stops can carry an outline in the same quad.
+     * runs drawn next to it. The strip lies along one row of the atlas. It starts at the quad's own
+     * texture coordinate, which the full program does not read for a run of stops, and the u it ends
+     * at rides in the shadow's spread, since a gradient casts no shadow. The border's slot is free,
+     * so a run of stops can carry an outline in the same quad.
      *
      * @param tint what the strip is multiplied by: the alpha and tint in force.
      * @param u where the strip starts, in texture coordinates, and [u2] where it ends.
+     * @param v2 the row the strip ends on: [v], or the run is refused.
      */
     @Suppress("LongParameterList")
     fun rampGradient(
@@ -560,9 +563,9 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
     )
 
     /**
-     * The same, with the [WhiteSpot]'s three parts handed over loose: the strip's [texture], and the
-     * [whiteU], [whiteV] the quad itself reads. What a canvas calls for every run of stops it draws,
-     * so it makes no spot each time (#252).
+     * The same, with the [WhiteSpot]'s three parts handed over loose: the strip's [texture], and
+     * [whiteU] and [whiteV], which are not read. The quad's texture coordinate is the strip's start
+     * (#260). What a canvas calls for every run of stops it draws, so it makes no spot each time (#252).
      */
     @Suppress("LongParameterList")
     fun rampGradient(
@@ -589,6 +592,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         borderWidth: Float,
         aa: Float,
     ) {
+        require(v2 == v) { "a run of stops lies along one row of the atlas: v $v, v2 $v2" }
         val halfWidth = width / 2f
         val halfHeight = height / 2f
         val most = minOf(halfWidth, halfHeight).coerceAtLeast(0f)
@@ -606,31 +610,21 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             top = bottom + height + margin,
             centreX = left + halfWidth,
             centreY = bottom + halfHeight,
-            u = whiteU, v = whiteV, u2 = whiteU, v2 = whiteV,
+            u = u, v = v, u2 = u, v2 = v,
             fill = tint,
             border = border,
-            // The strip's two ends, as a colour that is really four numbers.
             shadow = Colour.Transparent,
             halfWidth = halfWidth,
             halfHeight = halfHeight,
             radii = radii,
             borderWidth = borderWidth,
-            shadowSpread = 0f,
+            shadowSpread = u2,
             aa = aa,
             gradient = if (radial) ShapeVertex.RadialRamp else ShapeVertex.LinearRamp,
             gradientX = axisX,
             gradientY = axisY,
-            ramp = rampEnds.also {
-                it[0] = u
-                it[1] = v
-                it[2] = u2
-                it[3] = v2
-            },
         )
     }
-
-    /** Where [rampGradient] writes the strip's two ends for its quad: read straight after, so kept rather than made. */
-    private val rampEnds = FloatArray(4)
 
     /**
      * One rounded box filled with a gradient between [start] and [end]: the same quad and the same
@@ -996,13 +990,12 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         halfWidth: Float, halfHeight: Float,
         radii: FloatArray, borderWidth: Float, shadowSpread: Float, aa: Float,
         gradient: Float = 0f, gradientX: Float = 0f, gradientY: Float = 0f,
-        ramp: FloatArray? = null,
     ) {
         // Wound anticlockwise from the bottom-left; `v` is the coordinate at the quad's *top*.
-        vertex(left, bottom, u, v2, fill, border, shadow, left - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY, ramp = ramp)
-        vertex(left, top, u, v, fill, border, shadow, left - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY, ramp = ramp)
-        vertex(right, top, u2, v, fill, border, shadow, right - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY, ramp = ramp)
-        vertex(right, bottom, u2, v2, fill, border, shadow, right - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY, ramp = ramp)
+        vertex(left, bottom, u, v2, fill, border, shadow, left - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
+        vertex(left, top, u, v, fill, border, shadow, left - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
+        vertex(right, top, u2, v, fill, border, shadow, right - centreX, top - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
+        vertex(right, bottom, u2, v2, fill, border, shadow, right - centreX, bottom - centreY, halfWidth, halfHeight, radii, borderWidth, shadowSpread, aa, gradient, gradientX, gradientY)
     }
 
     @Suppress("LongParameterList")
@@ -1013,7 +1006,6 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         radii: FloatArray, borderWidth: Float, shadowSpread: Float, aa: Float,
         gradient: Float = 0f, gradientX: Float = 0f, gradientY: Float = 0f,
         w: Float = 1f,
-        ramp: FloatArray? = null,
     ) {
         val out = floats
         var at = used
@@ -1023,15 +1015,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         // The colour's bytes as they are, one store each; the GPU reads them as fractions of 255.
         out[at++] = ShapeVertex.packed(fill)
         out[at++] = ShapeVertex.packed(border)
-        // A strip of the atlas rides where the shadow's colour would be: a gradient never casts one.
-        if (ramp != null) {
-            out[at++] = ramp[0]
-            out[at++] = ramp[1]
-            out[at++] = ramp[2]
-            out[at++] = ramp[3]
-        } else {
-            at = writeColour(shadow, at)
-        }
+        out[at++] = ShapeVertex.packed(shadow)
         out[at++] = u
         out[at++] = v
         out[at++] = localX
@@ -1051,22 +1035,13 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         used = at
     }
 
-    /** The shadow's four floats, red first. The toolkit's packed integer undone once, here. */
-    private fun writeColour(colour: Colour, at: Int): Int {
-        floats[at] = colour.red / 255f
-        floats[at + 1] = colour.green / 255f
-        floats[at + 2] = colour.blue / 255f
-        floats[at + 3] = colour.alphaFraction
-        return at + 4
-    }
-
     private companion object {
         /** The smallest ordinary number `mediump` promises: 2^-14. Smaller ones may read as zero. */
         const val SmallestMedium = 1f / 16384f
 
         /**
          * The fewest pixels a plain box's flat middle covers before it is drawn on its own: 64 by
-         * 64. Splitting costs four more quads, sixteen vertices of 100 bytes written, uploaded and
+         * 64. Splitting costs four more quads, sixteen vertices of 88 bytes written, uploaded and
          * shaded, against at least 0.62 Mali-G57 cycles saved on each pixel of the middle. Much
          * smaller and the vertices cost about what the pixels save.
          */

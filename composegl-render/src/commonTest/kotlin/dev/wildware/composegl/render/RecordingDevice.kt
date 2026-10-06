@@ -224,6 +224,9 @@ class RecordingDevice(
         /** The border colour of [vertex], the same way. */
         fun border(vertex: Int): List<Float> = unpacked(bits(vertex, "a_borderColor"))
 
+        /** The shadow colour of [vertex], the same way: for a lit surface, its light and gloss. */
+        fun shadow(vertex: Int): List<Float> = unpacked(bits(vertex, "a_shadowColor"))
+
         private fun unpacked(bits: Int): List<Float> = (0 until 4).map { (bits ushr (it * 8) and 0xFF) / 255f }
     }
 

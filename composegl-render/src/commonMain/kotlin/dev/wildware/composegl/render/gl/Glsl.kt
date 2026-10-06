@@ -162,9 +162,9 @@ object GlslSources {
      * and texture coordinates stay at full width in every program, so a wide panel keeps an exact edge and a
      * big glyph page stays sharp. A desktop GL has no `mediump` and compiles every program as written.
      *
-     * The full program keeps every number at full width, because there the colour slots carry more
-     * than colours: a run of stops reads its strip's ends from the shadow colour, and a lit face its
-     * run's width from the spread, both texture coordinates.
+     * The full program keeps every number at full width, because there the small numbers carry more
+     * than they say: a run of stops reads where its strip ends from the spread, and a lit face its
+     * run's width, both texture coordinates.
      *
      * The held program is the common one with one read put back: a picture in the corner of a
      * bigger pooled picture is held inside that corner, which takes the radii. A GPU reads every
@@ -386,14 +386,19 @@ object GlslSources {
             #endif
 
             // A gradient. Two colours mix in the vertex, the end riding in the border's slot; a run
-            // of stops is a strip of the atlas, and where it is rides in the shadow's slot.
+            // of stops is a strip along one row of the atlas, starting at the quad's own texture
+            // coordinate and ending at the u that rides in the spread.
             vec4 fill = v_color;
             // What the texture contributes: the atlas's white block for a flat fill. A run of stops
             // reads the strip itself, and the quad's own texture coordinate is that strip's start,
-            // so it takes its colour from the strip alone rather than multiplying by it twice.
+            // so it takes its colour from the strip alone rather than multiplying by it twice. It
+            // casts no shadow: its spread is where the strip ends.
             vec4 texel = sampled;
             #ifdef CG_FULL
-            if (v_gradient.x > 2.5) texel = vec4(1.0);
+            if (v_gradient.x > 2.5) {
+                texel = vec4(1.0);
+                spread = 0.0;
+            }
             #endif
             if (v_gradient.x > 0.5) {
                 bool outwards = v_gradient.x > 1.5 && v_gradient.x < 2.5 || v_gradient.x > 3.5;
@@ -403,9 +408,8 @@ object GlslSources {
                 along = clamp(along, 0.0, 1.0);
                 #ifdef CG_FULL
                 if (v_gradient.x > 2.5) {
-                    vec2 from = v_shadowColor.xy;
-                    vec2 to = v_shadowColor.zw;
-                    vec4 strip = texture2D(u_texture, mix(from, to, along));
+                    vec2 to = vec2(v_shape.y, v_texCoord.y);
+                    vec4 strip = texture2D(u_texture, mix(v_texCoord, to, along));
                     // The strip is premultiplied, so that the GPU's own mixing is the right mix.
                     if (strip.a > 0.0) strip = vec4(strip.rgb / strip.a, strip.a);
                     fill = strip * v_color;

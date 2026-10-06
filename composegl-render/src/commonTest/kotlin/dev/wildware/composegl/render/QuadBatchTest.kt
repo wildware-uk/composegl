@@ -6,7 +6,9 @@ import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.node.UiNode
 import kotlin.test.Test
+import kotlin.math.roundToInt
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -34,14 +36,14 @@ class QuadBatchTest {
     }
 
     @Test
-    fun `the fill and border are four bytes in one slot each and the shadow is four floats`() {
-        assertEquals(25, ShapeVertex.Floats, "100 bytes a vertex")
-        assertEquals(listOf("a_color", "a_borderColor"), ShapeVertex.Attributes.filter { it.packed }.map { it.name })
+    fun `the fill - border and shadow are four bytes in one slot each`() {
+        assertEquals(22, ShapeVertex.Floats, "88 bytes a vertex")
+        assertEquals(listOf("a_color", "a_borderColor", "a_shadowColor"), ShapeVertex.Attributes.filter { it.packed }.map { it.name })
         ShapeVertex.Attributes.filter { it.packed }.forEach { assertEquals(4, it.size, "${it.name} is red, green, blue and alpha") }
     }
 
     @Test
-    fun `a quad's fill and border are its colours' bytes red first at every corner`() {
+    fun `a quad's fill - border and shadow are its colours' bytes red first at every corner`() {
         val batch = QuadBatch(device)
         batch.begin(identity)
         batch.shape(
@@ -59,10 +61,12 @@ class QuadBatchTest {
             // Memory holds red, green, blue, alpha: the bits of a little-endian 0xAABBGGRR.
             assertEquals(0x40302010, draw.bits(corner, "a_color"), "fill at corner $corner")
             assertEquals(0x80706050.toInt(), draw.bits(corner, "a_borderColor"), "border at corner $corner")
-            assertEquals(listOf(1f, 0f, 0f, 1f), (0 until 4).map { draw.at(corner, "a_shadowColor", it) }, "the shadow stays four floats")
+            assertEquals(0xFF0000FF.toInt(), draw.bits(corner, "a_shadowColor"), "shadow at corner $corner")
         }
         assertEquals(0xFF030201.toInt(), draw.bits(4, "a_color"), "a picture's tint, in the next quad")
         assertEquals(0, draw.bits(4, "a_borderColor"), "and no border")
+        assertEquals(0, draw.bits(4, "a_shadowColor"), "and no shadow")
+        assertEquals(listOf(1f, 0f, 0f, 1f), draw.shadow(0), "the shadow read back as the GPU reads it")
         assertEquals(listOf(0x50 / 255f, 0x60 / 255f, 0x70 / 255f, 0x80 / 255f), draw.border(0), "read back as the GPU reads it")
     }
 
@@ -415,6 +419,53 @@ class QuadBatchTest {
             List(3) { ShapeProgram.Full },
             programsOf({ lit() }, { ramp() }, { box(spread = -6f) }),
         )
+    }
+
+    @Test
+    fun `a run of stops carries its strip's start in the texture coordinate and its end in the spread`() {
+        val batch = QuadBatch(device)
+        batch.begin(identity)
+        batch.rampGradient(
+            white, left = 0f, bottom = 0f, width = 100f, height = 40f, tint = Colour.White, radial = false,
+            axisX = 0.01f, axisY = 0f, u = 0.125f, v = 0.375f, u2 = 0.625f, v2 = 0.375f,
+            topLeft = 0f, topRight = 0f, bottomRight = 0f, bottomLeft = 0f, border = Colour.Blue, borderWidth = 2f, aa = 1f,
+        )
+        batch.end()
+
+        val draw = device.draws.single()
+        assertSame(sheet, draw.texture, "the strip is read from the white spot's texture")
+        (0 until 4).forEach { corner ->
+            assertEquals(listOf(0.125f, 0.375f), listOf(draw.at(corner, "a_texCoord0"), draw.at(corner, "a_texCoord0", 1)), "the start at corner $corner")
+            assertEquals(0.625f, draw.at(corner, "a_shape", 1), "the end's u at corner $corner: it lies on the start's row")
+            assertEquals(0, draw.bits(corner, "a_shadowColor"), "a run of stops casts no shadow")
+            assertEquals(2f, draw.at(corner, "a_shape", 0), "and keeps its outline")
+            assertEquals(listOf(0f, 0f, 1f, 1f), draw.border(corner), "in its own colour")
+        }
+    }
+
+    @Test
+    fun `a run of stops off one row of the atlas is refused`() {
+        val batch = QuadBatch(device)
+        batch.begin(identity)
+        assertFailsWith<IllegalArgumentException> {
+            batch.rampGradient(
+                white, left = 0f, bottom = 0f, width = 100f, height = 40f, tint = Colour.White, radial = false,
+                axisX = 0.01f, axisY = 0f, u = 0f, v = 0.25f, u2 = 0.5f, v2 = 0.5f,
+                topLeft = 0f, topRight = 0f, bottomRight = 0f, bottomLeft = 0f, border = Colour.Transparent, borderWidth = 0f, aa = 1f,
+            )
+        }
+    }
+
+    @Test
+    fun `a lit surface carries its light and gloss as the shadow's bytes`() {
+        val batch = QuadBatch(device)
+        batch.begin(identity)
+        batch.lit()
+        batch.end()
+
+        val draw = device.draws.single()
+        // Red, green and blue are the light's direction from minus one to one written zero to one; alpha is the gloss.
+        (0 until 4).forEach { assertEquals(listOf(127, 255, 191, 76), draw.shadow(it).map { part -> (part * 255f).roundToInt() }, "corner $it") }
     }
 
     @Test
