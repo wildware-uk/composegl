@@ -22,4 +22,5 @@ PROFILING ONLY, never for master.
 - `apk.sh <before|after>` and `measure.sh <before|after> <tag>`: the Android release build and one emulator pass. `waitfor.py` matches two reference screenshots of the game (the warning and the tutorial banner). They are not committed, because the game is private.
 - `mm-all.sh`, `round2.sh`, `round3.sh`, `round4.sh`: the order the runs went in, sides alternating.
 - `mali.py <shader dump> <out.json>`: the Mali Offline Compiler on each program and path.
+- `pixdiff.py <before dir> <after dir>`: how many pixels differ between the two sides' count-run screenshots, and by how much. Its output is `data/raw/pixdiff.txt`.
 - `cpu.jfc`: the 1 ms execution-sample settings tried for #268.
