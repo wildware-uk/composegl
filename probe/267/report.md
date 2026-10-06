@@ -1,14 +1,14 @@
 ## Before and after: yes, ComposeGL is much faster (solo-dev-1)
 
-**Plain answer.** Yes. On the same screens, today's master does a fraction of the work the commit before #234 did. One reading got slower: the moving home page in the first seconds after a cold start, filed as #268. A few counts went up by design; they are listed under "Did anything go up?".
+**Plain answer.** Yes. On the same screens, today's master does a fraction of the work the commit before #234 did. One reading got slower: the moving home page early after a cold start, filed as #268. A few counts went up by design; they are listed under "Did anything go up?".
 
 - **Mega Merge's card draft** (its busiest screen):
   - Estimated phone GPU time fell **70%** (11.1 → 3.3 ms on a mid-range Mali). It paints half the pixels, a fifth of the offscreen-picture area, and sends 83% fewer GL calls.
   - The game thread's CPU per frame on this desktop fell **74%** (7.4 → 1.9 ms).
   - ComposeGL's own part of it fell **92%** (6.5 → 0.5 ms). That part is `UiRenderer.render`, including the graphics driver's time for the GL calls it makes.
-  - **On Android** (an emulator, release builds), both sides hold the game's 60 fps. On the open draft the GL thread's CPU per frame fell **29-43%**, and ComposeGL's part of it 40-48%. The range comes from the random deal:
-    - With plain cards: 11.0 → 7.8 ms.
-    - With a glowing card dealt: 15.4 → 8.8 ms.
+  - **On Android** (an emulator, release builds), the open draft's GL-thread CPU per frame fell **29-43%**, and ComposeGL's part of it 40-48%. The range comes from the random deal:
+    - With plain cards: 11.0 → 7.8 ms, at 60 fps both sides.
+    - With a glowing card dealt: 15.4 → 8.8 ms. The old build dropped frames: 4 seconds of 30 drew under 58 frames, the worst only 44. The new one held 57-60 every second.
 - **Showcase and snake:**
   - GL calls per frame are **70-90% lower** on showcase pages, and 49-76% lower on snake.
   - Garbage per frame is **74-99% lower**. Still showcase pages went from 38-142 KB a frame to 2 KB or less; the effects page is the exception at 5 KB.
@@ -16,8 +16,9 @@
   - CPU time per frame is **clearly lower on 12 of 17 screens**: 12-63% on the median frame.
     - "Clearly" means the after run was lower in at least 4 of the 5 back-to-back pairs.
     - On the other five, the median frame shows no clear change: the moving home and game pages, the still surfaces page, and snake's menu and play. Their fastest tenth of frames (the reading this shared machine disturbs least) is still 31-63% lower.
-  - **The one slower reading** is on the moving home page, in its first seconds after a cold start of the desktop JVM.
+  - **The one slower reading** is on the moving home page, early after a cold start of the desktop JVM.
     - Frames 300-900 cost 27% more on the median frame: 0.48 → 0.61 ms, over 6 alternating runs that do not overlap.
+    - That is 5-15 s of a game drawn at 60 fps; the probe draws as fast as it can. Frames 900-3,000 were not measured, so when the slowdown ends is not known.
     - Once warm, the same page is 49% cheaper: 0.38 → 0.19 ms, over 1,200 frames measured after a 3,000-frame warm-up.
     - Today's code on that page takes longer to reach full JIT speed. Filed as #268.
 
@@ -167,18 +168,23 @@ How to read the tables:
   4. The draft is held open for 30 s, then skipped.
   5. Four fruit are dropped, and the board is held for 30 s.
 - **Runs:** 2 passes per side, alternating.
-- **Reading:** a listener round the game logs every 300 frames: the frame rate, the GL thread's CPU per frame, and ComposeGL's `UiRenderer.render` within it. Each figure is a pass's median over the 300-frame windows that lie wholly inside a phase, 5 per phase.
+- **Readings:**
+  - A listener round the game logs, every 300 frames, the GL thread's CPU per frame and ComposeGL's `UiRenderer.render` within it. Each CPU figure is a pass's median over the 300-frame windows that lie wholly inside a phase, 5 per phase.
+  - The emulator's own `app_time_stats`, from the game's process only, give the game's time per frame and the frames drawn in each second of the phase. They come from about 30 one-second readings per phase.
 
-| Pass | Cards dealt | fps | Open draft: GL-thread CPU per frame, ms | of which ComposeGL, ms | Board: GL-thread CPU, ms | of which ComposeGL, ms |
-|---|---|---|---|---|---|---|
-| before 1 | plain | 60 | 11.00 | 8.26 | 7.24 | 3.88 |
-| after 2 | plain | 60 | 7.80 (−29% on before 1) | 4.95 (−40%) | 5.50 | 1.85 |
-| before 2 | one glowing (uncommon) | 60 | 15.40 | 11.86 | 7.37 | 3.92 |
-| after 1 | one glowing (uncommon) | 60 | 8.79 (−43% on before 2) | 6.18 (−48%) | 6.33 | 1.99 |
+| Pass | Cards dealt | Open draft: frames a second, median (lowest second) | seconds under 58 | game's time per frame (`app_time_stats`), ms | GL-thread CPU per frame, ms | of which ComposeGL, ms | Board: GL-thread CPU, ms | of which ComposeGL, ms |
+|---|---|---|---|---|---|---|---|---|
+| before 1 | plain | 60 (54) | 1 of 30 | 12.11 | 11.00 | 8.26 | 7.24 | 3.88 |
+| after 2 | plain | 60 (60) | 0 of 30 | 8.63 | 7.80 | 4.95 | 5.50 | 1.85 |
+| before 2 | one glowing (uncommon) | 59 (44) | 4 of 30 | 16.52 | 15.40 | 11.86 | 7.37 | 3.92 |
+| after 1 | one glowing (uncommon) | 60 (57) | 1 of 30 | 9.93 | 8.79 | 6.18 | 6.33 | 1.99 |
 
 - **The deal matters.** The cards are dealt at random, and a glowing uncommon card costs more to draw. So each pass is set against the pass on the other side that dealt the same kind of hand.
-- **Board:** 7.2-7.4 → 5.5-6.3 ms on the GL thread. ComposeGL's part went 3.9 → 1.9-2.0 ms.
-- **Frame rate:** the game asks for 60 fps and both sides hold it. The gain shows as time left over in each 16.7 ms frame, not as frames.
+- **Board:** 7.2-7.4 → 5.5-6.3 ms on the GL thread. ComposeGL's part went 3.9 → 1.9-2.0 ms. Both sides hold 60 fps there.
+- **Frame rate:** the game asks for 60 fps.
+  - With a plain hand, both sides hold it, and the gain shows as time left over in each 16.7 ms frame: 12.1 → 8.6 ms.
+  - With a glowing card dealt, the old build ran out of time. Its frames took 16.5 ms against a 16.7 ms budget, it drew under 58 frames in 4 of the 30 seconds, and its worst second drew 44.
+  - The new build took 9.9 ms a frame and drew 57 or more every second.
 - **Why ComposeGL's share is large here:** its part includes every GL call it makes, and the emulator makes each call expensive by shipping it to the host GPU (#241 saw the same). So ComposeGL's share is much larger here than on the desktop.
 - **#241's 40 fps** for this draft on the same emulator came from other commits of both the game (`1ae4a71e6`) and ComposeGL (`b4d3a7fd`), so it is not comparable with these.
 - **Not measured on Android:** the draft while the cards deal. It lasts 3 s, shorter than one 300-frame reading.
@@ -218,10 +224,10 @@ One reading got slower, and it is filed as #268: the moving home page right afte
 
 | What rose | Where | Before → after | Why | What it costs |
 |---|---|---|---|---|
-| Shader program switches | surfaces page; Mega Merge board; open draft; effects page | 2 → 18; 2 → 16; 14 → 39; 7 → 12 | #245 split the one shape program into three, so that letters, pictures and plain boxes run at full occupancy. Lit surfaces, inner shades and colour runs now switch to the full program. | On the surfaces page, 14 draw calls exist only because of a program change. Even so, draw calls fell overall (29 → 19 there, 92 → 77 on the open draft), GL calls fell 83-90%, and CPU fell on the same screens. |
+| Shader program switches | surfaces page; Mega Merge board; open draft; effects page | 2 → 18; 2 → 16; 14 → 39; 7 → 12 | #245 split the one shape program into three, so that letters, pictures and plain boxes run at full occupancy. Lit surfaces, inner shades and colour runs now switch to the full program. | On the surfaces page, 14 draw calls exist only because of a program change. Even so, draw calls fell overall (29 → 19 there, 92 → 77 on the open draft), and GL calls fell 83-90%. CPU fell clearly on the moving surfaces page, the effects page, the board (by its mean) and the open draft. On the still surfaces page, the median frame shows no clear change. |
 | Quads per frame | snake menu; snake playing; draft while dealing | 216 → 255; 114 → 135; 636 → 771 | #246 draws a box as its flat middle plus its edge, so one box can be several quads. | Vertex bytes still fell on all three (105 → 88 KB, 55 → 46 KB, 308 → 265 KB), because a vertex is 88 bytes instead of 124. Pixels and the GPU estimate fell too. |
-| Scissor changes | Mega Merge board; draft while dealing; open draft; effects page | 0 → 6; 0 → 11; 6 → 19; 2 → 6 | They rose only on the four screens that lost offscreen pictures (5 → 0, 6 → 2, 8 → 4, 5 → 2). That points to clips now being set on the screen with the scissor, where before they were the edge of a picture. | They are inside the GL-call totals, which fell 80-89% on those screens, and draw calls fell too. |
-| CPU per frame in the first seconds after a cold start | showcase home, moving; frames 300-900 of a fresh desktop JVM | median 0.48 → 0.61 ms (+27%); slowest tenth 1.02 → 1.31 ms | Today's code on this page takes longer to reach full JIT speed. Which code is not known yet: a JFR profile changed the result and caught too few samples. | Up to about 15 seconds after a start. Once warm, the page is 49% cheaper (0.38 → 0.19 ms, 1,200 frames after a 3,000-frame warm-up). Filed as #268. Android compiles ahead of time, so a phone may not see it. |
+| Scissor changes | Mega Merge board; draft while dealing; open draft; effects page | 0 → 6; 0 → 11; 6 → 19; 2 → 6 | They rose on four of the five screens that lost offscreen pictures (5 → 0, 6 → 2, 8 → 4, 5 → 2). That points to clips now being set on the screen with the scissor, where before they were the edge of a picture. The fifth is the animation page: it lost its one picture, and its scissor changes fell 6 → 4. | They are inside the GL-call totals, which fell 80-89% on those screens, and draw calls fell too. |
+| CPU per frame in the first seconds after a cold start | showcase home, moving; frames 300-900 of a fresh desktop JVM | median 0.48 → 0.61 ms (+27%); slowest tenth 1.02 → 1.31 ms | Today's code on this page takes longer to reach full JIT speed. Which code is not known yet: a JFR profile changed the result and caught too few samples. | Frames 300-900 of a fresh JVM, which is 5-15 s at 60 fps. Frames 900-3,000 were not measured, so when it ends is not known. Once warm, the page is 49% cheaper (0.38 → 0.19 ms, 1,200 frames after a 3,000-frame warm-up). Filed as #268. Android compiles ahead of time, so a phone may not see it. |
 
 ### Reproducing
 

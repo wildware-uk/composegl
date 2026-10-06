@@ -27,7 +27,7 @@ cols = [
     ('gpu57', 'Phone GPU, estimated', lambda v: f'{v:.1f} ms'),
 ]
 plt.rcParams.update({'font.family': 'DejaVu Sans', 'font.size': 12})
-fig, axes = plt.subplots(1, len(cols), figsize=(18, 7.6), sharey=True, facecolor=SURFACE)
+fig, axes = plt.subplots(1, len(cols), figsize=(18, 7.9), sharey=True, facecolor=SURFACE)
 y = list(range(len(rows)))[::-1]
 for ax, (key, title, fmt) in zip(axes, cols):
     ax.set_facecolor(SURFACE)
@@ -61,10 +61,10 @@ for ax, (key, title, fmt) in zip(axes, cols):
 axes[0].set_yticks(y)
 axes[0].set_yticklabels([r[1] for r in rows], color=INK, fontsize=12)
 fig.suptitle('ComposeGL per frame: today as a share of 27 Sep (before #234). Shorter bar = cheaper.', x=0.01, ha='left', color=INK, fontsize=16, fontweight='bold')
-fig.text(0.01, 0.015, 'CPU: ComposeGL\'s input and render (Mega Merge: its whole game thread), desktop JVM, median frame over several runs. Garbage: bytes allocated per frame, escape analysis off.\n'
-         'Phone GPU: pixels painted x Arm Mali compiler cycles, Mali-G57 MC2, an estimate. Home, moving: in its first seconds after a cold start it is 27% slower (#268).',
+fig.text(0.01, 0.015, 'CPU: ComposeGL\'s input and render (Mega Merge: its whole game thread), desktop JVM, median frame over several runs. Garbage: bytes allocated per frame, escape analysis off;\n'
+         'for Mega Merge the whole game thread too (ComposeGL\'s own part on the draft: 78 \u2192 12 KB). Phone GPU: pixels painted x Mali compiler cycles, Mali-G57 MC2, an estimate.\nHome, moving: frames 300-900 after a cold start are 27% slower (#268).',
          color=INK2, fontsize=10.5, ha='left', va='bottom')
-fig.tight_layout(rect=(0, 0.06, 1, 0.94))
+fig.tight_layout(rect=(0, 0.085, 1, 0.94))
 out = sys.argv[1] if len(sys.argv) > 1 else f'{S}/before-after.png'
 fig.savefig(out, dpi=100, facecolor=SURFACE)
 print(out)
