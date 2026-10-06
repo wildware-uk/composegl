@@ -45,6 +45,7 @@ import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.ProvideFonts
 import dev.wildware.composegl.ui.widget.ScrollArea
+import dev.wildware.composegl.ui.widget.ScrollBarLogic
 import dev.wildware.composegl.ui.widget.Slider
 import dev.wildware.composegl.ui.widget.Text
 import org.junit.jupiter.api.AfterEach
@@ -101,6 +102,9 @@ class FrameCostTest {
     /** Whether those windows scroll, or are plain clipped boxes with the same thing inside. */
     private var scrolling by mutableStateOf(true)
 
+    /** Whether the scrolling windows show their scrollbars. */
+    private var bars by mutableStateOf(false)
+
     /** A combat HUD: about twenty widgets, the sort of thing a game actually leaves on screen. */
     private fun hud() {
         host.setContent {
@@ -109,9 +113,7 @@ class FrameCostTest {
                     repeat(plain) { Box(Modifier.size(4f)) {} }
                     repeat(windows) {
                         if (scrolling) {
-                            // No bars: a bar draws its thumb through a new rectangle every frame,
-                            // which is drawing rather than asking for frames (#258).
-                            ScrollArea(Modifier.size(40f), bars = false) { Box(Modifier.size(40f, 400f)) {} }
+                            ScrollArea(Modifier.size(40f), bars = bars) { Box(Modifier.size(40f, 400f)) {} }
                         } else {
                             Box(Modifier.size(40f).clip()) { Box(Modifier.size(40f, 400f)) {} }
                         }
@@ -431,6 +433,32 @@ class FrameCostTest {
         val scrollAreas = stillFrameCost(renderer, viewport, boxes = 0)
 
         assertEquals(clipped, scrollAreas, "fifteen still scroll areas should cost not one byte more a frame than fifteen clipped boxes")
+    }
+
+    /**
+     * A scrollbar on a still screen draws its track and thumb without making anything. The thumb
+     * used to be drawn through a new rectangle every frame: 32 bytes a bar a frame, the only thing a
+     * still scroll area still made once its fling loop stopped waking it (#258).
+     */
+    @Test
+    @Tag("allocation")
+    fun `still scroll areas with bars cost a frame no more than clipped boxes`() {
+        hud()
+        val renderer = UiRenderer(host, Silent())
+        renderer.focus = FocusManager(host.root)
+        val viewport = Viewport.oneToOne(Size(1280f, 720f))
+        windows = 15
+        bars = true
+
+        scrolling = false
+        val clipped = stillFrameCost(renderer, viewport, boxes = 0)
+        scrolling = true
+        val withBars = stillFrameCost(renderer, viewport, boxes = 0)
+
+        var showing = 0
+        host.root.forEach { if ((it.measurePolicy as? ScrollBarLogic)?.isNeeded == true) showing++ }
+        assertEquals(15, showing, "every window should be showing its up-and-down bar")
+        assertEquals(clipped, withBars, "fifteen still scroll areas with bars should cost not one byte more a frame than fifteen clipped boxes")
     }
 
     /**
