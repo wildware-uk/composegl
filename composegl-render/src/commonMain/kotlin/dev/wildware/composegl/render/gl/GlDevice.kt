@@ -9,6 +9,7 @@ import dev.wildware.composegl.render.DeviceTexture
 import dev.wildware.composegl.render.EffectQuad
 import dev.wildware.composegl.render.FrameTarget
 import dev.wildware.composegl.render.GpuDevice
+import dev.wildware.composegl.render.ShapeProgram
 import dev.wildware.composegl.render.ShapeVertex
 import dev.wildware.composegl.render.VertexStream
 import dev.wildware.composegl.ui.effect.ShaderEffect
@@ -81,13 +82,33 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     // --- what gets built ---
 
     private var built = false
-    private var shapeProgram = 0
-    private var projectionAt = -1
-    private var shapeTextureAt = -1
-    private var maskBoxAt = -1
-    private var maskRadiiAt = -1
-    private var maskScaleAt = -1
-    private var maskModeAt = -1
+
+    /**
+     * One linked shape program, where its uniforms are, and what they hold as last sent: a uniform
+     * is the program's own, so it outlives a game's drawing, and each program keeps its own. Made
+     * fresh with the program, so a new context starts it knowing nothing.
+     */
+    private class ShapeShader(val name: Int, gl: Gl) {
+        val projectionAt = gl.getUniformLocation(name, "u_projTrans")
+        val textureAt = gl.getUniformLocation(name, "u_texture")
+        val maskBoxAt = gl.getUniformLocation(name, "u_maskBox")
+        val maskRadiiAt = gl.getUniformLocation(name, "u_maskRadii")
+        val maskScaleAt = gl.getUniformLocation(name, "u_maskScale")
+        val maskModeAt = gl.getUniformLocation(name, "u_maskMode")
+
+        var sampling = false
+        val sentProjection = FloatArray(16)
+        var projectionSent = false
+
+        /** The mask's box, corners and scale as last sent, NaN for never: NaN equals nothing, so it always goes. */
+        val sentMask = FloatArray(10) { Float.NaN }
+        var sentMaskMode = Float.NaN
+    }
+
+    /** [ShapeProgram.Common], [ShapeProgram.Held] and [ShapeProgram.Full]: see [GlslSources.ShapeFragment]. */
+    private var commonShape: ShapeShader? = null
+    private var heldShape: ShapeShader? = null
+    private var fullShape: ShapeShader? = null
     private var indexBuffer = 0
     private var indexQuads = 0
     private var shapeBuffer = 0
@@ -141,13 +162,6 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
      */
     private var shapeArrayLaidOut = false
     private var effectArrayLaidOut = false
-    private var shapeSampling = false
-    private val sentProjection = FloatArray(16)
-    private var projectionSent = false
-
-    /** The mask's box, corners and scale as last sent, NaN for never: NaN equals nothing, so it always goes. */
-    private val sentMask = FloatArray(10) { Float.NaN }
-    private var sentMaskMode = Float.NaN
 
     /** Keyed by the text, not the object: a shader built fresh every recomposition still hits. */
     private val effectPrograms = HashMap<String, EffectProgram>()
@@ -162,18 +176,20 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         if (built) return
         val caps = caps()
         forgetObjects()
-        shapeProgram = link(
-            vertex = caps.dialect.vertex(GlslSources.ShapeVertex),
-            fragment = caps.dialect.fragment(GlslSources.ShapeFragment, highPrecision = true),
-            attributes = ShapeVertex.Attributes.map { it.name },
-            what = "the interface",
-        ) { message -> throw IllegalStateException(message) }
-        projectionAt = gl.getUniformLocation(shapeProgram, "u_projTrans")
-        shapeTextureAt = gl.getUniformLocation(shapeProgram, "u_texture")
-        maskBoxAt = gl.getUniformLocation(shapeProgram, "u_maskBox")
-        maskRadiiAt = gl.getUniformLocation(shapeProgram, "u_maskRadii")
-        maskScaleAt = gl.getUniformLocation(shapeProgram, "u_maskScale")
-        maskModeAt = gl.getUniformLocation(shapeProgram, "u_maskMode")
+        // All three now rather than each when it is first needed: a shader compiled in the middle
+        // of a frame is a stutter on a phone.
+        val linked = ArrayList<ShapeShader>(3)
+        try {
+            linked += linkShape(caps.dialect, prefix = "", what = "the interface")
+            linked += linkShape(caps.dialect, prefix = GlslSources.HeldShape, what = "the interface's held program")
+            linked += linkShape(caps.dialect, prefix = GlslSources.FullShape, what = "the interface's full program")
+        } catch (failed: IllegalStateException) {
+            linked.forEach { gl.deleteProgram(it.name) }
+            throw failed
+        }
+        commonShape = linked[0]
+        heldShape = linked[1]
+        fullShape = linked[2]
 
         shapeBuffer = gl.createBuffer()
         effectBuffer = gl.createBuffer()
@@ -185,6 +201,16 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         uploadIndices(maxOf(indexQuads, 1))
         if (effectFloats == null) effectFloats = gl.floats(4 * ShapeVertex.EffectFloats)
         built = true
+    }
+
+    private fun linkShape(dialect: GlslDialect, prefix: String, what: String): ShapeShader {
+        val program = link(
+            vertex = dialect.vertex(prefix + GlslSources.ShapeVertex),
+            fragment = dialect.fragment(prefix + GlslSources.ShapeFragment, highPrecision = true),
+            attributes = ShapeVertex.Attributes.map { it.name },
+            what = what,
+        ) { message -> throw IllegalStateException(message) }
+        return ShapeShader(program, gl)
     }
 
     /**
@@ -423,10 +449,6 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     private fun forgetObjects() {
         shapeArrayLaidOut = false
         effectArrayLaidOut = false
-        shapeSampling = false
-        projectionSent = false
-        sentMask.fill(Float.NaN)
-        sentMaskMode = Float.NaN
     }
 
     /** [HostState.Leave]'s documented state, short of the framebuffer, viewport and scissor. */
@@ -529,11 +551,23 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         return Stream(gl.floats(quads * 4 * ShapeVertex.Floats), quads)
     }
 
+    /** Not told which quads are in it, so through the program that draws them all. */
     override fun drawShapes(vertices: VertexStream, quads: Int, texture: DeviceTexture, blend: Blend, projection: FloatArray) =
-        drawShapes(vertices, quads, texture, blend, projection, mask = null)
+        drawShapes(vertices, quads, texture, blend, projection, mask = null, ShapeProgram.Full)
 
     /** Every OpenGL the shape shader compiles on has `gl_FragCoord`, which is all a mask needs. */
     override val masks: Boolean get() = true
+
+    /** The same: through the program that draws them all. */
+    @Suppress("LongParameterList")
+    override fun drawShapes(
+        vertices: VertexStream,
+        quads: Int,
+        texture: DeviceTexture,
+        blend: Blend,
+        projection: FloatArray,
+        mask: ClipMask?,
+    ) = drawShapes(vertices, quads, texture, blend, projection, mask, ShapeProgram.Full)
 
     @Suppress("LongParameterList")
     override fun drawShapes(
@@ -543,13 +577,21 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         blend: Blend,
         projection: FloatArray,
         mask: ClipMask?,
+        program: ShapeProgram,
     ) {
         build()
         val stream = vertices as? Stream ?: error("these vertices were not made by this device")
+        val shader = checkNotNull(
+            when (program) {
+                ShapeProgram.Common -> commonShape
+                ShapeProgram.Held -> heldShape
+                ShapeProgram.Full -> fullShape
+            },
+        )
 
         bindPicture(texture)
-        useProgram(shapeProgram)
-        shapeUniforms(projection, mask, blend)
+        useProgram(shader.name)
+        shapeUniforms(shader, projection, mask, blend)
 
         // With a vertex array object the layout and the indices are the array's own, set once; without
         // one they are the context's, and set again only where the engine or an effect moved them.
@@ -579,37 +621,37 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     }
 
     /**
-     * The shape program's uniforms, each sent only when it differs from what the program holds: a
-     * uniform is the program's own, so it outlives a game's drawing and is lost only with the context.
+     * [shader]'s uniforms, each sent only when it differs from what that program holds: a uniform
+     * is the program's own, so it outlives a game's drawing and is lost only with the context.
      */
-    private fun shapeUniforms(projection: FloatArray, mask: ClipMask?, blend: Blend) {
-        if (!shapeSampling) {
-            gl.uniform1i(shapeTextureAt, 0)
-            shapeSampling = true
+    private fun shapeUniforms(shader: ShapeShader, projection: FloatArray, mask: ClipMask?, blend: Blend) {
+        if (!shader.sampling) {
+            gl.uniform1i(shader.textureAt, 0)
+            shader.sampling = true
         }
-        if (!projectionSent || !projection.contentEquals(sentProjection)) {
-            gl.uniformMatrix4fv(projectionAt, projection)
-            projection.copyInto(sentProjection)
-            projectionSent = true
+        if (!shader.projectionSent || !projection.contentEquals(shader.sentProjection)) {
+            gl.uniformMatrix4fv(shader.projectionAt, projection)
+            projection.copyInto(shader.sentProjection)
+            shader.projectionSent = true
         }
         if (mask != null) {
-            val sent = sentMask
+            val sent = shader.sentMask
             if (sent[0] != mask.centreX || sent[1] != mask.centreY || sent[2] != mask.halfWidth || sent[3] != mask.halfHeight) {
-                gl.uniform4f(maskBoxAt, mask.centreX, mask.centreY, mask.halfWidth, mask.halfHeight)
+                gl.uniform4f(shader.maskBoxAt, mask.centreX, mask.centreY, mask.halfWidth, mask.halfHeight)
                 sent[0] = mask.centreX
                 sent[1] = mask.centreY
                 sent[2] = mask.halfWidth
                 sent[3] = mask.halfHeight
             }
             if (sent[4] != mask.topLeft || sent[5] != mask.topRight || sent[6] != mask.bottomRight || sent[7] != mask.bottomLeft) {
-                gl.uniform4f(maskRadiiAt, mask.topLeft, mask.topRight, mask.bottomRight, mask.bottomLeft)
+                gl.uniform4f(shader.maskRadiiAt, mask.topLeft, mask.topRight, mask.bottomRight, mask.bottomLeft)
                 sent[4] = mask.topLeft
                 sent[5] = mask.topRight
                 sent[6] = mask.bottomRight
                 sent[7] = mask.bottomLeft
             }
             if (sent[8] != mask.pixelsAcross || sent[9] != mask.pixelsUp) {
-                gl.uniform2f(maskScaleAt, mask.pixelsAcross, mask.pixelsUp)
+                gl.uniform2f(shader.maskScaleAt, mask.pixelsAcross, mask.pixelsUp)
                 sent[8] = mask.pixelsAcross
                 sent[9] = mask.pixelsUp
             }
@@ -620,9 +662,9 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
             blend.premultiplied -> 2f
             else -> 1f
         }
-        if (mode != sentMaskMode) {
-            gl.uniform1f(maskModeAt, mode)
-            sentMaskMode = mode
+        if (mode != shader.sentMaskMode) {
+            gl.uniform1f(shader.maskModeAt, mode)
+            shader.sentMaskMode = mode
         }
     }
 
@@ -952,7 +994,9 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         forget()
         forgetObjects()
         built = false
-        shapeProgram = 0
+        commonShape = null
+        heldShape = null
+        fullShape = null
         indexBuffer = 0
         shapeBuffer = 0
         shapeArray = 0
@@ -963,7 +1007,9 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
 
     override fun close() {
         if (!built) return
-        gl.deleteProgram(shapeProgram)
+        commonShape?.let { gl.deleteProgram(it.name) }
+        heldShape?.let { gl.deleteProgram(it.name) }
+        fullShape?.let { gl.deleteProgram(it.name) }
         effectPrograms.values.forEach { gl.deleteProgram(it.name) }
         effectPrograms.clear()
         gl.deleteBuffer(shapeBuffer)

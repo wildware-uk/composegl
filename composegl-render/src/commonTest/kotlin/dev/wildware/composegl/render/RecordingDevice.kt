@@ -103,7 +103,7 @@ class RecordingDevice(
     override fun vertices(quads: Int): VertexStream = FakeStream(quads)
 
     override fun drawShapes(vertices: VertexStream, quads: Int, texture: DeviceTexture, blend: Blend, projection: FloatArray) =
-        drawShapes(vertices, quads, texture, blend, projection, mask = null)
+        drawShapes(vertices, quads, texture, blend, projection, mask = null, ShapeProgram.Full)
 
     override fun drawShapes(
         vertices: VertexStream,
@@ -112,12 +112,25 @@ class RecordingDevice(
         blend: Blend,
         projection: FloatArray,
         mask: ClipMask?,
+    ) = drawShapes(vertices, quads, texture, blend, projection, mask, ShapeProgram.Full)
+
+    /** Written down as `drawShapes(quads, texture, blend)`, with `masked` and the program after when not the common one. */
+    override fun drawShapes(
+        vertices: VertexStream,
+        quads: Int,
+        texture: DeviceTexture,
+        blend: Blend,
+        projection: FloatArray,
+        mask: ClipMask?,
+        program: ShapeProgram,
     ) {
         prepared = true
         val stream = vertices as FakeStream
         val floats = stream.floats.copyOf(quads * 4 * ShapeVertex.Floats)
-        draws += Draw(quads, texture, blend, projection.copyOf(), floats, mask?.let(::Mask))
-        calls += "drawShapes($quads, ${name(texture)}, $blend${if (mask != null) ", masked" else ""})"
+        draws += Draw(quads, texture, blend, projection.copyOf(), floats, mask?.let(::Mask), program)
+        val masked = if (mask != null) ", masked" else ""
+        val which = if (program == ShapeProgram.Common) "" else ", ${program.name.lowercase()}"
+        calls += "drawShapes($quads, ${name(texture)}, $blend$masked$which)"
     }
 
     override fun drawEffect(effect: ShaderEffect, picture: DeviceTexture, quad: EffectQuad, blend: Blend) {
@@ -193,6 +206,7 @@ class RecordingDevice(
         val projection: FloatArray,
         val vertices: FloatArray,
         val mask: Mask? = null,
+        val program: ShapeProgram = ShapeProgram.Common,
     ) {
 
         /** Float [offset] of vertex [vertex], counted across the whole draw. */

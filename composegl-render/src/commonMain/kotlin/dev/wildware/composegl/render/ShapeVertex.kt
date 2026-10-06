@@ -2,10 +2,11 @@ package dev.wildware.composegl.render
 
 /**
  * The one vertex layout every device consumes: 31 floats, described per vertex so that boxes with
- * different radii, borders, shadows and gradients all batch together.
+ * different radii, borders, shadows and two-colour gradients all batch together.
  *
  * A rounded corner, a border and a soft shadow are three ways of asking how far a pixel is from the
- * edge of a rounded box, so they are one shader doing one distance calculation.
+ * edge of a rounded box, so they are one shader doing one distance calculation. Every shape program
+ * reads this same layout: see [ShapeProgram].
  */
 object ShapeVertex {
 

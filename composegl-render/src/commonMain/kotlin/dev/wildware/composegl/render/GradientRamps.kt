@@ -9,8 +9,9 @@ import kotlin.math.roundToInt
  * Two colours ride in the vertex itself — the start in the fill's slot, the end in the border's —
  * and the shader mixes them. A run of stops has nowhere to ride, so it is drawn once into
  * [Texels] pixels on the page solid colour already comes from, and the shader reads across it. The
- * quad stays the same quad, so a button with a three-colour face still batches with every flat
- * panel around it.
+ * quad stays the same quad and the texture the same texture, so a three-colour face costs no texture
+ * switch; it is drawn through the full shape program, though, so it is a draw call of its own
+ * between flat panels drawn through the common one.
  *
  * The strip is written premultiplied, because the GPU mixes neighbouring texels for us and that is
  * the mix [Brush.between] does: a run fading to transparent keeps its hue instead of darkening.

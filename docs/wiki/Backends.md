@@ -369,6 +369,28 @@ knows OpenGL exists. Rounded clips are drawn in place only on a device that answ
 `masks = true` and keeps each draw inside the `ClipMask` handed to `drawShapes`; on any
 other they are cut pictures, as before.
 
+The shape shader is three programs on OpenGL, and the batch says which one each draw
+needs:
+
+- `ShapeProgram.Common`: letters, pictures, boxes, borders, shadows and two-colour
+  gradients. It needs fewer registers, so a phone's GPU keeps twice the pixels in flight.
+- `ShapeProgram.Held`: the same, for a picture held inside the corner of a bigger pooled
+  picture. Holding it reads one more value, which every letter would otherwise pay for.
+- `ShapeProgram.Full`: everything, including the three heavy paths: a lit surface, a
+  gradient of more than two colours, and a shade inside a shape.
+
+```kotlin
+override fun drawShapes(
+    vertices: VertexStream, quads: Int, texture: DeviceTexture, blend: Blend,
+    projection: FloatArray, mask: ClipMask?, program: ShapeProgram,
+) {
+    // Every quad in vertices is one `program` draws; ShapeProgram.Full draws them all.
+}
+```
+
+A device with one program that draws everything can leave it alone: the default body
+calls the `drawShapes` without it.
+
 ### If you really must draw yourself
 
 `UiCanvas` is the interface `RenderCanvas` implements, and it is deliberately short: `rect`,

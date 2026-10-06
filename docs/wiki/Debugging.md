@@ -642,6 +642,7 @@ needs something the queue does not share:
 | `clip` | `Modifier.clip`, rounded or not, going in and coming out; also the edge of a still `scale`. A clip with nothing drawn inside it (a list scrolled out of sight), or a square one that cuts no more than the clip around it, cuts nothing |
 | `layer` | an offscreen picture: a turn, an effect, a scale that is moving or cannot be drawn through a transform (faded, blended, mirrored, with an effect of its own, with no area, or on a canvas that cannot transform), a shaped clip that is not round (or a round one inside another, faded, or holding your own `raw` drawing), an effect that reaches a rounded clip's corner, and the first frame a rounded clip holds a `raw` drawing |
 | `shader` | a picture drawn through an effect's shader |
+| `program` | `Modifier.relief`, a brush of more than two colours, or an inner shade (`innerShade`, `bevel`, `moulded`), next to anything else. Those three take the renderer's full shape program and everything else a lighter one that a phone runs much faster, so going in and coming out is one call each. A two-colour gradient stretched past about 16,000 units takes the full program too. |
 | `raw` | your own drawing inside `raw { }` |
 | `scene` | a `SceneView` rendering your 3D scene, before the frame. Counted as one call, the least it costs. |
 | `full` | nothing changed; the queue was full |
@@ -655,7 +656,8 @@ frame. Four editor viewports redrawing every frame show as `4`. The same numbers
 The blame goes to the node that asked for the change. A glowing icon is blamed twice, for
 the batch it cut going in and for its own glow coming out. A picture from its own texture
 is blamed going in, and the next node that draws from the font atlas is blamed for going
-back — so those two usually turn up as a pair. The frame's last call is nobody's fault and
+back — so those two usually turn up as a pair. A bevelled button and whatever is drawn after
+it pair up the same way under `program`. The frame's last call is nobody's fault and
 is never listed, which is why the list adds up to one less than the count.
 
 ![a HUD with a glowing slot and a clipped panel, the frame budget overlay naming both as the nodes that cut the batch](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/frame-budget-culprits.png)

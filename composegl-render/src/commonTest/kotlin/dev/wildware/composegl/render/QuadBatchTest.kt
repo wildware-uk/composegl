@@ -315,4 +315,142 @@ class QuadBatchTest {
         assertEquals(0f, draw.at(4, 28))
         assertEquals(0f, draw.at(0, 23), "a picture has no soft edge")
     }
+
+    private val white = WhiteSpot(sheet, 0.25f, 0.5f)
+
+    /** A plain box, or with [spread] a shadow outside it or, negative, a shade inside it. */
+    private fun QuadBatch.box(spread: Float = 0f, border: Float = 0f) = shape(
+        white, left = 0f, bottom = 0f, width = 100f, height = 40f,
+        fill = Colour.Red, topLeft = 4f, topRight = 4f, bottomRight = 4f, bottomLeft = 4f,
+        border = Colour.Blue, borderWidth = border, shadow = Colour.Black, shadowSpread = spread, aa = 1f,
+    )
+
+    private fun QuadBatch.lit() = relief(
+        white, left = 0f, bottom = 0f, width = 100f, height = 40f,
+        topLeft = 4f, topRight = 4f, bottomRight = 4f, bottomLeft = 4f,
+        kind = ShapeVertex.ReliefFillet, bevel = 6f, strength = 0.5f, lightX = 0f, lightY = 1f, lightZ = 0.5f,
+        gloss = 0.3f, polish = 0.5f, face = Colour.Green, faceU = 0f, faceV = 0f, faceWidth = 0f, faceTiles = 0f, aa = 1f,
+    )
+
+    private fun QuadBatch.ramp() = rampGradient(
+        white, left = 0f, bottom = 0f, width = 100f, height = 40f, tint = Colour.White, radial = false,
+        axisX = 0.01f, axisY = 0f, u = 0f, v = 0f, u2 = 0.5f, v2 = 0f,
+        topLeft = 0f, topRight = 0f, bottomRight = 0f, bottomLeft = 0f, border = Colour.Transparent, borderWidth = 0f, aa = 1f,
+    )
+
+    private fun QuadBatch.twoColours(axisX: Float = 0f, axisY: Float = 0.025f, width: Float = 100f, height: Float = 40f, radial: Boolean = false) =
+        gradient(
+            white, left = 0f, bottom = 0f, width = width, height = height, start = Colour.Red, end = Colour.Blue,
+            radial = radial, axisX = axisX, axisY = axisY, topLeft = 0f, topRight = 0f, bottomRight = 0f, bottomLeft = 0f, aa = 1f,
+        )
+
+    /** The program each draw went through, one draw per call of [draw]. */
+    private fun programsOf(vararg draw: QuadBatch.() -> Unit): List<ShapeProgram> = draw.map { one ->
+        val batch = QuadBatch(device)
+        batch.begin(identity)
+        one(batch)
+        batch.end()
+        device.draws.last().program
+    }
+
+    @Test
+    fun `a lit surface - a run of stops and a shade inside a shape need the full program`() {
+        assertEquals(
+            List(3) { ShapeProgram.Full },
+            programsOf({ lit() }, { ramp() }, { box(spread = -6f) }),
+        )
+    }
+
+    @Test
+    fun `everything else goes through the common program`() {
+        assertEquals(
+            List(8) { ShapeProgram.Common },
+            programsOf(
+                { box() },
+                { box(spread = 6f) },
+                { box(border = 2f) },
+                { box(border = -2f) },
+                { twoColours() },
+                { twoColours(radial = true) },
+                { picture(sheet) },
+                { fan(white, floatArrayOf(0f, 0f, 10f, 0f, 10f, 10f, 0f, 10f), Colour.Red) },
+            ),
+        )
+    }
+
+    @Test
+    fun `a switch of program flushes and is blamed on the program`() {
+        val trace = DrawCallTrace()
+        val batch = QuadBatch(device).also { it.trace = trace }
+        batch.begin(identity)
+        batch.box()
+        batch.picture(sheet)
+        batch.lit()
+        batch.box(spread = -6f)
+        batch.ramp()
+        batch.picture(sheet)
+        batch.end()
+
+        assertEquals(listOf(2, 3, 1), device.draws.map { it.quads }, "each run of one program is one draw")
+        assertEquals(listOf(ShapeProgram.Common, ShapeProgram.Full, ShapeProgram.Common), device.draws.map { it.program })
+        assertEquals(listOf(BatchBreak.Program to 2, BatchBreak.End to 1), reasons(trace))
+    }
+
+    @Test
+    fun `a change of texture with a change of program is one draw call blamed on the texture`() {
+        val trace = DrawCallTrace()
+        val batch = QuadBatch(device).also { it.trace = trace }
+        batch.begin(identity)
+        batch.picture(other)
+        batch.lit()
+        batch.end()
+
+        assertEquals(listOf(ShapeProgram.Common, ShapeProgram.Full), device.draws.map { it.program })
+        assertEquals(listOf(BatchBreak.Texture to 1, BatchBreak.End to 1), reasons(trace))
+    }
+
+    @Test
+    fun `a picture held inside a pooled corner goes through the held program and only while held`() {
+        val trace = DrawCallTrace()
+        val batch = QuadBatch(device).also { it.trace = trace }
+        batch.begin(identity)
+        batch.picture(sheet)
+        batch.holdInside(0.1f, 0.2f, 0.3f, 0.4f)
+        batch.picture(sheet)
+        batch.textured(sheet, 0f, 0f, 10f, 10f, 5f, 5f, 30f, 0f, 0f, 1f, 1f, Colour.White)
+        batch.textured(sheet, floatArrayOf(0f, 10f, 10f, 10f, 10f, 0f, 0f, 0f), 0f, 0f, 1f, 1f, Colour.White)
+        batch.projected(sheet, floatArrayOf(0f, 10f, 1f, 10f, 10f, 1f, 10f, 0f, 1f, 0f, 0f, 1f), 0f, 0f, 1f, 1f, Colour.White)
+        batch.box()
+        batch.letGo()
+        batch.picture(sheet)
+        batch.end()
+
+        assertEquals(
+            listOf(ShapeProgram.Common to 1, ShapeProgram.Held to 4, ShapeProgram.Common to 2),
+            device.draws.map { it.program to it.quads },
+            "every way a picture is written, while held; a box is never held",
+        )
+        assertEquals(listOf(BatchBreak.Program to 2, BatchBreak.End to 1), reasons(trace))
+    }
+
+    @Test
+    fun `a gradient stretched past what mediump can carry across a wide box takes the full program`() {
+        // 2^-15 a unit is a gradient 32,768 units long: too small an axis for mediump to promise,
+        // and across a box 4,000 wide it moves the gradient by a sixteenth.
+        val stretched = 1f / 32768f
+        assertEquals(
+            listOf(ShapeProgram.Full, ShapeProgram.Full),
+            programsOf({ twoColours(axisX = stretched, axisY = 0f, width = 4000f) }, { twoColours(axisX = 0f, axisY = stretched, height = 4000f) }),
+        )
+        // The same axis across a small box, or the dust a turned axis leaves in its other half, moves
+        // it by less than a thousandth wherever it is rounded: still the common program.
+        assertEquals(
+            listOf(ShapeProgram.Common, ShapeProgram.Common, ShapeProgram.Common),
+            programsOf(
+                { twoColours(axisX = stretched, axisY = 0f, width = 40f) },
+                { twoColours(axisX = -4.37e-8f, axisY = 0.025f, width = 4000f) },
+                { twoColours(axisX = stretched, axisY = 0f, width = 4000f, radial = true) },
+            ),
+        )
+    }
 }

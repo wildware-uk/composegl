@@ -31,6 +31,16 @@ enum class BatchBreak {
     /** A picture drawn through somebody's shader. */
     Shader,
 
+    /**
+     * A lit surface, a gradient of more than two colours or a shade inside a shape, next to anything
+     * else, or the other way round. Those three take the renderer's full shape program, as does a
+     * two-colour gradient stretched past about 16,000 units; everything else takes a lighter one,
+     * which a phone's GPU runs faster, so they cannot share a batch. A
+     * layer's picture read from the corner of a bigger pooled one takes a third, but it is a draw of
+     * its own anyway, from its own texture.
+     */
+    Program,
+
     /** The game's own drawing, through `raw { }`. */
     Raw,
 

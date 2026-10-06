@@ -26,6 +26,7 @@ import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
 import dev.wildware.composegl.ui.modifier.background
+import dev.wildware.composegl.ui.modifier.bevel
 import dev.wildware.composegl.ui.modifier.blend
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.fillMaxSize
@@ -166,6 +167,64 @@ class DrawCallTraceGlTest {
                 assertTrue(pixel.r > 0.9f && pixel.g > 0.9f && pixel.b < 0.1f, "green added onto red is yellow: $pixel")
             } finally {
                 after.dispose()
+            }
+        } finally {
+            ui.close()
+            backend.dispose()
+        }
+    }
+
+    @Test
+    fun `a click that bevels a box blames it for the full program and the next node for coming back`() = Gl.render {
+        val backend = GdxBackend(fonts())
+        val budget = FrameBudget(publishEveryMillis = 0L)
+        val green = Colour.rgb(0x40A040)
+        val ui = uiTest(Size(Gl.size.toFloat(), Gl.size.toFloat()), backend, budget = budget) {
+            var raised by remember { mutableStateOf(false) }
+            Box(Modifier.fillMaxSize()) {
+                Box(
+                    Modifier.offset(20f, 20f).size(120f, 60f).background(green, corner = 8f)
+                        .then(if (raised) Modifier.bevel(depth = 10f, corner = 8f) else Modifier)
+                        .testTag("button"),
+                )
+                Box(
+                    Modifier.offset(160f, 20f).size(60f, 30f).background(Colour.rgb(0x3050FF))
+                        .clickable { raised = !raised }.testTag("toggle"),
+                )
+            }
+        }
+        try {
+            val flat = frame(ui)
+            val flatTop: Color
+            val flatBottom: Color
+            try {
+                assertTrue(budget.reading.culprits.none { it.reason == BatchBreak.Program }, "${budget.reading.culprits}")
+                flatTop = flat.at(80, 23)
+                flatBottom = flat.at(80, 76)
+            } finally {
+                flat.dispose()
+            }
+
+            ui.click("toggle")
+            val raised = frame(ui)
+            try {
+                // Light gathered along the top inside edge and dark along the bottom: the shades
+                // were drawn, through the full program, between the fill and the next box.
+                val top = raised.at(80, 23)
+                val bottom = raised.at(80, 76)
+                assertTrue(top.g > flatTop.g + 0.1f, "lighter along the top: $flatTop became $top")
+                assertTrue(bottom.g < flatBottom.g - 0.1f, "darker along the bottom: $flatBottom became $bottom")
+
+                val reading = budget.reading
+                val program = reading.culprits.filter { it.reason == BatchBreak.Program }
+                assertEquals(
+                    listOf(ui.node("button") to 1, ui.node("toggle") to 1),
+                    program.map { it.node to it.calls },
+                    "into the full program for the shades, and back out for the next box: ${reading.culprits}",
+                )
+                assertEquals(reading.drawCalls, reading.culprits.sumOf { it.calls } + 1, "${reading.culprits}")
+            } finally {
+                raised.dispose()
             }
         } finally {
             ui.close()
