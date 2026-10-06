@@ -229,6 +229,7 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
         // Then the held presses, which fire callbacks that write state — before the drain below, so
         // a long press or a repeat step is drawn this frame rather than the next.
         tree.runWaiters()
+        RenderProbe.hook?.mark(4)
 
         dispatcher.drain()
         // Nobody runs the global snapshot manager for us, so state writes are published here.
@@ -237,8 +238,11 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
         // Draining here is what lets it get to that ask before the frame is sent. Without it,
         // every state change lands one frame late — quietly, and only under animation.
         dispatcher.drain()
+        RenderProbe.hook?.mark(5)
         clock.sendFrame(nanos)
+        RenderProbe.hook?.mark(6)
         dispatcher.drain()
+        RenderProbe.hook?.mark(7)
 
         // A resize stepped by layout moves only if this frame is laid out, so a frame with one under
         // way on a moving clock is a changed frame — including the first, which has not moved yet.
@@ -457,12 +461,15 @@ private fun UiHost.settleWith(
     y: Float,
 ): Boolean {
     val changed = if (budget == null) frame(nanos) else budget.recompose { frame(nanos) }
+    RenderProbe.hook?.mark(0)
     val moved = when {
         tree.isLaidOut(constraints, x, y) -> false
         budget == null -> layOut(constraints, x, y)
         else -> budget.layout { layOut(constraints, x, y) }
     }
+    RenderProbe.hook?.mark(1)
     focus?.refresh()
+    RenderProbe.hook?.mark(2)
     // Layout can change the picture by itself: a node part-way through `animateContentSize` moves
     // every frame with nothing recomposed, and a pass that follows one that moved something can
     // move more. Reported now, on the frame it was laid out at the new size, rather than on the

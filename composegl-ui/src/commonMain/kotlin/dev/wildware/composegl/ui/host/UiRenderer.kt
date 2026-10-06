@@ -144,6 +144,7 @@ class UiRenderer(
         // Handed the viewport, so what cannot reach the screen is not drawn.
         budget.draw { draw.draw(host.root, viewport) }
         canvas.end()
+        RenderProbe.hook?.mark(3)
 
         // After end(), because that is when the last batch is actually handed over.
         budget.endFrame(canvas.drawCalls, redrew)
