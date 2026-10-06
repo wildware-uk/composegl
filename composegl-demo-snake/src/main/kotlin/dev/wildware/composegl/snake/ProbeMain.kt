@@ -95,9 +95,10 @@ fun main() {
         val shotHeight = if (wide) width else height
         if (only != null && only !in name) return
         if (timing) {
-            // Long enough for the JIT to settle: 300 frames of warm-up, then 600 measured.
-            val total = 900
-            val warm = 300
+            // Long enough for the JIT to settle: 300 frames of warm-up, then 600 measured, unless
+            // COMPOSEGL_PROBE_WARM and COMPOSEGL_PROBE_MEASURE say otherwise.
+            val warm = System.getenv("COMPOSEGL_PROBE_WARM")?.toIntOrNull() ?: 300
+            val total = warm + (System.getenv("COMPOSEGL_PROBE_MEASURE")?.toIntOrNull() ?: 600)
             val canvas = GlCanvas(fonts, gl)
             val cpu = ArrayList<Long>()
             val bytes = ArrayList<Long>()
