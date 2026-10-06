@@ -13,8 +13,8 @@ import kotlin.test.assertTrue
  * Dashed, dotted and one-sided borders, checked as the shapes they come out as.
  *
  * All of it is walked onto calls every backend already has — [UiCanvas.rect] for straight edges,
- * [UiCanvas.line] round a curve — so a recording of those calls is exactly what a renderer would
- * have been handed.
+ * [UiCanvas.fan] round a curve and where a dash is trimmed to one — so a recording of those calls
+ * is exactly what a renderer would have been handed.
  */
 class BorderStyleTest {
 
@@ -195,12 +195,16 @@ class BorderStyleTest {
 
                 canvas.border(box, white, 30f, corners, style)
 
-                val drawn = canvas.only<DrawCall.Rectangle>().map { it.rect }
+                // A piece that reaches a rounded corner is trimmed to it, so comes out as a fan.
+                val drawn = canvas.only<DrawCall.Rectangle>().map { it.rect } +
+                    canvas.only<DrawCall.Fan>().map { fan -> Rect(fan.points.minOf { it.x }, fan.points.minOf { it.y }, fan.points.maxOf { it.x }, fan.points.maxOf { it.y }) }
                 assertTrue(drawn.isNotEmpty(), "$style $corners: something is drawn")
                 drawn.forEach {
-                    assertTrue(it.top == box.top && it.bottom == box.bottom, "$style $corners: filling the box top to bottom: $it")
+                    // Trimmed, a piece's top is where the curve crosses its side: a hair below the box's.
+                    assertTrue(abs(it.top - box.top) < 0.1f && abs(it.bottom - box.bottom) < 0.1f, "$style $corners: filling the box top to bottom: $it")
                     assertTrue(it.left >= box.left && it.right <= box.right, "$style $corners: and never spilling out: $it")
                 }
+                canvas.vertices().forEach { assertTrue(insideRounded(box, corners, it), "$style $corners: and round where the box is: $it") }
             }
         }
     }
@@ -247,38 +251,123 @@ class BorderStyleTest {
         near(strip.bottom, dashes.last().bottom, "and ending on one")
     }
 
-    /** A canvas that rounds clips in place the way the GL one does, writing down each rounding. */
-    private class Rounding(val inner: RecordingCanvas) : UiCanvas by inner {
-        val rounded = ArrayList<Pair<Rect, Corners>>()
-        private var pushed: Rect? = null
-        override val roundsClips: Boolean get() = true
+    @Test
+    fun `a rounded box a broken line swallows keeps its round corners on a canvas that cannot round a clip`() {
+        val box = Rect.of(10f, 10f, 60f, 60f)
+        // The recording canvas rounds no clips, as the GL one cannot while a box fades.
+        val canvas = RecordingCanvas()
 
-        override fun pushClip(rect: Rect) {
-            pushed = rect
-            inner.pushClip(rect)
-        }
+        canvas.border(box, white, 80f, Corners.top(20f), BorderStyle.Dashed(on = 6f, off = 4f))
 
-        override fun roundClip(corners: Corners) {
-            rounded += checkNotNull(pushed) { "rounded with nothing pushed" } to corners
+        assertTrue(canvas.only<DrawCall.Rectangle>().size + canvas.only<DrawCall.Fan>().size > 1, "broken into dashes")
+        canvas.vertices().forEach { assertTrue(insideRounded(box, Corners.top(20f), it), "nothing drawn past the round top corners: $it") }
+        assertTrue(canvas.covers(Offset(12f, 30f)), "the corner dash still runs down to where the curve starts")
+        assertTrue(canvas.covers(Offset(11f, 69f)), "and the square bottom corners are filled right in")
+        canvas.assertBalanced()
+    }
+
+    /** Whether [point] is inside the box [box] with [radii], the way a solid border's outside edge runs. */
+    private fun insideRounded(box: Rect, radii: Corners, point: Offset, slack: Float = 0.01f): Boolean {
+        if (point.x < box.left - slack || point.x > box.right + slack || point.y < box.top - slack || point.y > box.bottom + slack) return false
+        fun outside(radius: Float, cx: Float, cy: Float, beyondX: Boolean, beyondY: Boolean) =
+            radius > 0f && beyondX && beyondY && Offset(cx, cy).distanceTo(point) > radius + slack
+        return !(
+            outside(radii.topLeft, box.left + radii.topLeft, box.top + radii.topLeft, point.x < box.left + radii.topLeft, point.y < box.top + radii.topLeft) ||
+                outside(radii.topRight, box.right - radii.topRight, box.top + radii.topRight, point.x > box.right - radii.topRight, point.y < box.top + radii.topRight) ||
+                outside(radii.bottomRight, box.right - radii.bottomRight, box.bottom - radii.bottomRight, point.x > box.right - radii.bottomRight, point.y > box.bottom - radii.bottomRight) ||
+                outside(radii.bottomLeft, box.left + radii.bottomLeft, box.bottom - radii.bottomLeft, point.x < box.left + radii.bottomLeft, point.y > box.bottom - radii.bottomLeft)
+            )
+    }
+
+    /** Every corner of every piece drawn: a piece is convex, so these inside means all of it is. */
+    private fun RecordingCanvas.vertices(): List<Offset> =
+        only<DrawCall.Rectangle>().flatMap { listOf(Offset(it.rect.left, it.rect.top), Offset(it.rect.right, it.rect.top), Offset(it.rect.right, it.rect.bottom), Offset(it.rect.left, it.rect.bottom)) } +
+            only<DrawCall.Fan>().flatMap { it.points }
+
+    /** Whether any piece drawn covers [point]: a flat rectangle, or a convex fan either way round. */
+    private fun RecordingCanvas.covers(point: Offset): Boolean =
+        only<DrawCall.Rectangle>().any { point.x >= it.rect.left && point.x <= it.rect.right && point.y >= it.rect.top && point.y <= it.rect.bottom } ||
+            only<DrawCall.Fan>().any { fan ->
+                val turns = fan.points.indices.map { i ->
+                    val a = fan.points[i]
+                    val b = fan.points[(i + 1) % fan.points.size]
+                    (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x)
+                }
+                turns.all { it >= -0.001f } || turns.all { it <= 0.001f }
+            }
+
+    @Test
+    fun `a broken line at least twice as thick as its corner keeps the corners round`() {
+        val box = Rect.of(10f, 10f, 60f, 60f)
+        for (style in listOf(BorderStyle.Dashed(on = 6f, off = 4f), BorderStyle.Dotted)) {
+            for (width in listOf(40f, 45f, 50f, 59f)) {
+                val canvas = RecordingCanvas()
+
+                canvas.border(box, white, width, 20f, style)
+
+                val corners = Corners.all(20f)
+                canvas.vertices().forEach {
+                    assertTrue(insideRounded(box, corners, it), "$style $width: nothing drawn past the round corners, as a solid border's: $it")
+                }
+                assertTrue(canvas.covers(Offset(box.left + 2f, box.top + 20f)), "$style $width: the corner's dash still runs down to where the curve starts")
+            }
         }
     }
 
     @Test
-    fun `a rounded box a broken line swallows keeps its round corners where the canvas rounds clips`() {
-        val box = Rect.of(10f, 10f, 60f, 60f)
-        val canvas = Rounding(RecordingCanvas())
+    fun `a broken line twice as thick as only some of its corners keeps those round and the square ones square`() {
+        val box = Rect.of(0f, 0f, 100f, 100f)
+        val corners = Corners(topLeft = 0f, topRight = 10f, bottomRight = 30f, bottomLeft = 30f)
+        val canvas = RecordingCanvas()
 
-        canvas.border(box, white, 80f, Corners.top(20f), BorderStyle.Dashed(on = 6f, off = 4f))
+        // One dash all the way round but for a sliver halfway, round the bottom-left curve, so the
+        // top two corners are drawn whole.
+        canvas.border(box, white, 30f, corners, BorderStyle.Dashed(on = 1000f, off = 1f))
 
-        assertEquals(listOf(box to Corners.top(20f)), canvas.rounded, "drawn inside a clip rounded as the box is")
-        val dashes = canvas.inner.only<DrawCall.Rectangle>()
-        assertTrue(dashes.size > 1, "broken into dashes: $dashes")
-        dashes.forEach { assertEquals(box, it.clip, "every dash inside that clip: $it") }
-        canvas.inner.assertBalanced()
+        canvas.vertices().forEach { assertTrue(insideRounded(box, corners, it), "nothing drawn past the round corners: $it") }
+        assertTrue(canvas.covers(Offset(98f, 12f)), "the top-right, curved tighter than half the line, is filled out to its curve")
+        assertTrue(canvas.covers(Offset(93f, 7f)), "all the way round it")
+        assertTrue(canvas.covers(Offset(1f, 1f)), "the square top-left is filled right into its corner")
+    }
 
-        val square = Rounding(RecordingCanvas())
-        square.border(box, white, 80f, 0f, BorderStyle.Dashed(on = 6f, off = 4f))
-        assertTrue(square.rounded.isEmpty(), "a square box needs no clip")
+    @Test
+    fun `a broken line round a thick tight curve leaves no slivers in it`() {
+        // Corners of 20 under a line 30 thick: the line's centre turns on a curve of 5, so the
+        // pieces round it each turn a long way, and each has to meet the next all across the line.
+        val box = Rect.of(0f, 0f, 60f, 60f)
+        val canvas = RecordingCanvas()
+
+        canvas.border(box, white, 30f, 20f, BorderStyle.Dashed(on = 1000f, off = 1f))
+
+        // The one gap is opposite where the ring starts, about the bottom-left; the other three
+        // corners are under the dash, so every point just inside their curves is covered.
+        val centres = listOf(Offset(20f, 20f) to 180f, Offset(40f, 20f) to 270f, Offset(40f, 40f) to 0f)
+        for ((centre, from) in centres) {
+            for (step in 1 until 18) {
+                val angle = (from + step * 5f) * kotlin.math.PI.toFloat() / 180f
+                val point = Offset(centre.x + kotlin.math.cos(angle) * 19f, centre.y + kotlin.math.sin(angle) * 19f)
+                assertTrue(canvas.covers(point), "the curve about $centre is covered at ${from + step * 5f} degrees: $point")
+            }
+        }
+        canvas.vertices().forEach { assertTrue(insideRounded(box, Corners.all(20f), it), "and nothing is drawn past it: $it") }
+    }
+
+    @Test
+    fun `a broken line of any width up to its box stays inside the round corners`() {
+        val box = Rect.of(0f, 0f, 60f, 60f)
+        for (corners in listOf(Corners.all(20f), Corners.top(20f), Corners(topLeft = 25f, topRight = 5f, bottomRight = 12f))) {
+            for (style in listOf(BorderStyle.Dashed(on = 6f, off = 4f), BorderStyle.Dotted)) {
+                for (width in 1..59) {
+                    val canvas = RecordingCanvas()
+
+                    canvas.border(box, white, width.toFloat(), corners, style)
+
+                    canvas.vertices().forEach {
+                        assertTrue(insideRounded(box, corners, it, slack = 0.05f), "$corners $style $width: inside the round corners: $it")
+                    }
+                }
+            }
+        }
     }
 
     @Test

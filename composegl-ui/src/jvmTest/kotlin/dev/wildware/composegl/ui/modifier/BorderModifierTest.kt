@@ -295,14 +295,19 @@ class BorderModifierTest {
 
         val flat = host.root.find("zone").boundsInRoot
         assertEquals(3f, flat.height, "the click squeezed the zone thinner than its 4-wide line")
-        val dashes = inAccent()
+        // The two end dashes reach the zone's rounded corners and are trimmed to them, as fans.
+        val ends = canvas.only<DrawCall.Fan>().filter { it.colour == accent }
+        assertEquals(2, ends.size, "the end dashes are rounded off as the zone's corners are: $ends")
+        val dashes = inAccent() + ends.map { fan ->
+            Rect(fan.points.minOf { it.x }, fan.points.minOf { it.y }, fan.points.maxOf { it.x }, fan.points.maxOf { it.y })
+        }
         assertEquals(12, dashes.size, "120 along at 6 on and 4 off is twelve dashes: $dashes")
         dashes.forEach {
             assertTrue(it.within(flat), "every dash is inside the zone: $it in $flat")
-            assertEquals(flat.top, it.top, "and fills it from top")
-            assertEquals(flat.bottom, it.bottom, "to bottom, as a solid line that thick fills it")
+            assertEquals(flat.top, it.top, 0.01f, "and fills it from top")
+            assertEquals(flat.bottom, it.bottom, 0.01f, "to bottom, as a solid line that thick fills it")
         }
-        assertTrue(nothingElseInAccent(), "and nothing else is drawn for it")
+        assertTrue(canvas.only<DrawCall.Border>().none { it.colour == accent }, "and nothing else is drawn for it")
     }
 
     @Test
