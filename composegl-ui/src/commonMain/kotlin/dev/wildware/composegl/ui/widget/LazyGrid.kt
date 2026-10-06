@@ -54,6 +54,10 @@ class LazyGridState(initialPosition: Float = 0f) {
     /** The first item in the first row with any part of it on screen. */
     val firstVisibleItem: Int get() = lines.indexAt(lines.axis.position) * across.coerceAtLeast(1)
 
+    /**
+     * Whether a flick is still carrying it. Snapshot state: a composable that reads it is recomposed
+     * when a fling starts and when it stops, and not on the frames between.
+     */
     val isFlinging: Boolean get() = lines.axis.isFlinging
 
     /** Puts the row [index] is in at the top of the window. [offset] scrolls that row too. */

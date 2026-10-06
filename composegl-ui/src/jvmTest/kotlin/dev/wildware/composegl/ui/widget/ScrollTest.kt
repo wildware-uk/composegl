@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.wildware.composegl.ui.animation.Clocks
+import dev.wildware.composegl.ui.animation.ProvideClocks
 import dev.wildware.composegl.ui.backend.MonospaceFontProvider
 import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.focus.FocusManager
@@ -60,7 +62,10 @@ class ScrollTest {
     private val tall = 1000f
 
     @AfterEach
-    fun tearDown() = host.dispose()
+    fun tearDown() {
+        host.dispose()
+        alongside?.dispose()
+    }
 
     private var clock = 0L
 
@@ -69,10 +74,14 @@ class ScrollTest {
         frame()
     }
 
+    /** Another host run on the same clocks, frame for frame, before this one: a second screen. */
+    private var alongside: UiHost? = null
+
     /** One turn of a game loop: recompose, lay out, settle focus, draw. */
     private fun frame() {
         canvas.clear()
         clips.clear()
+        alongside?.frame(clock)
         host.settle(Constraints.atMost(400f, 400f), focus, nanos = clock)
         clock += 16_666_667L
         DrawPass(clips).draw(host.root)
@@ -229,6 +238,159 @@ class ScrollTest {
         press(100f, 100f, at = 100L)
         assertFalse(state.isFlinging, "a finger on a moving list stops it where it is")
         release(100f, 100f, at = 100L)
+    }
+
+    /** One frame of [frame]'s clock, in seconds, worked out the way the fling loop works it out. */
+    private val frameSeconds = 16_666_667L.toFloat() / 1_000_000_000f
+
+    /**
+     * Steps a frame at a time until [state] stops, checking every frame against [reference] — an
+     * axis flung at the same speed and advanced by exactly one frame each time. That is the fling
+     * as it has always played: the first step on the first frame after the release, timed from the
+     * frame before it, and the same decay after.
+     */
+    private fun assertPlaysLike(reference: MeasuredAxis, state: ScrollState) {
+        var frame = 0
+        while (reference.isFlinging) {
+            frame++
+            frames(1)
+            reference.advance(frameSeconds)
+            assertEquals(reference.position, state.y, 0.001f, "frame $frame after the release")
+            check(frame < 600) { "the reference fling never stopped" }
+        }
+        frames(1)
+        assertFalse(state.isFlinging, "it stopped on the same frame the reference did")
+    }
+
+    @Test
+    fun `a flick on a list that was still moves on the very next frame and decays as before`() {
+        val state = ScrollState()
+        show { TallList(state, bars = false) }
+        // Long enough for anything that only runs while something moves to have gone to sleep.
+        frames(3)
+
+        // 60 up every 20 milliseconds, twice: smoothed, the finger was going 1920 a second.
+        press(100f, 180f, at = 0L)
+        drag(100f, 120f, at = 20L)
+        drag(100f, 60f, at = 40L)
+        release(100f, 60f, at = 40L)
+        val atRelease = state.y
+        assertEquals(120f, atRelease)
+
+        val reference = MeasuredAxis(atRelease).apply {
+            measured(side, tall)
+            fling(-1920f)
+        }
+        frames(1)
+        assertEquals(1920f * frameSeconds, state.y - atRelease, 0.001f, "a whole frame of the release speed, at once")
+        reference.advance(frameSeconds)
+        assertPlaysLike(reference, state)
+    }
+
+    /** The flick of the test above, on whatever [show] put up, played against the reference. */
+    private fun assertFlickPlaysAsBefore(state: ScrollState) {
+        frames(3)
+        press(100f, 180f, at = 0L)
+        drag(100f, 120f, at = 20L)
+        drag(100f, 60f, at = 40L)
+        release(100f, 60f, at = 40L)
+        val reference = MeasuredAxis(state.y).apply {
+            measured(side, tall)
+            fling(-1920f)
+        }
+        assertPlaysLike(reference, state)
+    }
+
+    @Test
+    fun `a fling under clocks of its own still moves on the very next frame`() {
+        // A replay's clocks, which the game has not advanced at all: the fling times its first step
+        // from the host's frames, not from whatever clocks the subtree was handed.
+        val state = ScrollState()
+        show { ProvideClocks(Clocks()) { TallList(state, bars = false) } }
+
+        assertFlickPlaysAsBefore(state)
+    }
+
+    @Test
+    fun `a fling on a host that shares its clocks with another still moves on the very next frame`() {
+        // Two screens on one set of clocks: by the time this host's frame runs, the clocks have been
+        // handed this frame's time twice.
+        alongside = UiHost(clocks = host.clocks).apply { setContent {} }
+        val state = ScrollState()
+        show { TallList(state, bars = false) }
+
+        assertFlickPlaysAsBefore(state)
+    }
+
+    @Test
+    fun `a list handed another state mid-fling stops the old one where it is`() {
+        val first = ScrollState()
+        val second = ScrollState()
+        var current by mutableStateOf(first)
+        show { TallList(current, bars = false) }
+
+        press(100f, 180f, at = 0L)
+        drag(100f, 120f, at = 20L)
+        drag(100f, 60f, at = 40L)
+        release(100f, 60f, at = 40L)
+        frames(3)
+        assertTrue(first.isFlinging)
+
+        current = second
+        frames(2)
+        assertFalse(first.isFlinging, "a state no list is driving any more does not say it is flinging")
+        val stoppedAt = first.y
+        frames(10)
+        assertEquals(stoppedAt, first.y, "and it stays where it was")
+        assertEquals(0f, second.y, "the new state starts where it was made")
+    }
+
+    @Test
+    fun `a fling stops when its host is disposed`() {
+        // A state a game keeps beyond the screen, shown again later on another host: it must not
+        // arrive still flinging from a host that no longer exists.
+        val state = ScrollState()
+        show { TallList(state, bars = false) }
+
+        press(100f, 180f, at = 0L)
+        drag(100f, 120f, at = 20L)
+        drag(100f, 60f, at = 40L)
+        release(100f, 60f, at = 40L)
+        frames(3)
+        assertTrue(state.isFlinging)
+
+        host.dispose()
+        assertFalse(state.isFlinging, "the state of a disposed screen says it is still flinging")
+    }
+
+    @Test
+    fun `a list caught and held still flings again from the next frame after its release`() {
+        val state = ScrollState()
+        show { TallList(state, bars = false) }
+
+        press(100f, 180f, at = 0L)
+        drag(100f, 120f, at = 20L)
+        drag(100f, 60f, at = 40L)
+        release(100f, 60f, at = 40L)
+        frames(5)
+        assertTrue(state.isFlinging)
+
+        // Caught, and held without moving for a few frames: nothing is flinging any more.
+        press(100f, 100f, at = 200L)
+        frames(5)
+        val held = state.y
+
+        // 30 up every 20 milliseconds, twice: 960 a second once smoothed.
+        drag(100f, 70f, at = 220L)
+        drag(100f, 40f, at = 240L)
+        release(100f, 40f, at = 240L)
+        assertEquals(held + 60f, state.y)
+
+        val reference = MeasuredAxis(state.y).apply {
+            measured(side, tall)
+            fling(-960f)
+        }
+        assertPlaysLike(reference, state)
     }
 
     @Test

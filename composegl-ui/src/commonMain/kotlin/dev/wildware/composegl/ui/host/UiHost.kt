@@ -8,6 +8,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
+import androidx.compose.runtime.staticCompositionLocalOf
 import dev.wildware.composegl.ui.animation.Clocks
 import dev.wildware.composegl.ui.animation.LocalClocks
 import dev.wildware.composegl.ui.debug.FrameBudget
@@ -66,6 +67,38 @@ class FrameDispatcher : CoroutineDispatcher() {
 }
 
 /**
+ * When a host's frames ran, for a loop that wakes on one and has to know how long it has been.
+ *
+ * The host's own, rather than [Clocks], because clocks are a game's to replace or share: a subtree
+ * on a replay's clocks, or two hosts on one set, would hand such a loop the wrong gap. Nothing but
+ * [UiHost.frame] writes these.
+ */
+internal class FrameTimes {
+
+    private var current = NoFrame
+    private var previous = NoFrame
+
+    fun begin(nanos: Long) {
+        previous = current
+        current = nanos
+    }
+
+    /**
+     * How long it has been since the frame before the one running now, in nanoseconds: the gap
+     * something that started between the two — a fling let go of — has already been moving for.
+     * Zero before there have been two frames.
+     */
+    fun sincePrevious(): Long = if (previous == NoFrame) 0L else (current - previous).coerceAtLeast(0L)
+
+    private companion object {
+        const val NoFrame = Long.MIN_VALUE
+    }
+}
+
+/** The frames of the host this composition runs under, or null outside one. */
+internal val LocalFrameTimes = staticCompositionLocalOf<FrameTimes?> { null }
+
+/**
  * The whole contract between a game and the Compose runtime.
  *
  * A dispatcher the runtime queues on, a clock it waits for frames on, a `Recomposer`, and a
@@ -90,6 +123,7 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
     private val scope = CoroutineScope(dispatcher + clock + job)
     private val recomposer = Recomposer(dispatcher + clock + job)
     private val composition = Composition(UiApplier(tree.root), recomposer)
+    private val frames = FrameTimes()
 
     /**
      * How much room the interface has, for the layouts that change shape rather than scale.
@@ -153,6 +187,7 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
             // window being dragged wider.
             CompositionLocalProvider(
                 LocalClocks provides clocks,
+                LocalFrameTimes provides frames,
                 LocalScreen provides screen,
                 LocalWindowClass provides screen.windowClass,
                 content = content,
@@ -172,6 +207,7 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
 
         // Before anything else: an animation waking up this frame must see this frame's time.
         clocks.advance(nanos)
+        frames.begin(nanos)
         // Then the held presses, which fire callbacks that write state — before the drain below, so
         // a long press or a repeat step is drawn this frame rather than the next.
         tree.runWaiters()
@@ -214,6 +250,13 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
         lastFrameChanged = true
         return true
     }
+
+    /**
+     * Whether anything under this host is waiting for a frame or has work queued for one: an
+     * animation, a fling, a recomposition. False on a still screen, which is how a test pins that a
+     * still screen really is asleep rather than waking the recomposer every frame to do nothing.
+     */
+    internal val hasPendingWork: Boolean get() = recomposer.hasPendingWork
 
     /** Whether the last [frame] said it changed, so a layout change in the same frame counts once. */
     private var lastFrameChanged = false

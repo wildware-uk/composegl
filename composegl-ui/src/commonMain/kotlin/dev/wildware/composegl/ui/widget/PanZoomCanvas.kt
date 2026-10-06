@@ -197,8 +197,8 @@ fun PanZoomCanvas(
     val clocks = LocalClocks.current
     state.clocks = clocks
     DisposableEffect(state) { onDispose { state.detach() } }
-    // Every frame, like a scrolling list's fling: waking only when something starts would cost the
-    // first frames of it, which are the ones a player feels.
+    // Every frame: it drives a flick, the spring back from an edge, the pad's stick and animateTo
+    // alike. A scrolling list's fling sleeps until one starts (#249); this loop does not yet (#257).
     LaunchedEffect(state, clocks) {
         var last = clocks.time(Clock.Ui)
         while (true) {
