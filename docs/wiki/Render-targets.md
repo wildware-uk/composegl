@@ -7,6 +7,24 @@ the same canvas draw into it. Only where the pixels land is different.
 What comes out is **premultiplied**. Draw it on a quad with `ONE, ONE_MINUS_SRC_ALPHA`
 for a screen, or `ONE, ONE` for a hologram. No shader of your own is needed.
 
+Light drawn into it adds colour and no opacity, so that same quad adds a glow onto the
+scene behind exactly as the glow looks drawn straight, even past the panel's paint,
+where the pixel's alpha stays nought:
+
+```kotlin
+target.draw(canvas) {
+    canvas.rect(panel, face)                       // paint: covers the scene behind it
+    canvas.pushBlend(BlendMode.Additive)
+    canvas.rect(halo, Colour(0x80FFE080.toInt()))  // light: adds onto the scene, even past the panel
+    canvas.popBlend()
+}
+```
+
+A quad drawn with straight alpha (`SRC_ALPHA, ONE_MINUS_SRC_ALPHA`) drops that light, and
+puts a dark rim round every soft edge besides. A `KorgeRenderTarget` is the exception:
+KorGE's sprite batch throws away any pixel with no opacity, so there light keeps its
+opacity and covers what is behind it by that much (see [[KorGE]]).
+
 | frontend | class | made with |
 |---|---|---|
 | raw OpenGL (LWJGL3) | `GlRenderTarget` | `GlRenderTarget(512, 256)` |

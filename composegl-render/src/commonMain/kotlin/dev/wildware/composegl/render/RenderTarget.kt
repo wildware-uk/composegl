@@ -11,6 +11,9 @@ import dev.wildware.composegl.ui.layout.Viewport
  *
  * What comes out is **premultiplied**, which is what makes it usable in a 3D scene without a shader
  * of its own: draw it with `ONE, ONE_MINUS_SRC_ALPHA` for a screen, or `ONE, ONE` for a hologram.
+ * Light drawn into it under an additive blend is colour with no opacity of its own, so that first
+ * composite adds a glow onto the scene behind exactly as the glow looks drawn straight, even over a
+ * part with no paint, where the alpha stays nought.
  *
  * Made on [device] at once, so it needs the context that device draws on.
  *

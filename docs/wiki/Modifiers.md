@@ -169,9 +169,9 @@ only a picture can trim it. So a rounded clip that holds one is drawn as a cut p
 as before, from the frame after the first one it is seen in, and goes back to being
 drawn in place the frame after it is gone. On that first frame the first `raw` opens
 one picture of the whole clip and the rest of the clip is drawn into it: the corners
-are cut all the same, but an additive child drawn after it lights only what is in that
-picture, and see-through pixels from a `SpriteBatch` at its default blend land a little
-light, for that one frame.
+are cut all the same, and an additive child drawn after it lights the card under the
+picture as well as what is in it, but see-through pixels from a `SpriteBatch` at its
+default blend land a little light, for that one frame.
 
 One thing differs from a cut picture, and only on the curve. A pixel the edge passes
 through is partly inside, and drawn in place each thing stacked there is trimmed on
@@ -368,17 +368,15 @@ a different animation.
 
 What is *inside* a still scale does not make it a picture. A glow inside — a `blend`
 on a child, or `pushBlend` in a `drawBehind` — adds onto whatever it lands on, exactly
-as it does on the same panel unscaled. Over the panel's own paint that is what the
-picture did too. Over a part of the panel that lets the screen through, what is behind
-now shows through the glow: a picture laid over the screen covered it by as much as the
-glow was opaque. Such a pixel is brighter by the glow's opacity times what is behind it —
-a spark 80% opaque over a dark blue-grey backdrop of (30, 42, 54) gains about (24, 34,
-43), and over a light backdrop a gold glow can come out nearly white. A scale whose
-factor is moving still takes a picture, and so does a `rotate` at any angle but nought,
-still or not. So a glow under one steps between the two looks as the factor starts or
-stops moving, or as the angle reaches nought — a card held at an angle keeps the
-picture's look — as it always has on an unscaled panel. An `effect` inside — a blur, an outline — takes its own
-picture as always, and shrinks or grows with the panel:
+as it does on the same panel unscaled. A scale whose factor is moving still takes a
+picture, and so does a `rotate` at any angle but nought, still or not; a glow looks the
+same in one. Light adds colour to a picture and no opacity, so when the picture is laid
+over the screen the glow adds onto what is behind it, over the panel's own paint and
+over a part that lets the screen through alike. A card landing, a flip ending or a
+tilt settling does not change how its glow looks. The one exception is a KorGE texture
+such as a `KorgeRenderTarget`, where light keeps its opacity (see [[KorGE]]), so there
+the glow still steps between the two looks. An `effect` inside — a blur, an
+outline — takes its own picture as always, and shrinks or grows with the panel:
 
 ```kotlin
 // A card in a row shrunk to fit: drawn through one transform, no picture of the card.

@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.animation.Tween
 import dev.wildware.composegl.ui.animation.animateFloatAsState
+import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
@@ -17,6 +18,7 @@ import dev.wildware.composegl.ui.layout.HorizontalAlignment
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.modifier.background
+import dev.wildware.composegl.ui.modifier.blend
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.offset
 import dev.wildware.composegl.ui.modifier.size
@@ -41,6 +43,14 @@ fun Squares() {
 @Composable
 fun SeeThrough() {
     Box(Modifier.offset(10f, 10f).size(20f, 20f).alpha(0.5f).background(Colour.rgb(0xFFFFFF)))
+}
+
+/** Grey paint on the left, nothing on the right, and half-opaque blue light across the middle of both. */
+@Preview(width = 40, height = 20, name = "glow", background = 0x00000000)
+@Composable
+fun Glow() {
+    Box(Modifier.size(20f, 20f).background(Colour.rgb(0x404040)))
+    Box(Modifier.offset(10f, 0f).size(20f, 20f).blend(BlendMode.Additive).background(Colour(0x800000FF.toInt())))
 }
 
 /** A white square that fades in over a second once it is on the screen: the picture is taken after. */

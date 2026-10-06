@@ -177,6 +177,34 @@ class GlDeviceTest {
     }
 
     @Test
+    fun `light adds colour and no opacity while paint covers by its own`() {
+        val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
+        val device = GlDevice(gl)
+        device.begin(FrameTarget.Host)
+        val texture = device.texture(4, 4, smooth = true)
+        val vertices = device.vertices(8)
+        for (blend in Blend.entries) device.drawShapes(vertices, 1, texture, blend, identity)
+        device.end()
+
+        // An additive blend keeps what is under it opaque by exactly as much as it was, so light
+        // in an offscreen picture lands there as colour with no coverage, and a premultiplied
+        // composite adds it onto the screen the way drawing it straight does. Where light covers,
+        // its opacity accumulates as paint's does.
+        assertEquals(
+            listOf(
+                "blendFuncSeparate(${GlConst.SRC_ALPHA}, ${GlConst.ONE_MINUS_SRC_ALPHA}, ${GlConst.ONE}, ${GlConst.ONE_MINUS_SRC_ALPHA})",
+                "blendFuncSeparate(${GlConst.SRC_ALPHA}, ${GlConst.ONE}, ${GlConst.ZERO}, ${GlConst.ONE})",
+                "blendFuncSeparate(${GlConst.ONE}, ${GlConst.ONE_MINUS_SRC_ALPHA}, ${GlConst.ONE}, ${GlConst.ONE_MINUS_SRC_ALPHA})",
+                "blendFuncSeparate(${GlConst.ONE}, ${GlConst.ONE}, ${GlConst.ZERO}, ${GlConst.ONE})",
+                "blendFuncSeparate(${GlConst.SRC_ALPHA}, ${GlConst.ONE}, ${GlConst.ONE}, ${GlConst.ONE})",
+                "blendFuncSeparate(${GlConst.ONE}, ${GlConst.ONE}, ${GlConst.ONE}, ${GlConst.ONE})",
+            ),
+            // The frame's end puts the host's own blend back after these.
+            gl.named("blendFuncSeparate").take(6),
+        )
+    }
+
+    @Test
     fun `an effect's reads of its picture go through the corner the picture lies in`() {
         val gl = RecordingGl(GlProfile(GlApi.Desktop, 3, 2, core = true))
         val device = GlDevice(gl)
@@ -649,7 +677,8 @@ class GlDeviceTest {
         assertEquals(4, gl.named("createProgram").size, "the three shape programs and one effect program")
         assertEquals(
             listOf(
-                "blendFuncSeparate(${GlConst.ONE}, ${GlConst.ONE}, ${GlConst.ONE}, ${GlConst.ONE})",
+                // Light adds colour and leaves the opacity where it was.
+                "blendFuncSeparate(${GlConst.ONE}, ${GlConst.ONE}, ${GlConst.ZERO}, ${GlConst.ONE})",
                 "blendFuncSeparate(${GlConst.ONE}, ${GlConst.ONE_MINUS_SRC_ALPHA}, ${GlConst.ONE}, ${GlConst.ONE_MINUS_SRC_ALPHA})",
             ),
             gl.named("blendFuncSeparate").take(2),

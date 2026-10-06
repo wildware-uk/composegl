@@ -147,6 +147,16 @@ vec3 colour = picture.a > 0.0 ? picture.rgb / picture.a : vec3(0.0);
 gl_FragColor = vec4(colour * picture.a, picture.a) * u_alpha;
 ```
 
+Light is the exception. A glow drawn with `BlendMode.Additive` over a clear part of the
+picture adds colour and no opacity, so it arrives with an alpha of nought and the
+division above loses it. A step that only multiplies or mixes the colour can work on
+what is stored and keeps it — the shipped `colourGrade` and `dissolve` do:
+
+```glsl
+vec3 graded = mix(vec3(dot(picture.rgb, vec3(0.299, 0.587, 0.114))), picture.rgb, u_saturation);
+gl_FragColor = vec4(graded, picture.a) * u_alpha;   // light stays light
+```
+
 `Uniform.of(colour)` is deliberately **not** premultiplied: a shader that wants a
 hue to tint by wants the hue, and one that wants a colour to blend towards wants it
 multiplied, and only the shader knows which.

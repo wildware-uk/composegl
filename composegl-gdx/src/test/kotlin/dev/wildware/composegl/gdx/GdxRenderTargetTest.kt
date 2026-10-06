@@ -2,8 +2,10 @@ package dev.wildware.composegl.gdx
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.GL20
+import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
+import dev.wildware.composegl.ui.graphics.BlendMode
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.layout.ScalePolicy
 import dev.wildware.composegl.ui.layout.Viewport
@@ -152,6 +154,42 @@ class GdxRenderTargetTest {
             assertTrue(abs(alpha - 128) <= 4, "half transparent should stay half transparent: $alpha")
             assertTrue(abs(red - 128) <= 6, "the colour should already be scaled by the alpha: $red")
         } finally {
+            target.dispose()
+            canvas.dispose()
+        }
+    }
+
+    @Test
+    fun `light in the picture adds onto the scene when a sprite batch lays it down premultiplied`(): Unit = Gl.render {
+        // Red paint on the left half, clear on the right, and half-opaque blue light across the
+        // middle of both, laid over a grey scene by LibGDX's own batch with ONE, ONE_MINUS_SRC_ALPHA.
+        val canvas = GdxCanvas()
+        val target = GdxRenderTarget(64, 16)
+        val batch = SpriteBatch()
+        try {
+            target.draw(canvas) {
+                canvas.rect(Rect.of(0f, 0f, 32f, 16f), Colour.rgb(0xFF0000))
+                canvas.pushBlend(BlendMode.Additive)
+                canvas.rect(Rect.of(16f, 0f, 32f, 16f), Colour(0x800000FF.toInt()))
+                canvas.popBlend()
+            }
+            Gdx.gl.glViewport(0, 0, Gl.size, Gl.size)
+            Gdx.gl.glClearColor(0x40 / 255f, 0x40 / 255f, 0x40 / 255f, 1f)
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
+            batch.projectionMatrix.setToOrtho2D(0f, 0f, Gl.size.toFloat(), Gl.size.toFloat())
+            batch.setBlendFunction(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA)
+            batch.begin()
+            batch.draw(target.texture.region, 0f, 0f, 64f, 16f)
+            batch.end()
+            val pixels = readPixels(64, 16)
+            fun rgb(x: Int) = pixels[8 * 64 + x] ushr 8
+            fun near(expected: Int, actual: Int) = (0..2).all { abs((expected shr (it * 8) and 0xFF) - (actual shr (it * 8) and 0xFF)) <= 2 }
+
+            assertTrue(near(0xFF0080, rgb(24)), "the light added onto the red paint: %06X".format(rgb(24)))
+            assertTrue(near(0x4040C0, rgb(40)), "the light alone, added onto the grey: %06X".format(rgb(40)))
+            assertTrue(near(0x404040, rgb(56)), "the grey through the clear part: %06X".format(rgb(56)))
+        } finally {
+            batch.dispose()
             target.dispose()
             canvas.dispose()
         }

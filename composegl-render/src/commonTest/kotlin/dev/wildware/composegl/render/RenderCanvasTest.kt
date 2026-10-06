@@ -552,6 +552,41 @@ class RenderCanvasTest {
         assertTrue(lent is RenderFrame)
     }
 
+    /** A backend that asks for light to keep its opacity, the way KorGE's does in a texture. */
+    private class Covering(device: GpuDevice) : RenderCanvas(device) {
+        init {
+            lightCovers = true
+        }
+    }
+
+    @Test
+    fun `light keeps its opacity only on a canvas that asks for it - in its pictures and through its effects too`() {
+        val glow = ShaderEffect(ShaderSource("glow", "void main() { gl_FragColor = texture2D(u_texture, v_texCoord); }"))
+        fun blends(canvas: RenderCanvas): List<Blend> {
+            device.draws.clear()
+            device.effects.clear()
+            frame(canvas) { layer(Rect.of(0f, 0f, 10f, 10f)) { rect(Rect.of(0f, 0f, 1f, 1f), Colour.Red) } }
+            device.draws.clear()
+            device.effects.clear()
+            frame(canvas) {
+                val area = Rect.of(0f, 0f, 10f, 10f)
+                pushBlend(BlendMode.Additive)
+                rect(area, Colour.Red)
+                val picture = assertNotNull(layer(area) { rect(area, Colour.Blue) })
+                drawLayer(picture, area)
+                drawLayer(assertNotNull(layer(area) { rect(area, Colour.Blue) }), area, glow)
+                popBlend()
+            }
+            return device.draws.map { it.blend }.distinct() + device.effects.map { it.blend }
+        }
+
+        assertEquals(listOf(Blend.Additive, Blend.SourceOver, Blend.PremultipliedAdditive, Blend.PremultipliedAdditive), blends(canvas()))
+        assertEquals(
+            listOf(Blend.AdditiveCovering, Blend.SourceOver, Blend.PremultipliedAdditiveCovering, Blend.PremultipliedAdditiveCovering),
+            blends(Covering(device)),
+        )
+    }
+
     /** A backend whose drawing object is opened round a block, the way a sprite batch is. */
     private class Lending(device: GpuDevice, val log: MutableList<String>) : RenderCanvas(device) {
         override fun handOver(projection: FloatArray, viewport: Viewport): Any = "batch"

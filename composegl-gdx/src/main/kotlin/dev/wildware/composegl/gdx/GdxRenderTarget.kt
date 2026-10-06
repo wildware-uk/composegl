@@ -21,6 +21,8 @@ import dev.wildware.composegl.ui.layout.Viewport
  * What comes out is **premultiplied**, so a game can draw the quad with
  * `GL_ONE, GL_ONE_MINUS_SRC_ALPHA` for an ordinary screen or `GL_ONE, GL_ONE` for a hologram. The
  * second is free, and with straight alpha it would show every transparent pixel as a grey haze.
+ * Light drawn into it with an additive blend has no opacity of its own, so either way it adds onto
+ * the scene, as it looks drawn straight.
  *
  * ```kotlin
  * val target = GdxRenderTarget(512, 256)

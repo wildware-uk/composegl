@@ -36,6 +36,8 @@ dependencies {
     }
 
     testImplementation(project(":composegl-testing"))
+    // The shipped effects, to check light in a picture survives a blur, a grade and a dissolve.
+    testImplementation(project(":composegl-effects"))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

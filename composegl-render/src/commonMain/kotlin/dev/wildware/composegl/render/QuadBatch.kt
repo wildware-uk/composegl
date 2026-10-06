@@ -110,9 +110,15 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
      *   by their own opacity.
      */
     fun blend(mode: BlendMode, premultiplied: Boolean, reason: BatchBreak = BatchBreak.Blend) {
-        wantedBlend = Blend.of(mode, premultiplied)
+        wantedBlend = Blend.of(mode, premultiplied, lightCovers)
         asked(reason)
     }
+
+    /**
+     * Whether light's opacity accumulates in the target for the frame being drawn: see
+     * [Blend.lightCovers]. Set before [begin].
+     */
+    var lightCovers = false
 
     /**
      * Nothing lands outside this box, in the target's pixels counted up from its bottom-left, from

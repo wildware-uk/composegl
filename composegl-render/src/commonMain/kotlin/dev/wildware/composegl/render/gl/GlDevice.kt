@@ -144,6 +144,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
     private var usedElementBuffer = Unknown
     private var blendSource = Unknown
     private var blendDestination = Unknown
+    private var blendLightAlone = false
     private var blendOn = false
     private var scissorTest = Unknown
     private var scissorSent = false
@@ -747,7 +748,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
 
         // Premultiplied, like every other way a layer reaches the screen, combined the way the
         // canvas's blend stack says.
-        sendBlend(GlConst.ONE, if (blend.additive) GlConst.ONE else GlConst.ONE_MINUS_SRC_ALPHA)
+        sendBlend(GlConst.ONE, blend)
 
         if (caps().vertexArrays) {
             bindVertexArray(effectArray)
@@ -856,23 +857,32 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
 
     private fun applyBlend(blend: Blend) {
         // The alpha half accumulates rather than interpolates, so what lands in an offscreen picture
-        // is premultiplied and a game can put it on a quad without a shader of its own.
-        sendBlend(
-            source = if (blend.premultiplied) GlConst.ONE else GlConst.SRC_ALPHA,
-            destination = if (blend.additive) GlConst.ONE else GlConst.ONE_MINUS_SRC_ALPHA,
-        )
+        // is premultiplied and a game can put it on a quad without a shader of its own. See sendBlend
+        // for the alpha half of an additive blend.
+        sendBlend(if (blend.premultiplied) GlConst.ONE else GlConst.SRC_ALPHA, blend)
     }
 
-    /** Blending on, colour from [source] onto [destination] and alpha from one onto it, unless it already is. */
-    private fun sendBlend(source: Int, destination: Int) {
+    /**
+     * Blending on, colour from [source] onto what is there the way [blend] says, unless it already is.
+     *
+     * Paint's opacity goes on top of what is there (`ONE, ONE_MINUS_SRC_ALPHA`). Light's goes
+     * nowhere: an additive blend keeps the opacity under it (`ZERO, ONE`). So light in an offscreen
+     * picture is colour with no coverage, and a premultiplied composite of the picture adds it onto
+     * the screen exactly as drawing it straight does, rather than covering what is behind by as much
+     * as the light was opaque. Where [Blend.lightCovers], light's opacity accumulates (`ONE, ONE`).
+     */
+    private fun sendBlend(source: Int, blend: Blend) {
         if (!blendOn) {
             gl.enable(GlConst.BLEND)
             blendOn = true
         }
-        if (source == blendSource && destination == blendDestination) return
-        gl.blendFuncSeparate(source, destination, GlConst.ONE, destination)
+        val destination = if (blend.additive) GlConst.ONE else GlConst.ONE_MINUS_SRC_ALPHA
+        val lightAlone = blend.additive && !blend.lightCovers
+        if (source == blendSource && destination == blendDestination && lightAlone == blendLightAlone) return
+        gl.blendFuncSeparate(source, destination, if (lightAlone) GlConst.ZERO else GlConst.ONE, destination)
         blendSource = source
         blendDestination = destination
+        blendLightAlone = lightAlone
     }
 
     private fun bindPicture(texture: DeviceTexture) {
