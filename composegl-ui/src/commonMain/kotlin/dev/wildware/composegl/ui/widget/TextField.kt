@@ -570,6 +570,7 @@ internal class FieldMetrics(
     private val widths = HashMap<Int, Float>()
 
     private var hint: TextLayout? = null
+    private var hintText: String? = null
 
     private val bidi by lazy { BidiText(text, direction) }
     private val geometries = HashMap<Int, BidiLine>()
@@ -609,9 +610,18 @@ internal class FieldMetrics(
         if (direction == LayoutDirection.Ltr) 0f
         else (fieldWidth - layoutOf(line).size.width - CaretWidth).coerceAtLeast(0f)
 
-    /** The hint, measured once. Drawn in place of the text when there is none. */
-    fun hintLayout(placeholder: String): TextLayout =
-        hint ?: fonts.measure(placeholder, style).also { hint = it }
+    /**
+     * The hint, measured once for each new set of words. Drawn in place of the text when there is
+     * none. The words are compared, not just kept, because these metrics outlive a change to the
+     * placeholder: an empty search box whose tab changes keeps its text, and so keeps these.
+     */
+    fun hintLayout(placeholder: String): TextLayout {
+        hint?.let { if (hintText == placeholder) return it }
+        return fonts.measure(placeholder, style).also {
+            hint = it
+            hintText = placeholder
+        }
+    }
 
     /** The whole of line [line], measured. What is drawn. */
     fun layoutOf(line: Int): TextLayout = layouts.getOrPut(line) {
