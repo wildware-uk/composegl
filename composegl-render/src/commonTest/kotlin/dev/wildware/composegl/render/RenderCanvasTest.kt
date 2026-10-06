@@ -320,7 +320,7 @@ class RenderCanvasTest {
         val composite = device.draws[2]
         assertEquals(Blend.PremultipliedSourceOver, composite.blend)
         assertSame(target.texture, composite.texture)
-        assertEquals(20f / 64f, composite.at(1, 16), "the top of the quad reads the top row of the used corner")
+        assertEquals(20f / 64f, composite.at(1, "a_texCoord0", 1), "the top of the quad reads the top row of the used corner")
         // Into the layer, out of it, and back from the premultiplied composite.
         assertEquals(3, trace.culprits().single { it.reason == BatchBreak.Layer }.calls)
     }
@@ -328,7 +328,7 @@ class RenderCanvasTest {
     private fun canvasTarget(picture: TextureHandle?) = (picture as LayerPicture).target
 
     /** Each corner's texture coordinates, u then v, in the order the batch wrote them. */
-    private fun RecordingDevice.Draw.textureCorners(): List<Pair<Float, Float>> = (0 until 4).map { at(it, 15) to at(it, 16) }
+    private fun RecordingDevice.Draw.textureCorners(): List<Pair<Float, Float>> = (0 until 4).map { at(it, "a_texCoord0") to at(it, "a_texCoord0", 1) }
 
     @Test
     fun `a layer that shrank is drawn into the corner of the picture it had`() {
@@ -366,7 +366,7 @@ class RenderCanvasTest {
 
     /** What the radii carry at each corner of a quad: a picture's held box, or a shape's corners. */
     private fun RecordingDevice.Draw.radii(quad: Int): List<List<Float>> =
-        (0 until 4).map { corner -> (24 until 28).map { at(quad * 4 + corner, it) } }
+        (0 until 4).map { corner -> (0 until 4).map { at(quad * 4 + corner, "a_radii", it) } }
 
     @Test
     fun `a layer put down plainly - turned - or as an image holds its reads half a texel inside its corner`() {

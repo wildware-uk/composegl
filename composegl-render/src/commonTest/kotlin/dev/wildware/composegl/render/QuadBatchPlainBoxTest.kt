@@ -73,7 +73,7 @@ class QuadBatchPlainBoxTest {
             // Wound from the bottom-left, so the first corner is that and the third the top-right.
             Quad(
                 draw.at(first, 0), draw.at(first, 1), draw.at(first + 2, 0), draw.at(first + 2, 1),
-                draw.at(first, 23), draw.fill(first),
+                draw.at(first, "a_shape", 2), draw.fill(first),
             )
         }
     }

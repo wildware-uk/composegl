@@ -135,8 +135,8 @@ class RenderCanvasSceneTest {
 
         val draw = device.draws.single()
         assertSame((made as ScenePicture).texture, draw.texture)
-        assertEquals(ShapeVertex.PremultipliedPicture, draw.at(0, 28), "the picture's colours are already premultiplied")
-        assertEquals(1f, draw.at(1, 16), "the top of the quad reads v = 1, the framebuffer's top row")
+        assertEquals(ShapeVertex.PremultipliedPicture, draw.at(0, "a_gradient"), "the picture's colours are already premultiplied")
+        assertEquals(1f, draw.at(1, "a_texCoord0", 1), "the top of the quad reads v = 1, the framebuffer's top row")
     }
 
     @Test

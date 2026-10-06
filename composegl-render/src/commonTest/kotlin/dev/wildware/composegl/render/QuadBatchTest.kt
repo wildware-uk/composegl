@@ -24,13 +24,68 @@ class QuadBatchTest {
     private fun reasons(trace: DrawCallTrace) = trace.culprits(withEnd = true).map { it.reason to it.calls }
 
     @Test
-    fun `the vertex layout is as many floats as its attributes add up to`() {
-        assertEquals(ShapeVertex.Attributes.sumOf { it.size }, ShapeVertex.Floats)
+    fun `the vertex layout is as many slots as its attributes add up to`() {
+        assertEquals(ShapeVertex.Attributes.sumOf { it.slots }, ShapeVertex.Floats)
         var offset = 0
         ShapeVertex.Attributes.forEach {
             assertEquals(offset, it.offset, "${it.name} starts where the one before it ends")
-            offset += it.size
+            offset += it.slots
         }
+    }
+
+    @Test
+    fun `the fill and border are four bytes in one slot each and the shadow is four floats`() {
+        assertEquals(25, ShapeVertex.Floats, "100 bytes a vertex")
+        assertEquals(listOf("a_color", "a_borderColor"), ShapeVertex.Attributes.filter { it.packed }.map { it.name })
+        ShapeVertex.Attributes.filter { it.packed }.forEach { assertEquals(4, it.size, "${it.name} is red, green, blue and alpha") }
+    }
+
+    @Test
+    fun `a quad's fill and border are its colours' bytes red first at every corner`() {
+        val batch = QuadBatch(device)
+        batch.begin(identity)
+        batch.shape(
+            white, left = 0f, bottom = 0f, width = 10f, height = 10f,
+            fill = Colour(alpha = 0x40, red = 0x10, green = 0x20, blue = 0x30),
+            topLeft = 2f, topRight = 2f, bottomRight = 2f, bottomLeft = 2f,
+            border = Colour(alpha = 0x80, red = 0x50, green = 0x60, blue = 0x70), borderWidth = 1f,
+            shadow = Colour(alpha = 0xFF, red = 0xFF, green = 0x00, blue = 0x00), shadowSpread = 3f, aa = 1f,
+        )
+        batch.textured(sheet, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 1f, Colour(alpha = 0xFF, red = 0x01, green = 0x02, blue = 0x03))
+        batch.end()
+
+        val draw = device.draws.single()
+        (0 until 4).forEach { corner ->
+            // Memory holds red, green, blue, alpha: the bits of a little-endian 0xAABBGGRR.
+            assertEquals(0x40302010, draw.bits(corner, "a_color"), "fill at corner $corner")
+            assertEquals(0x80706050.toInt(), draw.bits(corner, "a_borderColor"), "border at corner $corner")
+            assertEquals(listOf(1f, 0f, 0f, 1f), (0 until 4).map { draw.at(corner, "a_shadowColor", it) }, "the shadow stays four floats")
+        }
+        assertEquals(0xFF030201.toInt(), draw.bits(4, "a_color"), "a picture's tint, in the next quad")
+        assertEquals(0, draw.bits(4, "a_borderColor"), "and no border")
+    }
+
+    @Test
+    fun `a colour whose bits are a NaN comes out of the batch exactly as it went in`() {
+        // Opaque with a blue of 0x80 or more is a NaN when read as a float: white is one. Neither
+        // of these may be made the canonical NaN on the way through, on any platform.
+        val signalling = Colour(alpha = 0xFF, red = 0x01, green = 0x00, blue = 0x80)
+        val quiet = Colour(alpha = 0x7F, red = 0x45, green = 0x23, blue = 0xC1)
+        assertTrue(Float.fromBits(0xFF800001.toInt()).isNaN() && Float.fromBits(0x7FC12345).isNaN())
+        val batch = QuadBatch(device)
+        batch.begin(identity)
+        batch.shape(
+            white, left = 0f, bottom = 0f, width = 10f, height = 10f,
+            fill = signalling, topLeft = 0f, topRight = 0f, bottomRight = 0f, bottomLeft = 0f,
+            border = quiet, borderWidth = 1f, shadow = Colour.Transparent, shadowSpread = 0f, aa = 1f,
+        )
+        batch.textured(sheet, 0f, 0f, 1f, 1f, 0f, 0f, 1f, 1f, Colour.White)
+        batch.end()
+
+        val draw = device.draws.single()
+        assertEquals(0xFF800001.toInt(), draw.bits(0, "a_color"))
+        assertEquals(0x7FC12345, draw.bits(0, "a_borderColor"))
+        assertEquals(-1, draw.bits(draw.quads * 4 - 1, "a_color"), "white is every bit set")
     }
 
     @Test
@@ -45,7 +100,7 @@ class QuadBatchTest {
         batch.picture(sheet)
         batch.end()
 
-        val radii = device.draws.map { draw -> (24 until 28).map { draw.at(0, it) } }
+        val radii = device.draws.map { draw -> (0 until 4).map { draw.at(0, "a_radii", it) } }
         assertEquals(listOf(listOf(0.1f, 0.2f, 0.3f, 0.4f), listOf(0f, 0f, 0f, 0f)), radii)
     }
 
@@ -296,10 +351,10 @@ class QuadBatchTest {
         assertEquals(listOf(5f, 15f), listOf(draw.at(0, 0), draw.at(0, 1)))
         assertEquals(listOf(115f, 65f), listOf(draw.at(2, 0), draw.at(2, 1)))
         assertEquals(listOf(1f, 0f, 0f, 1f), draw.fill(0))
-        assertEquals(listOf(0.25f, 0.5f), listOf(draw.at(0, 15), draw.at(0, 16)), "sampled at the white spot")
-        assertEquals(listOf(2f, 4f, 1f), (21 until 24).map { draw.at(1, it) }, "border, spread, soft edge")
+        assertEquals(listOf(0.25f, 0.5f), listOf(draw.at(0, "a_texCoord0"), draw.at(0, "a_texCoord0", 1)), "sampled at the white spot")
+        assertEquals(listOf(2f, 4f, 1f), (0 until 3).map { draw.at(1, "a_shape", it) }, "border, spread, soft edge")
         // Each radius is held to half the shorter side, 20.
-        assertEquals(listOf(5f, 20f, 0f, 3f), (24 until 28).map { draw.at(3, it) })
+        assertEquals(listOf(5f, 20f, 0f, 3f), (0 until 4).map { draw.at(3, "a_radii", it) })
     }
 
     @Test
@@ -311,9 +366,9 @@ class QuadBatchTest {
         batch.end()
 
         val draw = device.draws.single()
-        assertEquals(ShapeVertex.PremultipliedPicture, draw.at(0, 28))
-        assertEquals(0f, draw.at(4, 28))
-        assertEquals(0f, draw.at(0, 23), "a picture has no soft edge")
+        assertEquals(ShapeVertex.PremultipliedPicture, draw.at(0, "a_gradient"))
+        assertEquals(0f, draw.at(4, "a_gradient"))
+        assertEquals(0f, draw.at(0, "a_shape", 2), "a picture has no soft edge")
     }
 
     private val white = WhiteSpot(sheet, 0.25f, 0.5f)

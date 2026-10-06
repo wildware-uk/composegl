@@ -209,11 +209,22 @@ class RecordingDevice(
         val program: ShapeProgram = ShapeProgram.Common,
     ) {
 
-        /** Float [offset] of vertex [vertex], counted across the whole draw. */
+        /** Slot [offset] of vertex [vertex], counted across the whole draw. */
         fun at(vertex: Int, offset: Int): Float = vertices[vertex * ShapeVertex.Floats + offset]
 
-        /** The fill colour of [vertex], red, green, blue and alpha as fractions. */
-        fun fill(vertex: Int): List<Float> = (3 until 7).map { at(vertex, it) }
+        /** Component [component] of the attribute called [name], in vertex [vertex]. Not for a packed colour. */
+        fun at(vertex: Int, name: String, component: Int = 0): Float = at(vertex, slot(name) + component)
+
+        /** The bits of the slot a packed colour [name] rides in, in vertex [vertex], exactly as written. */
+        fun bits(vertex: Int, name: String): Int = at(vertex, slot(name)).toRawBits()
+
+        /** The fill colour of [vertex], red, green, blue and alpha as fractions, as the GPU reads them. */
+        fun fill(vertex: Int): List<Float> = unpacked(bits(vertex, "a_color"))
+
+        /** The border colour of [vertex], the same way. */
+        fun border(vertex: Int): List<Float> = unpacked(bits(vertex, "a_borderColor"))
+
+        private fun unpacked(bits: Int): List<Float> = (0 until 4).map { (bits ushr (it * 8) and 0xFF) / 255f }
     }
 
     class EffectDraw(
@@ -234,3 +245,6 @@ class RecordingDevice(
         val height: Float = 0f,
     )
 }
+
+/** Where the attribute called [name] starts in a vertex, in four-byte slots. */
+internal fun slot(name: String): Int = ShapeVertex.Attributes.single { it.name == name }.offset

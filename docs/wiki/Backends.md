@@ -328,6 +328,13 @@ override fun put(at: Int, from: FloatArray, offset: Int, count: Int) {
 }
 ```
 
+Copy the bits, not the numbers. A vertex is 25 four-byte slots (`ShapeVertex`), and two of
+them, the fill and the border, are a colour's four bytes, red first, riding in a float's place.
+Their bits often look like a NaN (opaque white is one), so a copy that reads each float as a
+number and writes it back, through a JavaScript number say, can change the colour. A bulk
+`put`, `copyInto` or `toRawBits` keeps them. Make the buffer native byte order, as it already
+must be for the floats.
+
 A `SceneView` needs nothing more from most backends: `RenderCanvas.scene` renders into
 the device's own picture and hands over what `handOver` makes. An engine whose own
 drawing only lands in a framebuffer it made itself — KorGE's batch, for one — makes
@@ -364,7 +371,9 @@ module, if a draw, shader, blend or framebuffer call appears outside the binding
 or if the binding grows past 400 lines.
 
 A graphics API that is not OpenGL implements `GpuDevice` instead of `Gl` — about
-twenty members — and ships its own port of the shape shader. Nothing above the device
+twenty members — and ships its own port of the shape shader. Its vertex input follows
+`ShapeVertex.Attributes`: an attribute marked `packed` is four unsigned bytes in one slot,
+read as fractions of 255, and every other one is floats. Nothing above the device
 knows OpenGL exists. Rounded clips are drawn in place only on a device that answers
 `masks = true` and keeps each draw inside the `ClipMask` handed to `drawShapes`; on any
 other they are cut pictures, as before.

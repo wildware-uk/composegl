@@ -668,13 +668,14 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
         }
     }
 
+    /** A packed colour is its four bytes, which the GPU turns into fractions of 255; everything else is floats. */
     private fun pointShape(index: Int) {
         val attribute = ShapeVertex.Attributes[index]
         gl.vertexAttribPointer(
             index,
             attribute.size,
-            GlConst.FLOAT,
-            false,
+            if (attribute.packed) GlConst.UNSIGNED_BYTE else GlConst.FLOAT,
+            attribute.packed,
             ShapeVertex.Floats * FloatBytes,
             attribute.offset * FloatBytes,
         )
