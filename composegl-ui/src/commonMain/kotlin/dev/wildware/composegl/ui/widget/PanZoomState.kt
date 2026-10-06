@@ -208,6 +208,39 @@ class PanZoomState(
             busy()
         }
 
+    /** The canvas showing this state now, so one leaving lets go only of what is still its own. */
+    private var owner: Any? = null
+
+    /** A canvas showing this state on [clocks]. Told every composition, so the latest one owns it. */
+    internal fun attach(owner: Any, clocks: Clocks) {
+        this.owner = owner
+        this.clocks = clocks
+    }
+
+    /**
+     * Whether the canvas's frame loop has anything to do: the camera moving on its own, or the pad
+     * held so that it moves. Snapshot state written only when it changes, so the loop sleeps until it
+     * turns true rather than asking for every frame of a still screen.
+     */
+    internal var wantsFrames: Boolean by mutableStateOf(false)
+        private set
+
+    /**
+     * The interface time when [wantsFrames] last turned true, which a loop woken by it times its
+     * first step from. Input arrives between frames and clocks move only at the start of one, so it
+     * is the time of the frame before the one the loop wakes on: its first step is a whole frame, as
+     * it was when the loop never slept.
+     */
+    internal var wokeAt = 0L
+        private set
+
+    /** The clocks [wokeAt] was read from, or null: a loop on any others cannot time itself by it. */
+    internal var wokeOn: Clocks? = null
+        private set
+
+    /** [wantsFrames] as last written, so telling whether it changed does not read it back. */
+    private var awake = false
+
     private var measured = false
     private var pending: Offset? = null
     private var pendingZoom = startZoom
@@ -234,10 +267,10 @@ class PanZoomState(
     internal fun holding(value: Boolean) {
         if (value == holding) return
         holding = value
-        if (!value) {
-            busy()
-            settleText()
-        }
+        if (!value) settleText()
+        // Either way: a hand let go may leave the view past an edge to spring back from, and a hand
+        // put down stops the spring.
+        busy()
     }
 
     /** A drag moving the view by [dx], [dy]: against the resistance of an edge it is already past. */
@@ -262,11 +295,33 @@ class PanZoomState(
         busy()
     }
 
-    // The pad, held rather than stepped: the stick is a speed and each trigger a rate of zoom.
+    // The pad, held rather than stepped: the stick is a speed and each trigger a rate of zoom. Each
+    // one wakes the frame loop as it is pushed and lets it sleep as it is let go.
     internal var stickX = 0f
+        set(value) {
+            field = value
+            busy()
+        }
     internal var stickY = 0f
+        set(value) {
+            field = value
+            busy()
+        }
+
+    // A trigger let go makes text again for where the zoom stopped here, rather than on the loop's
+    // next frame: with interface time stopped that frame moves nothing, and the loop sleeps after it.
     internal var zoomingIn = 0f
+        set(value) {
+            field = value
+            settleText()
+            busy()
+        }
     internal var zoomingOut = 0f
+        set(value) {
+            field = value
+            settleText()
+            busy()
+        }
 
     internal fun releasePad() {
         stickX = 0f
@@ -463,14 +518,31 @@ class PanZoomState(
         get() = isAnimating || velocityX != 0f || velocityY != 0f ||
             (!holding && measured && (clampX(panX, zoom) != panX || clampY(panY, zoom) != panY))
 
+    /**
+     * Whether the pad is held so that the camera moves: the stick or the triggers past the dead zone.
+     * Not [moving], because a test waiting for a held stick to finish would wait for ever.
+     */
+    private val padHeld: Boolean
+        get() = sqrt(stickX * stickX + stickY * stickY) > PadDeadZone || abs(zoomingIn - zoomingOut) > PadDeadZone
+
     private var markedBusy = false
 
+    /** Tells the frame loop and the clocks whether the camera is moving, when that has changed. */
     private fun busy() {
+        val moving = moving
+        val wants = moving || padHeld
+        if (wants != awake) {
+            awake = wants
+            if (wants) {
+                wokeAt = clocks?.time(Clock.Ui) ?: 0L
+                wokeOn = clocks
+            }
+            wantsFrames = wants
+        }
         val clocks = clocks ?: return
-        val now = moving
-        if (now == markedBusy) return
-        markedBusy = now
-        if (now) clocks.began(Clock.Ui) else clocks.ended(Clock.Ui)
+        if (moving == markedBusy) return
+        markedBusy = moving
+        if (moving) clocks.began(Clock.Ui) else clocks.ended(Clock.Ui)
     }
 
     /**
@@ -479,12 +551,19 @@ class PanZoomState(
      * The state outlives the canvas — it is remembered across a screen being put away — so holding
      * on to the node would keep a whole tree nobody can see alive until something used the state
      * again. The next canvas attaches its own.
+     *
+     * A canvas moved to a new place in the tree is composed there before it is disposed where it
+     * was, so by then [owner] is the new one, and the old one lets go of nothing but the pad: the
+     * clocks are already the new canvas's, and the node is once it is placed, later that frame.
      */
-    internal fun detach() {
+    internal fun detach(owner: Any) {
+        releasePad()
+        if (owner !== this.owner) return
+        this.owner = null
         // The setter ends the clock it began, so the count is right whether or not it was moving.
         clocks = null
         node = null
-        releasePad()
+        wokeOn = null
     }
 
     internal companion object {

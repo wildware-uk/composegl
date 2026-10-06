@@ -7,6 +7,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.animation.LocalClocks
@@ -64,6 +65,7 @@ import dev.wildware.composegl.ui.skin.styled
 import kotlin.math.floor
 import kotlin.math.pow
 import kotlin.math.sqrt
+import kotlinx.coroutines.flow.first
 
 /**
  * Where a child of a [PanZoomCanvas] sits in its world. See [worldPosition].
@@ -195,17 +197,35 @@ fun PanZoomCanvas(
     input.resetButton = resetButton
 
     val clocks = LocalClocks.current
-    state.clocks = clocks
-    DisposableEffect(state) { onDispose { state.detach() } }
-    // Every frame: it drives a flick, the spring back from an edge, the pad's stick and animateTo
-    // alike. A scrolling list's fling sleeps until one starts (#249); this loop does not yet (#257).
+    state.attach(camera, clocks)
+    DisposableEffect(state) { onDispose { state.detach(camera) } }
+    // One loop drives a flick, the spring back from an edge, the pad's stick and triggers and
+    // animateTo alike, and it asks for no frames while none of them is moving: a loop waiting on every
+    // frame in case one started would keep the recomposer awake on every frame of a still screen.
+    // Woken, its first step is timed from when it was woken. Input and calls between frames wake it
+    // at the time of the frame before, and a frame publishes state before it sends the frame, so the
+    // loop is handed the next frame and steps a whole one, as an always-awake loop did. Something that
+    // starts the camera inside a frame — a held press's callback, a coroutine resuming in it — wakes
+    // it at that frame's own time, so the camera first moves on the frame after: where the
+    // always-awake loop gave it a frame of travel for time before it had started.
+    // A loop that starts with the camera already moving — a canvas shown again, or moved to another
+    // place in the tree, mid-flight — times its first step from now, as it always has: the time the
+    // camera was woken at is long gone, and was the last loop's to step from.
     LaunchedEffect(state, clocks) {
         var last = clocks.time(Clock.Ui)
         while (true) {
-            withFrameNanos {
-                val now = clocks.time(Clock.Ui)
-                state.advance(now - last)
-                last = now
+            if (!state.wantsFrames) {
+                snapshotFlow { state.wantsFrames }.first { it }
+                last = if (state.wokeOn === clocks) state.wokeAt else clocks.time(Clock.Ui)
+            }
+            var going = true
+            while (going) {
+                going = withFrameNanos {
+                    val now = clocks.time(Clock.Ui)
+                    state.advance(now - last)
+                    last = now
+                    state.wantsFrames
+                }
             }
         }
     }

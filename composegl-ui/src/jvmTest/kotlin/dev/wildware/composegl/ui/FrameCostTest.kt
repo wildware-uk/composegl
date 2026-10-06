@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.backend.MonospaceFontProvider
 import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.geometry.Rect
@@ -43,6 +44,7 @@ import dev.wildware.composegl.ui.modifier.wrapContentSize
 import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Panel
+import dev.wildware.composegl.ui.widget.PanZoomCanvas
 import dev.wildware.composegl.ui.widget.ProvideFonts
 import dev.wildware.composegl.ui.widget.ScrollArea
 import dev.wildware.composegl.ui.widget.ScrollBarLogic
@@ -99,8 +101,10 @@ class FrameCostTest {
     /** Small windows beside the HUD, standing still: a settings page or an inventory has several. */
     private var windows by mutableIntStateOf(0)
 
-    /** Whether those windows scroll, or are plain clipped boxes with the same thing inside. */
-    private var scrolling by mutableStateOf(true)
+    /** What those windows are: plain clipped boxes, or something that moves what is inside them. */
+    private var window by mutableStateOf(Window.Scroll)
+
+    private enum class Window { Clipped, Scroll, PanZoom }
 
     /** Whether the scrolling windows show their scrollbars. */
     private var bars by mutableStateOf(false)
@@ -112,10 +116,10 @@ class FrameCostTest {
                 Box(Modifier.fillMaxSize()) {
                     repeat(plain) { Box(Modifier.size(4f)) {} }
                     repeat(windows) {
-                        if (scrolling) {
-                            ScrollArea(Modifier.size(40f), bars = bars) { Box(Modifier.size(40f, 400f)) {} }
-                        } else {
-                            Box(Modifier.size(40f).clip()) { Box(Modifier.size(40f, 400f)) {} }
+                        when (window) {
+                            Window.Scroll -> ScrollArea(Modifier.size(40f), bars = bars) { Box(Modifier.size(40f, 400f)) {} }
+                            Window.PanZoom -> PanZoomCanvas(modifier = Modifier.size(40f)) { Box(Modifier.size(40f, 400f)) {} }
+                            Window.Clipped -> Box(Modifier.size(40f).clip()) { Box(Modifier.size(40f, 400f)) {} }
                         }
                     }
                     Panel(Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 28f).width(280f)) {
@@ -427,9 +431,9 @@ class FrameCostTest {
         val viewport = Viewport.oneToOne(Size(1280f, 720f))
         windows = 15
 
-        scrolling = false
+        window = Window.Clipped
         val clipped = stillFrameCost(renderer, viewport, boxes = 0)
-        scrolling = true
+        window = Window.Scroll
         val scrollAreas = stillFrameCost(renderer, viewport, boxes = 0)
 
         assertEquals(clipped, scrollAreas, "fifteen still scroll areas should cost not one byte more a frame than fifteen clipped boxes")
@@ -450,15 +454,56 @@ class FrameCostTest {
         windows = 15
         bars = true
 
-        scrolling = false
+        window = Window.Clipped
         val clipped = stillFrameCost(renderer, viewport, boxes = 0)
-        scrolling = true
+        window = Window.Scroll
         val withBars = stillFrameCost(renderer, viewport, boxes = 0)
 
         var showing = 0
         host.root.forEach { if ((it.measurePolicy as? ScrollBarLogic)?.isNeeded == true) showing++ }
         assertEquals(15, showing, "every window should be showing its up-and-down bar")
         assertEquals(clipped, withBars, "fifteen still scroll areas with bars should cost not one byte more a frame than fifteen clipped boxes")
+    }
+
+    /**
+     * A pan-and-zoom canvas on a still screen costs the host's frame no more than the clipped box it
+     * is drawn as. Its camera loop used to wait on every frame in case a flick, the stick, a trigger
+     * or an animation started, which woke the recomposer on every frame of a screen where nothing
+     * moved, and made garbage doing it: 8,296 bytes a frame more than the boxes for fifteen of them
+     * (#257).
+     *
+     * The host's frame alone, not the drawing after it: drawing a canvas makes a rectangle or two of
+     * its own, which is a cost of drawing rather than of asking for frames (#262).
+     */
+    @Test
+    @Tag("allocation")
+    fun `still pan-and-zoom canvases cost the host a frame no more than clipped boxes`() {
+        hud()
+        windows = 15
+        // A canvas tracks interface time from the moment it is shown, and the clocks pay a few bytes
+        // a frame for each clock they track, however many widgets share it. Any screen that has
+        // animated a thing on interface time pays the same, so the boxes are measured tracking it too
+        // (#263).
+        host.clocks.register(Clock.Ui)
+
+        window = Window.Clipped
+        val clipped = stillHostFrameCost()
+        window = Window.PanZoom
+        val canvases = stillHostFrameCost()
+
+        assertEquals(clipped, canvases, "fifteen still pan-and-zoom canvases should cost the host not one byte more a frame than fifteen clipped boxes")
+    }
+
+    /** What the host's own frame of a still screen allocates, undrawn: the fewest of five rounds of twenty. */
+    private fun stillHostFrameCost(): Long {
+        repeat(10) { frame() }
+        var least = Long.MAX_VALUE
+        repeat(5) {
+            val before = allocatedBytes()
+            repeat(20) { frame() }
+            least = minOf(least, allocatedBytes() - before)
+        }
+        return least / 20
     }
 
     /**
