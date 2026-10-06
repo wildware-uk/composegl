@@ -11,29 +11,63 @@ import dev.wildware.composegl.ui.geometry.Rect
  * it simply replaces — and forgetting that a layer keeps the tint it was made under. So it is
  * written once, here, and tested.
  *
- * Not an interface and not inherited — a backend holds one.
+ * Not an interface and not inherited — a backend holds one. A canvas that draws every frame keeps
+ * one for the frame and one per layer depth, and [reset]s them or fills them with [forLayer] rather
+ * than making new ones (#252), so every stack here is plain numbers: a push or a pop makes nothing.
  */
 class CanvasState(bounds: Rect) {
 
-    private val clips = ArrayDeque<Rect>().apply { addLast(bounds) }
-    private val alphas = ArrayDeque<Float>().apply { addLast(1f) }
-    private val modes = ArrayDeque<BlendMode>().apply { addLast(BlendMode.SourceOver) }
-    private val tints = ArrayDeque<Colour>().apply { addLast(Colour.White) }
+    // Four floats a level — left, top, right, bottom — rather than a stack of rectangles, because a
+    // frame pushes a clip for every clipped node and every scroll area in it.
+    private var clips = FloatArray(4 * StartingRoom)
 
-    /** The area anything drawn now is allowed to touch. Can be empty, meaning "draw nothing". */
-    val clip: Rect get() = clips.last()
+    /** Each level's clip as a [Rect], made the first time it is asked for and kept until it changes. */
+    private var clipRects = arrayOfNulls<Rect>(StartingRoom)
+    private var clipDepth = 0
+
+    private var alphas = FloatArray(StartingRoom)
+    private var alphaDepth = 0
+
+    private var modes = Array(StartingRoom) { BlendMode.SourceOver }
+    private var modeDepth = 0
+
+    /** Each level's tint as its [Colour.argb], so a push boxes nothing. */
+    private var tints = IntArray(StartingRoom)
+    private var tintDepth = 0
+
+    /**
+     * The area anything drawn now is allowed to touch. Can be empty, meaning "draw nothing".
+     *
+     * Made the first time it is asked for after a push and kept for that level, so asking twice is
+     * one rectangle. A canvas that only needs the edges reads [clipLeft], [clipTop], [clipRight]
+     * and [clipBottom], which make nothing.
+     */
+    val clip: Rect
+        get() = clipRects[clipDepth] ?: Rect(clipLeft, clipTop, clipRight, clipBottom).also { clipRects[clipDepth] = it }
+
+    /** The left edge of [clip]. */
+    val clipLeft: Float get() = clips[clipDepth * 4]
+
+    /** The top edge of [clip]. */
+    val clipTop: Float get() = clips[clipDepth * 4 + 1]
+
+    /** The right edge of [clip]. */
+    val clipRight: Float get() = clips[clipDepth * 4 + 2]
+
+    /** The bottom edge of [clip]. */
+    val clipBottom: Float get() = clips[clipDepth * 4 + 3]
 
     /** The opacity anything drawn now is multiplied by. */
-    val alpha: Float get() = alphas.last()
+    val alpha: Float get() = alphas[alphaDepth]
 
     /** How anything drawn now is combined with what is already there. */
-    val blend: BlendMode get() = modes.last()
+    val blend: BlendMode get() = modes[modeDepth]
 
     /**
      * The opaque colour every colour drawn now is multiplied by, channel by channel. White, which
      * changes nothing, for almost every call there has ever been.
      */
-    val tint: Colour get() = tints.last()
+    val tint: Colour get() = Colour(tints[tintDepth])
 
     /**
      * How much anything drawn now is grown by, and where its origin lands: a point at (x, y) is
@@ -62,6 +96,10 @@ class CanvasState(bounds: Rect) {
     // pan-and-zoom canvas pushes one per child per frame.
     private var transforms = FloatArray(16)
     private var transformDepth = 0
+
+    init {
+        reset(bounds)
+    }
 
     /** An x as it is drawn. */
     fun mapX(x: Float): Float = x * transformScale + transformX
@@ -102,13 +140,29 @@ class CanvasState(bounds: Rect) {
     }
 
     /** True when the current clip has no area, so drawing can be skipped entirely. */
-    val isHidden: Boolean get() = clip.isEmpty || alpha <= 0f
+    val isHidden: Boolean get() = clipRight <= clipLeft || clipBottom <= clipTop || alpha <= 0f
 
+    /** Every stack back to one level: a clip of [bounds], and nothing else in force. */
     fun reset(bounds: Rect) {
-        clips.clear(); clips.addLast(bounds)
-        alphas.clear(); alphas.addLast(1f)
-        modes.clear(); modes.addLast(BlendMode.SourceOver)
-        tints.clear(); tints.addLast(Colour.White)
+        reset(bounds.left, bounds.top, bounds.right, bounds.bottom)
+        // The rectangle handed in is the clip, so asking for it makes nothing.
+        clipRects[0] = bounds
+    }
+
+    /** The same, with the clip given as its edges: what a frame's `begin` calls, so it makes nothing. */
+    fun reset(left: Float, top: Float, right: Float, bottom: Float) {
+        clipDepth = 0
+        clips[0] = left
+        clips[1] = top
+        clips[2] = right
+        clips[3] = bottom
+        clipRects[0] = null
+        alphaDepth = 0
+        alphas[0] = 1f
+        modeDepth = 0
+        modes[0] = BlendMode.SourceOver
+        tintDepth = 0
+        tints[0] = Colour.White.argb
         transformDepth = 0
         transformScale = 1f
         transformX = 0f
@@ -129,32 +183,63 @@ class CanvasState(bounds: Rect) {
      * lands, and what is drawn inside it still has to land in the same place and at the same size,
      * so the picture is taken at the screen's resolution of what is really there.
      */
-    fun forLayer(bounds: Rect): CanvasState = CanvasState(bounds).also { inner ->
-        inner.tints.clear()
-        inner.tints.addLast(tint)
-        inner.transformScale = transformScale
-        inner.transformX = transformX
-        inner.transformY = transformY
-        inner.textScale = textScale
+    fun forLayer(bounds: Rect): CanvasState = forLayer(bounds, CanvasState(bounds))
+
+    /**
+     * The same, written into [into] — whatever it held before — rather than into a new state, so a
+     * canvas that keeps one state per layer depth makes nothing for a layer. Returns [into].
+     */
+    fun forLayer(bounds: Rect, into: CanvasState): CanvasState {
+        require(into !== this) { "a state cannot be the layer of itself" }
+        into.reset(bounds)
+        into.tints[0] = tints[tintDepth]
+        into.transformScale = transformScale
+        into.transformX = transformX
+        into.transformY = transformY
+        into.textScale = textScale
+        return into
     }
 
     /** [rect] is in the coordinates being drawn in, and is kept as it lands. */
     fun pushClip(rect: Rect) {
-        clips.addLast(clip.intersect(map(rect)))
+        // Through the transform, as [map] does, but without a rectangle for the answer.
+        val transformed = isTransformed
+        val left = if (transformed) mapX(rect.left) else rect.left
+        val top = if (transformed) mapY(rect.top) else rect.top
+        val right = if (transformed) mapX(rect.right) else rect.right
+        val bottom = if (transformed) mapY(rect.bottom) else rect.bottom
+        // Cut to the clip in force, as [Rect.intersect] does.
+        val at = clipDepth * 4
+        val newLeft = maxOf(clips[at], left)
+        val newTop = maxOf(clips[at + 1], top)
+        val newRight = minOf(clips[at + 2], right)
+        val newBottom = minOf(clips[at + 3], bottom)
+        if (at + 8 > clips.size) clips = clips.copyOf(clips.size * 2)
+        if (clipDepth + 2 > clipRects.size) clipRects = clipRects.copyOf(clipRects.size * 2)
+        clipDepth++
+        clips[at + 4] = newLeft
+        clips[at + 5] = newTop
+        clips[at + 6] = newRight
+        clips[at + 7] = newBottom
+        clipRects[clipDepth] = null
     }
 
     fun popClip() {
-        check(clips.size > 1) { "popClip without a matching pushClip" }
-        clips.removeLast()
+        check(clipDepth > 0) { "popClip without a matching pushClip" }
+        // Let go of the rectangle made for this level, if one was, rather than keep it alive.
+        clipRects[clipDepth] = null
+        clipDepth--
     }
 
     fun pushAlpha(value: Float) {
-        alphas.addLast(alpha * value.coerceIn(0f, 1f))
+        val next = alpha * value.coerceIn(0f, 1f)
+        if (alphaDepth + 2 > alphas.size) alphas = alphas.copyOf(alphas.size * 2)
+        alphas[++alphaDepth] = next
     }
 
     fun popAlpha() {
-        check(alphas.size > 1) { "popAlpha without a matching pushAlpha" }
-        alphas.removeLast()
+        check(alphaDepth > 0) { "popAlpha without a matching pushAlpha" }
+        alphaDepth--
     }
 
     /**
@@ -165,12 +250,16 @@ class CanvasState(bounds: Rect) {
      * inventing a third mode nobody asked for.
      */
     fun pushBlend(mode: BlendMode) {
-        modes.addLast(mode)
+        if (modeDepth + 2 > modes.size) {
+            val old = modes
+            modes = Array(old.size * 2) { if (it < old.size) old[it] else BlendMode.SourceOver }
+        }
+        modes[++modeDepth] = mode
     }
 
     fun popBlend() {
-        check(modes.size > 1) { "popBlend without a matching pushBlend" }
-        modes.removeLast()
+        check(modeDepth > 0) { "popBlend without a matching pushBlend" }
+        modeDepth--
     }
 
     /**
@@ -179,15 +268,22 @@ class CanvasState(bounds: Rect) {
      * see [Colour.asTint].
      */
     fun pushTint(value: Colour) {
-        tints.addLast(tint.modulate(value.asTint()))
+        val next = tint.modulate(value.asTint())
+        if (tintDepth + 2 > tints.size) tints = tints.copyOf(tints.size * 2)
+        tints[++tintDepth] = next.argb
     }
 
     fun popTint() {
-        check(tints.size > 1) { "popTint without a matching pushTint" }
-        tints.removeLast()
+        check(tintDepth > 0) { "popTint without a matching pushTint" }
+        tintDepth--
     }
 
     /** Every stack back at the bottom. Checked at the end of a frame; an imbalance is a bug. */
     val isBalanced: Boolean
-        get() = clips.size == 1 && alphas.size == 1 && modes.size == 1 && tints.size == 1 && transformDepth == 0
+        get() = clipDepth == 0 && alphaDepth == 0 && modeDepth == 0 && tintDepth == 0 && transformDepth == 0
+
+    private companion object {
+        /** Levels each stack has room for before it grows: deeper than nearly any screen nests. */
+        const val StartingRoom = 8
+    }
 }

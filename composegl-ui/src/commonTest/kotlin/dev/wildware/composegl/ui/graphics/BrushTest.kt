@@ -2,7 +2,10 @@ package dev.wildware.composegl.ui.graphics
 
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -130,6 +133,44 @@ class BrushTest {
         val viaAxis = (x - box.centre.x) * axis.x + (y - box.centre.y) * axis.y + 0.5f
 
         assertEquals(brush.fractionAt(x, y, box), viaAxis, 0.0001f)
+    }
+
+    @Test
+    fun `the axis as two loose numbers runs corner to corner in the brush's direction`() {
+        for (degrees in listOf(0f, 30f, 90f, 135f, 270f, -45f)) {
+            for ((width, height) in listOf(200f to 100f, 40f to 300f)) {
+                val (x, y) = Brush.Linear.axisOf(degrees, width, height) { x, y -> x to y }
+
+                // Corner to corner is the whole run: one.
+                assertEquals(1f, abs(x) * width + abs(y) * height, 0.0001f, "the run at $degrees in $width by $height")
+                // Pointing the way the brush turns: clockwise from right.
+                val radians = degrees * PI.toFloat() / 180f
+                assertEquals(0f, x * sin(radians) - y * cos(radians), 0.0001f, "the direction at $degrees")
+                assertTrue(x * cos(radians) + y * sin(radians) > 0f, "forwards, not backwards, at $degrees")
+            }
+        }
+        // Left to right across 200 units: a two-hundredth of the way per unit, and nothing down.
+        assertEquals(0.005f to 0f, Brush.Linear.axisOf(0f, 200f, 100f) { x, y -> x to y })
+        // No box, no run, and no division by nothing.
+        assertEquals(0f to 0f, Brush.Linear.axisOf(30f, 0f, 0f) { x, y -> x to y })
+        // And the offset a brush hands back is the same two numbers.
+        assertEquals(Offset(0.005f, 0f), Brush.Linear(red, blue, degrees = 0f).axis(200f, 100f))
+    }
+
+    @Test
+    fun `two runs of the same stops are equal and hash alike however their lists were made`() {
+        val stops = arrayOf(Brush.Stop(0f, red), Brush.Stop(0.5f, Colour.White), Brush.Stop(1f, blue))
+        val built = Brush.ramp(*stops)
+        val listed = Brush.Ramp(listOf(*stops))
+        val copied = Brush.Ramp(ArrayList(stops.asList()))
+
+        assertEquals(built, listed)
+        assertEquals(built.hashCode(), listed.hashCode())
+        assertEquals(listed, copied)
+        assertEquals(listed.hashCode(), copied.hashCode())
+        assertTrue(built != Brush.ramp(*stops, degrees = 0f), "a different direction is a different run")
+        assertTrue(built != Brush.radialRamp(*stops), "and so is running outwards")
+        assertTrue(built != Brush.ramp(stops[0], stops[2]), "and so are different stops")
     }
 
     @Test
