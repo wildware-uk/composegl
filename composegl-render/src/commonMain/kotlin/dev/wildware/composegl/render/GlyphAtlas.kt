@@ -234,10 +234,16 @@ class AtlasPage internal constructor(size: Int, private val smooth: Boolean = tr
     /**
      * This page's texture on [device], made the first time and brought up to date with whatever
      * was placed since. Only the rectangle that changed goes up.
+     *
+     * Asked for every glyph and every solid colour drawn, so the search is by index: an iterator
+     * here was most of what a still frame allocated on a phone (#248).
      */
     fun texture(device: GpuDevice): DeviceTexture {
         var upload: Upload? = null
-        for (candidate in uploads) if (candidate.device === device) upload = candidate
+        for (index in uploads.indices) {
+            val candidate = uploads[index]
+            if (candidate.device === device) upload = candidate
+        }
         if (upload == null) {
             upload = Upload(device, device.texture(size, size, smooth), size)
             uploads += upload

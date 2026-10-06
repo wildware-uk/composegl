@@ -76,11 +76,20 @@ class LayerPool(private val device: GpuDevice, private val spare: Int = SpareFra
      * still to be read after the layer that made it has given it back.
      */
     fun hold(target: DeviceTarget) {
-        entries.firstOrNull { it.target === target }?.busy = true
+        entryOf(target)?.busy = true
     }
 
     fun release(target: DeviceTarget) {
-        entries.firstOrNull { it.target === target }?.busy = false
+        entryOf(target)?.busy = false
+    }
+
+    /** By index, like every walk of [entries]: a layer is handed out and back every frame, and an iterator is garbage on a phone. */
+    private fun entryOf(target: DeviceTarget): Entry? {
+        for (index in entries.indices) {
+            val entry = entries[index]
+            if (entry.target === target) return entry
+        }
+        return null
     }
 
     /**
@@ -89,14 +98,19 @@ class LayerPool(private val device: GpuDevice, private val spare: Int = SpareFra
      * Every picture kept is anybody's that fits again next frame.
      */
     fun trim() {
-        entries.removeAll { entry ->
+        // Kept entries are moved down over the stale ones in place, in their order: no lambda and no
+        // iterator, since this runs every frame.
+        var kept = 0
+        for (index in entries.indices) {
+            val entry = entries[index]
             entry.thisFrame = false
-            if (entry.busy) return@removeAll false
-            entry.idle++
-            val stale = entry.idle > spare
-            if (stale) device.delete(entry.target)
-            stale
+            if (!entry.busy && ++entry.idle > spare) {
+                device.delete(entry.target)
+                continue
+            }
+            entries[kept++] = entry
         }
+        while (entries.size > kept) entries.removeAt(entries.size - 1)
     }
 
     /** The context went away with every picture in it: forget them without deleting anything. */

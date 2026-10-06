@@ -600,7 +600,7 @@ class GlDevice(private val gl: Gl, private val handOver: HostState = HostState.L
             bindArrayBuffer(shapeBuffer)
             gl.bufferData(GlConst.ARRAY_BUFFER, stream.floats, quads * 4 * ShapeVertex.Floats, GlConst.STREAM_DRAW)
             if (!shapeArrayLaidOut) {
-                ShapeVertex.Attributes.forEachIndexed { index, _ ->
+                for (index in ShapeVertex.Attributes.indices) {
                     gl.enableVertexAttribArray(index)
                     pointShape(index)
                 }
