@@ -59,13 +59,29 @@ class FrameDispatcher : CoroutineDispatcher() {
 
     /** Runs everything queued, including anything queued while draining. */
     fun drain() {
-        while (true) {
-            val next = lock.hold { queue.removeFirstOrNull() } ?: return
-            next.run()
+        val outer = !isDraining
+        isDraining = true
+        try {
+            while (true) {
+                val next = lock.hold { queue.removeFirstOrNull() } ?: return
+                next.run()
+            }
+        } finally {
+            if (outer) isDraining = false
         }
     }
 
     val isIdle: Boolean get() = lock.hold { queue.isEmpty() }
+
+    /**
+     * Whether a [drain] is running now.
+     *
+     * Not thread-safe, and it does not need to be: a host is driven from one thread, and only that
+     * thread drains. Asked on that thread, true means a drain further up its stack is running the
+     * code that asked, and will run anything queued from here before it returns.
+     */
+    internal var isDraining = false
+        private set
 }
 
 /**
@@ -275,12 +291,41 @@ class UiHost(val tree: UiTree = UiTree(), val clocks: Clocks = Clocks()) {
     internal var onlyRedrawn = false
         private set
 
+    /**
+     * Lets the screen go for good: its composition, its effects and its coroutines.
+     *
+     * Nothing of it is left registered anywhere once this returns, so a game that swaps screens by
+     * disposing one host and opening another leaves nothing of the old one behind. Call it on the
+     * thread that runs [frame], as everything else here.
+     *
+     * The screen's coroutines finish here: the `finally` block of every effect still running runs
+     * before this returns. One that throws is reported the way any effect's error is, wherever the
+     * platform sends an uncaught coroutine exception: printed on the desktop, a crash on Android.
+     * It is not a [failure]: the screen was closed, not stopped.
+     *
+     * The screen's own code can close it, from an effect say. Then the cleaning up runs once that
+     * code is finished rather than in the middle of it, still inside the same [frame].
+     */
     fun dispose() {
         if (isDisposed) return
         isDisposed = true
-        composition.dispose()
-        recomposer.cancel()
-        job.cancel()
+        try {
+            composition.dispose()
+        } finally {
+            // Even when that threw (a screen closed while it was being composed), so that nothing of
+            // it is left running either way.
+            recomposer.cancel()
+            job.cancel()
+            // A cancelled coroutine only cleans up — its `finally` blocks, unregistering what it
+            // registered — the next time it runs, and nothing runs a disposed host's work again.
+            // The recomposer's listener for every state change in the program is one of those:
+            // left registered, it keeps the whole screen in memory and is asked about every change
+            // after it (#264). So the work the cancelling just queued runs once, here. Code the
+            // host is already running is in the middle of a drain, and that drain runs it as soon
+            // as this code is done: coroutines on one screen take turns, and one must not find the
+            // others have run in the middle of it.
+            if (!dispatcher.isDraining) dispatcher.drain()
+        }
     }
 }
 

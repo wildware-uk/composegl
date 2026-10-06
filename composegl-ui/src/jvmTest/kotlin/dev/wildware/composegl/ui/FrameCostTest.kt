@@ -697,8 +697,8 @@ class FrameCostTest {
      * Timed, so the bound is loose: a hundred and fifty areas against a hundred and fifty clipped
      * boxes. Measured with this test run alone, a change took 5.9 us with the areas against 0.4 us
      * with the boxes before, and 0.33 us against 0.35 us after. Run after other tests both figures
-     * are higher, by whatever their closed screens left listening (#264), which is why the bound is
-     * against the boxes and not a fixed time.
+     * can be higher, by whatever screens those tests left open, which is why the bound is against
+     * the boxes and not a fixed time.
      */
     @Test
     fun `a change elsewhere costs idle scroll areas nothing`() {
