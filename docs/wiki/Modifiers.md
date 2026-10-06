@@ -594,9 +594,30 @@ itself did not change. `onSizeChanged` is only its size, so moving is not resizi
 
 `onPlaced` hands you the node rather than a rectangle, because you usually want one
 of three: `boundsInRoot` for the pixels, `layoutBoundsInRoot` for the slot, or
-`paintedInRoot` for the ink. Read what you need during the call; do not keep the node.
+`paintedInRoot` for the ink. Keep what you asked it, or keep the node and ask it
+again later.
 
-State written in either lands on the next frame, the same as in Compose:
+State written in either lands on the next frame, the same as in Compose. A copy
+kept in a plain field works too, even one your own layout reads while it measures:
+after a handler is told anything, the next layout pass measures every node, so that
+layout catches up. That costs a whole pass each time the handler hears something.
+A handler that only writes state, or keeps what it hears for input or drawing, can
+say no layout reads it, and the passes after it measure only what changed:
+
+```kotlin
+val follow = remember {
+    object : PlacedHandler {
+        override val readByLayout get() = false            // nothing measures from this
+        override fun onPlaced(node: UiNode) { spark.moveTo(node.boundsInRoot.centre) }
+    }
+}
+Box(Modifier.onPlaced(follow)) { … }
+```
+
+`SizeChangedHandler` has the same `readByLayout`. It matters most on rows of a
+long list: every row that scrolls into view is a handler hearing something new.
+The library's own handlers — tooltips, tree rows, inventory slots, drag and drop —
+already say it.
 
 ![a menu hanging under the Options button, placed by the button's onPlaced](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-on-placed.png)
 

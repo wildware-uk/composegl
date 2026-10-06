@@ -2,6 +2,7 @@ package dev.wildware.composegl.ui.layout
 
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.node.measuringNow
 
 /**
  * Which of a child's two natural sizes a layout is sized to.
@@ -84,6 +85,9 @@ internal fun MeasurePolicy.probe(
     across: Float,
 ): Float {
     val room = across.coerceAtLeast(0f)
+    // The policy's own measure is about to run with made-up room, and one that writes anything
+    // down while it measures — against the advice above — has just written the wrong thing.
+    if (scope is NodeMeasureScope) scope.probed = true
     val result = if (scope is NodeMeasureScope) {
         val constraints = scope.probeOffer(kind, room)
         with(this) { scope.measure(scope.probes(measurables, kind), constraints) }
@@ -228,7 +232,8 @@ private fun UiNode.contentIntrinsic(kind: Intrinsic, across: Float): Float {
         }
     }
     val scope = held.scope
-    return with(measurePolicy) {
+    scope.probed = false
+    val answer = with(measurePolicy) {
         when (kind) {
             Intrinsic.MinWidth -> scope.minIntrinsicWidth(list, across)
             Intrinsic.MaxWidth -> scope.maxIntrinsicWidth(list, across)
@@ -236,6 +241,12 @@ private fun UiNode.contentIntrinsic(kind: Intrinsic, across: Float): Float {
             Intrinsic.MaxHeight -> scope.maxIntrinsicHeight(list, across)
         }
     }
+    // Answered by running the policy's measure over stand-ins, so whatever that measure writes down
+    // was written for room that was never offered. Measured for real when the asker gets to it,
+    // rather than skipped as unchanged — and so is everything between the two, or a wrapper that
+    // answered without measuring would be skipped and this node with it.
+    if (scope.probed) markForMeasureBelow(measuringNow)
+    return answer
 }
 
 /**

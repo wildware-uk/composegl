@@ -793,7 +793,8 @@ private fun FreeSquare(
     val interaction = remember { InteractionState() }
     val resolved = rememberStyle("$style.cell", rememberStates(interaction, enabled))
     val known = remember { KnownNode() }
-    val placed = remember { PlacedHandler { known.node = it } }
+    // For focus only, never read while measuring, so a scrolling stash costs the stash.
+    val placed = remember { QuietPlaced { known.node = it } }
     ReportFocus(interaction, focus, cell, item = null, known = known)
     Box(
         Modifier
@@ -853,7 +854,12 @@ private fun ItemSquare(
     // composed with: it is a note passed to the grid from the layout pass, and a pile whose node
     // changed has not changed what it looks like.
     val known = remember(grid, item.id) { KnownNode() }
-    val placed = remember(grid, item.id) { PlacedHandler { known.node = it; grid.placed(item.id, it) } }
+    val placed = remember(grid, item.id) {
+        QuietPlaced {
+            known.node = it
+            grid.placed(item.id, it)
+        }
+    }
     DisposableEffect(grid, item.id) { onDispose { grid.forget(item.id, known.node) } }
     ReportFocus(interaction, focus, cell, item, known)
 
@@ -1133,3 +1139,12 @@ private const val FadedAlpha = 0.35f
 private const val PreviewZ = 1f
 
 private const val PromptZ = 2f
+
+/**
+ * A handler that keeps the node for focus and nothing a layout reads while measuring, and says so:
+ * see [PlacedHandler.readByLayout].
+ */
+private class QuietPlaced(private val block: (UiNode) -> Unit) : PlacedHandler {
+    override val readByLayout: Boolean get() = false
+    override fun onPlaced(node: UiNode) = block(node)
+}

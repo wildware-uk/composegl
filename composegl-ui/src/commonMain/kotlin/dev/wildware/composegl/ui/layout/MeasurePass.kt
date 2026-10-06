@@ -4,6 +4,7 @@ import dev.wildware.composegl.ui.modifier.MarqueeRun
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.modifier.WrapContentElement
 import dev.wildware.composegl.ui.node.UiNode
+import dev.wildware.composegl.ui.node.measuringNow
 
 /**
  * One layout pass over a tree.
@@ -12,11 +13,22 @@ import dev.wildware.composegl.ui.node.UiNode
  * children, chooses its own size, and then places them. Positions are stored relative to the
  * parent, so nothing has to be revisited when the parent itself moves.
  *
+ * Only what changed is measured. A node that nothing has changed since its policy last ran — not
+ * its chain, its policy, its children, nor anything under them — and that its parent offers the
+ * same room as then, keeps its size and its children's places, and the pass goes no further into
+ * it. So one label changing costs the label and the nodes above it, not the screen around it. What
+ * marks a node is [UiNode.invalidate] and the changes that call it; see [UiNode.needsMeasure]. Two
+ * kinds of node are measured whenever a pass reaches them, changed or not: one part-way through
+ * `animateContentSize`, and one whose policy read where a node is. A policy that reads something
+ * from outside the tree, a picture's size, is asked whether it changed before the part holding it
+ * is skipped; see [ReadsOutsideTree]. A pass after one that threw, or after
+ * [dev.wildware.composegl.ui.node.UiTree.invalidate] with no node named, measures everything.
+ *
  * A pass is a throwaway object, and it is the only thing here that is. The small objects a walk
  * needs — the wrapper round each child, the list they go in, the placeable each node hands back —
  * live on the nodes and are used again next frame, because a pass runs on every frame where
  * anything changed — every frame of a scroll, a drag or an animation — and on every frame for a game
- * that lays out by hand: making them fresh each time is a few hundred pieces of rubbish a frame.
+ * that lays out by hand: making them fresh for every node it measures is rubbish every frame.
  * Which pass is running is a reference, compared by identity,
  * so "measured exactly once" is still checked and still costs nothing.
  */
@@ -45,14 +57,40 @@ class MeasurePass {
     internal fun run(node: UiNode, constraints: Constraints, x: Float, y: Float): Boolean {
         beginAt(node)
         val tree = node.tree
+        // Every policy, rather than only the changed ones, when the last pass from here threw part
+        // of the way through or something changed that nobody could name.
+        val all = tree != null && tree.measureAll
+        // Taken now rather than when the pass ends, so a handler that asks again while this pass is
+        // running is still heard.
+        if (all && node === tree.root) tree.measureAll = false
+        skips = !node.passUnfinished && !all
+        node.passUnfinished = true
         tree?.layingOut(node)
         moved = false
-        measure(node, constraints).placeAt(x, y)
+        // A pass run from inside another's policy — a panel laying out its own tree as it is
+        // measured — hands the outer policy back its reader when it is done.
+        val outer = measuringNow
+        measuringNow = null
+        try {
+            measure(node, constraints).placeAt(x, y)
+        } finally {
+            // Not left pointing at a policy that threw, which would take every read after it as
+            // that policy's.
+            measuringNow = outer
+        }
         if (node.noteLaidOut()) moved = true
         reportLayout()
+        node.passUnfinished = false
         tree?.laidOut(node, constraints, x, y, moved)
         return moved
     }
+
+    /**
+     * Whether this pass may skip a node nothing changed: one not marked since its policy last ran,
+     * offered the same room as then. Its size is the one it has, and its children are where they
+     * are, because a child's place is kept relative to its parent.
+     */
+    private var skips = true
 
     /**
      * Whether this pass has moved, resized or first placed any node. See
@@ -91,6 +129,21 @@ class MeasurePass {
     }
 
     internal fun measure(node: UiNode, incoming: Constraints): Placeable {
+        // A node nothing changed, offered what it was offered last time, would come out exactly as
+        // it is. Constraints are compared by value: a parent's offer is usually the very same object
+        // from its cache, and a new one saying the same thing is the same offer.
+        if (skips && !node.needsMeasure && node.givenConstraints == incoming &&
+            (node.outsideReadersInside == 0 || !outsideChanged(node))
+        ) {
+            return kept(node)
+        }
+        // Cleared before the policy runs, so anything that marks the node while it is measured — a
+        // resize under way, which has to be measured again next frame — is kept.
+        node.needsMeasure = false
+        node.policyRanIn = this
+        // The parent whose policy is measuring this node, if any, put back before returning to it.
+        val reader = measuringNow
+        measuringNow = null
         val resolved = node.resolved
         if (resolved.watchesLayout) {
             watchers().add(node)
@@ -106,6 +159,11 @@ class MeasurePass {
         // Intrinsics after size and fill, because they fix an axis inside whatever those allowed,
         // and only on a node that asked: the question walks the subtree, and most nodes never ask.
         val sized = resolved.applyTo(offered, node.outerConstraints)
+        // From here until the children are placed, whatever runs is this node's own layout — its
+        // intrinsic questions, its policy, its placement block — and any rectangle it reads, its
+        // own included, is one the last pass left. See UiNode.readsRectangles.
+        node.readsRectangles = false
+        measuringNow = node
         val outer = if (resolved.intrinsicSize == null) sized else node.applyIntrinsics(resolved, sized)
         val padding = resolved.padding
         // Not loosened. A policy has to see the minimum it was given, or a row told to be 200
@@ -130,6 +188,7 @@ class MeasurePass {
         // Children are placed now, in this node's coordinates. Where *this* node ends up is its
         // parent's business and does not change any of them.
         result.placeChildren(node.inset.at(padding.left, padding.top))
+        measuringNow = null
 
         // Read before the node's size is settled, because `paddingFrom` can only decide how much
         // room to add once it knows where the words are.
@@ -154,6 +213,10 @@ class MeasurePass {
             // A frame whose size moved is a frame that changed, even though nothing recomposed.
             if (animation.follow(wantWidth, wantHeight, resize.spec, resize.clock, node.tree?.clocks)) {
                 node.invalidate()
+            } else if (animation.isRunning) {
+                // On its way but not moved this frame — a stopped clock, or the frame it started
+                // on. It has to be reached again next frame all the same, when the clock may move.
+                node.markForMeasure()
             }
             node.width = outer.constrainWidth(animation.width)
             node.height = outer.constrainHeight(animation.height)
@@ -200,13 +263,75 @@ class MeasurePass {
 
         // Every child this pass reached is where it is going to stay now: placed, shifted for a
         // resize and moved down for a baseline, all of it above.
+        var watchers = if (resolved.watchesLayout) 1 else 0
+        var outside = if (node.measurePolicy is ReadsOutsideTree) 1 else 0
         val children = node.children
         for (index in children.indices) {
             val child = children[index]
-            if (child.measurable.measuredIn(this) && child.noteLaidOut()) moved = true
+            if (!child.measurable.measuredIn(this)) continue
+            if (child.noteLaidOut()) moved = true
+            watchers += child.watchersInside
+            outside += child.outsideReadersInside
         }
+        node.watchersInside = watchers
+        node.outsideReadersInside = outside
 
+        // Measured again next pass whatever happens, because what it read moves without telling it.
+        if (node.readsRectangles) node.markForMeasure()
+
+        measuringNow = reader
         return placeable
+    }
+
+    /**
+     * A node this pass does not measure again: the placeable it handed back last time, still
+     * holding its slot. Its children are not visited, except to tell the ones watching layout,
+     * which an ancestor moving moves on screen.
+     */
+    private fun kept(node: UiNode): Placeable {
+        if (node.watchersInside > 0) keepWatching(node)
+        return node.placeable
+    }
+
+    /**
+     * Whether anything a policy in [node]'s subtree read from outside the tree when it last ran has
+     * changed since — a picture that finished loading. Each one that has is marked, with the nodes
+     * between it and [node], so the measure that follows reaches it and nothing else.
+     *
+     * Asked of a node about to be skipped, and walks only the parts of it that hold such a policy:
+     * the measure that would have noticed is the one being skipped, and drawing, the other thing
+     * that notices, does not reach a picture that is hidden.
+     */
+    private fun outsideChanged(node: UiNode): Boolean {
+        var changed = false
+        val policy = node.measurePolicy
+        if (policy is ReadsOutsideTree && policy.changedOutside) changed = true
+        val ran = node.policyRanIn ?: return changed
+        val children = node.children
+        for (index in children.indices) {
+            val child = children[index]
+            if (child.outsideReadersInside == 0 || !child.measurable.measuredIn(ran)) continue
+            if (outsideChanged(child)) {
+                child.markForMeasureBelow(node)
+                changed = true
+            }
+        }
+        return changed
+    }
+
+    /**
+     * Adds the watching nodes in a skipped subtree to this pass's list, parents before children as
+     * a measured subtree adds them. Only the children the node's policy reached the last time it
+     * ran count: the rest are not where that layout put anything.
+     */
+    private fun keepWatching(node: UiNode) {
+        if (node.resolved.watchesLayout) watchers().add(node)
+        val ran = node.policyRanIn ?: return
+        val children = node.children
+        for (index in children.indices) {
+            val child = children[index]
+            if (child.watchersInside > 0 && child.measurable.measuredIn(ran)) keepWatching(child)
+        }
     }
 
     /**
@@ -324,6 +449,19 @@ class MeasurePass {
         }
         return measurables
     }
+}
+
+/**
+ * A measure policy that reads something from outside the tree, which can change without anything
+ * in the tree being told: a texture's size, which is nothing until the picture has loaded.
+ *
+ * A pass asks [changedOutside] of every such policy under a node it is about to skip, and measures
+ * the way down to one that says yes, so the picture is sized on the next pass whether or not it is
+ * being drawn.
+ */
+internal interface ReadsOutsideTree {
+    /** Whether what the last measure read from outside has changed since. Asked often; keep it cheap. */
+    val changedOutside: Boolean
 }
 
 /**
@@ -695,6 +833,12 @@ internal class NodeMeasureScope : MeasureScope {
         if (offers.size < count) offers = Array(count) { ConstraintsCache() }
         return offers
     }
+
+    /**
+     * Whether the default intrinsic answer — the policy's own measure, over stand-ins — has run in
+     * this scope since it was last cleared. A node asked an intrinsic question reads it afterwards.
+     */
+    internal var probed = false
 
     private var probes: ArrayList<IntrinsicProbe>? = null
     private var probeOffer: ConstraintsCache? = null

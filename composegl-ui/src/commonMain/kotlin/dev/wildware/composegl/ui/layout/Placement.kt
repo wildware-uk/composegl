@@ -20,6 +20,25 @@ import dev.wildware.composegl.ui.node.UiNode
  */
 fun interface SizeChangedHandler {
     fun onSizeChanged(size: Size)
+
+    /**
+     * Whether a layout may read, while it measures, something this handler keeps: a size held in a
+     * plain field that a measure policy of your own works from. True unless the handler says
+     * otherwise, and then the layout pass after this handler is told anything measures every node,
+     * as every pass once did, so such a layout catches up. A handler that only writes state read
+     * while composing, or keeps what it hears for input or drawing, can answer false, and the passes
+     * after it measure only what changed:
+     *
+     * ```kotlin
+     * val handler = remember {
+     *     object : SizeChangedHandler {
+     *         override val readByLayout get() = false
+     *         override fun onSizeChanged(size: Size) { emitter.resize(size) }
+     *     }
+     * }
+     * ```
+     */
+    val readByLayout: Boolean get() = true
 }
 
 /**
@@ -32,8 +51,36 @@ fun interface SizeChangedHandler {
  * `layoutBoundsInRoot` for the slot, `paintedInRoot` for an arrow that points at the ink.
  *
  * The same rules as [SizeChangedHandler]: after layout, only on a change, the first pass counts.
- * The node is only good for reading during the call — hold on to what you asked it, not to it.
+ * What the node says during the call is this frame's. Keep what you asked it, or keep the node and
+ * ask it again later: a measure policy that reads the node's rectangle is noticed reading it, and
+ * is measured on every pass from then on.
  */
 fun interface PlacedHandler {
     fun onPlaced(node: UiNode)
+
+    /**
+     * Whether a layout may read, while it measures, something this handler keeps: a rectangle held
+     * in a plain field that a measure policy of your own lines something up with. True unless the
+     * handler says otherwise, and then the layout pass after this handler is told anything measures
+     * every node, as every pass once did, so such a layout catches up. A handler that only writes
+     * state read while composing, or keeps what it hears for input or drawing, can answer false,
+     * and the passes after it measure only what changed. See [SizeChangedHandler.readByLayout].
+     */
+    val readByLayout: Boolean get() = true
+}
+
+/**
+ * A [PlacedHandler] whose [readByLayout][PlacedHandler.readByLayout] is false: for the library's own
+ * handlers that keep what they hear for focus, input or drawing, and that sit on rows of lists, so
+ * that a list scrolling does not make every pass measure the whole screen.
+ */
+internal inline fun quietPlaced(crossinline block: (UiNode) -> Unit): PlacedHandler = object : PlacedHandler {
+    override val readByLayout: Boolean get() = false
+    override fun onPlaced(node: UiNode) = block(node)
+}
+
+/** The same for a [SizeChangedHandler]. */
+internal inline fun quietSized(crossinline block: (Size) -> Unit): SizeChangedHandler = object : SizeChangedHandler {
+    override val readByLayout: Boolean get() = false
+    override fun onSizeChanged(size: Size) = block(size)
 }

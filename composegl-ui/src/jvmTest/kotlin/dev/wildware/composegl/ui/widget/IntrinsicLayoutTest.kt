@@ -280,15 +280,19 @@ class IntrinsicLayoutTest {
             MeasurePass().run(host.root, Constraints.atMost(400f, 400f))
         }
 
+        // Every node measured each frame, so the questions are asked: a pass over a menu nothing
+        // changed measures nothing and asks nothing.
         val before = allocatedBytes()
         repeat(20) {
             host.frame(clock)
             clock += 16_666_667L
+            host.tree.invalidate()
             MeasurePass().run(host.root, Constraints.atMost(400f, 400f))
         }
         val perFrame = (allocatedBytes() - before) / 20
 
-        // The questions are asked every frame, so what they keep has to be kept rather than made.
+        // The questions are asked whenever the menu is laid out, so what they keep has to be kept
+        // rather than made.
         assertTrue(perFrame < 1_024, "a still frame of an intrinsic menu allocated $perFrame bytes")
     }
 

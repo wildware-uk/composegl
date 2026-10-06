@@ -234,6 +234,14 @@ node added, removed or moved, a size animation under way, or a different screen
 size. A screen standing still measures nothing at all — every rectangle is already
 the answer.
 
+And on a frame where something did change, only that part is measured: the node
+that changed, and each node above it up to the root. Every other node keeps its
+size and where its children sit, as long as its parent offers it the same room as
+last time. A score changing on a HUD costs the score label and the boxes it sits
+in, not the rest of the HUD. A node offered different room — a row whose label
+grew leaves less for the one after it — is measured again, and so is everything
+under it that is offered different room in turn.
+
 So read whatever moves your layout **while composing**, not inside `measure`. A
 policy remembered against the value is a new policy when the value changes, and a
 new policy is a change:
@@ -255,22 +263,47 @@ fun CompassStrip(heading: Float, content: @Composable () -> Unit) {
 }
 ```
 
-A policy that reads `player.heading` inside `measure` instead would only move when
-something else on the screen happened to change.
+A policy that reads `player.heading` inside `measure` instead would not move at
+all: nothing tells its node that anything changed, and a node nothing changed is
+not measured again.
 
 Reading where *another node* is from inside `measure` — lining a marker up with a
 button elsewhere on the screen — works as it always has: you get wherever the last
-pass left that node. After any pass that moved, resized or first placed something,
-the next frame lays out once more, so a layout like that catches up a frame later
-and then stops. On a screen's very first frame the second pass runs straight away,
-so it is right before anything is drawn.
+pass left that node. The toolkit notices a `measure` that reads any node's `x`,
+`y`, `width` or `height`, or anything worked out from them like `boundsInRoot` or
+`toLocal`, and measures that layout on every pass, changed or not. After any pass
+that moved, resized or first placed something, the next frame lays out once more,
+so a layout like that catches up a frame later and then stops. On a screen's very
+first frame the second pass runs straight away, so it is right before anything is
+drawn.
+
+The usual way to get hold of the button is `onPlaced`, and keep the node itself:
+
+```kotlin
+var button: UiNode? = null
+val learn = PlacedHandler { button = it }           // remember it, like any handler
+
+val underButton = MeasurePolicy { measurables, constraints ->
+    val arrow = measurables.single().measure(constraints.loosen())
+    val x = button?.boundsInRoot?.left ?: 0f        // read while measuring: noticed
+    layout(constraints.maxWidth, arrow.height) { arrow.at(x, 0f) }
+}
+```
+
+After a handler is told anything, the next pass measures every node, so the arrow
+reads the button it has just been given — and the same holds for a copy of the
+button's rectangle kept in a plain field. Keeping the node is the cheaper of the
+two: from then on the arrow is seen reading it, and is measured on every pass by
+itself. A handler that never feeds a layout can say so with `readByLayout`; see
+[[Modifiers]].
 
 ---
 
 ## Making it cost nothing per frame
 
-A layout runs on every frame where anything changed — every frame of a scroll, a
-drag or an animation — so whatever it costs, it costs many times a second. The
+A layout runs on every frame where it or something inside it changed — every frame
+of a scroll, a drag or an animation in it — so whatever it costs, it costs many
+times a second. The
 obvious implementation — `map` to a list, `maxOfOrNull`, `forEachIndexed` — makes
 three or four objects per node per frame.
 

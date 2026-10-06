@@ -17,6 +17,7 @@ import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
+import dev.wildware.composegl.ui.layout.ReadsOutsideTree
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.skin.LocalSkin
 
@@ -66,8 +67,9 @@ fun Image(
     // calls later by a backend that can only tell you it did not make this texture.
     refuseNineRegions(texture)
     // A texture can change size without being a different texture: one still loading has none
-    // until it arrives, and a scene's picture follows the window. Nothing tells the tree, and a
-    // frame where nothing changed is not laid out, so drawing notices instead — it reads the size
+    // until it arrives, and a scene's picture follows the window. Nothing tells the tree. A pass
+    // that runs for any other reason asks the painter, even where it skips the nodes around it; a
+    // frame where nothing changed runs no pass at all, so drawing notices too — it reads the size
     // anyway — and a new painter is the change that lays the picture out again.
     var resized by remember(texture) { mutableIntStateOf(0) }
     val painter = remember(texture, fit, tint, alignment, resized) {
@@ -102,12 +104,15 @@ private class ImagePainter(
     private val tint: Colour,
     private val alignment: Alignment,
     private val resized: () -> Unit,
-) : MeasurePolicy {
+) : MeasurePolicy, ReadsOutsideTree {
 
     // The texture's size when it was last measured, and whether a change from it has been reported.
     private var measuredWidth = 0
     private var measuredHeight = 0
     private var reported = false
+
+    override val changedOutside: Boolean
+        get() = texture.width != measuredWidth || texture.height != measuredHeight
 
     override fun MeasureScope.measure(
         measurables: List<Measurable>,

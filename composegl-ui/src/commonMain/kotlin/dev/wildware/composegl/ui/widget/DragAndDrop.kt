@@ -18,7 +18,7 @@ import dev.wildware.composegl.ui.input.ActivateHandler
 import dev.wildware.composegl.ui.input.BackHandler
 import dev.wildware.composegl.ui.input.InteractionState
 import dev.wildware.composegl.ui.layout.Box
-import dev.wildware.composegl.ui.layout.PlacedHandler
+import dev.wildware.composegl.ui.layout.quietPlaced
 import dev.wildware.composegl.ui.modifier.FocusableElement
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.draggable
@@ -397,8 +397,9 @@ fun DragAndDropHost(
     content: @Composable () -> Unit,
 ) {
     val dnd = remember(carryOffset) { DragAndDrop(carryOffset) }
-    val hostPlaced = remember(dnd) { PlacedHandler { dnd.host = it } }
-    val layerPlaced = remember(dnd) { PlacedHandler { dnd.layer = it } }
+    // Kept for the pointer and for where the carried picture is drawn, never read while measuring.
+    val hostPlaced = remember(dnd) { quietPlaced { dnd.host = it } }
+    val layerPlaced = remember(dnd) { quietPlaced { dnd.layer = it } }
     // Every focus move inside the screen is revealed to it, so the picture can follow the pad onto
     // a button that is neither a source nor a target, and not be left behind on the last slot.
     val reveal = remember(dnd) { RevealHandler { area -> dnd.revealed(area); false } }
@@ -477,8 +478,9 @@ fun Modifier.dragSource(
         onDispose { }
     }
 
+    // For the pointer, focus and the carried picture, never read while measuring.
     val placed = remember(dnd, entry) {
-        PlacedHandler { node ->
+        quietPlaced { node ->
             entry.node = node
             dnd.placed(node)
         }
@@ -571,8 +573,9 @@ internal fun Modifier.dropTargetOf(
         onDispose { }
     }
 
+    // For the pointer, focus and the carried picture, never read while measuring.
     val placed = remember(dnd, entry) {
-        PlacedHandler { node ->
+        quietPlaced { node ->
             entry.node = node
             dnd.placed(node)
         }

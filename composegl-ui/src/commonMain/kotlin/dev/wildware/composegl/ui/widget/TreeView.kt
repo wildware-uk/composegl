@@ -30,7 +30,7 @@ import dev.wildware.composegl.ui.layout.Measurable
 import dev.wildware.composegl.ui.layout.MeasurePolicy
 import dev.wildware.composegl.ui.layout.MeasureResult
 import dev.wildware.composegl.ui.layout.MeasureScope
-import dev.wildware.composegl.ui.layout.PlacedHandler
+import dev.wildware.composegl.ui.layout.quietPlaced
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
@@ -558,8 +558,9 @@ private fun <T> TreeRowItem(
             }
         }
     }
+    // For focus only, never read while measuring: a long tree scrolls at the cost of the list.
     val placed = remember(rowKey, handle) {
-        PlacedHandler { node ->
+        quietPlaced { node ->
             handle.node = node
             tree.placed(rowKey, node)
         }
