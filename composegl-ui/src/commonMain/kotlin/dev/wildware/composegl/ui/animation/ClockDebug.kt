@@ -51,8 +51,15 @@ class ClockDebug internal constructor() {
 
     private val speeds = HashMap<Clock, Float>()
 
-    /** The part of a nanosecond a slowed clock has not been given yet. See [scale]. */
-    private val carry = HashMap<Clock, Double>()
+    /**
+     * The part of a nanosecond a slowed clock has not been given yet. See [scale]. A holder rather
+     * than a number in the map, because a `Double` written into a map is a new object every frame.
+     */
+    private class Carry {
+        var nanos = 0.0
+    }
+
+    private val carry = HashMap<Clock, Carry>()
 
     /** Whether every clock is frozen, as [pause] with no clock leaves them. */
     val isPaused: Boolean get() = allPaused && exempt.isEmpty()
@@ -175,9 +182,10 @@ class ClockDebug internal constructor() {
     internal fun scale(clock: Clock, nanos: Long): Long {
         val factor = speedOf(clock)
         if (factor == 1f) return nanos
-        val exact = nanos * factor.toDouble() + (carry[clock] ?: 0.0)
+        val owed = carry.getOrPut(clock) { Carry() }
+        val exact = nanos * factor.toDouble() + owed.nanos
         val whole = floor(exact)
-        carry[clock] = exact - whole
+        owed.nanos = exact - whole
         return whole.toLong()
     }
 
