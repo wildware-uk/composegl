@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import dev.wildware.composegl.ui.backend.HeadlessBackend
 import dev.wildware.composegl.ui.backend.MonospaceFontProvider
 import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.focus.FocusManager
@@ -93,6 +94,10 @@ class BorderModifierTest {
     }
 
     private fun inAccent() = canvas.only<DrawCall.Rectangle>().filter { it.colour == accent }.map { it.rect }
+
+    /** No ring of lines and no solid outline in the accent, so the rectangles are all of it. */
+    private fun nothingElseInAccent() =
+        canvas.only<DrawCall.Fan>().none { it.colour == accent } && canvas.only<DrawCall.Border>().none { it.colour == accent }
 
     private fun Rect.within(outer: Rect) =
         left >= outer.left - 0.01f && top >= outer.top - 0.01f && right <= outer.right + 0.01f && bottom <= outer.bottom + 0.01f
@@ -273,6 +278,79 @@ class BorderModifierTest {
         points.forEach { assertTrue(it.x >= tab.left - 0.01f && it.x <= tab.right + 0.01f && it.y >= tab.top - 0.01f && it.y <= tab.bottom + 0.01f, "inside the tab: $it") }
         assertTrue(points.none { it.x < tab.left + 3f && it.y < tab.top + 3f }, "the top-left corner is round")
         assertTrue(points.any { it.x < tab.left + 3f && it.y > tab.bottom - 3f }, "the bottom-left corner is square")
+    }
+
+    @Test
+    fun `clicking a dashed zone flatter than its line squeezes it to a dashed strip and the frame still draws`() {
+        show {
+            var flat by remember { mutableStateOf(false) }
+            dev.wildware.composegl.ui.layout.Box(
+                Modifier.testTag("zone").size(120f, if (flat) 3f else 60f).clickable { flat = true }
+                    .border(accent, width = 4f, corner = 6f, style = BorderStyle.Dashed(on = 6f, off = 4f)),
+            ) {}
+        }
+        val zone = host.root.find("zone").boundsInRoot
+
+        click(zone.centre)
+
+        val flat = host.root.find("zone").boundsInRoot
+        assertEquals(3f, flat.height, "the click squeezed the zone thinner than its 4-wide line")
+        val dashes = inAccent()
+        assertEquals(12, dashes.size, "120 along at 6 on and 4 off is twelve dashes: $dashes")
+        dashes.forEach {
+            assertTrue(it.within(flat), "every dash is inside the zone: $it in $flat")
+            assertEquals(flat.top, it.top, "and fills it from top")
+            assertEquals(flat.bottom, it.bottom, "to bottom, as a solid line that thick fills it")
+        }
+        assertTrue(nothingElseInAccent(), "and nothing else is drawn for it")
+    }
+
+    @Test
+    fun `clicking a dashed zone narrower than its line squeezes it to an upright dashed strip`() {
+        show {
+            var thin by remember { mutableStateOf(false) }
+            dev.wildware.composegl.ui.layout.Box(
+                Modifier.testTag("zone").size(if (thin) 3f else 60f, 120f).clickable { thin = true }
+                    .border(accent, width = 4f, style = BorderStyle.Dashed(on = 6f, off = 4f)),
+            ) {}
+        }
+        val zone = host.root.find("zone").boundsInRoot
+
+        click(zone.centre)
+
+        val thin = host.root.find("zone").boundsInRoot
+        assertEquals(3f, thin.width, "the click squeezed the zone narrower than its 4-wide line")
+        val dashes = inAccent().sortedBy { it.top }
+        assertEquals(12, dashes.size, "120 down at 6 on and 4 off is twelve dashes: $dashes")
+        dashes.forEach {
+            assertEquals(thin.left, it.left, "each fills the zone from its left")
+            assertEquals(thin.right, it.right, "to its right: $it")
+            assertEquals(dashes.first().height, it.height, 0.01f, "and all are as long as each other: $it")
+        }
+        assertEquals(thin.top, dashes.first().top, 0.01f, "the strip starts on a dash")
+        assertEquals(thin.bottom, dashes.last().bottom, 0.01f, "and ends on one")
+        assertTrue(nothingElseInAccent(), "and nothing else is drawn for it")
+    }
+
+    @Test
+    fun `a dashed or dotted outline wider than its box fills it instead of failing the frame`() {
+        for (style in listOf(BorderStyle.Dashed(on = 6f, off = 4f), BorderStyle.Dotted)) {
+            val backend = HeadlessBackend()
+            uiTest(Size(200f, 200f), backend) {
+                dev.wildware.composegl.ui.layout.Box(Modifier.size(20f, 20f).border(accent, width = 30f, style = style)) {}
+            }.use { ui ->
+                ui.render()
+                val drawn = backend.canvas.only<DrawCall.Rectangle>().filter { it.colour == accent }.map { it.rect }
+                assertTrue(drawn.isNotEmpty(), "$style: the outline is drawn")
+                drawn.forEach { assertTrue(it.within(Rect.of(0f, 0f, 20f, 20f)), "$style: inside its 20 by 20 box: $it") }
+                assertTrue(drawn.all { it.top == 0f && it.bottom == 20f }, "$style: and filling it top to bottom: $drawn")
+                assertTrue(
+                    backend.canvas.only<DrawCall.Fan>().none { it.colour == accent } &&
+                        backend.canvas.only<DrawCall.Border>().none { it.colour == accent },
+                    "$style: and nothing else is drawn for it",
+                )
+            }
+        }
     }
 
     @Test

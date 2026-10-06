@@ -62,6 +62,7 @@ data class BorderSide(
  * broken one is walked into short quads on [UiCanvas.line] here, so every backend draws dashes
  * without being asked to know what one is. Square corners are drawn as four edges each ending in a
  * dash, the way a dashed box is expected to look; rounded ones as one ring walked round the curve.
+ * A broken line as thick as the box is short, or thicker, fills the box, broken along its length.
  */
 fun UiCanvas.border(rect: Rect, colour: Colour, width: Float, corner: Float, style: BorderStyle) =
     border(rect, colour, width, Corners.single(corner), style)
@@ -72,10 +73,12 @@ fun UiCanvas.border(rect: Rect, colour: Colour, width: Float, corners: Corners, 
     if (rect.isEmpty || width <= 0f) return
     val (on, off) = style.lengths(width)
     if (off <= 0f) return boxBorder(rect, colour, width, corners)
+    val shorter = min(rect.width, rect.height)
+    if (width >= shorter) return filled(rect, BorderSide(shorter, colour, style), corners)
 
     // The line is centred half a width in, so its outside edge is the rectangle's.
     val half = width / 2f
-    val most = min(rect.width, rect.height) / 2f - half
+    val most = shorter / 2f - half
     fun inner(radius: Float) = min(max(radius - half, 0f), most)
     val radii = Corners(inner(corners.topLeft), inner(corners.topRight), inner(corners.bottomRight), inner(corners.bottomLeft))
     if (radii.largest <= 0f) {
@@ -83,6 +86,24 @@ fun UiCanvas.border(rect: Rect, colour: Colour, width: Float, corners: Corners, 
         return borders(rect, side, side, side, side)
     }
     dashRing(rect, half, radii, width, colour, on, off)
+}
+
+/**
+ * A broken line at least as thick as [rect] is short: the box itself, broken along its longer side.
+ *
+ * The line is [side]'s width, the box's shorter side, so dots stay square. There is no ring left
+ * to walk, its centre being a point or a line, and four edges would cross each other's dashes.
+ * Rounded [corners] are kept by drawing it inside a clip rounded the same, as a solid border's
+ * are, where the canvas can round one; where it cannot, the corners are square.
+ */
+private fun UiCanvas.filled(rect: Rect, side: BorderSide, corners: Corners) {
+    val round = corners.largest > 0f && roundsClips
+    if (round) {
+        pushClip(rect)
+        roundClip(corners)
+    }
+    edge(rect, side, horizontal = rect.width >= rect.height)
+    if (round) popClip()
 }
 
 /**
