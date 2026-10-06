@@ -187,13 +187,35 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     private var heldAt: LastSeen? = null
 
     /**
+     * Goes up every time focus lands on a node or leaves one, and every time a press on the focused
+     * node starts, whoever did it: what tells [refresh] focus has moved since it last looked. A press
+     * ending is not counted: once a press has gone there is nothing about it to check.
+     */
+    private var moves = 0L
+
+    // The tree's count and [moves] as the last refresh found them. Null tree: no refresh yet, or the
+    // root is in no tree, and the next one runs in full.
+    private var checkedTree: UiTree? = null
+    private var checkedVersion = 0L
+    private var checkedMoves = 0L
+
+    /**
      * Makes sure focus still points at something real.
      *
      * Called once a frame, after layout. A screen change removes the node that had focus, and
      * without this the next direction press would have nothing to move from — which is exactly how
      * a menu ends up open with nothing selected.
+     *
+     * Returns at once when nothing it reads has moved since the last refresh: the tree has not
+     * changed, and focus has not moved. Everything it looks for — the focused node taken away,
+     * hidden, or left outside a trap that just opened — is a change to the tree, and on a still
+     * screen the answer is the one it gave the frame before.
      */
     fun refresh() {
+        val tree = root.tree
+        val version = tree?.version ?: 0L
+        val movesBefore = moves
+        if (tree != null && tree === checkedTree && version == checkedVersion && movesBefore == checkedMoves) return
         settleScope()
         val focusable = focusables()
         if (pressing != null && pressing !in focusable) cancelPress()
@@ -203,6 +225,14 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         if (holding != null && holding !in focusable && !holding.keepsPointerFocus(scope ?: root)) release(holding)
         if (current == null && autoFocus) take(tookTheSpotOf(was, focusable) ?: preferred(focusable))
         heldAt = current?.let { LastSeen(it.parent, it.boundsInRoot) }
+        // The counts as they were before the work, not after. Moving focus runs other code on the
+        // way — a focus-within handler, a reveal scrolling a list — which can move focus again or
+        // change the tree, somewhere this refresh never checked. Anything the work changed has moved
+        // a count past these, and both only go up, so the next refresh runs in full and checks it.
+        // A refresh that throws part-way is the same: something had moved, or it would not have run.
+        checkedTree = tree
+        checkedVersion = version
+        checkedMoves = movesBefore
     }
 
     /**
@@ -276,6 +306,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         // Something to activate is enough: a slot with nothing to click can still pick an item up.
         if (node.resolved.click?.enabled != true && node.resolved.activations.isEmpty()) return false
         pressing = node
+        moves++
         gesture = PressGesture(node)
         node.resolved.interactions.forEach { it.press() }
         node.sounds.press()
@@ -450,8 +481,24 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         return node.children.any { offerWithin(it, ask) }
     }
 
+    /**
+     * Makes the next [refresh] run in full, whatever has moved since the last one. For a test that
+     * measures what a full refresh costs on a screen that is otherwise standing still.
+     */
+    internal fun lookAgain() {
+        checkedTree = null
+    }
+
+    /**
+     * How many times this manager has walked the tree, looking for a trap or for what can take
+     * focus. What a test pins a still screen walking it no more by.
+     */
+    internal var walks = 0
+        private set
+
     /** The innermost trap: the last one in tree order, which is the one drawn on top. */
     private fun trap(): UiNode? {
+        walks++
         var found: UiNode? = null
         root.forEach { if (it.resolved.focusTrap && it.isVisible) found = it }
         return found
@@ -471,6 +518,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
 
     /** Every focusable node inside the innermost trap, in tree order — the order Tab walks. */
     private fun focusables(): List<UiNode> {
+        walks++
         val found = mutableListOf<UiNode>()
         collectFocusable(scope ?: root, found)
         return found
@@ -493,14 +541,15 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     private fun collectFocusable(node: UiNode, into: MutableList<UiNode>) {
         if (node.resolved.alpha <= 0f || node.resolved.scale <= 0f) return
         if (node.resolved.focusable?.enabled == true) into += node
-        // By index: this runs for every node every frame, and an iterator per node is garbage on a phone.
+        // By index: this runs for every node on every frame that changes, and an iterator per node is
+        // garbage on a phone.
         val children = node.children
         for (index in children.indices) collectFocusable(children[index], into)
     }
 
     /**
      * Where focus goes when it has to go somewhere: whatever the screen declared, else the first.
-     * Asked every frame while nothing has focus, so searched by index.
+     * Asked on every frame that changes while nothing has focus, so searched by index.
      */
     private fun preferred(focusable: List<UiNode>): UiNode? {
         for (index in focusable.indices) {
@@ -575,6 +624,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         if (node === current) return
         release(current)
         current = node
+        moves++
         if (node != null) movedListeners.forEach { it() }
         // A held Enter only counts while focus is on what it pressed: moving away is sliding off.
         gesture?.inside = node === pressing
@@ -619,6 +669,7 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
         if (node != null) tellAncestors(node, focused = false)
         if (node != null && node === current) {
             current = null
+            moves++
             movedListeners.forEach { it() }
         }
     }

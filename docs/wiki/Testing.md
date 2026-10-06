@@ -528,13 +528,16 @@ assertEquals(0f, budget.reading.layoutMillis)   // a still screen measured nothi
 
 On the twenty-widget HUD that is the whole layout pass gone from a still frame.
 
-One thing costs a little on top: `FocusManager.refresh` builds a fresh list of
-focusable nodes every call, so passing a focus manager to `settle` — or setting
-`UiRenderer.focus` — costs a few small objects a frame, though nothing per node. It
-is off by default for that reason. `FrameCostTest` measures a frame both ways: the
-hand-drawn frame without one, a frame of pure interface, and a frame through
-`UiRenderer` with one, held to a ratchet of its own (under 768 bytes) and to costing
-not one byte more with seventy more nodes on the screen.
+Passing a focus manager to `settle`, or setting `UiRenderer.focus`, costs a still
+frame nothing. `FocusManager.refresh` returns at once when neither the tree nor focus
+has moved since the last call. On a frame that changed, it walks the tree and builds
+a list of the focusable nodes: a few small objects and a list that grows with the
+focusable nodes, with nothing for any other node. `FrameCostTest`
+measures a frame both ways: the hand-drawn frame without one, a frame of pure
+interface, and a frame through `UiRenderer` with one. That last one is held to a
+ratchet of its own (under 384 bytes). It must also cost not one byte more with
+seventy more nodes on the screen, both on a still frame and on one where focus looks
+again.
 
 ---
 

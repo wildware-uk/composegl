@@ -116,6 +116,22 @@ focus` — and outside a renderer, `host.settle(viewport, focus, nanos)` is the
 same three calls in the same order. Keep calling `refresh` yourself if your game
 has two trees and two managers: the renderer only knows about one.
 
+Calling it every frame costs nothing on a still screen. The tree counts its own
+changes — a node added, removed or given a different modifier, a layout that moved
+a box — and `refresh` returns at once when neither that count nor focus has moved
+since a call that found nothing to do. The one change it cannot see is a node moved
+by setting its `x` or `y` yourself. In a tree you build and place by hand, such as a
+`TestTree`, call `invalidate()` on the node afterwards:
+
+```kotlin
+screen["third"].y = 30f
+screen["third"].invalidate()   // the next focus.refresh() looks again
+```
+
+On a composed screen, do not set `x` or `y` by hand at all. The move lasts only until
+a layout places that node again, and focus is never told about it. Move the node with
+a `Modifier.offset` that reads state.
+
 When a whole screen's layout is the exception — not one node, which `focusOrder`
 already covers — `focus.focusSearch` swaps out the scoring itself. Subclass
 `BeamFocusSearch` and override `accepts` (what counts as being in the direction
