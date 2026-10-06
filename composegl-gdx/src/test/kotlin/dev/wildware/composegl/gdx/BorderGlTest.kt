@@ -18,6 +18,7 @@ import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.Column
 import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.alpha
 import dev.wildware.composegl.ui.modifier.border
 import dev.wildware.composegl.ui.modifier.clickable
 import dev.wildware.composegl.ui.modifier.interaction
@@ -172,6 +173,68 @@ class BorderGlTest {
                 assertColour(Color.BLACK, it.at(2, 2), "but nothing is drawn past the top-left curve")
                 assertColour(Color.BLUE, it.at(56, 30), "the last dash runs down the right")
                 assertColour(Color.BLACK, it.at(57, 57), "and stops at the bottom-right curve, as a solid border's corner does")
+            }
+        } finally {
+            ui.close()
+            backend.dispose()
+        }
+    }
+
+    /**
+     * A 60 square zone with corners of 20 whose dashed line, 40 wide once clicked, is twice as thick
+     * as its corners are round. The same four dashes as above run down the top 40 of it, each
+     * trimmed where it reaches a corner's curve.
+     */
+    @Test
+    fun `a rounded zone keeps its round corners when its dashed line is twice as thick as them`() = Gl.render {
+        val backend = GdxBackend(HeadlessFonts.registry())
+        val ui = uiTest(Size(Gl.size.toFloat(), Gl.size.toFloat()), backend) {
+            var wide by remember { mutableStateOf(false) }
+            Box(
+                Modifier.size(60f, 60f).clickable { wide = true }.testTag("zone")
+                    .border(blue, width = if (wide) 40f else 4f, corner = 20f, style = BorderStyle.Dashed(on = 10f, off = 10f)),
+            )
+        }
+        try {
+            ui.click("zone")
+
+            frame(ui).use {
+                assertColour(Color.BLUE, it.at(3, 30), "the first dash runs down the left")
+                assertColour(Color.BLACK, it.at(13, 30), "then a gap")
+                assertColour(Color.BLUE, it.at(21, 3), "the second dash reaches the top inside the curve")
+                assertColour(Color.BLACK, it.at(2, 2), "but nothing is drawn past the top-left curve")
+                assertColour(Color.BLACK, it.at(57, 2), "nor the top-right")
+                assertColour(Color.BLUE, it.at(56, 30), "the last dash runs down the right")
+                assertColour(Color.BLACK, it.at(57, 57), "and stops at the bottom-right curve, as a solid border's corner does")
+            }
+        } finally {
+            ui.close()
+            backend.dispose()
+        }
+    }
+
+    /**
+     * The zone above, half faded, whose dashed line swallows it once clicked. The GL canvas cannot
+     * round a clip while a box fades, so its corners have to stay round some other way. Faded to
+     * half over black, a dash is half blue.
+     */
+    @Test
+    fun `a fading rounded zone its dashed line swallows keeps its round corners`() = Gl.render {
+        val backend = GdxBackend(HeadlessFonts.registry())
+        val ui = uiTest(Size(Gl.size.toFloat(), Gl.size.toFloat()), backend) {
+            var wide by remember { mutableStateOf(false) }
+            Box(
+                Modifier.size(60f, 60f).alpha(0.5f).clickable { wide = true }.testTag("zone")
+                    .border(blue, width = if (wide) 80f else 4f, corner = 20f, style = BorderStyle.Dashed(on = 10f, off = 10f)),
+            )
+        }
+        try {
+            ui.click("zone")
+
+            frame(ui).use {
+                assertColour(Color(0f, 0f, 0.5f, 1f), it.at(3, 30), "the first dash runs down the left, half faded")
+                assertColour(Color.BLACK, it.at(2, 2), "but nothing is drawn past the top-left curve")
+                assertColour(Color.BLACK, it.at(57, 57), "nor past the bottom-right one")
             }
         } finally {
             ui.close()

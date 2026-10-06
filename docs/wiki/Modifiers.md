@@ -713,15 +713,26 @@ curve.
 `BorderStyle.Dashed(on, off)` stretches its lengths a touch so a whole number of dashes
 fits, which is why an edge always starts and ends on a dash. `BorderStyle.Dotted` is
 square dots as long as the line is thick, the same distance apart. Both are drawn as
-plain rectangles and lines, so every backend gets them without doing anything.
+plain rectangles and flat shapes, so every backend gets them without doing anything.
+
+However thick the line, a rounded box's outside corners stay round, as a solid border's
+do. Round a curve each dash runs from the box's own rounded edge inwards. A line at
+least twice as thick as every corner is round has no curve left along its middle, so it
+is four straight edges, and the dashes that reach a corner are cut to its curve. Where it
+is that thick against only some corners, it turns square at those, and the outside of the
+turn is cut the same way. All of it is plain shapes, so the corners stay round on every
+canvas, fading or not:
+
+```kotlin
+// 40 thick on corners of 20: the corner dashes are cut round, never square.
+Box(Modifier.size(60f, 60f).border(accent, width = 40f, corner = 20f, style = BorderStyle.Dashed(on = 6f, off = 4f)))
+```
 
 ![a header divider, tabs with an underline, dashed and dotted boxes](https://raw.githubusercontent.com/wildware-uk/composegl/master/docs/wiki/images/modifier-borders.png)
 
 A line as thick as its box is short, or thicker, fills the box the way a solid one does,
 still broken: the box is dashed along its longer side, and dots are as big as the box is
-thin. Rounded corners stay round, as a solid border's do, wherever the canvas can round
-a clip. The GL renderer can, except while the box is fading or inside another rounded
-clip, where they come out square:
+thin. Rounded corners stay round here too, the dashes that reach them cut to the curve.
 
 ```kotlin
 // 4 wide on a box only 3 tall: a 3-tall strip of dashes, never a crash.
