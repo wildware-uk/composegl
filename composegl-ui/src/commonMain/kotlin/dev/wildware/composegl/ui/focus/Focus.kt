@@ -493,12 +493,22 @@ class FocusManager(private val root: UiNode, private val autoFocus: Boolean = tr
     private fun collectFocusable(node: UiNode, into: MutableList<UiNode>) {
         if (node.resolved.alpha <= 0f || node.resolved.scale <= 0f) return
         if (node.resolved.focusable?.enabled == true) into += node
-        node.children.forEach { collectFocusable(it, into) }
+        // By index: this runs for every node every frame, and an iterator per node is garbage on a phone.
+        val children = node.children
+        for (index in children.indices) collectFocusable(children[index], into)
     }
 
-    /** Where focus goes when it has to go somewhere: whatever the screen declared, else the first. */
-    private fun preferred(focusable: List<UiNode>): UiNode? =
-        focusable.firstOrNull { it.resolved.focusable?.initial == true } ?: focusable.firstOrNull()
+    /**
+     * Where focus goes when it has to go somewhere: whatever the screen declared, else the first.
+     * Asked every frame while nothing has focus, so searched by index.
+     */
+    private fun preferred(focusable: List<UiNode>): UiNode? {
+        for (index in focusable.indices) {
+            val node = focusable[index]
+            if (node.resolved.focusable?.initial == true) return node
+        }
+        return focusable.firstOrNull()
+    }
 
     private fun step(focusable: List<UiNode>, from: UiNode, by: Int): UiNode? {
         val at = focusable.indexOf(from)

@@ -188,3 +188,6 @@ val noEngineTypes = tasks.register<BytecodeReferenceCheck>("checkNoEngineTypes")
 }
 
 tasks.named("check") { dependsOn(confinement, noEngineTypes) }
+
+// The frame's own allocation tests, again with escape analysis off: what Android counts.
+allocationTests()

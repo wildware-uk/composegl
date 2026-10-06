@@ -470,6 +470,39 @@ on every pass, and the placement block every layout was making per node per fram
 Neither pass allocates per node any more, so what is left is mostly the runtime
 being asked for a frame it has nothing to do in.
 
+Count it the way a phone counts it. The desktop JVM's escape analysis quietly
+removes short-lived objects — above all the iterator a `for (x in list)` makes —
+that Android's runtime keeps, so an allocation test can pass on a desktop while the
+same code makes thousands of objects a frame on a phone. Run allocation tests with
+escape analysis off:
+
+```kotlin
+// build.gradle.kts: the tagged tests again, on a JVM that keeps every object.
+tasks.register<Test>("allocationTest") {
+    testClassesDirs = tasks.test.get().testClassesDirs
+    classpath = tasks.test.get().classpath
+    useJUnitPlatform { includeTags("allocation") }
+    jvmArgs("-XX:-DoEscapeAnalysis")
+}
+```
+
+Fetch the thread bean once and keep it:
+
+```kotlin
+private val threads = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
+
+private fun allocatedBytes(): Long = threads.currentThreadAllocatedBytes
+```
+
+`ManagementFactory.getThreadMXBean()` allocates several hundred bytes a call itself,
+which a test that expects zero would see.
+
+composegl's own allocation tests run this way: `./gradlew
+:composegl-ui:jvmAllocationTest :composegl-render:jvmAllocationTest` runs every test
+tagged `allocation` with escape analysis off, and `check` runs them too. They hold
+the frame path to index loops: walking the tree, refreshing focus, finding a
+glyph's texture and handing out layers make nothing per node or per glyph.
+
 `settle`, and so `UiRenderer.render`, goes one further: a frame where nothing has
 changed since the last layout, at the same size, does not lay the tree out at all.
 A budget handed to it shows that as no layout time:
@@ -488,11 +521,13 @@ assertEquals(0f, budget.reading.layoutMillis)   // a still screen measured nothi
 
 On the twenty-widget HUD that is the whole layout pass gone from a still frame.
 
-One thing deliberately stays outside that measurement: `FocusManager.refresh`
-builds a fresh list of focusable nodes every call, so passing a focus manager to
-`settle` — or setting `UiRenderer.focus` — costs an allocation a frame. It is off
-by default for that reason, and `FrameCostTest` does not pass one, so the ratchet
-still measures a frame of pure interface.
+One thing costs a little on top: `FocusManager.refresh` builds a fresh list of
+focusable nodes every call, so passing a focus manager to `settle` — or setting
+`UiRenderer.focus` — costs a few small objects a frame, though nothing per node. It
+is off by default for that reason. `FrameCostTest` measures a frame both ways: the
+hand-drawn frame without one, a frame of pure interface, and a frame through
+`UiRenderer` with one, held to a ratchet of its own (under 768 bytes) and to costing
+not one byte more with seventy more nodes on the screen.
 
 ---
 

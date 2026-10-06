@@ -2,6 +2,7 @@ package dev.wildware.composegl.ui
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.wildware.composegl.ui.backend.MonospaceFontProvider
@@ -10,8 +11,10 @@ import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.Colour
 import dev.wildware.composegl.ui.graphics.TextureHandle
 import dev.wildware.composegl.ui.debug.FrameBudget
+import dev.wildware.composegl.ui.focus.FocusManager
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.host.UiHost
+import dev.wildware.composegl.ui.host.UiRenderer
 import dev.wildware.composegl.ui.host.settle
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Arrangement
@@ -36,13 +39,16 @@ import dev.wildware.composegl.ui.modifier.height
 import dev.wildware.composegl.ui.modifier.weight
 import dev.wildware.composegl.ui.modifier.width
 import dev.wildware.composegl.ui.modifier.wrapContentSize
+import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.ProvideFonts
 import dev.wildware.composegl.ui.widget.Slider
 import dev.wildware.composegl.ui.widget.Text
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.lang.management.ManagementFactory
 
@@ -65,6 +71,11 @@ import java.lang.management.ManagementFactory
  * The numbers are deliberately loose. This runs on whatever JVM CI has, and what is being caught
  * is an order of magnitude — a lambda made per widget per frame, a list rebuilt per frame, a string
  * formatted per frame — and not a byte.
+ *
+ * The tests tagged `allocation` run a second time in `jvmAllocationTest`, with escape analysis off.
+ * The desktop JVM would otherwise remove the short-lived objects Android's runtime keeps — an
+ * iterator per node walked was the big one (#248) — and pass on code that makes thousands of them a
+ * frame on a phone.
  */
 class FrameCostTest {
 
@@ -79,11 +90,15 @@ class FrameCostTest {
     private var hull by mutableFloatStateOf(0.8f)
     private var ammo by mutableStateOf(148)
 
+    /** Plain boxes beside the HUD, none focusable and none drawing anything: nodes for a walk to visit. */
+    private var plain by mutableIntStateOf(0)
+
     /** A combat HUD: about twenty widgets, the sort of thing a game actually leaves on screen. */
     private fun hud() {
         host.setContent {
             ProvideFonts(MonospaceFontProvider()) {
                 Box(Modifier.fillMaxSize()) {
+                    repeat(plain) { Box(Modifier.size(4f)) {} }
                     Panel(Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 28f).width(280f)) {
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
                             Text("HULL")
@@ -160,6 +175,7 @@ class FrameCostTest {
     }
 
     @Test
+    @Tag("allocation")
     fun `drawing a still screen anyway allocates almost nothing`() {
         hud()
 
@@ -188,6 +204,7 @@ class FrameCostTest {
     }
 
     @Test
+    @Tag("allocation")
     fun `watching where things are costs a still screen nothing`() {
         var told = 0
         val onSize = SizeChangedHandler { told++ }
@@ -228,6 +245,7 @@ class FrameCostTest {
     }
 
     @Test
+    @Tag("allocation")
     fun `a still screen of wrapped badges lays out without making anything per badge`() {
         host.setContent {
             Column {
@@ -253,6 +271,7 @@ class FrameCostTest {
     }
 
     @Test
+    @Tag("allocation")
     fun `one number changing redraws without dragging the whole screen with it`() {
         hud()
 
@@ -280,6 +299,106 @@ class FrameCostTest {
         assertTrue(perFrame < 65_536, "one changed number cost $perFrame bytes a frame")
     }
 
+    /**
+     * The frame a game actually runs: [UiRenderer] with a [FocusManager], which walks the whole tree
+     * every frame to keep focus on something real. Something has focus, as it does on a menu.
+     */
+    @Test
+    @Tag("allocation")
+    fun `a still frame through the renderer with focus allocates almost nothing`() {
+        hud()
+        val renderer = UiRenderer(host, Silent())
+        val focus = FocusManager(host.root)
+        renderer.focus = focus
+        val viewport = Viewport.oneToOne(Size(1280f, 720f))
+        repeat(5) {
+            wall += 16_000_000L
+            renderer.render(viewport, wall)
+        }
+        assertTrue(focus.focused != null, "the HUD's first button should have taken focus")
+
+        val before = allocatedBytes()
+        repeat(20) {
+            wall += 16_000_000L
+            renderer.render(viewport, wall)
+        }
+        val perFrame = (allocatedBytes() - before) / 20
+
+        // A ratchet: 416 bytes today, from about 2,140. What is left is the focus refresh's own list
+        // of focusable nodes and where focus was last seen, a few small objects a frame (#251), and
+        // nothing per node: the next test holds that.
+        assertTrue(perFrame < 768, "a still frame of a whole HUD through the renderer allocated $perFrame bytes")
+    }
+
+    /**
+     * The same frame costs nothing per node: the focus refresh walks the whole tree twice a frame,
+     * once for a focus trap and once for the focusable nodes, and an iterator per node per walk was
+     * how a still screen on a phone made most of its garbage (#248).
+     */
+    @Test
+    @Tag("allocation")
+    fun `a still frame through the renderer with focus costs nothing per node`() {
+        hud()
+        val renderer = UiRenderer(host, Silent())
+        renderer.focus = FocusManager(host.root)
+        val viewport = Viewport.oneToOne(Size(1280f, 720f))
+
+        val fewer = stillFrameCost(renderer, viewport, boxes = 10)
+        val more = stillFrameCost(renderer, viewport, boxes = 80)
+
+        assertEquals(fewer, more, "seventy more nodes on a still screen should cost not one byte more a frame")
+    }
+
+    /** What a still frame of the HUD with [boxes] plain boxes beside it allocates: the fewest of five rounds of twenty. */
+    private fun stillFrameCost(renderer: UiRenderer, viewport: Viewport, boxes: Int): Long {
+        plain = boxes
+        repeat(10) {
+            wall += 16_000_000L
+            renderer.render(viewport, wall)
+        }
+        // The fewest of five rounds: the JVM now and then allocates a few hundred bytes on this
+        // thread for itself, compiling code that has just become hot.
+        var least = Long.MAX_VALUE
+        repeat(5) {
+            val before = allocatedBytes()
+            repeat(20) {
+                wall += 16_000_000L
+                renderer.render(viewport, wall)
+            }
+            least = minOf(least, allocatedBytes() - before)
+        }
+        return least / 20
+    }
+
+    /** A game asks its tree questions every frame; walking it is free. */
+    @Test
+    @Tag("allocation")
+    fun `walking the tree allocates nothing`() {
+        hud()
+        var visited = 0
+        val visit: (UiNode) -> Unit = { visited++ }
+        val never: (UiNode) -> Boolean = { false }
+        val walk = {
+            host.root.forEach(visit)
+            host.root.firstOrNull(never)
+        }
+        repeat(20) { walk() }
+        visited = 0
+
+        // The fewest of five rounds: the JVM now and then allocates a few hundred bytes on this
+        // thread for itself, compiling code that has just become hot. A walk that made anything
+        // would make it every round.
+        var bytes = Long.MAX_VALUE
+        repeat(5) {
+            val before = allocatedBytes()
+            repeat(20) { walk() }
+            bytes = minOf(bytes, allocatedBytes() - before)
+        }
+
+        assertTrue(visited > 5 * 20 * 20, "the walk should have visited every node of the HUD: $visited")
+        assertEquals(0L, bytes, "twenty walks of the HUD allocated $bytes bytes")
+    }
+
     /** A canvas that draws nothing and keeps nothing, for measuring what the toolkit itself costs. */
     private class Silent : dev.wildware.composegl.ui.graphics.UiCanvas {
         override fun rect(rect: Rect, colour: Colour, corner: Float) = Unit
@@ -295,9 +414,13 @@ class FrameCostTest {
         override fun raw(block: (Any) -> Unit) = Unit
     }
 
-    /** What this thread has allocated so far. HotSpot only, which is what these tests run on. */
-    private fun allocatedBytes(): Long {
-        val beans = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
-        return beans.getThreadAllocatedBytes(Thread.currentThread().threadId())
-    }
+    /**
+     * What this thread has allocated so far. HotSpot only, which is what these tests run on.
+     *
+     * Through a bean fetched once: `ManagementFactory.getThreadMXBean()` allocates about 800 bytes a
+     * call itself, which an exact count would see.
+     */
+    private fun allocatedBytes(): Long = threads.currentThreadAllocatedBytes
+
+    private val threads = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
 }

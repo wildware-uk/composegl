@@ -298,7 +298,11 @@ internal fun DriveFling(vararg axes: ScrollAxis?) {
             withFrameNanos { now ->
                 val seconds = (now - last).toFloat() / 1_000_000_000f
                 last = now
-                moving.forEach { if (it.isFlinging) it.advance(seconds) }
+                // By index: this runs every frame, and an iterator a frame is garbage on a phone.
+                for (index in moving.indices) {
+                    val axis = moving[index]
+                    if (axis.isFlinging) axis.advance(seconds)
+                }
             }
         }
     }

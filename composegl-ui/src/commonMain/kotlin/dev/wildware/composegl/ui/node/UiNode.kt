@@ -1009,15 +1009,23 @@ class UiNode(var name: String = "node") {
 
     // --- walking ---
 
-    /** This node and everything under it, parents before children. */
+    /**
+     * This node and everything under it, parents before children.
+     *
+     * Walked by index, so a walk allocates nothing: focus walks the whole tree every frame, and
+     * games ask their trees questions every frame, and an iterator per node is garbage on a phone.
+     */
     fun forEach(action: (UiNode) -> Unit) {
         action(this)
-        mutableChildren.forEach { it.forEach(action) }
+        val children = mutableChildren
+        for (index in children.indices) children[index].forEach(action)
     }
 
+    /** The first node, parents before children, that [predicate] accepts. Walked by index, as [forEach]. */
     fun firstOrNull(predicate: (UiNode) -> Boolean): UiNode? {
         if (predicate(this)) return this
-        mutableChildren.forEach { child -> child.firstOrNull(predicate)?.let { return it } }
+        val children = mutableChildren
+        for (index in children.indices) children[index].firstOrNull(predicate)?.let { return it }
         return null
     }
 
