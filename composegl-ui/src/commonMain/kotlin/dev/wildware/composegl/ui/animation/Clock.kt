@@ -54,7 +54,20 @@ class Clock(val name: String) {
  */
 class Clocks {
 
-    private val elapsed = HashMap<Clock, Long>()
+    /**
+     * How long one clock has been running. A holder rather than a number in a map, because a `Long`
+     * written into a map is boxed: a new object for every clock on every frame, still screen or not.
+     */
+    private class Elapsed(val clock: Clock) {
+        var nanos = 0L
+    }
+
+    /** Every clock being advanced, by clock: what [time] looks up. */
+    private val elapsed = HashMap<Clock, Elapsed>()
+
+    /** The same clocks in a list, which [advance] walks by index rather than through an iterator. */
+    private val tracked = ArrayList<Elapsed>()
+
     private val stopped = HashSet<Clock>()
 
     private var last = NoFrameYet
@@ -66,7 +79,7 @@ class Clocks {
     val frameNanos: Long get() = last
 
     /** How long [clock] has been running, in nanoseconds. Zero for a clock never advanced. */
-    fun time(clock: Clock): Long = elapsed[clock] ?: 0L
+    fun time(clock: Clock): Long = elapsed[clock]?.nanos ?: 0L
 
     fun isRunning(clock: Clock): Boolean = clock !in stopped
 
@@ -107,10 +120,11 @@ class Clocks {
         if (delta == 0L) return
 
         debug.beginFrame()
-        elapsed.keys.forEach { clock ->
+        for (i in 0 until tracked.size) {
+            val entry = tracked[i]
             // Stopped first: a clock the game has stopped must not spend a developer's step.
-            if (clock !in stopped && debug.moves(clock)) {
-                elapsed[clock] = (elapsed[clock] ?: 0L) + debug.scale(clock, delta)
+            if (entry.clock !in stopped && debug.moves(entry.clock)) {
+                entry.nanos += debug.scale(entry.clock, delta)
             }
         }
     }
@@ -130,7 +144,10 @@ class Clocks {
      * animation jump by however long the game has been running.
      */
     fun register(clock: Clock) {
-        elapsed.getOrPut(clock) { 0L }
+        if (clock in elapsed) return
+        val fresh = Elapsed(clock)
+        elapsed[clock] = fresh
+        tracked += fresh
     }
 
     /** How many animations are playing on each clock, started and not yet arrived or cancelled. */

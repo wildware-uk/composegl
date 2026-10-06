@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import dev.wildware.composegl.ui.animation.Clock
+import dev.wildware.composegl.ui.animation.Clocks
 import dev.wildware.composegl.ui.backend.MonospaceFontProvider
 import dev.wildware.composegl.ui.draw.DrawPass
 import dev.wildware.composegl.ui.geometry.Rect
@@ -374,7 +375,7 @@ class FrameCostTest {
         }
         val perFrame = (allocatedBytes() - before) / 20
 
-        // A ratchet: 248 bytes today, from 416 and about 2,140 before that. The focus refresh's own
+        // A ratchet: 216 bytes today, from 248 (#263), 416 and about 2,140 before that. The focus refresh's own
         // list of focusable nodes and where focus was last seen are gone: on a frame where the tree
         // did not change it makes nothing (#251). Nothing is made per node: the next test holds that.
         assertTrue(perFrame < 384, "a still frame of a whole HUD through the renderer allocated $perFrame bytes")
@@ -486,11 +487,6 @@ class FrameCostTest {
     fun `still pan-and-zoom canvases cost the host a frame no more than clipped boxes`() {
         hud()
         windows = 15
-        // A canvas tracks interface time from the moment it is shown, and the clocks pay a few bytes
-        // a frame for each clock they track, however many widgets share it. Any screen that has
-        // animated a thing on interface time pays the same, so the boxes are measured tracking it too
-        // (#263).
-        host.clocks.register(Clock.Ui)
 
         window = Window.Clipped
         val clipped = stillHostFrameCost()
@@ -512,8 +508,6 @@ class FrameCostTest {
     fun `still pan-and-zoom canvases cost a frame no more than clipped boxes`() {
         hud()
         windows = 15
-        // As the host-frame test above: the boxes track interface time too (#263).
-        host.clocks.register(Clock.Ui)
 
         val silent = Silent()
         val renderer = UiRenderer(host, silent)
@@ -546,7 +540,6 @@ class FrameCostTest {
         }
         hud()
         windows = 15
-        host.clocks.register(Clock.Ui)
         val renderer = UiRenderer(host, Silent(transforms = true))
         renderer.focus = FocusManager(host.root)
         val viewport = Viewport.oneToOne(Size(1280f, 720f))
@@ -565,6 +558,88 @@ class FrameCostTest {
         }
         assertEquals(15, handed.size, "each still canvas should be handed one rectangle, the same one every frame")
         assertEquals(clipped, canvases, "fifteen still pan-and-zoom canvases with backgrounds should cost not one byte more a frame than fifteen clipped boxes")
+    }
+
+    /**
+     * Advancing the clocks makes nothing at all, however many of them are tracked: a still screen
+     * has to advance them every frame. It used to make about 32 bytes a frame walking them through
+     * an iterator, tracked or not, and then 24 more for every clock tracked, moving or not, boxing
+     * its time into a map. A slowed clock boxed the part of a nanosecond it carried too (#263).
+     */
+    @Test
+    @Tag("allocation")
+    fun `advancing the clocks allocates nothing however many are tracked`() {
+        val clocks = Clocks()
+        assertEquals(0L, advanceCost(clocks), "advancing no clocks allocated bytes")
+
+        clocks.register(Clock.Ui)
+        clocks.register(Clock.World)
+        clocks.register(Clock("cutscene"))
+        clocks.stop(Clock.World)
+        assertEquals(0L, advanceCost(clocks), "advancing three tracked clocks allocated bytes")
+
+        clocks.debug.speed = 0.25f
+        clocks.debug.setSpeed(Clock.Ui, 0.5f)
+        assertEquals(0L, advanceCost(clocks), "advancing three slowed clocks allocated bytes")
+
+        clocks.debug.pause()
+        assertEquals(0L, advanceCost(clocks), "advancing three paused clocks allocated bytes")
+    }
+
+    /** What a thousand frames of [clocks] advancing allocate, after a few to settle: the fewest of five rounds. */
+    private fun advanceCost(clocks: Clocks): Long {
+        repeat(10) {
+            wall += 16_000_000L
+            clocks.advance(wall)
+        }
+        var least = Long.MAX_VALUE
+        repeat(5) {
+            val before = allocatedBytes()
+            repeat(1_000) {
+                wall += 16_000_000L
+                clocks.advance(wall)
+            }
+            least = minOf(least, allocatedBytes() - before)
+        }
+        return least
+    }
+
+    /**
+     * The same through the host's whole frame: a still screen costs it not one byte more for every
+     * clock it tracks (#263).
+     */
+    @Test
+    @Tag("allocation")
+    fun `a still screen costs the host no more a frame for every clock it tracks`() {
+        hud()
+        val untracked = stillHostFrameCost()
+
+        host.clocks.register(Clock.Ui)
+        host.clocks.register(Clock.World)
+        host.clocks.register(Clock("cutscene"))
+        val tracked = stillHostFrameCost()
+
+        assertEquals(untracked, tracked, "three tracked clocks should cost a still host frame not one byte more than none")
+    }
+
+    /**
+     * The same with the clocks slowed for debugging, where each one also carries the part of a
+     * nanosecond it was not given yet from one frame to the next (#263).
+     */
+    @Test
+    @Tag("allocation")
+    fun `slowed clocks cost a still screen no more a frame than none`() {
+        hud()
+        host.clocks.debug.speed = 0.25f
+        host.clocks.debug.setSpeed(Clock.World, 0.5f)
+        val untracked = stillHostFrameCost()
+
+        host.clocks.register(Clock.Ui)
+        host.clocks.register(Clock.World)
+        host.clocks.register(Clock("cutscene"))
+        val tracked = stillHostFrameCost()
+
+        assertEquals(untracked, tracked, "three slowed clocks should cost a still host frame not one byte more than none")
     }
 
     /** What the host's own frame of a still screen allocates, undrawn: the fewest of five rounds of twenty. */
