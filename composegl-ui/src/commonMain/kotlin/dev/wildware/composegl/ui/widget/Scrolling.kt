@@ -340,15 +340,20 @@ internal class ScrollGestures {
 }
 
 /**
- * What wakes a sleeping fling loop: its axes ring it when a fling starts, and nothing else does.
+ * What wakes a sleeping frame loop: a scroll area's axes ring it when a fling starts, a pan-and-zoom
+ * camera when it starts moving, and nothing else does.
  *
  * Rung by the fling itself rather than heard through a snapshot flow over [ScrollAxis.isFlinging].
  * A snapshot flow is told about every state change there is, so that it can ask whether one of its
  * own was among them. It made no garbage and woke nothing, but on a screen where something changes
  * every frame it asked that once per idle scroll area every frame (#259).
  *
+ * A [PanZoomCanvas] sleeps on one the same way: its [PanZoomState] rings it whenever the camera
+ * starts moving on its own — a flick, the spring back from an edge, `animateTo`, the stick or the
+ * triggers (#265).
+ *
  * Conflated, so a ring that arrives while the loop is still awake is kept: the loop finds it when
- * it next goes to sleep, and looks again rather than missing a fling. Safe to ring from any thread.
+ * it next goes to sleep, and looks again rather than missing a start. Safe to ring from any thread.
  */
 internal class FlingAlarm {
 

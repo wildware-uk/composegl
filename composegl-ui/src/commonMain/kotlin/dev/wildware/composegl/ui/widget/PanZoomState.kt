@@ -226,11 +226,35 @@ class PanZoomState(
 
     /**
      * Whether the canvas's frame loop has anything to do: the camera moving on its own, or the pad
-     * held so that it moves. Snapshot state written only when it changes, so the loop sleeps until it
-     * turns true rather than asking for every frame of a still screen.
+     * held so that it moves. The loop sleeps while it is false, and is woken by its [FlingAlarm] when
+     * it turns true.
+     *
+     * A plain field rather than snapshot state: nothing composes on it, and the loop does not watch
+     * it. Watching it through a snapshot flow ran a check per canvas on every state change anywhere
+     * (#265). Plain, it is also there to be read the moment the alarm rings, even when the camera was
+     * started inside a snapshot not yet applied.
      */
-    internal var wantsFrames: Boolean by mutableStateOf(false)
+    internal var wantsFrames = false
         private set
+
+    /** The frame loops this camera wakes: one per canvas showing it, and none while none is. */
+    private val alarms = ArrayList<FlingAlarm>(1)
+
+    /**
+     * How many loops the camera starting wakes. One per canvas showing it, so a canvas that has left
+     * or been handed another state is no longer counted, and a state kept past its screen holds none.
+     */
+    internal val drivers: Int get() = alarms.size
+
+    /** Rings [alarm] each time the camera starts moving, until [stopWaking]. */
+    internal fun wakeOnMove(alarm: FlingAlarm) {
+        alarms += alarm
+    }
+
+    /** No longer rings [alarm]. */
+    internal fun stopWaking(alarm: FlingAlarm) {
+        alarms -= alarm
+    }
 
     /**
      * The interface time when [wantsFrames] last turned true, which a loop woken by it times its
@@ -244,9 +268,6 @@ class PanZoomState(
     /** The clocks [wokeAt] was read from, or null: a loop on any others cannot time itself by it. */
     internal var wokeOn: Clocks? = null
         private set
-
-    /** [wantsFrames] as last written, so telling whether it changed does not read it back. */
-    private var awake = false
 
     private var measured = false
     private var pending: Offset? = null
@@ -534,17 +555,22 @@ class PanZoomState(
 
     private var markedBusy = false
 
-    /** Tells the frame loop and the clocks whether the camera is moving, when that has changed. */
+    /**
+     * Tells the frame loop and the clocks whether the camera is moving, when that has changed. Every
+     * way the camera starts moving on its own — a flick, the spring back from an edge, [animateTo],
+     * the stick, the triggers — comes through here, so this is the one place that wakes the loop.
+     */
     private fun busy() {
         val moving = moving
         val wants = moving || padHeld
-        if (wants != awake) {
-            awake = wants
+        if (wants != wantsFrames) {
             if (wants) {
                 wokeAt = clocks?.time(Clock.Ui) ?: 0L
                 wokeOn = clocks
             }
             wantsFrames = wants
+            // Written first, so a loop the ring wakes finds it true. By index: no iterator for a flick.
+            if (wants) for (index in alarms.indices) alarms[index].ring()
         }
         val clocks = clocks ?: return
         if (moving == markedBusy) return
