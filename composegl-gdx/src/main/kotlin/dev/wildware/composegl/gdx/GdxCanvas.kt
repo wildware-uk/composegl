@@ -32,7 +32,7 @@ import dev.wildware.composegl.ui.layout.Viewport
 class GdxCanvas(
     private val spriteBatch: Batch? = null,
     fonts: GdxFonts? = null,
-) : RenderCanvas(GlDevice(GdxGl), fonts, GdxTexture.Resolver), Disposable {
+) : RenderCanvas(GlDevice(GdxProbe.gl), fonts, GdxTexture.Resolver), Disposable {
 
     /** The same, named by the fonts' [GdxFonts.atlas], as a canvas has always been given it. */
     constructor(spriteBatch: Batch? = null, atlas: GlyphAtlas) : this(spriteBatch, GdxFonts.owning(atlas))
@@ -45,6 +45,7 @@ class GdxCanvas(
 
     override fun begin(viewport: Viewport, into: FrameTarget, clear: Colour?) {
         noticeLostContext()
+        GdxProbe.frame()
         super.begin(viewport, into, clear)
     }
 
