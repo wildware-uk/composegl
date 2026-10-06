@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx
 import dev.wildware.composegl.render.gl.Gl
 import dev.wildware.composegl.render.gl.ProbeGl
 import dev.wildware.composegl.render.gl.probeReport
+import dev.wildware.composegl.ui.host.RenderProbe
 import java.io.File
 import java.lang.management.ManagementFactory
 
@@ -41,10 +42,36 @@ internal object GdxProbe {
     private val bytes = LongArray(100_000)
     private val wall = LongArray(100_000)
     private val phases = arrayOfNulls<String>(100_000)
+    private val uiCpu = LongArray(100_000)
+    private val uiBytes = LongArray(100_000)
+
+    // What UiRenderer.render took this frame, summed over every call: the toolkit's own share.
+    private var depth = 0
+    private var uiCpuAt = 0L
+    private var uiBytesAt = 0L
+    private var uiCpuSum = 0L
+    private var uiBytesSum = 0L
     private var timed = 0
     private var timedFrom = 0
 
     init {
+        if (timingFile != null) {
+            RenderProbe.hook = object : RenderProbe.Hook {
+                override fun begin() {
+                    if (depth++ == 0) {
+                        uiCpuAt = threads.currentThreadCpuTime
+                        uiBytesAt = threads.currentThreadAllocatedBytes
+                    }
+                }
+
+                override fun end() {
+                    if (--depth == 0) {
+                        uiCpuSum += threads.currentThreadCpuTime - uiCpuAt
+                        uiBytesSum += threads.currentThreadAllocatedBytes - uiBytesAt
+                    }
+                }
+            }
+        }
         if (probe != null || timingFile != null) {
             Runtime.getRuntime().addShutdownHook(Thread { synchronized(this) { flush(); flushTiming() } })
         }
@@ -83,9 +110,13 @@ internal object GdxProbe {
                 cpu[timed] = c - cpuAt
                 bytes[timed] = b - bytesAt
                 wall[timed] = w - wallAt
+                uiCpu[timed] = uiCpuSum
+                uiBytes[timed] = uiBytesSum
                 phases[timed] = phase
                 timed++
             }
+            uiCpuSum = 0L
+            uiBytesSum = 0L
             cpuAt = c
             bytesAt = b
             wallAt = w
@@ -128,13 +159,14 @@ internal object GdxProbe {
         val out = timingFile ?: return
         val indices = (timedFrom until timed).filter { phases[it] == phase }
         val csv = File(out.path + ".csv")
-        if (!csv.exists()) csv.writeText("phase,cpu_ns,alloc_bytes,wall_ns\n")
-        csv.appendText((timedFrom until timed).joinToString("") { "${phases[it]},${cpu[it]},${bytes[it]},${wall[it]}\n" })
+        if (!csv.exists()) csv.writeText("phase,cpu_ns,alloc_bytes,wall_ns,ui_cpu_ns,ui_alloc_bytes\n")
+        csv.appendText((timedFrom until timed).joinToString("") { "${phases[it]},${cpu[it]},${bytes[it]},${wall[it]},${uiCpu[it]},${uiBytes[it]}\n" })
         timedFrom = timed
         if (phase.isEmpty() || indices.isEmpty()) return
         // The first quarter of a phase is it settling in.
         val settled = indices.drop(indices.size / 4)
         out.appendText(timingReport(phase, settled.map { cpu[it] }, settled.map { bytes[it] }, settled.map { wall[it] }))
+        out.appendText(timingReport("$phase (UiRenderer.render only)", settled.map { uiCpu[it] }, settled.map { uiBytes[it] }, settled.map { 0L }))
     }
 }
 

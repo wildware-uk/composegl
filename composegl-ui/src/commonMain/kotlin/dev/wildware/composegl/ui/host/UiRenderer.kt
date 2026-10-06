@@ -113,6 +113,17 @@ class UiRenderer(
      * `System.nanoTime()` on a desktop.
      */
     fun render(viewport: Viewport, nanos: Long): Boolean {
+        // PROFILING ONLY (#267): lets a probe read what the toolkit's own frame costs.
+        val probe = RenderProbe.hook ?: return renderUnprobed(viewport, nanos)
+        probe.begin()
+        try {
+            return renderUnprobed(viewport, nanos)
+        } finally {
+            probe.end()
+        }
+    }
+
+    private fun renderUnprobed(viewport: Viewport, nanos: Long): Boolean {
         val changed = host.settle(viewport, focus, nanos, budget)
         onLaidOut?.invoke(nanos / 1_000_000)
         // After input has had its say, so a click that marks a scene dirty shows this frame; before
