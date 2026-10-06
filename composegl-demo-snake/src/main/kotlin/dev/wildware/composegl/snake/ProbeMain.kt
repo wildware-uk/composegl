@@ -89,7 +89,8 @@ fun main() {
 
     val shaders = LinkedHashSet<String>()
 
-    fun scene(name: String, frames: Int = 120, skip: Int = 60, wide: Boolean = false, run: (ProbeGl?, GlCanvas, Int) -> Unit) {
+    // Counting reads the same frames timing does (#267): 300 to settle, then 600.
+    fun scene(name: String, frames: Int = 900, skip: Int = 300, wide: Boolean = false, run: (ProbeGl?, GlCanvas, Int) -> Unit) {
         val shotWidth = if (wide) height else width
         val shotHeight = if (wide) width else height
         if (only != null && only !in name) return
@@ -141,6 +142,8 @@ fun main() {
                 Raw.clear(GLES20.GL_COLOR_BUFFER_BIT)
                 run(probe, canvas, frame)
                 if (frame == frames - 1) save(File(out, "$name.png"), shotWidth, shotHeight)
+                // A scroll scene at the top of its drag, to show the page itself moved.
+                if (frame == 74 && "scroll" in name) save(File(out, "$name-mid.png"), shotWidth, shotHeight)
                 window.present()
                 probe.endFrame(width.toLong() * height)
             }
@@ -224,18 +227,17 @@ private fun showcaseFrame(
     }
     val nanos = frame * 16_666_667L
     if (scroll) {
-        // A finger dragging the page up 6 units a frame, from the middle of the screen, through the
-        // measured frames.
-        val x = design.width / 2f
-        val y = design.height * 0.75f - (frame - 30).coerceAtLeast(0) * 6f % (design.height * 0.5f)
+        // A finger held on the page's left margin, clear of every widget, dragged up 6 units a
+        // frame and back down, and never let go (#267): the page itself scrolls on every frame
+        // from 31 on, with no fling and no tap on whatever comes under the finger.
+        val x = 10f
+        val span = design.height * 0.3f
+        val travelled = (frame - 30).coerceAtLeast(0) * 6f % (2 * span)
+        val y = design.height * 0.75f - (if (travelled < span) travelled else 2 * span - travelled)
         val id = PointerId(1)
         val millis = nanos / 1_000_000
         when {
             frame == 30 -> app.router.onPointer(PointerEvent.Press(id, Offset(x, y), type = PointerType.Touch, timeMillis = millis))
-            frame > 30 && (frame - 30) % 40 == 0 -> {
-                app.router.onPointer(PointerEvent.Release(id, Offset(x, y + 6f), type = PointerType.Touch, timeMillis = millis))
-                app.router.onPointer(PointerEvent.Press(id, Offset(x, design.height * 0.75f), type = PointerType.Touch, timeMillis = millis))
-            }
             frame > 30 -> app.router.onPointer(
                 PointerEvent.Move(id, Offset(x, y), setOf(dev.wildware.composegl.ui.input.PointerButton.Primary), type = PointerType.Touch, timeMillis = millis),
             )
