@@ -1,0 +1,138 @@
+{
+ "common": {
+  "Mali-G57": {
+   "whole": {
+    "shortest": 1.5,
+    "longest": 3.5250000953674316,
+    "registers": 46,
+    "occupancy": 50
+   },
+   "paths": {
+    "glyph": {
+     "shortest": 0.75,
+     "longest": 0.75,
+     "registers": 8,
+     "occupancy": 100
+    },
+    "shape": {
+     "shortest": 2.125,
+     "longest": 2.125,
+     "registers": 19,
+     "occupancy": 100
+    },
+    "shape with border": {
+     "shortest": 2.125,
+     "longest": 2.625,
+     "registers": 23,
+     "occupancy": 100
+    },
+    "shadow": {
+     "shortest": 2.625,
+     "longest": 2.625,
+     "registers": 26,
+     "occupancy": 100
+    },
+    "inner shade": {
+     "shortest": 3.0,
+     "longest": 3.0,
+     "registers": 29,
+     "occupancy": 100
+    },
+    "gradient": {
+     "shortest": 3.0,
+     "longest": 3.0,
+     "registers": 27,
+     "occupancy": 100
+    },
+    "ramp gradient": {
+     "shortest": 2.75,
+     "longest": 2.75,
+     "registers": 31,
+     "occupancy": 100
+    },
+    "relief": {
+     "shortest": 2.4375,
+     "longest": 3.5250000953674316,
+     "registers": 31,
+     "occupancy": 100
+    }
+   }
+  },
+  "Mali-G52": {
+   "whole": {
+    "shortest": 1.5,
+    "longest": 5.5333333015441895,
+    "registers": 49,
+    "occupancy": 50
+   },
+   "paths": {
+    "glyph": {
+     "shortest": 0.75,
+     "longest": 0.75,
+     "registers": 18,
+     "occupancy": 100
+    },
+    "shape": {
+     "shortest": 2.125,
+     "longest": 2.125,
+     "registers": 24,
+     "occupancy": 100
+    },
+    "shape with border": {
+     "shortest": 2.125,
+     "longest": 2.625,
+     "registers": 26,
+     "occupancy": 100
+    },
+    "shadow": {
+     "shortest": 2.625,
+     "longest": 2.625,
+     "registers": 30,
+     "occupancy": 100
+    },
+    "inner shade": {
+     "shortest": 3.0,
+     "longest": 3.0,
+     "registers": 38,
+     "occupancy": 50
+    },
+    "gradient": {
+     "shortest": 3.0,
+     "longest": 3.0,
+     "registers": 35,
+     "occupancy": 50
+    },
+    "ramp gradient": {
+     "shortest": 2.75,
+     "longest": 2.75,
+     "registers": 29,
+     "occupancy": 100
+    },
+    "relief": {
+     "shortest": 3.4166667461395264,
+     "longest": 5.133333206176758,
+     "registers": 31,
+     "occupancy": 100
+    }
+   }
+  }
+ },
+ "effects": {
+  "Mali-G57": {
+   "3.glsl": {
+    "shortest": 3.5,
+    "longest": 3.5,
+    "registers": 63,
+    "occupancy": 50
+   }
+  },
+  "Mali-G52": {
+   "3.glsl": {
+    "shortest": 6.5,
+    "longest": 6.5,
+    "registers": 61,
+    "occupancy": 50
+   }
+  }
+ }
+}

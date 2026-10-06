@@ -1,0 +1,12 @@
+== board-still: 225 frames
+thread cpu: mean 4.022 median 2.753 p90 7.884 max 12.079 ms
+allocated: mean 74.081 median 73.070 p90 73.750 max 89.438 KB
+wall: mean 7.375 median 7.193 p90 8.714 max 15.001 ms
+== draft-dealing: 136 frames
+thread cpu: mean 9.219 median 8.532 p90 11.826 max 41.137 ms
+allocated: mean 330.568 median 277.555 p90 342.617 max 5272.328 KB
+wall: mean 9.645 median 8.750 p90 13.074 max 42.281 ms
+== draft-open: 225 frames
+thread cpu: mean 7.951 median 7.925 p90 9.063 max 11.529 ms
+allocated: mean 298.869 median 298.773 p90 298.820 max 302.453 KB
+wall: mean 8.134 median 8.118 p90 9.319 max 13.388 ms

@@ -1,0 +1,117 @@
+== board-still: 225 frames, medians
+GL calls per draw call 45.17
+GL calls 1762
+draw calls 39 (into pictures 6, effects 0), quads 476
+vertex upload bytes 236096 in 39 bufferData
+texture uploads 0 (0 bytes), texture storage made 0 (0 bytes)
+pictures drawn into 5, their area 2100366 px
+offscreen picture memory alive at frame end 9346352 bytes
+framebuffers made 0 deleted 0, textures deleted 0
+framebuffer binds 22 (switches 18), clears 9 (2344724 px)
+program binds 41 (switches 2), texture binds 41 (switches 40)
+blend calls 43 (changes 19), enable/disable 81 (changes 0)
+scissor 0 (changes 0), viewport 22 (changes 22)
+uniform calls 78 (changes 12)
+draw calls by why they broke from the last: texture 17, texture+blend 9, target+texture+blend+uniform 8, target+texture+uniform 4, hand-back+target+texture+blend 1
+draw calls if a batch held 2 textures 26, 4 textures 23
+re-loaded pixels counting only tiles the resumed passes touch: 629760 (screen 629760)
+plain-box pixels in the flat inside: 326, bordered-box pixels in the flat inside: 0
+re-loaded pixels counting the bounding box of those tiles: 3736064 (screen 3736064)
+pictures put down (picture size: px landed, px before the scissor): 224x140: 31434, 31434, 702x243: 170249, 170249, 38x72: 772, 772, 113x72: 1282, 1282, 46x81: 4673, 4673, 164x209: 34292, 34292, 169x72: 4380, 4380, 1080x1920: 54450, 746496
+render pass reloads 9 (of the screen 9), 23328000 px stored and read back again
+quads covering nothing: off the target 0, outside the scissor 4, no size 0
+queries that wait for the driver 2, readPixels 0
+pixels covered: screen 895644, pictures 254159, masked 0; screen is 2592000 px, overdraw 0.44x
+  layer picture: 301532 px in 218 quads
+  picture or glyph: 287053 px in 238 quads
+  inner shade: 283172 px in 9 quads
+  shadow: 276574 px in 5 quads
+  shape: 1472 px in 2 quads
+  by program common/inner shade: 283172 px
+  by program common/layer picture: 301532 px
+  by program common/picture or glyph: 287053 px
+  by program common/shadow: 276574 px
+  by program common/shape: 1472 px
+pictures drawn into (size: draws, frames seen): 38x72: 225, 113x72: 225, 46x81: 225, 169x72: 225, 1080x1920: 225
+calls by name: enableVertexAttribArray 390, disableVertexAttribArray 390, vertexAttribPointer 390, bindBuffer 160, enable 43, bindTexture 41, blendFuncSeparate 41, useProgram 41, drawElements 39, uniformMatrix4fv 39, uniform1i 39, bufferData 39, disable 38, bindFramebuffer 22, viewport 22, clear 9, clearColor 9, activeTexture 4, colorMask 2, getInteger 2, blendEquationSeparate 2
+
+== draft-dealing: 136 frames, medians
+GL calls per draw call 46.88 (max 48.41)
+GL calls 2738 (max 4759)
+draw calls 59 (max 101) (into pictures 44 (max 72), effects 0), quads 636 (max 1277)
+vertex upload bytes 315456 (max 633392) in 59 (max 101) bufferData
+texture uploads 0 (max 1) (0 (max 160928) bytes), texture storage made 0 (max 2) (0 (max 3170160) bytes)
+pictures drawn into 6 (max 10), their area 1311534 (max 2104074) px
+offscreen picture memory alive at frame end 6168472 (max 31775656) bytes
+framebuffers made 0 (max 2) deleted 0 (max 4), textures deleted 0 (max 4)
+framebuffer binds 38 (max 88) (switches 28 (max 78)), clears 14 (max 37) (3649422 (max 6849214) px)
+program binds 67 (max 109) (switches 14), texture binds 67 (max 115) (switches 64 (max 103))
+blend calls 75 (max 117) (changes 26 (max 53)), enable/disable 168 (max 265) (changes 0 (max 12))
+scissor 0 (max 6) (changes 0 (max 6)), viewport 38 (max 84) (changes 26 (max 66))
+uniform calls 118 (max 202) (changes 18 (max 50))
+draw calls by why they broke from the last: texture 33 (max 38), target+texture+blend+uniform 10 (max 34), target+texture+uniform 3 (max 9), target+uniform 2 (max 7), hand-back+target+texture+blend 2 (max 4), hand-back+target+texture+blend+uniform 2 (max 3), target+texture+blend 1 (max 3), hand-back+target+texture+uniform 1 (max 3), texture+blend 1 (max 2), hand-back 1 (max 2), hand-back+texture 1, texture+scissor 0 (max 2), scissor 0 (max 2), nothing 0 (max 2), texture+blend+scissor 0 (max 3)
+draw calls if a batch held 2 textures 39 (max 79), 4 textures 30 (max 71)
+re-loaded pixels counting only tiles the resumed passes touch: 2803200 (max 5459968) (screen 1855232 (max 2504448))
+plain-box pixels in the flat inside: 4741095 (max 5253259), bordered-box pixels in the flat inside: 1511713 (max 2178385)
+re-loaded pixels counting the bounding box of those tiles: 3474176 (max 6432256) (screen 2526208 (max 3136512))
+pictures put down (picture size: px landed, px before the scissor): 434x594: 1471578 (max 2502762), 1489106 (max 2566850), 65x35: 5118, 5118, 554x714: 1105926 (max 1897865), 1142935 (max 1969259), 73x35: 5748, 5748, 555x714: 0 (max 635821), 0 (max 640744), 435x594: 0 (max 835190), 0 (max 835442), 400x560: 0 (max 1339694), 0 (max 1339694), 58x58: 0 (max 30273), 0 (max 30273), 78x35: 0 (max 6142), 0 (max 6142), 14x35: 0 (max 1102), 0 (max 1102)
+render pass reloads 14 (max 35) (of the screen 11 (max 16)), 29423148 (max 48298764) px stored and read back again
+quads covering nothing: off the target 0, outside the scissor 0, no size 0
+queries that wait for the driver 2 (max 6), readPixels 0
+pixels covered: screen 1873190 (max 2583855), pictures 10772851 (max 13181636), masked 0; screen is 2592000 px, overdraw 4.87 (max 5.8)x
+  shape: 6407479 (max 7096908) px in 28 (max 63) quads
+  layer picture: 2588370 (max 5476867) px in 14 (max 394) quads
+  shape with border: 1987617 (max 2879889) px in 9 (max 13) quads
+  picture or glyph: 1329723 (max 1565883) px in 562 (max 813) quads
+  gradient: 332852 (max 333049) px in 24 quads
+  inner shade: 0 (max 94374) px in 0 (max 3) quads
+  shadow: 0 (max 110955) px in 0 (max 3) quads
+  by program common/gradient: 332852 (max 333049) px
+  by program common/inner shade: 0 (max 94374) px
+  by program common/layer picture: 2588370 (max 5476867) px
+  by program common/picture or glyph: 1329723 (max 1565883) px
+  by program common/shadow: 0 (max 110955) px
+  by program common/shape: 6407479 (max 7096908) px
+  by program common/shape with border: 1987617 (max 2879889) px
+pictures drawn into (size: draws, frames seen): 434x594: 136, 65x35: 136, 554x714: 136, 73x35: 136, 555x714: 4, 435x594: 3, 400x560: 33, 58x58: 33, 78x35: 32, 14x35: 32
+calls by name: enableVertexAttribArray 590 (max 1010), disableVertexAttribArray 590 (max 1010), vertexAttribPointer 590 (max 1010), bindBuffer 252 (max 420), disable 90 (max 142), enable 75 (max 123), bindTexture 67 (max 115), blendFuncSeparate 67 (max 109), useProgram 67 (max 109), drawElements 59 (max 101), uniformMatrix4fv 59 (max 101), uniform1i 59 (max 101), bufferData 59 (max 101), bindFramebuffer 38 (max 88), viewport 38 (max 84), activeTexture 16, clear 14 (max 37), clearColor 14 (max 37), colorMask 8, blendEquationSeparate 8, getInteger 2 (max 4), deleteFramebuffer 0 (max 4), deleteTexture 0 (max 4), texImage2D 0 (max 2), checkFramebufferStatus 0 (max 2), framebufferTexture2D 0 (max 2), createTexture 0 (max 2), createFramebuffer 0 (max 2), texParameteri 0 (max 8), scissor 0 (max 6)
+
+== draft-open: 225 frames, medians
+GL calls per draw call 46.5
+GL calls 4278
+draw calls 92 (into pictures 63, effects 0), quads 1249
+vertex upload bytes 619504 in 92 bufferData
+texture uploads 0 (0 bytes), texture storage made 0 (0 bytes)
+pictures drawn into 8, their area 888766 px
+offscreen picture memory alive at frame end 3555064 bytes
+framebuffers made 0 deleted 0, textures deleted 0
+framebuffer binds 66 (switches 56), clears 28 (4217158 px)
+program binds 100 (switches 14), texture binds 100 (switches 88)
+blend calls 108 (changes 53), enable/disable 238 (changes 12)
+scissor 6 (changes 6), viewport 66 (changes 60)
+uniform calls 184 (changes 44)
+draw calls by why they broke from the last: target+texture+blend+uniform 34, texture 33, target+uniform 7, texture+blend+scissor 3, hand-back+target+texture+blend+uniform 3, texture+scissor 2, scissor 2, nothing 2, texture+blend 2, hand-back 2, hand-back+texture 1, hand-back+target+texture+blend 1
+draw calls if a batch held 2 textures 70, 4 textures 62
+re-loaded pixels counting only tiles the resumed passes touch: 3417600 (screen 2486016)
+plain-box pixels in the flat inside: 5253259, bordered-box pixels in the flat inside: 623
+re-loaded pixels counting the bounding box of those tiles: 4389888 (screen 3136512)
+pictures put down (picture size: px landed, px before the scissor): 434x594: 1433979, 1433979, 400x560: 672995, 672995, 65x35: 5118, 5118, 554x714: 710370, 733422, 78x35: 6142, 6142, 14x35: 1102, 1102, 73x35: 5748, 5748, 58x58: 30273, 30273
+render pass reloads 28 (of the screen 16), 46218672 px stored and read back again
+quads covering nothing: off the target 0, outside the scissor 0, no size 0
+queries that wait for the driver 2, readPixels 0
+pixels covered: screen 2553247, pictures 8366191, masked 0; screen is 2592000 px, overdraw 4.21x
+  shape: 7096908 px in 63 quads
+  layer picture: 2865727 px in 385 quads
+  picture or glyph: 749267 px in 794 quads
+  shadow: 110955 px in 3 quads
+  inner shade: 94374 px in 3 quads
+  shape with border: 2207 px in 1 quads
+  by program common/inner shade: 94374 px
+  by program common/layer picture: 2865727 px
+  by program common/picture or glyph: 749267 px
+  by program common/shadow: 110955 px
+  by program common/shape: 7096908 px
+  by program common/shape with border: 2207 px
+pictures drawn into (size: draws, frames seen): 434x594: 225, 400x560: 225, 65x35: 225, 554x714: 225, 78x35: 225, 14x35: 225, 73x35: 225, 58x58: 225
+calls by name: enableVertexAttribArray 920, disableVertexAttribArray 920, vertexAttribPointer 920, bindBuffer 384, disable 124, enable 114, bindTexture 100, blendFuncSeparate 100, useProgram 100, drawElements 92, uniformMatrix4fv 92, uniform1i 92, bufferData 92, bindFramebuffer 66, viewport 66, clear 28, clearColor 28, activeTexture 16, colorMask 8, blendEquationSeparate 8, scissor 6, getInteger 2
+

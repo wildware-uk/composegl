@@ -1,0 +1,644 @@
+{
+ "common": {
+  "Mali-G57": {
+   "whole": {
+    "shortest": 1.0,
+    "longest": 3.1500000953674316,
+    "registers": 30,
+    "occupancy": 100
+   },
+   "paths": {
+    "glyph": {
+     "shortest": 0.5,
+     "longest": 0.5,
+     "registers": 8,
+     "occupancy": 100
+    },
+    "glyph+mask": {
+     "shortest": 0.5,
+     "longest": 0.84375,
+     "registers": 11,
+     "occupancy": 100
+    },
+    "shape": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 18,
+     "occupancy": 100
+    },
+    "shape+mask": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 19,
+     "occupancy": 100
+    },
+    "shape with border": {
+     "shortest": 1.75,
+     "longest": 2.0,
+     "registers": 17,
+     "occupancy": 100
+    },
+    "shape with border+mask": {
+     "shortest": 1.75,
+     "longest": 2.0,
+     "registers": 18,
+     "occupancy": 100
+    },
+    "shadow": {
+     "shortest": 2.0,
+     "longest": 2.0,
+     "registers": 24,
+     "occupancy": 100
+    },
+    "shadow+mask": {
+     "shortest": 2.0,
+     "longest": 2.0,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "inner shade": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 18,
+     "occupancy": 100
+    },
+    "inner shade+mask": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 19,
+     "occupancy": 100
+    },
+    "gradient": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "gradient+mask": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "ramp gradient": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "ramp gradient+mask": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "relief": {
+     "shortest": 2.0,
+     "longest": 2.0,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "relief+mask": {
+     "shortest": 2.0,
+     "longest": 2.0,
+     "registers": 25,
+     "occupancy": 100
+    }
+   }
+  },
+  "Mali-G52": {
+   "whole": {
+    "shortest": 1.25,
+    "longest": 5.25,
+    "registers": 31,
+    "occupancy": 100
+   },
+   "paths": {
+    "glyph": {
+     "shortest": 0.5,
+     "longest": 0.5,
+     "registers": 18,
+     "occupancy": 100
+    },
+    "glyph+mask": {
+     "shortest": 0.5,
+     "longest": 1.5416666269302368,
+     "registers": 19,
+     "occupancy": 100
+    },
+    "shape": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 21,
+     "occupancy": 100
+    },
+    "shape+mask": {
+     "shortest": 1.75,
+     "longest": 2.3333332538604736,
+     "registers": 22,
+     "occupancy": 100
+    },
+    "shape with border": {
+     "shortest": 1.75,
+     "longest": 2.0,
+     "registers": 23,
+     "occupancy": 100
+    },
+    "shape with border+mask": {
+     "shortest": 1.75,
+     "longest": 3.200000047683716,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "shadow": {
+     "shortest": 2.0,
+     "longest": 2.0333333015441895,
+     "registers": 26,
+     "occupancy": 100
+    },
+    "shadow+mask": {
+     "shortest": 2.0,
+     "longest": 3.299999952316284,
+     "registers": 28,
+     "occupancy": 100
+    },
+    "inner shade": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 21,
+     "occupancy": 100
+    },
+    "inner shade+mask": {
+     "shortest": 1.75,
+     "longest": 2.3333332538604736,
+     "registers": 22,
+     "occupancy": 100
+    },
+    "gradient": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "gradient+mask": {
+     "shortest": 2.25,
+     "longest": 3.133333206176758,
+     "registers": 27,
+     "occupancy": 100
+    },
+    "ramp gradient": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "ramp gradient+mask": {
+     "shortest": 2.25,
+     "longest": 3.133333206176758,
+     "registers": 27,
+     "occupancy": 100
+    },
+    "relief": {
+     "shortest": 2.0,
+     "longest": 2.0,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "relief+mask": {
+     "shortest": 2.0,
+     "longest": 3.3333332538604736,
+     "registers": 26,
+     "occupancy": 100
+    }
+   }
+  }
+ },
+ "held": {
+  "Mali-G57": {
+   "whole": {
+    "shortest": 1.5,
+    "longest": 3.1500000953674316,
+    "registers": 30,
+    "occupancy": 100
+   },
+   "paths": {
+    "glyph": {
+     "shortest": 1.0,
+     "longest": 1.0,
+     "registers": 15,
+     "occupancy": 100
+    },
+    "glyph+mask": {
+     "shortest": 1.0,
+     "longest": 1.0,
+     "registers": 16,
+     "occupancy": 100
+    },
+    "shape": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 18,
+     "occupancy": 100
+    },
+    "shape+mask": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 19,
+     "occupancy": 100
+    },
+    "shape with border": {
+     "shortest": 1.75,
+     "longest": 2.0,
+     "registers": 17,
+     "occupancy": 100
+    },
+    "shape with border+mask": {
+     "shortest": 1.75,
+     "longest": 2.0,
+     "registers": 18,
+     "occupancy": 100
+    },
+    "shadow": {
+     "shortest": 2.0,
+     "longest": 2.0,
+     "registers": 24,
+     "occupancy": 100
+    },
+    "shadow+mask": {
+     "shortest": 2.0,
+     "longest": 2.0,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "inner shade": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 18,
+     "occupancy": 100
+    },
+    "inner shade+mask": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 19,
+     "occupancy": 100
+    },
+    "gradient": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "gradient+mask": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "ramp gradient": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "ramp gradient+mask": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "relief": {
+     "shortest": 2.0,
+     "longest": 2.0,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "relief+mask": {
+     "shortest": 2.0,
+     "longest": 2.0,
+     "registers": 25,
+     "occupancy": 100
+    }
+   }
+  },
+  "Mali-G52": {
+   "whole": {
+    "shortest": 1.75,
+    "longest": 5.25,
+    "registers": 31,
+    "occupancy": 100
+   },
+   "paths": {
+    "glyph": {
+     "shortest": 1.0,
+     "longest": 1.0,
+     "registers": 18,
+     "occupancy": 100
+    },
+    "glyph+mask": {
+     "shortest": 1.0,
+     "longest": 2.0,
+     "registers": 19,
+     "occupancy": 100
+    },
+    "shape": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 22,
+     "occupancy": 100
+    },
+    "shape+mask": {
+     "shortest": 1.75,
+     "longest": 2.3333332538604736,
+     "registers": 22,
+     "occupancy": 100
+    },
+    "shape with border": {
+     "shortest": 1.75,
+     "longest": 2.0,
+     "registers": 24,
+     "occupancy": 100
+    },
+    "shape with border+mask": {
+     "shortest": 1.75,
+     "longest": 3.1666667461395264,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "shadow": {
+     "shortest": 2.0,
+     "longest": 2.0333333015441895,
+     "registers": 28,
+     "occupancy": 100
+    },
+    "shadow+mask": {
+     "shortest": 2.0,
+     "longest": 3.3333332538604736,
+     "registers": 30,
+     "occupancy": 100
+    },
+    "inner shade": {
+     "shortest": 1.75,
+     "longest": 1.75,
+     "registers": 22,
+     "occupancy": 100
+    },
+    "inner shade+mask": {
+     "shortest": 1.75,
+     "longest": 2.3333332538604736,
+     "registers": 22,
+     "occupancy": 100
+    },
+    "gradient": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 28,
+     "occupancy": 100
+    },
+    "gradient+mask": {
+     "shortest": 2.25,
+     "longest": 3.1666667461395264,
+     "registers": 29,
+     "occupancy": 100
+    },
+    "ramp gradient": {
+     "shortest": 2.25,
+     "longest": 2.25,
+     "registers": 28,
+     "occupancy": 100
+    },
+    "ramp gradient+mask": {
+     "shortest": 2.25,
+     "longest": 3.1666667461395264,
+     "registers": 29,
+     "occupancy": 100
+    },
+    "relief": {
+     "shortest": 2.0,
+     "longest": 2.0,
+     "registers": 26,
+     "occupancy": 100
+    },
+    "relief+mask": {
+     "shortest": 2.0,
+     "longest": 3.3333332538604736,
+     "registers": 27,
+     "occupancy": 100
+    }
+   }
+  }
+ },
+ "full": {
+  "Mali-G57": {
+   "whole": {
+    "shortest": 2.0,
+    "longest": 4.25,
+    "registers": 47,
+    "occupancy": 50
+   },
+   "paths": {
+    "glyph": {
+     "shortest": 1.25,
+     "longest": 1.25,
+     "registers": 16,
+     "occupancy": 100
+    },
+    "glyph+mask": {
+     "shortest": 1.25,
+     "longest": 1.25,
+     "registers": 17,
+     "occupancy": 100
+    },
+    "shape": {
+     "shortest": 2.125,
+     "longest": 2.125,
+     "registers": 19,
+     "occupancy": 100
+    },
+    "shape+mask": {
+     "shortest": 2.125,
+     "longest": 2.125,
+     "registers": 20,
+     "occupancy": 100
+    },
+    "shape with border": {
+     "shortest": 2.125,
+     "longest": 2.625,
+     "registers": 23,
+     "occupancy": 100
+    },
+    "shape with border+mask": {
+     "shortest": 2.125,
+     "longest": 2.625,
+     "registers": 24,
+     "occupancy": 100
+    },
+    "shadow": {
+     "shortest": 2.625,
+     "longest": 2.625,
+     "registers": 26,
+     "occupancy": 100
+    },
+    "shadow+mask": {
+     "shortest": 2.625,
+     "longest": 2.625,
+     "registers": 27,
+     "occupancy": 100
+    },
+    "inner shade": {
+     "shortest": 3.0,
+     "longest": 3.0,
+     "registers": 29,
+     "occupancy": 100
+    },
+    "inner shade+mask": {
+     "shortest": 3.0,
+     "longest": 3.0,
+     "registers": 30,
+     "occupancy": 100
+    },
+    "gradient": {
+     "shortest": 3.0,
+     "longest": 3.0,
+     "registers": 27,
+     "occupancy": 100
+    },
+    "gradient+mask": {
+     "shortest": 3.0,
+     "longest": 3.0,
+     "registers": 28,
+     "occupancy": 100
+    },
+    "ramp gradient": {
+     "shortest": 2.5,
+     "longest": 2.5,
+     "registers": 30,
+     "occupancy": 100
+    },
+    "ramp gradient+mask": {
+     "shortest": 2.5,
+     "longest": 2.5,
+     "registers": 30,
+     "occupancy": 100
+    },
+    "relief": {
+     "shortest": 2.4375,
+     "longest": 3.5250000953674316,
+     "registers": 31,
+     "occupancy": 100
+    },
+    "relief+mask": {
+     "shortest": 2.4375,
+     "longest": 4.25,
+     "registers": 31,
+     "occupancy": 100
+    }
+   }
+  },
+  "Mali-G52": {
+   "whole": {
+    "shortest": 2.0,
+    "longest": 6.75,
+    "registers": 53,
+    "occupancy": 50
+   },
+   "paths": {
+    "glyph": {
+     "shortest": 1.25,
+     "longest": 1.25,
+     "registers": 18,
+     "occupancy": 100
+    },
+    "glyph+mask": {
+     "shortest": 1.25,
+     "longest": 2.0,
+     "registers": 19,
+     "occupancy": 100
+    },
+    "shape": {
+     "shortest": 2.125,
+     "longest": 2.125,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "shape+mask": {
+     "shortest": 2.125,
+     "longest": 2.3333332538604736,
+     "registers": 25,
+     "occupancy": 100
+    },
+    "shape with border": {
+     "shortest": 2.125,
+     "longest": 2.625,
+     "registers": 28,
+     "occupancy": 100
+    },
+    "shape with border+mask": {
+     "shortest": 2.125,
+     "longest": 3.200000047683716,
+     "registers": 28,
+     "occupancy": 100
+    },
+    "shadow": {
+     "shortest": 2.625,
+     "longest": 2.625,
+     "registers": 31,
+     "occupancy": 100
+    },
+    "shadow+mask": {
+     "shortest": 2.625,
+     "longest": 3.25,
+     "registers": 30,
+     "occupancy": 100
+    },
+    "inner shade": {
+     "shortest": 3.0,
+     "longest": 3.0,
+     "registers": 37,
+     "occupancy": 50
+    },
+    "inner shade+mask": {
+     "shortest": 3.0,
+     "longest": 3.6666667461395264,
+     "registers": 39,
+     "occupancy": 50
+    },
+    "gradient": {
+     "shortest": 3.0,
+     "longest": 3.0,
+     "registers": 34,
+     "occupancy": 50
+    },
+    "gradient+mask": {
+     "shortest": 3.0,
+     "longest": 3.0833332538604736,
+     "registers": 35,
+     "occupancy": 50
+    },
+    "ramp gradient": {
+     "shortest": 2.5,
+     "longest": 2.5,
+     "registers": 28,
+     "occupancy": 100
+    },
+    "ramp gradient+mask": {
+     "shortest": 2.5,
+     "longest": 2.700000047683716,
+     "registers": 29,
+     "occupancy": 100
+    },
+    "relief": {
+     "shortest": 3.4166667461395264,
+     "longest": 4.9666666984558105,
+     "registers": 31,
+     "occupancy": 100
+    },
+    "relief+mask": {
+     "shortest": 3.4166667461395264,
+     "longest": 6.166666507720947,
+     "registers": 31,
+     "occupancy": 100
+    }
+   }
+  }
+ }
+}

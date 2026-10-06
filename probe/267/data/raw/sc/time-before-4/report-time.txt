@@ -1,0 +1,86 @@
+renderer NVIDIA GeForce RTX 2070 SUPER/PCIe/SSE2, 4.6.0 NVIDIA 595.91.07, window 1080x2400
+== showcase-home-still: 600 frames
+thread cpu: mean 0.429 median 0.344 p90 0.636 max 3.869 ms
+allocated: mean 51.304 median 51.273 p90 51.273 max 53.461 KB
+wall: mean 0.440 median 0.353 p90 0.638 max 3.863 ms
+
+== showcase-widgets-still: 600 frames
+thread cpu: mean 0.559 median 0.461 p90 0.988 max 2.149 ms
+allocated: mean 63.870 median 63.836 p90 63.875 max 64.500 KB
+wall: mean 0.565 median 0.465 p90 0.994 max 2.604 ms
+
+== showcase-game-still: 600 frames
+thread cpu: mean 0.352 median 0.282 p90 0.429 max 3.996 ms
+allocated: mean 141.769 median 141.727 p90 141.727 max 142.828 KB
+wall: mean 0.357 median 0.288 p90 0.435 max 4.004 ms
+
+== showcase-hud-still: 600 frames
+thread cpu: mean 0.474 median 0.393 p90 0.702 max 3.601 ms
+allocated: mean 128.164 median 128.133 p90 128.133 max 129.305 KB
+wall: mean 0.482 median 0.399 p90 0.712 max 3.608 ms
+
+== showcase-gear-still: 600 frames
+thread cpu: mean 0.334 median 0.266 p90 0.500 max 2.101 ms
+allocated: mean 51.774 median 51.406 p90 52.516 max 63.484 KB
+wall: mean 0.352 median 0.272 p90 0.516 max 7.833 ms
+
+== showcase-effects-still: 600 frames
+thread cpu: mean 0.548 median 0.445 p90 0.928 max 2.228 ms
+allocated: mean 67.496 median 67.445 p90 67.539 max 68.336 KB
+wall: mean 0.556 median 0.452 p90 0.933 max 2.235 ms
+
+== showcase-surfaces-still: 600 frames
+thread cpu: mean 0.497 median 0.501 p90 0.788 max 1.817 ms
+allocated: mean 37.751 median 37.672 p90 37.805 max 39.023 KB
+wall: mean 0.502 median 0.503 p90 0.793 max 1.851 ms
+
+== showcase-text-still: 600 frames
+thread cpu: mean 0.284 median 0.224 p90 0.477 max 2.269 ms
+allocated: mean 49.960 median 49.922 p90 49.922 max 50.695 KB
+wall: mean 0.297 median 0.230 p90 0.480 max 5.736 ms
+
+== showcase-home-animated: 600 frames
+thread cpu: mean 0.387 median 0.310 p90 0.667 max 3.087 ms
+allocated: mean 54.154 median 55.008 p90 56.734 max 94.898 KB
+wall: mean 0.397 median 0.317 p90 0.669 max 4.969 ms
+
+== showcase-game-animated: 600 frames
+thread cpu: mean 0.348 median 0.300 p90 0.500 max 1.354 ms
+allocated: mean 144.378 median 144.328 p90 144.328 max 145.508 KB
+wall: mean 0.362 median 0.305 p90 0.510 max 5.195 ms
+
+== showcase-animation-animated: 600 frames
+thread cpu: mean 0.405 median 0.361 p90 0.623 max 1.596 ms
+allocated: mean 54.082 median 53.609 p90 55.773 max 56.430 KB
+wall: mean 0.411 median 0.366 p90 0.627 max 1.603 ms
+
+== showcase-effects-animated: 600 frames
+thread cpu: mean 0.549 median 0.457 p90 0.836 max 4.374 ms
+allocated: mean 67.502 median 67.445 p90 67.578 max 68.336 KB
+wall: mean 0.560 median 0.462 p90 0.843 max 6.681 ms
+
+== showcase-surfaces-animated: 600 frames
+thread cpu: mean 0.491 median 0.430 p90 0.856 max 1.608 ms
+allocated: mean 37.739 median 37.672 p90 37.672 max 39.023 KB
+wall: mean 0.522 median 0.434 p90 0.861 max 6.278 ms
+
+== showcase-widgets-scroll: 600 frames
+thread cpu: mean 0.791 median 0.734 p90 1.257 max 3.574 ms
+allocated: mean 68.683 median 67.758 p90 68.883 max 103.898 KB
+wall: mean 0.802 median 0.738 p90 1.285 max 3.597 ms
+
+== showcase-gear-scroll: 600 frames
+thread cpu: mean 0.864 median 0.826 p90 1.329 max 3.697 ms
+allocated: mean 59.200 median 61.273 p90 64.617 max 72.063 KB
+wall: mean 0.884 median 0.837 p90 1.339 max 6.584 ms
+
+== snake-menu: 600 frames
+thread cpu: mean 0.209 median 0.186 p90 0.348 max 0.816 ms
+allocated: mean 14.391 median 14.391 p90 14.391 max 14.430 KB
+wall: mean 0.229 median 0.191 p90 0.359 max 3.815 ms
+
+== snake-playing: 600 frames
+thread cpu: mean 0.080 median 0.052 p90 0.141 max 0.719 ms
+allocated: mean 7.674 median 7.633 p90 7.883 max 7.953 KB
+wall: mean 0.086 median 0.057 p90 0.148 max 0.751 ms
+

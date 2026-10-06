@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration version="2.0" label="cpu-1ms">
+  <event name="jdk.ExecutionSample"><setting name="enabled">true</setting><setting name="period">1 ms</setting></event>
+</configuration>

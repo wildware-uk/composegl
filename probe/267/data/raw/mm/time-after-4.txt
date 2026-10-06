@@ -1,0 +1,24 @@
+== board-still: 225 frames
+thread cpu: mean 1.441 median 1.152 p90 2.502 max 3.437 ms
+allocated: mean 44.870 median 43.875 p90 44.492 max 59.086 KB
+wall: mean 5.720 median 5.491 p90 6.651 max 17.109 ms
+== board-still (UiRenderer.render only): 225 frames
+thread cpu: mean 0.391 median 0.292 p90 0.723 max 1.106 ms
+allocated: mean 6.607 median 6.563 p90 6.602 max 7.695 KB
+wall: mean 0.000 median 0.000 p90 0.000 max 0.000 ms
+== draft-dealing: 136 frames
+thread cpu: mean 2.901 median 2.290 p90 4.017 max 35.457 ms
+allocated: mean 289.613 median 245.625 p90 304.578 max 5193.469 KB
+wall: mean 6.984 median 6.460 p90 8.167 max 35.721 ms
+== draft-dealing (UiRenderer.render only): 136 frames
+thread cpu: mean 1.512 median 1.026 p90 2.110 max 33.216 ms
+allocated: mean 75.173 median 32.016 p90 83.133 max 4979.180 KB
+wall: mean 0.000 median 0.000 p90 0.000 max 0.000 ms
+== draft-open: 225 frames
+thread cpu: mean 1.701 median 1.733 p90 2.221 max 3.117 ms
+allocated: mean 225.412 median 225.344 p90 225.563 max 227.875 KB
+wall: mean 6.078 median 6.009 p90 6.721 max 7.839 ms
+== draft-open (UiRenderer.render only): 225 frames
+thread cpu: mean 0.526 median 0.507 p90 0.702 max 1.237 ms
+allocated: mean 11.943 median 11.867 p90 11.867 max 14.266 KB
+wall: mean 0.000 median 0.000 p90 0.000 max 0.000 ms

@@ -1,0 +1,2530 @@
+{
+ "count": {
+  "before": {
+   "showcase-home-still": {
+    "kinds": {
+     "shape": 3753554,
+     "shape with border": 657290,
+     "picture or glyph": 255125
+    },
+    "calls": 135,
+    "draws": 3,
+    "offdraws": 0,
+    "vb": 623968,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 4665969,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 255125,
+     "common/shape": 3753554,
+     "common/shape with border": 657290
+    }
+   },
+   "showcase-widgets-still": {
+    "kinds": {
+     "shape": 4703977,
+     "shape with border": 1992050,
+     "picture or glyph": 156241
+    },
+    "calls": 249,
+    "draws": 6,
+    "offdraws": 0,
+    "vb": 551552,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 6852268,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 156241,
+     "common/shape": 4703977,
+     "common/shape with border": 1992050
+    }
+   },
+   "showcase-game-still": {
+    "kinds": {
+     "shape": 4882761,
+     "shape with border": 2042670,
+     "picture or glyph": 193702
+    },
+    "calls": 581,
+    "draws": 16,
+    "offdraws": 0,
+    "vb": 487072,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 7119133,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 193702,
+     "common/shape": 4882761,
+     "common/shape with border": 2042670
+    }
+   },
+   "showcase-hud-still": {
+    "kinds": {
+     "shape": 5552937,
+     "shape with border": 1978095,
+     "picture or glyph": 161013
+    },
+    "calls": 245,
+    "draws": 6,
+    "offdraws": 0,
+    "vb": 558992,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 7692045,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 161013,
+     "common/shape": 5552937,
+     "common/shape with border": 1978095
+    }
+   },
+   "showcase-gear-still": {
+    "kinds": {
+     "shape": 4768062,
+     "shape with border": 2104707,
+     "picture or glyph": 173967
+    },
+    "calls": 173,
+    "draws": 4,
+    "offdraws": 0,
+    "vb": 517824,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 7046736,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 173967,
+     "common/shape": 4768062,
+     "common/shape with border": 2104707
+    }
+   },
+   "showcase-effects-still": {
+    "kinds": {
+     "shape": 5055949,
+     "shape with border": 1990055,
+     "effect": 156249,
+     "picture or glyph": 140644,
+     "gradient": 100116,
+     "layer picture": 95204,
+     "shadow": 67547
+    },
+    "calls": 1224,
+    "draws": 33,
+    "offdraws": 10,
+    "vb": 665264,
+    "pics": 5,
+    "picarea": 438148,
+    "fbmade": 0,
+    "host": 6866923,
+    "pic": 738841,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/gradient": 100116,
+     "common/layer picture": 95204,
+     "common/picture or glyph": 140644,
+     "common/shadow": 67547,
+     "common/shape": 5055949,
+     "common/shape with border": 1990055,
+     "effect/effect": 156249
+    }
+   },
+   "showcase-surfaces-still": {
+    "kinds": {
+     "shape": 4450660,
+     "shape with border": 2113157,
+     "relief": 273296,
+     "picture or glyph": 112133
+    },
+    "calls": 1019,
+    "draws": 29,
+    "offdraws": 0,
+    "vb": 378448,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 6949246,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 112133,
+     "common/relief": 273296,
+     "common/shape": 4450660,
+     "common/shape with border": 2113157
+    }
+   },
+   "showcase-text-still": {
+    "kinds": {
+     "shape": 4503518,
+     "shape with border": 1836779,
+     "picture or glyph": 220857
+    },
+    "calls": 449,
+    "draws": 12,
+    "offdraws": 0,
+    "vb": 559984,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 6561154,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 220857,
+     "common/shape": 4503518,
+     "common/shape with border": 1836779
+    }
+   },
+   "showcase-home-animated": {
+    "kinds": {
+     "shape": 3748602,
+     "shape with border": 657290,
+     "picture or glyph": 255048
+    },
+    "calls": 135,
+    "draws": 3,
+    "offdraws": 0,
+    "vb": 623968,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 4660922,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 255048,
+     "common/shape": 3748602,
+     "common/shape with border": 657290
+    }
+   },
+   "showcase-game-animated": {
+    "kinds": {
+     "shape": 4882761,
+     "shape with border": 2042670,
+     "picture or glyph": 193702
+    },
+    "calls": 581,
+    "draws": 16,
+    "offdraws": 0,
+    "vb": 487072,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 7119133,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 193702,
+     "common/shape": 4882761,
+     "common/shape with border": 2042670
+    }
+   },
+   "showcase-animation-animated": {
+    "kinds": {
+     "shape": 5362165,
+     "shape with border": 2369128,
+     "picture or glyph": 146009
+    },
+    "calls": 458,
+    "draws": 12,
+    "offdraws": 1,
+    "vb": 576352,
+    "pics": 1,
+    "picarea": 310986,
+    "fbmade": 0,
+    "host": 7538401,
+    "pic": 338901,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 146009,
+     "common/shape": 5362165,
+     "common/shape with border": 2369128
+    }
+   },
+   "showcase-effects-animated": {
+    "kinds": {
+     "shape": 5055949,
+     "shape with border": 1990055,
+     "effect": 156249,
+     "picture or glyph": 140644,
+     "gradient": 100116,
+     "layer picture": 95204,
+     "shadow": 67547
+    },
+    "calls": 1224,
+    "draws": 33,
+    "offdraws": 10,
+    "vb": 665264,
+    "pics": 5,
+    "picarea": 438148,
+    "fbmade": 0,
+    "host": 6866923,
+    "pic": 738841,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/gradient": 100116,
+     "common/layer picture": 95204,
+     "common/picture or glyph": 140644,
+     "common/shadow": 67547,
+     "common/shape": 5055949,
+     "common/shape with border": 1990055,
+     "effect/effect": 156249
+    }
+   },
+   "showcase-surfaces-animated": {
+    "kinds": {
+     "shape": 4450660,
+     "shape with border": 2113157,
+     "relief": 273296,
+     "picture or glyph": 112133
+    },
+    "calls": 1019,
+    "draws": 29,
+    "offdraws": 0,
+    "vb": 378448,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 6949246,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 112133,
+     "common/relief": 273296,
+     "common/shape": 4450660,
+     "common/shape with border": 2113157
+    }
+   },
+   "showcase-widgets-scroll": {
+    "kinds": {
+     "shape": 5014164,
+     "shape with border": 2302204,
+     "picture or glyph": 147581
+    },
+    "calls": 283,
+    "draws": 7,
+    "offdraws": 0,
+    "vb": 555520,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 7458662,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 147581,
+     "common/shape": 5014164,
+     "common/shape with border": 2302204
+    }
+   },
+   "showcase-gear-scroll": {
+    "kinds": {
+     "shape": 5042146,
+     "shape with border": 2369150,
+     "picture or glyph": 139688
+    },
+    "calls": 207,
+    "draws": 5,
+    "offdraws": 0,
+    "vb": 532704,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 7556281,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 139688,
+     "common/shape": 5042146,
+     "common/shape with border": 2369150
+    }
+   },
+   "snake-menu": {
+    "kinds": {
+     "shape": 3989666,
+     "shape with border": 1745224,
+     "picture or glyph": 20163
+    },
+    "calls": 204,
+    "draws": 5,
+    "offdraws": 0,
+    "vb": 107136,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 5755053,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 20163,
+     "common/shape": 3989666,
+     "common/shape with border": 1745224
+    }
+   },
+   "snake-playing": {
+    "kinds": {
+     "shape": 1586588,
+     "shape with border": 1424842,
+     "picture or glyph": 8976
+    },
+    "calls": 61,
+    "draws": 1,
+    "offdraws": 0,
+    "vb": 56544,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 3020406,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 8976,
+     "common/shape": 1586588,
+     "common/shape with border": 1424842
+    }
+   },
+   "megamerge-board-still": {
+    "kinds": {
+     "layer picture": 301532,
+     "picture or glyph": 287053,
+     "inner shade": 283172,
+     "shadow": 276574,
+     "shape": 1472
+    },
+    "calls": 1762,
+    "draws": 39,
+    "offdraws": 6,
+    "vb": 236096,
+    "pics": 5,
+    "picarea": 2100366,
+    "fbmade": 0,
+    "host": 895644,
+    "pic": 254159,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/inner shade": 283172,
+     "common/layer picture": 301532,
+     "common/picture or glyph": 287053,
+     "common/shadow": 276574,
+     "common/shape": 1472
+    }
+   },
+   "megamerge-draft-dealing": {
+    "kinds": {
+     "shape": 6407479,
+     "layer picture": 2588370,
+     "shape with border": 1987617,
+     "picture or glyph": 1329723,
+     "gradient": 332852,
+     "inner shade": 0,
+     "shadow": 0
+    },
+    "calls": 2738,
+    "draws": 59,
+    "offdraws": 44,
+    "vb": 315456,
+    "pics": 6,
+    "picarea": 1311534,
+    "fbmade": 0,
+    "host": 1873190,
+    "pic": 10772851,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/gradient": 332852,
+     "common/inner shade": 0,
+     "common/layer picture": 2588370,
+     "common/picture or glyph": 1329723,
+     "common/shadow": 0,
+     "common/shape": 6407479,
+     "common/shape with border": 1987617
+    }
+   },
+   "megamerge-draft-open": {
+    "kinds": {
+     "shape": 7096908,
+     "layer picture": 2865727,
+     "picture or glyph": 749267,
+     "shadow": 110955,
+     "inner shade": 94374,
+     "shape with border": 2207
+    },
+    "calls": 4278,
+    "draws": 92,
+    "offdraws": 63,
+    "vb": 619504,
+    "pics": 8,
+    "picarea": 888766,
+    "fbmade": 0,
+    "host": 2553247,
+    "pic": 8366191,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/inner shade": 94374,
+     "common/layer picture": 2865727,
+     "common/picture or glyph": 749267,
+     "common/shadow": 110955,
+     "common/shape": 7096908,
+     "common/shape with border": 2207
+    }
+   }
+  },
+  "after": {
+   "showcase-home-still": {
+    "kinds": {
+     "picture or glyph": 3837986,
+     "shape": 170670,
+     "shape with border": 117771
+    },
+    "calls": 41,
+    "draws": 3,
+    "offdraws": 0,
+    "vb": 306240,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 4126427,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 3837986,
+     "common/shape": 170670,
+     "common/shape with border": 117771
+    }
+   },
+   "showcase-widgets-still": {
+    "kinds": {
+     "picture or glyph": 4631983,
+     "shape": 228203,
+     "shape with border": 202551
+    },
+    "calls": 41,
+    "draws": 3,
+    "offdraws": 0,
+    "vb": 226688,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 5062737,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 4631983,
+     "common/shape": 228203,
+     "common/shape with border": 202551
+    }
+   },
+   "showcase-game-still": {
+    "kinds": {
+     "picture or glyph": 4805006,
+     "shape": 271419,
+     "shape with border": 209566
+    },
+    "calls": 77,
+    "draws": 15,
+    "offdraws": 0,
+    "vb": 244288,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 5285991,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 4805006,
+     "common/shape": 271419,
+     "common/shape with border": 209566
+    }
+   },
+   "showcase-hud-still": {
+    "kinds": {
+     "picture or glyph": 5533702,
+     "shape": 180230,
+     "shape with border": 105377
+    },
+    "calls": 49,
+    "draws": 5,
+    "offdraws": 0,
+    "vb": 224224,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 5819309,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 5533702,
+     "common/shape": 180230,
+     "common/shape with border": 105377
+    }
+   },
+   "showcase-gear-still": {
+    "kinds": {
+     "picture or glyph": 4780640,
+     "shape": 161332,
+     "shape with border": 157670
+    },
+    "calls": 41,
+    "draws": 3,
+    "offdraws": 0,
+    "vb": 265760,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 5099642,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 4780640,
+     "common/shape": 161332,
+     "common/shape with border": 157670
+    }
+   },
+   "showcase-effects-still": {
+    "kinds": {
+     "picture or glyph": 4784489,
+     "shape": 209521,
+     "shape with border": 184534,
+     "gradient": 100116,
+     "shadow": 67547,
+     "layer picture": 40112
+    },
+    "calls": 172,
+    "draws": 20,
+    "offdraws": 5,
+    "vb": 215776,
+    "pics": 2,
+    "picarea": 86016,
+    "fbmade": 0,
+    "host": 5181524,
+    "pic": 204795,
+    "masked": 64778,
+    "screen": 2592000,
+    "pk": {
+     "common/gradient": 100116,
+     "common/picture or glyph": 4723811,
+     "common/picture or glyph+mask": 60678,
+     "common/shadow": 67547,
+     "common/shape": 205421,
+     "common/shape with border": 184534,
+     "common/shape+mask": 4100,
+     "held/layer picture": 40112
+    }
+   },
+   "showcase-surfaces-still": {
+    "kinds": {
+     "picture or glyph": 4407786,
+     "relief": 273296,
+     "shape with border": 272204,
+     "shape": 154994
+    },
+    "calls": 105,
+    "draws": 19,
+    "offdraws": 0,
+    "vb": 160864,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 5108280,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 4407786,
+     "common/shape": 154994,
+     "common/shape with border": 272204,
+     "full/relief": 273296
+    }
+   },
+   "showcase-text-still": {
+    "kinds": {
+     "picture or glyph": 4566212,
+     "shape": 158149,
+     "shape with border": 143240
+    },
+    "calls": 49,
+    "draws": 5,
+    "offdraws": 0,
+    "vb": 239360,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 4867601,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 4566212,
+     "common/shape": 158149,
+     "common/shape with border": 143240
+    }
+   },
+   "showcase-home-animated": {
+    "kinds": {
+     "picture or glyph": 3834333,
+     "shape": 170030,
+     "shape with border": 117771
+    },
+    "calls": 41,
+    "draws": 3,
+    "offdraws": 0,
+    "vb": 306240,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 4121380,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 3834333,
+     "common/shape": 170030,
+     "common/shape with border": 117771
+    }
+   },
+   "showcase-game-animated": {
+    "kinds": {
+     "picture or glyph": 4805006,
+     "shape": 271419,
+     "shape with border": 209566
+    },
+    "calls": 77,
+    "draws": 15,
+    "offdraws": 0,
+    "vb": 244288,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 5285991,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 4805006,
+     "common/shape": 271419,
+     "common/shape with border": 209566
+    }
+   },
+   "showcase-animation-animated": {
+    "kinds": {
+     "picture or glyph": 4965849,
+     "shape with border": 203943,
+     "shape": 203398
+    },
+    "calls": 49,
+    "draws": 5,
+    "offdraws": 0,
+    "vb": 185152,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 5373190,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 4965849,
+     "common/shape": 203398,
+     "common/shape with border": 203943
+    }
+   },
+   "showcase-effects-animated": {
+    "kinds": {
+     "picture or glyph": 4784489,
+     "shape": 209521,
+     "shape with border": 184534,
+     "gradient": 100116,
+     "shadow": 67547,
+     "layer picture": 40112
+    },
+    "calls": 172,
+    "draws": 20,
+    "offdraws": 5,
+    "vb": 215776,
+    "pics": 2,
+    "picarea": 86016,
+    "fbmade": 0,
+    "host": 5181524,
+    "pic": 204795,
+    "masked": 64778,
+    "screen": 2592000,
+    "pk": {
+     "common/gradient": 100116,
+     "common/picture or glyph": 4723811,
+     "common/picture or glyph+mask": 60678,
+     "common/shadow": 67547,
+     "common/shape": 205421,
+     "common/shape with border": 184534,
+     "common/shape+mask": 4100,
+     "held/layer picture": 40112
+    }
+   },
+   "showcase-surfaces-animated": {
+    "kinds": {
+     "picture or glyph": 4407786,
+     "relief": 273296,
+     "shape with border": 272204,
+     "shape": 154994
+    },
+    "calls": 105,
+    "draws": 19,
+    "offdraws": 0,
+    "vb": 160864,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 5108280,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 4407786,
+     "common/shape": 154994,
+     "common/shape with border": 272204,
+     "full/relief": 273296
+    }
+   },
+   "showcase-widgets-scroll": {
+    "kinds": {
+     "picture or glyph": 4900570,
+     "shape": 245930,
+     "shape with border": 224808
+    },
+    "calls": 49,
+    "draws": 5,
+    "offdraws": 0,
+    "vb": 209440,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 5391367,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 4900570,
+     "common/shape": 245930,
+     "common/shape with border": 224808
+    }
+   },
+   "showcase-gear-scroll": {
+    "kinds": {
+     "picture or glyph": 5007111,
+     "shape": 185136,
+     "shape with border": 183742
+    },
+    "calls": 49,
+    "draws": 5,
+    "offdraws": 0,
+    "vb": 252736,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 5364351,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 5007111,
+     "common/shape": 185136,
+     "common/shape with border": 183742
+    }
+   },
+   "snake-menu": {
+    "kinds": {
+     "picture or glyph": 3760924,
+     "shape": 248893,
+     "shape with border": 87513
+    },
+    "calls": 48,
+    "draws": 5,
+    "offdraws": 0,
+    "vb": 89760,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 4097330,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 3760924,
+     "common/shape": 248893,
+     "common/shape with border": 87513
+    }
+   },
+   "snake-playing": {
+    "kinds": {
+     "picture or glyph": 1403184,
+     "shape": 192374,
+     "shape with border": 43165
+    },
+    "calls": 31,
+    "draws": 1,
+    "offdraws": 0,
+    "vb": 47520,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 1638723,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 1403184,
+     "common/shape": 192374,
+     "common/shape with border": 43165
+    }
+   },
+   "megamerge-board-still": {
+    "kinds": {
+     "inner shade": 283172,
+     "shadow": 276574,
+     "picture or glyph": 104643,
+     "shape": 1472
+    },
+    "calls": 197,
+    "draws": 29,
+    "offdraws": 0,
+    "vb": 89408,
+    "pics": 0,
+    "picarea": 0,
+    "fbmade": 0,
+    "host": 665861,
+    "pic": 0,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 104643,
+     "common/shadow": 276574,
+     "common/shape": 1472,
+     "full/inner shade": 283172
+    }
+   },
+   "megamerge-draft-dealing": {
+    "kinds": {
+     "picture or glyph": 4586949,
+     "layer picture": 551309,
+     "shape": 354714,
+     "gradient": 209392,
+     "shape with border": 124457,
+     "inner shade": 0,
+     "shadow": 0
+    },
+    "calls": 540,
+    "draws": 48,
+    "offdraws": 14,
+    "vb": 271392,
+    "pics": 2,
+    "picarea": 487424,
+    "fbmade": 0,
+    "host": 4113274,
+    "pic": 1741354,
+    "masked": 0,
+    "screen": 2592000,
+    "pk": {
+     "common/gradient": 209392,
+     "common/picture or glyph": 4586949,
+     "common/picture or glyph+mask": 0,
+     "common/shadow": 0,
+     "common/shape": 354714,
+     "common/shape with border": 124457,
+     "full/inner shade": 0,
+     "held/layer picture": 551309
+    }
+   },
+   "megamerge-draft-open": {
+    "kinds": {
+     "picture or glyph": 4524625,
+     "shape": 404608,
+     "layer picture": 303435,
+     "shadow": 110955,
+     "inner shade": 94374,
+     "shape with border": 2207
+    },
+    "calls": 738,
+    "draws": 77,
+    "offdraws": 13,
+    "vb": 436128,
+    "pics": 4,
+    "picarea": 159744,
+    "fbmade": 0,
+    "host": 5275733,
+    "pic": 164471,
+    "masked": 71946,
+    "screen": 2592000,
+    "pk": {
+     "common/picture or glyph": 4452679,
+     "common/picture or glyph+mask": 71946,
+     "common/shadow": 110955,
+     "common/shape": 404608,
+     "common/shape with border": 2207,
+     "full/inner shade": 94374,
+     "held/layer picture": 303435
+    }
+   }
+  }
+ },
+ "times": {
+  "before": [
+   {
+    "showcase-hud-still": {
+     "cpu_med": 0.456219,
+     "cpu_p10": 0.35402,
+     "cpu_mean": 0.54600061,
+     "kb": 128.17100260416666,
+     "frames": 600
+    },
+    "showcase-home-animated": {
+     "cpu_med": 0.299869,
+     "cpu_p10": 0.21082,
+     "cpu_mean": 0.3731306816666667,
+     "kb": 54.151080729166665,
+     "frames": 600
+    },
+    "showcase-surfaces-still": {
+     "cpu_med": 0.23622,
+     "cpu_p10": 0.19641,
+     "cpu_mean": 0.28815358500000005,
+     "kb": 37.743723958333334,
+     "frames": 600
+    },
+    "showcase-text-still": {
+     "cpu_med": 0.22956,
+     "cpu_p10": 0.21245,
+     "cpu_mean": 0.273220105,
+     "kb": 49.954075520833335,
+     "frames": 600
+    },
+    "showcase-game-animated": {
+     "cpu_med": 0.332499,
+     "cpu_p10": 0.29751,
+     "cpu_mean": 0.40463275666666665,
+     "kb": 144.37317708333333,
+     "frames": 600
+    },
+    "snake-menu": {
+     "cpu_med": 0.24499,
+     "cpu_p10": 0.08144,
+     "cpu_mean": 0.270505545,
+     "kb": 14.390885416666666,
+     "frames": 600
+    },
+    "showcase-home-still": {
+     "cpu_med": 0.31733,
+     "cpu_p10": 0.26457,
+     "cpu_mean": 0.3650676666666667,
+     "kb": 51.30104166666667,
+     "frames": 600
+    },
+    "showcase-surfaces-animated": {
+     "cpu_med": 0.26623,
+     "cpu_p10": 0.20193,
+     "cpu_mean": 0.32112495166666666,
+     "kb": 37.731510416666666,
+     "frames": 600
+    },
+    "showcase-animation-animated": {
+     "cpu_med": 0.2649,
+     "cpu_p10": 0.24167,
+     "cpu_mean": 0.30984825666666665,
+     "kb": 54.08248697916667,
+     "frames": 600
+    },
+    "showcase-widgets-still": {
+     "cpu_med": 0.36458,
+     "cpu_p10": 0.2897,
+     "cpu_mean": 0.43257009166666666,
+     "kb": 63.86740885416667,
+     "frames": 600
+    },
+    "showcase-game-still": {
+     "cpu_med": 0.345399,
+     "cpu_p10": 0.26792,
+     "cpu_mean": 0.3970175083333334,
+     "kb": 141.76971354166668,
+     "frames": 600
+    },
+    "showcase-effects-still": {
+     "cpu_med": 0.4347,
+     "cpu_p10": 0.34247,
+     "cpu_mean": 0.5473954766666667,
+     "kb": 67.49453125,
+     "frames": 600
+    },
+    "snake-playing": {
+     "cpu_med": 0.078458,
+     "cpu_p10": 0.03985,
+     "cpu_mean": 0.10588482333333334,
+     "kb": 7.673723958333333,
+     "frames": 600
+    },
+    "showcase-gear-still": {
+     "cpu_med": 0.322751,
+     "cpu_p10": 0.23357,
+     "cpu_mean": 0.39065310666666664,
+     "kb": 51.7744921875,
+     "frames": 600
+    },
+    "showcase-effects-animated": {
+     "cpu_med": 0.36316,
+     "cpu_p10": 0.31372,
+     "cpu_mean": 0.5022261683333333,
+     "kb": 67.5036328125,
+     "frames": 600
+    },
+    "showcase-gear-scroll": {
+     "cpu_med": 0.40278,
+     "cpu_p10": 0.3528,
+     "cpu_mean": 0.46663419833333336,
+     "kb": 62.746067708333335,
+     "frames": 600
+    },
+    "showcase-widgets-scroll": {
+     "cpu_med": 0.50101,
+     "cpu_p10": 0.41882,
+     "cpu_mean": 0.5577488866666667,
+     "kb": 79.36671875,
+     "frames": 600
+    },
+    "megamerge-board-still": {
+     "cpu_med": 2.024359,
+     "cpu_p10": 1.02699,
+     "cpu_mean": 2.9941499688888893,
+     "kb": 74.06649305555555,
+     "frames": 225
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 8.216558,
+     "cpu_p10": 6.773909,
+     "cpu_mean": 8.867967720588235,
+     "kb": 330.5719209558824,
+     "frames": 136
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 6.538518,
+     "cpu_p10": 5.671469,
+     "cpu_mean": 7.1241044844444446,
+     "kb": 298.85489583333333,
+     "frames": 225
+    }
+   },
+   {
+    "showcase-hud-still": {
+     "cpu_med": 0.35176,
+     "cpu_p10": 0.32763,
+     "cpu_mean": 0.41986781500000003,
+     "kb": 128.16438802083334,
+     "frames": 600
+    },
+    "showcase-home-animated": {
+     "cpu_med": 0.39236,
+     "cpu_p10": 0.21676,
+     "cpu_mean": 0.5052317599999999,
+     "kb": 54.151653645833335,
+     "frames": 600
+    },
+    "showcase-surfaces-still": {
+     "cpu_med": 0.20765,
+     "cpu_p10": 0.18954,
+     "cpu_mean": 0.236533925,
+     "kb": 37.73135416666667,
+     "frames": 600
+    },
+    "showcase-text-still": {
+     "cpu_med": 0.27535,
+     "cpu_p10": 0.21398,
+     "cpu_mean": 0.33052812,
+     "kb": 49.95841145833333,
+     "frames": 600
+    },
+    "showcase-game-animated": {
+     "cpu_med": 0.59562,
+     "cpu_p10": 0.37548,
+     "cpu_mean": 0.6603422266666666,
+     "kb": 144.381328125,
+     "frames": 600
+    },
+    "snake-menu": {
+     "cpu_med": 0.09322,
+     "cpu_p10": 0.07272,
+     "cpu_mean": 0.15813716,
+     "kb": 14.39125,
+     "frames": 600
+    },
+    "showcase-home-still": {
+     "cpu_med": 0.31627,
+     "cpu_p10": 0.2719,
+     "cpu_mean": 0.40773404,
+     "kb": 51.304622395833334,
+     "frames": 600
+    },
+    "showcase-surfaces-animated": {
+     "cpu_med": 0.20034,
+     "cpu_p10": 0.18446,
+     "cpu_mean": 0.232978225,
+     "kb": 37.721614583333334,
+     "frames": 600
+    },
+    "showcase-animation-animated": {
+     "cpu_med": 0.44724,
+     "cpu_p10": 0.23926,
+     "cpu_mean": 0.5407616683333333,
+     "kb": 54.091510416666665,
+     "frames": 600
+    },
+    "showcase-widgets-still": {
+     "cpu_med": 0.303279,
+     "cpu_p10": 0.27133,
+     "cpu_mean": 0.3542871666666667,
+     "kb": 63.867265625,
+     "frames": 600
+    },
+    "showcase-game-still": {
+     "cpu_med": 0.266991,
+     "cpu_p10": 0.25284,
+     "cpu_mean": 0.2906989683333333,
+     "kb": 141.77342447916666,
+     "frames": 600
+    },
+    "showcase-effects-still": {
+     "cpu_med": 0.53641,
+     "cpu_p10": 0.35855,
+     "cpu_mean": 0.6237308766666666,
+     "kb": 67.49274739583333,
+     "frames": 600
+    },
+    "snake-playing": {
+     "cpu_med": 0.06299,
+     "cpu_p10": 0.04036,
+     "cpu_mean": 0.10845502166666666,
+     "kb": 7.673723958333333,
+     "frames": 600
+    },
+    "showcase-gear-still": {
+     "cpu_med": 0.32607,
+     "cpu_p10": 0.22307,
+     "cpu_mean": 0.41195523666666667,
+     "kb": 51.77127604166667,
+     "frames": 600
+    },
+    "showcase-effects-animated": {
+     "cpu_med": 0.32249,
+     "cpu_p10": 0.29979,
+     "cpu_mean": 0.4025460983333333,
+     "kb": 67.4933984375,
+     "frames": 600
+    },
+    "showcase-gear-scroll": {
+     "cpu_med": 0.66272,
+     "cpu_p10": 0.425838,
+     "cpu_mean": 0.7379421133333334,
+     "kb": 62.744921875,
+     "frames": 600
+    },
+    "showcase-widgets-scroll": {
+     "cpu_med": 0.58729,
+     "cpu_p10": 0.42742,
+     "cpu_mean": 0.7030834266666667,
+     "kb": 79.36828125,
+     "frames": 600
+    },
+    "megamerge-board-still": {
+     "cpu_med": 5.035788,
+     "cpu_p10": 1.004239,
+     "cpu_mean": 4.910463044444444,
+     "kb": 74.08041666666666,
+     "frames": 225
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 7.168038,
+     "cpu_p10": 6.237319,
+     "cpu_mean": 8.386601382352941,
+     "kb": 330.90676700367646,
+     "frames": 136
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 7.545548,
+     "cpu_p10": 6.835378,
+     "cpu_mean": 7.945194444444445,
+     "kb": 298.86871527777777,
+     "frames": 225
+    }
+   },
+   {
+    "showcase-hud-still": {
+     "cpu_med": 0.43248,
+     "cpu_p10": 0.362329,
+     "cpu_mean": 0.5435224116666667,
+     "kb": 128.16923177083333,
+     "frames": 600
+    },
+    "showcase-home-animated": {
+     "cpu_med": 0.31867,
+     "cpu_p10": 0.20228,
+     "cpu_mean": 0.39200256499999997,
+     "kb": 54.148372395833334,
+     "frames": 600
+    },
+    "showcase-surfaces-still": {
+     "cpu_med": 0.23089,
+     "cpu_p10": 0.196381,
+     "cpu_mean": 0.29325766000000003,
+     "kb": 37.731510416666666,
+     "frames": 600
+    },
+    "showcase-text-still": {
+     "cpu_med": 0.31832,
+     "cpu_p10": 0.218539,
+     "cpu_mean": 0.37257455500000003,
+     "kb": 49.96541666666667,
+     "frames": 600
+    },
+    "showcase-game-animated": {
+     "cpu_med": 0.29149,
+     "cpu_p10": 0.270789,
+     "cpu_mean": 0.32952641,
+     "kb": 144.371953125,
+     "frames": 600
+    },
+    "snake-menu": {
+     "cpu_med": 0.08591,
+     "cpu_p10": 0.06643,
+     "cpu_mean": 0.118974425,
+     "kb": 14.390885416666666,
+     "frames": 600
+    },
+    "showcase-home-still": {
+     "cpu_med": 0.41115,
+     "cpu_p10": 0.28864,
+     "cpu_mean": 0.5223998466666667,
+     "kb": 51.304622395833334,
+     "frames": 600
+    },
+    "showcase-surfaces-animated": {
+     "cpu_med": 0.19965,
+     "cpu_p10": 0.18773,
+     "cpu_mean": 0.22372112666666666,
+     "kb": 37.7216796875,
+     "frames": 600
+    },
+    "showcase-animation-animated": {
+     "cpu_med": 0.30649,
+     "cpu_p10": 0.23782,
+     "cpu_mean": 0.37811203,
+     "kb": 54.086614583333336,
+     "frames": 600
+    },
+    "showcase-widgets-still": {
+     "cpu_med": 0.35846,
+     "cpu_p10": 0.28874,
+     "cpu_mean": 0.5063464683333333,
+     "kb": 63.8696875,
+     "frames": 600
+    },
+    "showcase-game-still": {
+     "cpu_med": 0.42965,
+     "cpu_p10": 0.29098,
+     "cpu_mean": 0.5325342383333332,
+     "kb": 141.78522135416668,
+     "frames": 600
+    },
+    "showcase-effects-still": {
+     "cpu_med": 0.57561,
+     "cpu_p10": 0.368128,
+     "cpu_mean": 0.64101374,
+     "kb": 67.49453125,
+     "frames": 600
+    },
+    "snake-playing": {
+     "cpu_med": 0.05407,
+     "cpu_p10": 0.03752,
+     "cpu_mean": 0.07515178166666667,
+     "kb": 7.673723958333333,
+     "frames": 600
+    },
+    "showcase-gear-still": {
+     "cpu_med": 0.47975,
+     "cpu_p10": 0.24269,
+     "cpu_mean": 0.5889245399999999,
+     "kb": 51.77565104166667,
+     "frames": 600
+    },
+    "showcase-effects-animated": {
+     "cpu_med": 0.313051,
+     "cpu_p10": 0.29867,
+     "cpu_mean": 0.343646735,
+     "kb": 67.48998697916667,
+     "frames": 600
+    },
+    "showcase-gear-scroll": {
+     "cpu_med": 0.50636,
+     "cpu_p10": 0.35983,
+     "cpu_mean": 0.5762368516666667,
+     "kb": 62.743984375,
+     "frames": 600
+    },
+    "showcase-widgets-scroll": {
+     "cpu_med": 0.56189,
+     "cpu_p10": 0.43189,
+     "cpu_mean": 0.7144165733333333,
+     "kb": 79.3677734375,
+     "frames": 600
+    },
+    "megamerge-board-still": {
+     "cpu_med": 2.753189,
+     "cpu_p10": 1.50099,
+     "cpu_mean": 4.021645937777778,
+     "kb": 74.08055555555555,
+     "frames": 225
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 8.532338,
+     "cpu_p10": 7.275838,
+     "cpu_mean": 9.219399352941178,
+     "kb": 330.5680147058824,
+     "frames": 136
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 7.924618,
+     "cpu_p10": 6.764949,
+     "cpu_mean": 7.95063352,
+     "kb": 298.86871527777777,
+     "frames": 225
+    }
+   },
+   {
+    "showcase-hud-still": {
+     "cpu_med": 0.39283,
+     "cpu_p10": 0.340389,
+     "cpu_mean": 0.47380950000000005,
+     "kb": 128.164453125,
+     "frames": 600
+    },
+    "showcase-home-animated": {
+     "cpu_med": 0.31022,
+     "cpu_p10": 0.21243,
+     "cpu_mean": 0.387372155,
+     "kb": 54.153567708333334,
+     "frames": 600
+    },
+    "showcase-surfaces-still": {
+     "cpu_med": 0.50123,
+     "cpu_p10": 0.21343,
+     "cpu_mean": 0.49692609000000004,
+     "kb": 37.7513671875,
+     "frames": 600
+    },
+    "showcase-text-still": {
+     "cpu_med": 0.2241,
+     "cpu_p10": 0.20679,
+     "cpu_mean": 0.28418621,
+     "kb": 49.95985677083333,
+     "frames": 600
+    },
+    "showcase-game-animated": {
+     "cpu_med": 0.29975,
+     "cpu_p10": 0.27537,
+     "cpu_mean": 0.3479112466666667,
+     "kb": 144.37786458333332,
+     "frames": 600
+    },
+    "snake-menu": {
+     "cpu_med": 0.185609,
+     "cpu_p10": 0.09316,
+     "cpu_mean": 0.20856166333333334,
+     "kb": 14.390885416666666,
+     "frames": 600
+    },
+    "showcase-home-still": {
+     "cpu_med": 0.34397,
+     "cpu_p10": 0.27089,
+     "cpu_mean": 0.4292472033333333,
+     "kb": 51.303697916666664,
+     "frames": 600
+    },
+    "showcase-surfaces-animated": {
+     "cpu_med": 0.42958,
+     "cpu_p10": 0.23266,
+     "cpu_mean": 0.49145635666666665,
+     "kb": 37.73899739583333,
+     "frames": 600
+    },
+    "showcase-animation-animated": {
+     "cpu_med": 0.36052,
+     "cpu_p10": 0.24898,
+     "cpu_mean": 0.405053765,
+     "kb": 54.0822265625,
+     "frames": 600
+    },
+    "showcase-widgets-still": {
+     "cpu_med": 0.46061,
+     "cpu_p10": 0.284,
+     "cpu_mean": 0.558548045,
+     "kb": 63.869921875,
+     "frames": 600
+    },
+    "showcase-game-still": {
+     "cpu_med": 0.28216,
+     "cpu_p10": 0.2615,
+     "cpu_mean": 0.351539505,
+     "kb": 141.7694921875,
+     "frames": 600
+    },
+    "showcase-effects-still": {
+     "cpu_med": 0.444779,
+     "cpu_p10": 0.35066,
+     "cpu_mean": 0.5483638216666666,
+     "kb": 67.49615885416667,
+     "frames": 600
+    },
+    "snake-playing": {
+     "cpu_med": 0.05177,
+     "cpu_p10": 0.037709,
+     "cpu_mean": 0.08048728833333332,
+     "kb": 7.673723958333333,
+     "frames": 600
+    },
+    "showcase-gear-still": {
+     "cpu_med": 0.26573,
+     "cpu_p10": 0.22324,
+     "cpu_mean": 0.334201665,
+     "kb": 51.77356770833333,
+     "frames": 600
+    },
+    "showcase-effects-animated": {
+     "cpu_med": 0.4572,
+     "cpu_p10": 0.32033,
+     "cpu_mean": 0.5489962383333333,
+     "kb": 67.50192708333333,
+     "frames": 600
+    },
+    "showcase-gear-scroll": {
+     "cpu_med": 0.71634,
+     "cpu_p10": 0.37599,
+     "cpu_mean": 0.7406341466666667,
+     "kb": 62.74552083333333,
+     "frames": 600
+    },
+    "showcase-widgets-scroll": {
+     "cpu_med": 0.69671,
+     "cpu_p10": 0.48278,
+     "cpu_mean": 0.8017328100000001,
+     "kb": 79.36946614583333,
+     "frames": 600
+    },
+    "megamerge-board-still": {
+     "cpu_med": 1.92227,
+     "cpu_p10": 1.402871,
+     "cpu_mean": 3.293100368888889,
+     "kb": 74.07642361111111,
+     "frames": 225,
+     "ui_cpu_med": 0.66937,
+     "ui_cpu_mean": 2.0347403244444444,
+     "ui_kb": 32.093090277777776
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 8.061318,
+     "cpu_p10": 6.924439,
+     "cpu_mean": 8.390922,
+     "kb": 330.59420955882354,
+     "frames": 136,
+     "ui_cpu_med": 6.536809,
+     "ui_cpu_mean": 6.918108301470589,
+     "ui_kb": 111.98265165441177
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 7.180519,
+     "cpu_p10": 6.541368,
+     "cpu_mean": 7.154989955555556,
+     "kb": 298.86871527777777,
+     "frames": 225,
+     "ui_cpu_med": 6.238829,
+     "ui_cpu_mean": 6.213514506666667,
+     "ui_kb": 77.96809027777778
+    }
+   },
+   {
+    "showcase-hud-still": {
+     "cpu_med": 0.44451,
+     "cpu_p10": 0.35229,
+     "cpu_mean": 0.5562539416666666,
+     "kb": 128.168203125,
+     "frames": 600
+    },
+    "showcase-home-animated": {
+     "cpu_med": 0.39828,
+     "cpu_p10": 0.22141,
+     "cpu_mean": 0.4989390983333333,
+     "kb": 54.15390625,
+     "frames": 600
+    },
+    "showcase-surfaces-still": {
+     "cpu_med": 0.23344,
+     "cpu_p10": 0.19989,
+     "cpu_mean": 0.2733729033333333,
+     "kb": 37.734049479166664,
+     "frames": 600
+    },
+    "showcase-text-still": {
+     "cpu_med": 0.24269,
+     "cpu_p10": 0.2187,
+     "cpu_mean": 0.304820585,
+     "kb": 49.96130208333334,
+     "frames": 600
+    },
+    "showcase-game-animated": {
+     "cpu_med": 0.61692,
+     "cpu_p10": 0.29531,
+     "cpu_mean": 0.68274937,
+     "kb": 144.387578125,
+     "frames": 600
+    },
+    "snake-menu": {
+     "cpu_med": 0.1481,
+     "cpu_p10": 0.08661,
+     "cpu_mean": 0.203487905,
+     "kb": 14.390885416666666,
+     "frames": 600
+    },
+    "showcase-home-still": {
+     "cpu_med": 0.28809,
+     "cpu_p10": 0.25851,
+     "cpu_mean": 0.3570164566666667,
+     "kb": 51.3023828125,
+     "frames": 600
+    },
+    "showcase-surfaces-animated": {
+     "cpu_med": 0.31995,
+     "cpu_p10": 0.21393,
+     "cpu_mean": 0.35143834500000004,
+     "kb": 37.726627604166666,
+     "frames": 600
+    },
+    "showcase-animation-animated": {
+     "cpu_med": 0.5115,
+     "cpu_p10": 0.24029,
+     "cpu_mean": 0.5478705666666667,
+     "kb": 54.0901953125,
+     "frames": 600
+    },
+    "showcase-widgets-still": {
+     "cpu_med": 0.33482,
+     "cpu_p10": 0.28363,
+     "cpu_mean": 0.4308189916666667,
+     "kb": 63.86975260416666,
+     "frames": 600
+    },
+    "showcase-game-still": {
+     "cpu_med": 0.46872,
+     "cpu_p10": 0.27477,
+     "cpu_mean": 0.5162767766666667,
+     "kb": 141.77342447916666,
+     "frames": 600
+    },
+    "showcase-effects-still": {
+     "cpu_med": 0.48696,
+     "cpu_p10": 0.330059,
+     "cpu_mean": 0.5361471883333333,
+     "kb": 67.48763020833333,
+     "frames": 600
+    },
+    "snake-playing": {
+     "cpu_med": 0.3173,
+     "cpu_p10": 0.16919,
+     "cpu_mean": 0.3280461883333333,
+     "kb": 7.673723958333333,
+     "frames": 600
+    },
+    "showcase-gear-still": {
+     "cpu_med": 0.32417,
+     "cpu_p10": 0.22661,
+     "cpu_mean": 0.39838721000000005,
+     "kb": 51.772473958333336,
+     "frames": 600
+    },
+    "showcase-effects-animated": {
+     "cpu_med": 0.60002,
+     "cpu_p10": 0.32602,
+     "cpu_mean": 0.6715760383333333,
+     "kb": 67.518984375,
+     "frames": 600
+    },
+    "showcase-gear-scroll": {
+     "cpu_med": 0.55356,
+     "cpu_p10": 0.36537,
+     "cpu_mean": 0.6501294633333333,
+     "kb": 62.746328125,
+     "frames": 600
+    },
+    "showcase-widgets-scroll": {
+     "cpu_med": 0.51621,
+     "cpu_p10": 0.424731,
+     "cpu_mean": 0.66434576,
+     "kb": 79.36743489583333,
+     "frames": 600
+    },
+    "megamerge-board-still": {
+     "cpu_med": 5.507198,
+     "cpu_p10": 1.94526,
+     "cpu_mean": 4.333366933333333,
+     "kb": 74.12565972222222,
+     "frames": 225,
+     "ui_cpu_med": 3.975069,
+     "ui_cpu_mean": 2.85934196,
+     "ui_kb": 32.145069444444445
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 8.378598,
+     "cpu_p10": 7.042439,
+     "cpu_mean": 8.76050775,
+     "kb": 330.5707146139706,
+     "frames": 136,
+     "ui_cpu_med": 7.058159,
+     "ui_cpu_mean": 7.3985415220588235,
+     "ui_kb": 111.95909926470588
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 7.215188,
+     "cpu_p10": 6.379968,
+     "cpu_mean": 7.6656519733333335,
+     "kb": 298.89215277777777,
+     "frames": 225,
+     "ui_cpu_med": 6.478698,
+     "ui_cpu_mean": 6.717766800000001,
+     "ui_kb": 77.98586805555556
+    }
+   },
+   {
+    "megamerge-board-still": {
+     "cpu_med": 6.890349,
+     "cpu_p10": 2.51959,
+     "cpu_mean": 6.362846448888889,
+     "kb": 74.08684027777778,
+     "frames": 225,
+     "ui_cpu_med": 4.769099,
+     "ui_cpu_mean": 4.000355288888889,
+     "ui_kb": 32.10642361111111
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 8.340348,
+     "cpu_p10": 6.857859,
+     "cpu_mean": 8.863280066176472,
+     "kb": 330.59420955882354,
+     "frames": 136,
+     "ui_cpu_med": 6.442768,
+     "ui_cpu_mean": 6.862863352941177,
+     "ui_kb": 111.97983685661765
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 10.045937,
+     "cpu_p10": 6.583518,
+     "cpu_mean": 10.12272624,
+     "kb": 298.89947916666665,
+     "frames": 225,
+     "ui_cpu_med": 8.533998,
+     "ui_cpu_mean": 8.65994612,
+     "ui_kb": 77.99885416666666
+    }
+   }
+  ],
+  "after": [
+   {
+    "showcase-hud-still": {
+     "cpu_med": 0.30599,
+     "cpu_p10": 0.15363,
+     "cpu_mean": 0.358033795,
+     "kb": 1.998515625,
+     "frames": 600
+    },
+    "showcase-home-animated": {
+     "cpu_med": 0.30787,
+     "cpu_p10": 0.14021,
+     "cpu_mean": 0.36954597833333336,
+     "kb": 4.1686328125,
+     "frames": 600
+    },
+    "showcase-surfaces-still": {
+     "cpu_med": 0.08604,
+     "cpu_p10": 0.06974,
+     "cpu_mean": 0.10041913166666668,
+     "kb": 0.3451953125,
+     "frames": 600
+    },
+    "showcase-text-still": {
+     "cpu_med": 0.12206,
+     "cpu_p10": 0.08671,
+     "cpu_mean": 0.15195272499999998,
+     "kb": 1.2737760416666666,
+     "frames": 600
+    },
+    "showcase-game-animated": {
+     "cpu_med": 0.26788,
+     "cpu_p10": 0.16376,
+     "cpu_mean": 0.31748695,
+     "kb": 4.6619661458333335,
+     "frames": 600
+    },
+    "snake-menu": {
+     "cpu_med": 0.09049,
+     "cpu_p10": 0.048071,
+     "cpu_mean": 0.11199423333333333,
+     "kb": 1.9453125,
+     "frames": 600
+    },
+    "showcase-home-still": {
+     "cpu_med": 0.19523,
+     "cpu_p10": 0.11833,
+     "cpu_mean": 0.26623867,
+     "kb": 0.29986979166666666,
+     "frames": 600
+    },
+    "showcase-surfaces-animated": {
+     "cpu_med": 0.12314,
+     "cpu_p10": 0.07038,
+     "cpu_mean": 0.14549153333333334,
+     "kb": 0.33984375,
+     "frames": 600
+    },
+    "showcase-animation-animated": {
+     "cpu_med": 0.13397,
+     "cpu_p10": 0.07622,
+     "cpu_mean": 0.19939944166666665,
+     "kb": 1.8866666666666667,
+     "frames": 600
+    },
+    "showcase-widgets-still": {
+     "cpu_med": 0.14966,
+     "cpu_p10": 0.09017,
+     "cpu_mean": 0.19098320666666666,
+     "kb": 0.3234375,
+     "frames": 600
+    },
+    "showcase-game-still": {
+     "cpu_med": 0.30413,
+     "cpu_p10": 0.118,
+     "cpu_mean": 0.34250581333333335,
+     "kb": 0.7119921875,
+     "frames": 600
+    },
+    "showcase-effects-still": {
+     "cpu_med": 0.25214,
+     "cpu_p10": 0.148591,
+     "cpu_mean": 0.28851922166666666,
+     "kb": 5.074635416666666,
+     "frames": 600
+    },
+    "snake-playing": {
+     "cpu_med": 0.04554,
+     "cpu_p10": 0.02556,
+     "cpu_mean": 0.06744780166666665,
+     "kb": 1.8924739583333334,
+     "frames": 600
+    },
+    "showcase-gear-still": {
+     "cpu_med": 0.22146,
+     "cpu_p10": 0.09627,
+     "cpu_mean": 0.25436982666666663,
+     "kb": 0.6613541666666667,
+     "frames": 600
+    },
+    "showcase-effects-animated": {
+     "cpu_med": 0.31974,
+     "cpu_p10": 0.17997,
+     "cpu_mean": 0.3268658566666667,
+     "kb": 5.082421875,
+     "frames": 600
+    },
+    "showcase-gear-scroll": {
+     "cpu_med": 0.38637,
+     "cpu_p10": 0.2408,
+     "cpu_mean": 0.45794344,
+     "kb": 16.199765625,
+     "frames": 600
+    },
+    "showcase-widgets-scroll": {
+     "cpu_med": 0.19953,
+     "cpu_p10": 0.13723,
+     "cpu_mean": 0.22813564666666664,
+     "kb": 5.86484375,
+     "frames": 600
+    },
+    "megamerge-board-still": {
+     "cpu_med": 2.35836,
+     "cpu_p10": 1.11221,
+     "cpu_mean": 2.3884604533333333,
+     "kb": 44.872881944444444,
+     "frames": 225
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 3.447479,
+     "cpu_p10": 2.493799,
+     "cpu_mean": 4.242583573529411,
+     "kb": 289.6395909926471,
+     "frames": 136
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 1.88068,
+     "cpu_p10": 0.96416,
+     "cpu_mean": 2.1415036444444446,
+     "kb": 225.43465277777779,
+     "frames": 225
+    }
+   },
+   {
+    "showcase-hud-still": {
+     "cpu_med": 0.20841,
+     "cpu_p10": 0.12486,
+     "cpu_mean": 0.2374933866666667,
+     "kb": 1.997578125,
+     "frames": 600
+    },
+    "showcase-home-animated": {
+     "cpu_med": 0.30137,
+     "cpu_p10": 0.14875,
+     "cpu_mean": 0.3916191866666667,
+     "kb": 4.167369791666666,
+     "frames": 600
+    },
+    "showcase-surfaces-still": {
+     "cpu_med": 0.2462,
+     "cpu_p10": 0.13191,
+     "cpu_mean": 0.2703675933333333,
+     "kb": 0.35546875,
+     "frames": 600
+    },
+    "showcase-text-still": {
+     "cpu_med": 0.161571,
+     "cpu_p10": 0.10741,
+     "cpu_mean": 0.18929894833333333,
+     "kb": 1.2745442708333334,
+     "frames": 600
+    },
+    "showcase-game-animated": {
+     "cpu_med": 0.81934,
+     "cpu_p10": 0.52834,
+     "cpu_mean": 0.8329640216666667,
+     "kb": 4.686106770833334,
+     "frames": 600
+    },
+    "snake-menu": {
+     "cpu_med": 0.21747,
+     "cpu_p10": 0.09234,
+     "cpu_mean": 0.2150859333333333,
+     "kb": 1.9453125,
+     "frames": 600
+    },
+    "showcase-home-still": {
+     "cpu_med": 0.27834,
+     "cpu_p10": 0.14173,
+     "cpu_mean": 0.3421768233333333,
+     "kb": 0.30201822916666665,
+     "frames": 600
+    },
+    "showcase-surfaces-animated": {
+     "cpu_med": 0.20881,
+     "cpu_p10": 0.09345,
+     "cpu_mean": 0.22431283500000002,
+     "kb": 0.3489583333333333,
+     "frames": 600
+    },
+    "showcase-animation-animated": {
+     "cpu_med": 0.45354,
+     "cpu_p10": 0.20714,
+     "cpu_mean": 0.5104809983333333,
+     "kb": 1.9041927083333334,
+     "frames": 600
+    },
+    "showcase-widgets-still": {
+     "cpu_med": 0.31915,
+     "cpu_p10": 0.10561,
+     "cpu_mean": 0.40048622666666667,
+     "kb": 0.33059895833333336,
+     "frames": 600
+    },
+    "showcase-game-still": {
+     "cpu_med": 0.13854,
+     "cpu_p10": 0.09922,
+     "cpu_mean": 0.19374944166666666,
+     "kb": 0.7109244791666667,
+     "frames": 600
+    },
+    "showcase-effects-still": {
+     "cpu_med": 0.22074,
+     "cpu_p10": 0.13765,
+     "cpu_mean": 0.2796067033333334,
+     "kb": 5.075872395833334,
+     "frames": 600
+    },
+    "snake-playing": {
+     "cpu_med": 0.14557,
+     "cpu_p10": 0.05251,
+     "cpu_mean": 0.15438936,
+     "kb": 1.8924739583333334,
+     "frames": 600
+    },
+    "showcase-gear-still": {
+     "cpu_med": 0.2124,
+     "cpu_p10": 0.09397,
+     "cpu_mean": 0.2598526133333333,
+     "kb": 0.6604947916666667,
+     "frames": 600
+    },
+    "showcase-effects-animated": {
+     "cpu_med": 0.40906,
+     "cpu_p10": 0.21256,
+     "cpu_mean": 0.4199799633333333,
+     "kb": 5.095963541666666,
+     "frames": 600
+    },
+    "showcase-gear-scroll": {
+     "cpu_med": 0.33584,
+     "cpu_p10": 0.24177,
+     "cpu_mean": 0.40295655166666666,
+     "kb": 16.199010416666667,
+     "frames": 600
+    },
+    "showcase-widgets-scroll": {
+     "cpu_med": 0.2345,
+     "cpu_p10": 0.17393,
+     "cpu_mean": 0.28521205499999996,
+     "kb": 5.863111979166667,
+     "frames": 600
+    },
+    "megamerge-board-still": {
+     "cpu_med": 2.662059,
+     "cpu_p10": 1.330389,
+     "cpu_mean": 2.7786002400000003,
+     "kb": 44.87965277777778,
+     "frames": 225
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 4.920729,
+     "cpu_p10": 3.12225,
+     "cpu_mean": 5.523215823529412,
+     "kb": 289.6337890625,
+     "frames": 136
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 2.2176,
+     "cpu_p10": 1.788079,
+     "cpu_mean": 2.3082146933333334,
+     "kb": 225.3982986111111,
+     "frames": 225
+    }
+   },
+   {
+    "showcase-hud-still": {
+     "cpu_med": 0.25833,
+     "cpu_p10": 0.12989,
+     "cpu_mean": 0.32431061,
+     "kb": 1.9959244791666666,
+     "frames": 600
+    },
+    "showcase-home-animated": {
+     "cpu_med": 0.20595,
+     "cpu_p10": 0.10548,
+     "cpu_mean": 0.2148151666666667,
+     "kb": 4.1683203125,
+     "frames": 600
+    },
+    "showcase-surfaces-still": {
+     "cpu_med": 0.07194,
+     "cpu_p10": 0.06742,
+     "cpu_mean": 0.08738863666666667,
+     "kb": 0.3472395833333333,
+     "frames": 600
+    },
+    "showcase-text-still": {
+     "cpu_med": 0.09311,
+     "cpu_p10": 0.08047,
+     "cpu_mean": 0.10372689666666667,
+     "kb": 1.2729296875,
+     "frames": 600
+    },
+    "showcase-game-animated": {
+     "cpu_med": 0.16249,
+     "cpu_p10": 0.14785,
+     "cpu_mean": 0.19915594166666667,
+     "kb": 4.664713541666667,
+     "frames": 600
+    },
+    "snake-menu": {
+     "cpu_med": 0.10122,
+     "cpu_p10": 0.05148,
+     "cpu_mean": 0.12177980833333334,
+     "kb": 1.9453125,
+     "frames": 600
+    },
+    "showcase-home-still": {
+     "cpu_med": 0.30612,
+     "cpu_p10": 0.13431,
+     "cpu_mean": 0.32472228833333333,
+     "kb": 0.3012239583333333,
+     "frames": 600
+    },
+    "showcase-surfaces-animated": {
+     "cpu_med": 0.13042,
+     "cpu_p10": 0.06706,
+     "cpu_mean": 0.15075791166666666,
+     "kb": 0.34375,
+     "frames": 600
+    },
+    "showcase-animation-animated": {
+     "cpu_med": 0.09514,
+     "cpu_p10": 0.07243,
+     "cpu_mean": 0.15515088833333332,
+     "kb": 1.886796875,
+     "frames": 600
+    },
+    "showcase-widgets-still": {
+     "cpu_med": 0.18406,
+     "cpu_p10": 0.093429,
+     "cpu_mean": 0.22048515833333335,
+     "kb": 0.3248697916666667,
+     "frames": 600
+    },
+    "showcase-game-still": {
+     "cpu_med": 0.19615,
+     "cpu_p10": 0.1144,
+     "cpu_mean": 0.23703272333333336,
+     "kb": 0.7032682291666666,
+     "frames": 600
+    },
+    "showcase-effects-still": {
+     "cpu_med": 0.14867,
+     "cpu_p10": 0.111679,
+     "cpu_mean": 0.17421993166666666,
+     "kb": 5.067213541666667,
+     "frames": 600
+    },
+    "snake-playing": {
+     "cpu_med": 0.03565,
+     "cpu_p10": 0.02699,
+     "cpu_mean": 0.05247832,
+     "kb": 1.8924739583333334,
+     "frames": 600
+    },
+    "showcase-gear-still": {
+     "cpu_med": 0.09274,
+     "cpu_p10": 0.0824,
+     "cpu_mean": 0.12889156,
+     "kb": 0.6582421875,
+     "frames": 600
+    },
+    "showcase-effects-animated": {
+     "cpu_med": 0.1763,
+     "cpu_p10": 0.09549,
+     "cpu_mean": 0.20681732166666666,
+     "kb": 5.077408854166666,
+     "frames": 600
+    },
+    "showcase-gear-scroll": {
+     "cpu_med": 0.47351,
+     "cpu_p10": 0.26731,
+     "cpu_mean": 0.5313470416666667,
+     "kb": 16.201002604166668,
+     "frames": 600
+    },
+    "showcase-widgets-scroll": {
+     "cpu_med": 0.24411,
+     "cpu_p10": 0.14571,
+     "cpu_mean": 0.29239339666666664,
+     "kb": 5.864752604166667,
+     "frames": 600
+    },
+    "megamerge-board-still": {
+     "cpu_med": 0.88931,
+     "cpu_p10": 0.731678,
+     "cpu_mean": 0.9957983911111111,
+     "kb": 44.867847222222224,
+     "frames": 225
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 2.81674,
+     "cpu_p10": 2.127399,
+     "cpu_mean": 3.2571421544117647,
+     "kb": 289.61960018382354,
+     "frames": 136
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 0.989559,
+     "cpu_p10": 0.68869,
+     "cpu_mean": 1.124073982222222,
+     "kb": 225.40725694444444,
+     "frames": 225
+    }
+   },
+   {
+    "showcase-hud-still": {
+     "cpu_med": 0.2419,
+     "cpu_p10": 0.13214,
+     "cpu_mean": 0.26957966833333336,
+     "kb": 1.997578125,
+     "frames": 600
+    },
+    "showcase-home-animated": {
+     "cpu_med": 0.28518,
+     "cpu_p10": 0.136369,
+     "cpu_mean": 0.42385986,
+     "kb": 4.167395833333333,
+     "frames": 600
+    },
+    "showcase-surfaces-still": {
+     "cpu_med": 0.1091,
+     "cpu_p10": 0.07283,
+     "cpu_mean": 0.138022885,
+     "kb": 0.34649739583333333,
+     "frames": 600
+    },
+    "showcase-text-still": {
+     "cpu_med": 0.1972,
+     "cpu_p10": 0.11674,
+     "cpu_mean": 0.23022227166666667,
+     "kb": 1.2737760416666666,
+     "frames": 600
+    },
+    "showcase-game-animated": {
+     "cpu_med": 0.29967,
+     "cpu_p10": 0.20098,
+     "cpu_mean": 0.37182824333333336,
+     "kb": 4.667330729166666,
+     "frames": 600
+    },
+    "snake-menu": {
+     "cpu_med": 0.08264,
+     "cpu_p10": 0.04689,
+     "cpu_mean": 0.11113323333333333,
+     "kb": 1.9453125,
+     "frames": 600
+    },
+    "showcase-home-still": {
+     "cpu_med": 0.13529,
+     "cpu_p10": 0.10301,
+     "cpu_mean": 0.18448606666666667,
+     "kb": 0.29692708333333334,
+     "frames": 600
+    },
+    "showcase-surfaces-animated": {
+     "cpu_med": 0.10249,
+     "cpu_p10": 0.06836,
+     "cpu_mean": 0.11496531833333333,
+     "kb": 0.3411458333333333,
+     "frames": 600
+    },
+    "showcase-animation-animated": {
+     "cpu_med": 0.12232,
+     "cpu_p10": 0.09245,
+     "cpu_mean": 0.179297115,
+     "kb": 1.885625,
+     "frames": 600
+    },
+    "showcase-widgets-still": {
+     "cpu_med": 0.1813,
+     "cpu_p10": 0.09499,
+     "cpu_mean": 0.21852864000000002,
+     "kb": 0.3240885416666667,
+     "frames": 600
+    },
+    "showcase-game-still": {
+     "cpu_med": 0.29144,
+     "cpu_p10": 0.14181,
+     "cpu_mean": 0.294526665,
+     "kb": 0.7119921875,
+     "frames": 600
+    },
+    "showcase-effects-still": {
+     "cpu_med": 0.16495,
+     "cpu_p10": 0.118849,
+     "cpu_mean": 0.22895163833333332,
+     "kb": 5.075872395833334,
+     "frames": 600
+    },
+    "snake-playing": {
+     "cpu_med": 0.09437,
+     "cpu_p10": 0.0315,
+     "cpu_mean": 0.09846976333333333,
+     "kb": 1.8924739583333334,
+     "frames": 600
+    },
+    "showcase-gear-still": {
+     "cpu_med": 0.20025,
+     "cpu_p10": 0.10321,
+     "cpu_mean": 0.2518138933333333,
+     "kb": 0.6631119791666666,
+     "frames": 600
+    },
+    "showcase-effects-animated": {
+     "cpu_med": 0.11041,
+     "cpu_p10": 0.09278,
+     "cpu_mean": 0.15133151166666667,
+     "kb": 5.070052083333334,
+     "frames": 600
+    },
+    "showcase-gear-scroll": {
+     "cpu_med": 0.40568,
+     "cpu_p10": 0.22507,
+     "cpu_mean": 0.4790976983333333,
+     "kb": 16.201184895833332,
+     "frames": 600
+    },
+    "showcase-widgets-scroll": {
+     "cpu_med": 0.45815,
+     "cpu_p10": 0.24697,
+     "cpu_mean": 0.48221634333333335,
+     "kb": 5.866484375,
+     "frames": 600
+    },
+    "megamerge-board-still": {
+     "cpu_med": 1.15185,
+     "cpu_p10": 0.81356,
+     "cpu_mean": 1.4409801955555557,
+     "kb": 44.86965277777778,
+     "frames": 225,
+     "ui_cpu_med": 0.2917,
+     "ui_cpu_mean": 0.39149530666666665,
+     "ui_kb": 6.606770833333333
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 2.290298,
+     "cpu_p10": 1.554559,
+     "cpu_mean": 2.9014717500000002,
+     "kb": 289.61310891544116,
+     "frames": 136,
+     "ui_cpu_med": 1.025979,
+     "ui_cpu_mean": 1.512450507352941,
+     "ui_kb": 75.17262178308823
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 1.73267,
+     "cpu_p10": 1.092999,
+     "cpu_mean": 1.7008405777777778,
+     "kb": 225.4115625,
+     "frames": 225,
+     "ui_cpu_med": 0.50691,
+     "ui_cpu_mean": 0.5260587733333334,
+     "ui_kb": 11.942777777777778
+    }
+   },
+   {
+    "showcase-hud-still": {
+     "cpu_med": 0.31299,
+     "cpu_p10": 0.17967,
+     "cpu_mean": 0.3765325,
+     "kb": 1.9979036458333332,
+     "frames": 600
+    },
+    "showcase-home-animated": {
+     "cpu_med": 0.86295,
+     "cpu_p10": 0.41191,
+     "cpu_mean": 0.9158741416666667,
+     "kb": 4.177395833333334,
+     "frames": 600
+    },
+    "showcase-surfaces-still": {
+     "cpu_med": 0.36564,
+     "cpu_p10": 0.20031,
+     "cpu_mean": 0.36691477,
+     "kb": 0.3658854166666667,
+     "frames": 600
+    },
+    "showcase-text-still": {
+     "cpu_med": 0.46218,
+     "cpu_p10": 0.26881,
+     "cpu_mean": 0.47599326999999997,
+     "kb": 1.289921875,
+     "frames": 600
+    },
+    "showcase-game-animated": {
+     "cpu_med": 0.45927,
+     "cpu_p10": 0.16627,
+     "cpu_mean": 0.5396116633333333,
+     "kb": 4.677122395833333,
+     "frames": 600
+    },
+    "snake-menu": {
+     "cpu_med": 0.08377,
+     "cpu_p10": 0.04994,
+     "cpu_mean": 0.10737545833333333,
+     "kb": 1.9453125,
+     "frames": 600
+    },
+    "showcase-home-still": {
+     "cpu_med": 0.35823,
+     "cpu_p10": 0.15364,
+     "cpu_mean": 0.3742101566666667,
+     "kb": 0.301015625,
+     "frames": 600
+    },
+    "showcase-surfaces-animated": {
+     "cpu_med": 0.099191,
+     "cpu_p10": 0.065711,
+     "cpu_mean": 0.11108260833333333,
+     "kb": 0.33984375,
+     "frames": 600
+    },
+    "showcase-animation-animated": {
+     "cpu_med": 0.15153,
+     "cpu_p10": 0.085469,
+     "cpu_mean": 0.23809823333333333,
+     "kb": 1.8910026041666668,
+     "frames": 600
+    },
+    "showcase-widgets-still": {
+     "cpu_med": 0.31228,
+     "cpu_p10": 0.11621,
+     "cpu_mean": 0.3485759683333333,
+     "kb": 0.3284505208333333,
+     "frames": 600
+    },
+    "showcase-game-still": {
+     "cpu_med": 0.26559,
+     "cpu_p10": 0.12802,
+     "cpu_mean": 0.33368432,
+     "kb": 0.7179036458333333,
+     "frames": 600
+    },
+    "showcase-effects-still": {
+     "cpu_med": 0.44854,
+     "cpu_p10": 0.12617,
+     "cpu_mean": 0.44140204,
+     "kb": 5.080690104166667,
+     "frames": 600
+    },
+    "snake-playing": {
+     "cpu_med": 0.05515,
+     "cpu_p10": 0.02754,
+     "cpu_mean": 0.07977253666666667,
+     "kb": 1.8924739583333334,
+     "frames": 600
+    },
+    "showcase-gear-still": {
+     "cpu_med": 0.32743,
+     "cpu_p10": 0.10636,
+     "cpu_mean": 0.3523092483333333,
+     "kb": 0.6665234375,
+     "frames": 600
+    },
+    "showcase-effects-animated": {
+     "cpu_med": 0.14925,
+     "cpu_p10": 0.11459,
+     "cpu_mean": 0.16313059833333335,
+     "kb": 5.071223958333333,
+     "frames": 600
+    },
+    "showcase-gear-scroll": {
+     "cpu_med": 0.237969,
+     "cpu_p10": 0.19887,
+     "cpu_mean": 0.29272291166666664,
+     "kb": 16.20203125,
+     "frames": 600
+    },
+    "showcase-widgets-scroll": {
+     "cpu_med": 0.20838,
+     "cpu_p10": 0.12579,
+     "cpu_mean": 0.24357360333333333,
+     "kb": 5.8644921875,
+     "frames": 600
+    },
+    "megamerge-board-still": {
+     "cpu_med": 2.06965,
+     "cpu_p10": 1.5183,
+     "cpu_mean": 2.1177048177777777,
+     "kb": 44.87361111111111,
+     "frames": 225,
+     "ui_cpu_med": 0.570179,
+     "ui_cpu_mean": 0.60636712,
+     "ui_kb": 6.61125
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 3.25906,
+     "cpu_p10": 1.895799,
+     "cpu_mean": 3.6136353014705884,
+     "kb": 289.61672794117646,
+     "frames": 136,
+     "ui_cpu_med": 1.50239,
+     "ui_cpu_mean": 1.8912205367647057,
+     "ui_kb": 75.16417738970588
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 1.918179,
+     "cpu_p10": 1.33259,
+     "cpu_mean": 1.8950598799999998,
+     "kb": 225.40743055555555,
+     "frames": 225,
+     "ui_cpu_med": 0.54264,
+     "ui_cpu_mean": 0.5586020088888889,
+     "ui_kb": 11.9440625
+    }
+   },
+   {
+    "megamerge-board-still": {
+     "cpu_med": 3.234598,
+     "cpu_p10": 1.33598,
+     "cpu_mean": 2.9470004755555554,
+     "kb": 44.87138888888889,
+     "frames": 225,
+     "ui_cpu_med": 0.882659,
+     "ui_cpu_mean": 0.8222994977777779,
+     "ui_kb": 6.611840277777778
+    },
+    "megamerge-draft-dealing": {
+     "cpu_med": 3.698959,
+     "cpu_p10": 2.550972,
+     "cpu_mean": 4.430047529411764,
+     "kb": 289.62672334558823,
+     "frames": 136,
+     "ui_cpu_med": 1.618759,
+     "ui_cpu_mean": 2.275533294117647,
+     "ui_kb": 75.17543658088235
+    },
+    "megamerge-draft-open": {
+     "cpu_med": 2.035199,
+     "cpu_p10": 1.04405,
+     "cpu_mean": 2.1199071066666666,
+     "kb": 225.4254513888889,
+     "frames": 225,
+     "ui_cpu_med": 0.583629,
+     "ui_cpu_mean": 0.68490264,
+     "ui_kb": 11.957986111111111
+    }
+   }
+  ]
+ }
+}

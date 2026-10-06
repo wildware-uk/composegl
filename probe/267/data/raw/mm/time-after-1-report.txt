@@ -1,0 +1,13 @@
+passed=1
+skipped=0
+total=1
+requested=1
+seed=286
+renderer=NVIDIA GeForce RTX 2070 SUPER/PCIe/SSE2
+gl_selected=gpu
+scenario=probe_267	pass	composegl #267: the board and the draft, held for the probe
+shot=probe_267	probe267-board	2335328	bytes 2336151 -> 2335328 (0.04%), worst cell 0/255, play column 0/255, worst peak 0/255, play peak 0/255, text not compared - neither shot recorded a drawn string; the pixel readings are blind to text
+shot=probe_267	probe267-draft	1198873	bytes 1210333 -> 1198873 (0.95%), worst cell 1/255, play column 1/255, worst peak 0/255, play peak 0/255, text unchanged across 79 strings; the pixel readings are blind to text
+queue=probe_267
+shots_compared=2
+time=probe_267	10891

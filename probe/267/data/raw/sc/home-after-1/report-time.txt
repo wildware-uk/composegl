@@ -1,0 +1,6 @@
+renderer NVIDIA GeForce RTX 2070 SUPER/PCIe/SSE2, 4.6.0 NVIDIA 595.91.07, window 1080x2400
+== showcase-home-animated: 600 frames
+thread cpu: mean 0.720 median 0.560 p90 1.440 max 3.185 ms
+allocated: mean 4.195 median 5.375 p90 7.148 max 47.844 KB
+wall: mean 0.722 median 0.558 p90 1.441 max 3.201 ms
+
