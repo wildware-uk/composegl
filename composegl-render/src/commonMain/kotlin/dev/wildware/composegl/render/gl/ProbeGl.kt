@@ -604,7 +604,7 @@ class ProbeGl(private val gl: Gl) : Gl {
                 frame.compositedWhole[key] = (frame.compositedWhole[key] ?: 0L) + whole
             }
             frame.pixelsByKind[kind] = (frame.pixelsByKind[kind] ?: 0L) + area
-            val programKind = "$tag/$kind"
+            val programKind = if (masked) "$tag/$kind+mask" else "$tag/$kind"
             frame.pixelsByProgramKind[programKind] = (frame.pixelsByProgramKind[programKind] ?: 0L) + area
             if (layout != null && (kind == "shape" || kind == "shape with border")) {
                 val at = base
