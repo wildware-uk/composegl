@@ -547,6 +547,40 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         border: Colour,
         borderWidth: Float,
         aa: Float,
+    ) = rampGradient(
+        white.texture, white.u, white.v, left, bottom, width, height, tint, radial, axisX, axisY,
+        u, v, u2, v2, topLeft, topRight, bottomRight, bottomLeft, border, borderWidth, aa,
+    )
+
+    /**
+     * The same, with the [WhiteSpot]'s three parts handed over loose: the strip's [texture], and the
+     * [whiteU], [whiteV] the quad itself reads. What a canvas calls for every run of stops it draws,
+     * so it makes no spot each time (#252).
+     */
+    @Suppress("LongParameterList")
+    fun rampGradient(
+        texture: DeviceTexture,
+        whiteU: Float,
+        whiteV: Float,
+        left: Float,
+        bottom: Float,
+        width: Float,
+        height: Float,
+        tint: Colour,
+        radial: Boolean,
+        axisX: Float,
+        axisY: Float,
+        u: Float,
+        v: Float,
+        u2: Float,
+        v2: Float,
+        topLeft: Float,
+        topRight: Float,
+        bottomRight: Float,
+        bottomLeft: Float,
+        border: Colour,
+        borderWidth: Float,
+        aa: Float,
     ) {
         val halfWidth = width / 2f
         val halfHeight = height / 2f
@@ -557,7 +591,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
         radii[3] = bottomLeft.coerceIn(0f, most)
         val margin = maxOf(-borderWidth, 0f) + aa
 
-        use(white.texture, ShapeProgram.Full)
+        use(texture, ShapeProgram.Full)
         quad(
             left = left - margin,
             bottom = bottom - margin,
@@ -565,7 +599,7 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             top = bottom + height + margin,
             centreX = left + halfWidth,
             centreY = bottom + halfHeight,
-            u = white.u, v = white.v, u2 = white.u, v2 = white.v,
+            u = whiteU, v = whiteV, u2 = whiteU, v2 = whiteV,
             fill = tint,
             border = border,
             // The strip's two ends, as a colour that is really four numbers.
@@ -579,9 +613,17 @@ class QuadBatch(private val device: GpuDevice, private val maxQuads: Int = 2048)
             gradient = if (radial) ShapeVertex.RadialRamp else ShapeVertex.LinearRamp,
             gradientX = axisX,
             gradientY = axisY,
-            ramp = floatArrayOf(u, v, u2, v2),
+            ramp = rampEnds.also {
+                it[0] = u
+                it[1] = v
+                it[2] = u2
+                it[3] = v2
+            },
         )
     }
+
+    /** Where [rampGradient] writes the strip's two ends for its quad: read straight after, so kept rather than made. */
+    private val rampEnds = FloatArray(4)
 
     /**
      * One rounded box filled with a gradient between [start] and [end]: the same quad and the same

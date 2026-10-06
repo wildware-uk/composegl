@@ -5,7 +5,6 @@ import dev.wildware.composegl.ui.debug.DrawCallTrace
 import dev.wildware.composegl.ui.effect.ShaderEffect
 import dev.wildware.composegl.ui.geometry.Corners
 import dev.wildware.composegl.ui.geometry.Matrix4
-import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.geometry.Size
 import dev.wildware.composegl.ui.graphics.BlendMode
@@ -72,7 +71,23 @@ open class RenderCanvas protected constructor(
         it.trace = trace
     }
 
-    private var state = CanvasState(Rect.Zero)
+    /** The frame's own state, reset at every [begin] rather than made again (#252). */
+    private val frameState = CanvasState(Rect.Zero)
+
+    /** The state in force: [frameState], or the kept one of the layer being drawn into. */
+    private var state = frameState
+
+    /**
+     * One state and one [LayerFrame] per layer depth, filled as each layer starts. A layer inside a
+     * layer is one deeper, and the one outside it waits untouched; the next layer at the same depth
+     * starts after this one has ended, so they can share.
+     */
+    private val layerStates = ArrayList<CanvasState>()
+    private val layerFrames = ArrayList<LayerFrame>()
+
+    /** The viewport and projection a layer puts back as it ends, one of each per layer depth. */
+    private val savedViewports = ArrayList<IntArray>()
+    private val savedProjections = ArrayList<FloatArray>()
     private var viewport: Viewport = Viewport.oneToOne(Size(1f, 1f))
     private var drawing = false
     private var begun = false
@@ -131,7 +146,10 @@ open class RenderCanvas protected constructor(
         val mask = ClipMask()
 
         /** The clip in force where it was put on, through the transform: all an opened picture needs. */
-        var area: Rect = Rect.Zero
+        var areaLeft = 0f
+        var areaTop = 0f
+        var areaRight = 0f
+        var areaBottom = 0f
         var left = 0f
         var top = 0f
         var right = 0f
@@ -154,7 +172,8 @@ open class RenderCanvas protected constructor(
                 (l >= left + bottomLeft || b <= bottom - bottomLeft)
     }
 
-    private class LayerFrame(val bounds: Rect, val pixelWidth: Int, val pixelHeight: Int)
+    /** A picture being drawn into: where it lands, and its size in pixels. Kept and refilled, one per depth. */
+    private class LayerFrame(var bounds: Rect, var pixelWidth: Int, var pixelHeight: Int)
 
     /**
      * The picture a game's own drawing opened inside the rounded clip in force, and what drawing
@@ -232,7 +251,8 @@ open class RenderCanvas protected constructor(
         target = into
         noScissor()
         this.viewport = viewport
-        state = CanvasState(Rect.of(0f, 0f, viewport.design.width, viewport.design.height))
+        frameState.reset(0f, 0f, viewport.design.width, viewport.design.height)
+        state = frameState
         layer = null
         layerDepth = 0
         clipDepth = 0
@@ -340,19 +360,30 @@ open class RenderCanvas protected constructor(
         val page = spot.page
         val size = page.size.toFloat()
         val box = state.map(rect)
-        val axis = brush.straight?.axis(box.width, box.height)
+        // The run's direction worked out as two numbers rather than a brush and an offset, since
+        // this is every run of stops every frame (#252). A run outwards from the middle has none.
+        var axisX = 0f
+        var axisY = 0f
+        if (!brush.radial) {
+            Brush.Linear.axisOf(brush.degrees, box.width, box.height) { x, y ->
+                axisX = x
+                axisY = y
+            }
+        }
         // The middle of the first texel to the middle of the last, so the ends are the run's ends.
         val v = (spot.y + 0.5f) / size
         batch().rampGradient(
-            white = WhiteSpot(page.texture(device), (spot.x + 0.5f) / size, v),
+            texture = page.texture(device),
+            whiteU = (spot.x + 0.5f) / size,
+            whiteV = v,
             left = box.left,
             bottom = flip(box.bottom),
             width = box.width,
             height = box.height,
             tint = Colour.White.inForce(),
             radial = brush.radial,
-            axisX = axis?.x ?: 0f,
-            axisY = -(axis?.y ?: 0f),
+            axisX = axisX,
+            axisY = -axisY,
             u = (spot.x + 0.5f) / size,
             v = v,
             u2 = (spot.x + GradientRamps.Texels - 0.5f) / size,
@@ -894,7 +925,10 @@ open class RenderCanvas protected constructor(
         val rounding = roundings[layerDepth]
         batch().refilling(rounding.mask)
         fill(rounding, rect, corners)
-        rounding.area = state.clip
+        rounding.areaLeft = state.clipLeft
+        rounding.areaTop = state.clipTop
+        rounding.areaRight = state.clipRight
+        rounding.areaBottom = state.clipBottom
         batch().mask(rounding.mask)
         this.rounding = rounding
         roundedAt = clipDepth
@@ -980,11 +1014,10 @@ open class RenderCanvas protected constructor(
         crossinline draw: () -> Unit,
     ) {
         val rounding = rounding
-        val clip = state.clip
-        val l = maxOf(left, clip.left)
-        val t = maxOf(top, clip.top)
-        val r = minOf(right, clip.right)
-        val b = minOf(bottom, clip.bottom)
+        val l = maxOf(left, state.clipLeft)
+        val t = maxOf(top, state.clipTop)
+        val r = minOf(right, state.clipRight)
+        val b = minOf(bottom, state.clipBottom)
         if (rounding == null || opened != null || state.isHidden || r <= l || b <= t || rounding.keepsAll(l, t, r, b)) {
             draw()
             return
@@ -1025,13 +1058,17 @@ open class RenderCanvas protected constructor(
      * picture would be too big or the device draws no pictures.
      */
     private fun openPicture() {
-        val area = (rounding ?: return).area
-        if (area.isEmpty || !device.limits.offscreen) return
-        val pixelWidth = ceil(area.width * viewport.scaleX).toInt()
-        val pixelHeight = ceil(area.height * viewport.scaleY).toInt()
+        val rounding = rounding ?: return
+        val width = rounding.areaRight - rounding.areaLeft
+        val height = rounding.areaBottom - rounding.areaTop
+        if (width <= 0f || height <= 0f || !device.limits.offscreen) return
+        val pixelWidth = ceil(width * viewport.scaleX).toInt()
+        val pixelHeight = ceil(height * viewport.scaleY).toInt()
         if (pixelWidth <= 0 || pixelHeight <= 0) return
         val most = minOf(LayerPool.MaxLayerPixels, device.limits.maxTextureSize)
         if (pixelWidth > most || pixelHeight > most) return
+        // Made only once the picture is sure to open: a picture refused here makes nothing.
+        val area = Rect(rounding.areaLeft, rounding.areaTop, rounding.areaRight, rounding.areaBottom)
 
         // What was queued lands in place, trimmed, before the picture takes over.
         batch().flush(BatchBreak.Layer)
@@ -1119,24 +1156,30 @@ open class RenderCanvas protected constructor(
      * one with nothing drawn inside it, costs no draw call.
      */
     private fun applyScissor() {
-        val clip = state.clip
+        val clipLeft = state.clipLeft
+        val clipTop = state.clipTop
+        val clipRight = state.clipRight
+        val clipBottom = state.clipBottom
         val into = layer
         if (into != null) {
-            scissorLayer(into, clip)
+            scissorLayer(into, clipLeft, clipTop, clipRight, clipBottom)
             return
         }
         // Never outside the viewport's area: in split-screen that is the edge of this player's part.
         val area = viewport.area
-        val topLeft = viewport.toScreen(Offset(clip.left, clip.top))
-        val bottomRight = viewport.toScreen(Offset(clip.right, clip.bottom))
-        val left = maxOf(topLeft.x, area.left)
-        val top = maxOf(topLeft.y, area.top)
-        val right = minOf(bottomRight.x, area.right)
-        val bottom = minOf(bottomRight.y, area.bottom)
-        if (clip.left <= 0f && clip.top <= 0f &&
-            clip.right >= viewport.design.width && clip.bottom >= viewport.design.height &&
-            left - topLeft.x < 0.5f && top - topLeft.y < 0.5f &&
-            bottomRight.x - right < 0.5f && bottomRight.y - bottom < 0.5f
+        // The clip's corners on the screen, as [Viewport.toScreen] works them out, in plain numbers.
+        val topLeftX = clipLeft * viewport.scaleX + viewport.origin.x
+        val topLeftY = clipTop * viewport.scaleY + viewport.origin.y
+        val bottomRightX = clipRight * viewport.scaleX + viewport.origin.x
+        val bottomRightY = clipBottom * viewport.scaleY + viewport.origin.y
+        val left = maxOf(topLeftX, area.left)
+        val top = maxOf(topLeftY, area.top)
+        val right = minOf(bottomRightX, area.right)
+        val bottom = minOf(bottomRightY, area.bottom)
+        if (clipLeft <= 0f && clipTop <= 0f &&
+            clipRight >= viewport.design.width && clipBottom >= viewport.design.height &&
+            left - topLeftX < 0.5f && top - topLeftY < 0.5f &&
+            bottomRightX - right < 0.5f && bottomRightY - bottom < 0.5f
         ) {
             batch().noScissor()
             return
@@ -1151,18 +1194,18 @@ open class RenderCanvas protected constructor(
     }
 
     /** The same, in a layer's pixels: its own origin, its own height, and no letterbox. */
-    private fun scissorLayer(into: LayerFrame, clip: Rect) {
-        if (clip.left <= into.bounds.left && clip.top <= into.bounds.top &&
-            clip.right >= into.bounds.right && clip.bottom >= into.bounds.bottom
+    private fun scissorLayer(into: LayerFrame, clipLeft: Float, clipTop: Float, clipRight: Float, clipBottom: Float) {
+        if (clipLeft <= into.bounds.left && clipTop <= into.bounds.top &&
+            clipRight >= into.bounds.right && clipBottom >= into.bounds.bottom
         ) {
             batch().noScissor()
             return
         }
 
-        val left = ((clip.left - into.bounds.left) * viewport.scaleX).roundToInt()
-        val right = ((clip.right - into.bounds.left) * viewport.scaleX).roundToInt()
-        val top = ((clip.top - into.bounds.top) * viewport.scaleY).roundToInt()
-        val bottom = ((clip.bottom - into.bounds.top) * viewport.scaleY).roundToInt()
+        val left = ((clipLeft - into.bounds.left) * viewport.scaleX).roundToInt()
+        val right = ((clipRight - into.bounds.left) * viewport.scaleX).roundToInt()
+        val top = ((clipTop - into.bounds.top) * viewport.scaleY).roundToInt()
+        val bottom = ((clipBottom - into.bounds.top) * viewport.scaleY).roundToInt()
         batch().scissor(
             left,
             into.pixelHeight - bottom,
@@ -1203,11 +1246,20 @@ open class RenderCanvas protected constructor(
 
         val picture = layers.acquire(pixelWidth, pixelHeight)
 
+        // Everything kept for this depth: the next layer here starts only after this one ends.
+        val depth = layerDepth
+        while (layerStates.size <= depth) {
+            layerStates += CanvasState(Rect.Zero)
+            layerFrames += LayerFrame(Rect.Zero, 0, 0)
+            savedViewports += IntArray(4)
+            savedProjections += FloatArray(16)
+        }
+
         val previousTarget = target
-        val previousViewport = viewportBox.copyOf()
+        val previousViewport = viewportBox.copyInto(savedViewports[depth])
         val previousState = state
         val previousLayer = layer
-        val previousProjection = projection.copyOf()
+        val previousProjection = projection.copyInto(savedProjections[depth])
         val previousRounding = rounding
         val previousOpened = opened
         val previousRoundedAt = roundedAt
@@ -1216,9 +1268,13 @@ open class RenderCanvas protected constructor(
         val previousLastClipDepth = lastClipDepth
 
         batch().flush(BatchBreak.Layer)
-        layer = LayerFrame(area, pixelWidth, pixelHeight)
+        layer = layerFrames[depth].also {
+            it.bounds = area
+            it.pixelWidth = pixelWidth
+            it.pixelHeight = pixelHeight
+        }
         // Full opacity and a clip of exactly the layer; the tint and the transform come in with it.
-        state = previousState.forLayer(area)
+        state = previousState.forLayer(area, into = layerStates[depth])
         // No rounded clip either: the picture is trimmed as it is put down, if it is put down
         // inside one, and what is drawn into it is drawn whole.
         layerDepth++

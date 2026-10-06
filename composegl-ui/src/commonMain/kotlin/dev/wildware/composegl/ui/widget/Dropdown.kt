@@ -146,7 +146,19 @@ fun <T> Dropdown(
 @Composable
 private fun DropdownArrow(colour: Colour) {
     val draw: UiCanvas.(Rect) -> Unit = remember(colour) {
-        { box -> fan(floatArrayOf(box.left, box.top, box.right, box.top, (box.left + box.right) / 2f, box.bottom), colour) }
+        // The three corners, written afresh each draw into one kept array: a canvas reads a fan's
+        // points during the call and no longer, so the arrow makes nothing a frame (#252).
+        val corners = FloatArray(6)
+        val arrow: UiCanvas.(Rect) -> Unit = { box ->
+            corners[0] = box.left
+            corners[1] = box.top
+            corners[2] = box.right
+            corners[3] = box.top
+            corners[4] = (box.left + box.right) / 2f
+            corners[5] = box.bottom
+            fan(corners, colour)
+        }
+        arrow
     }
     LeafLayout(Modifier.size(ArrowWidth, ArrowHeight), name = "dropdown.arrow", draw = draw)
 }

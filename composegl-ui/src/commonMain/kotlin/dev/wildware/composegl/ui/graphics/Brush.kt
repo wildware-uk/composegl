@@ -95,17 +95,26 @@ sealed interface Brush {
          * In the toolkit's coordinates, y downwards. A backend that counts y upwards flips [Offset.y].
          * A box with no size has no gradient to travel along, and gets zero: all [start].
          */
-        fun axis(width: Float, height: Float): Offset {
-            val radians = degrees * PI_OVER_180
-            val across = cos(radians)
-            val down = sin(radians)
-            val length = abs(width * across) + abs(height * down)
-            if (length <= 0f) return Offset(0f, 0f)
-            return Offset(across / length, down / length)
-        }
+        fun axis(width: Float, height: Float): Offset = axisOf(degrees, width, height) { x, y -> Offset(x, y) }
 
         override fun scaleAlpha(factor: Float) = copy(start = start.scaleAlpha(factor), end = end.scaleAlpha(factor))
         override fun modulate(tint: Colour) = copy(start = start.modulate(tint), end = end.modulate(tint))
+
+        companion object {
+
+            /**
+             * [axis] for a gradient running at [degrees] in a box this size, handed to [use] as its
+             * two numbers rather than as an [Offset]. For a renderer that draws gradients every frame
+             * and would otherwise make an offset, and a brush to ask, each time (#252).
+             */
+            inline fun <R> axisOf(degrees: Float, width: Float, height: Float, use: (x: Float, y: Float) -> R): R {
+                val radians = degrees * PI_OVER_180
+                val across = cos(radians)
+                val down = sin(radians)
+                val length = abs(width * across) + abs(height * down)
+                return if (length <= 0f) use(0f, 0f) else use(across / length, down / length)
+            }
+        }
     }
 
     /**
@@ -161,6 +170,17 @@ sealed interface Brush {
 
         override val first: Colour get() = stops.first().colour
         override val last: Colour get() = stops.last().colour
+
+        // Worked out once, walking the stops by index. A renderer looks a run up by its hash every
+        // time it draws one, and most lists hash themselves through an iterator: on a phone, an
+        // object left behind every draw (#252). The same fields as [equals], so the two agree.
+        private val hash: Int = run {
+            var stopsHash = 1
+            for (index in stops.indices) stopsHash = 31 * stopsHash + stops[index].hashCode()
+            (stopsHash * 31 + degrees.hashCode()) * 31 + radial.hashCode()
+        }
+
+        override fun hashCode(): Int = hash
 
         /** The straight gradient this runs along, or null when it runs outwards from the middle. */
         val straight: Linear? get() = if (radial) null else Linear(first, last, degrees)
@@ -241,6 +261,7 @@ sealed interface Brush {
             )
         }
 
-        private const val PI_OVER_180 = 0.017453292f
+        @PublishedApi
+        internal const val PI_OVER_180 = 0.017453292f
     }
 }
