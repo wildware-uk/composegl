@@ -98,12 +98,19 @@ Four things, and you can call them yourself if you want to put something between
 them:
 
 ```kotlin
+val draw = DrawPass(canvas)            // once
+
 host.frame(System.nanoTime())          // 1. did anything change?
 MeasurePass().run(host.root, viewport) // 2. how big is everything, and where?
 canvas.begin(viewport)
-DrawPass(canvas).draw(host.root)       // 3. draw it
+draw.draw(host.root, viewport)         // 3. draw what the screen can show
 canvas.end()                           // 4. hand it to the GPU
 ```
+
+Handing `draw` the viewport is what lets it skip what is off the screen: a widget
+whose drawing cannot reach the viewport, or a clip it is inside — the rows of a long
+list below the fold — is not drawn at all. `draw(host.root)` with no viewport still
+skips what a clip cuts off, but draws everything else wherever it is.
 
 An analogy: **frame** is asking "has anybody changed their mind?", **measure** is
 laying the furniture out in the room, and **draw** is taking the photograph.
@@ -137,8 +144,8 @@ ui.drawBehind = { canvas -> board.draw(canvas) }
 A 3D game normally has nothing to put there: its world goes to OpenGL directly,
 before the canvas's frame is even open.
 
-Keep the `DrawPass` if you write it out yourself — it holds the canvas and nothing
-else, so making a new one every frame is waste. The `MeasurePass` has to be new
+Keep the `DrawPass` if you write it out yourself — it holds the canvas and a few
+numbers it reuses, so making a new one every frame is waste. The `MeasurePass` has to be new
 each time: the object itself is how each node knows which pass it was measured in.
 
 ---

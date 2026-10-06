@@ -15,6 +15,7 @@ import dev.wildware.composegl.ui.input.InputSource
 import dev.wildware.composegl.ui.layout.Box
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.modifier.Modifier
+import dev.wildware.composegl.ui.modifier.drawsOutside
 
 /** The pad's cursor, for a `VirtualCursor` to switch on. Null until a game provides one. */
 val LocalGamepadCursor = staticCompositionLocalOf<GamepadCursor?> { null }
@@ -129,7 +130,8 @@ private fun CursorArrow(cursor: GamepadCursor, colour: Colour, targetColour: Col
     val fill = if (cursor.overTarget) targetColour else colour
     val pressed = cursor.pressed
     val painter = remember(at, fill, outline, pressed) { ArrowPainter(at, fill, outline, if (pressed) PressedScale else 1f) }
-    LeafLayout(Modifier, name = "virtual-cursor", draw = painter.draw)
+    // A leaf of no size that draws the arrow wherever the cursor is, so it is drawn wherever it is.
+    LeafLayout(Modifier.drawsOutside(), name = "virtual-cursor", draw = painter.draw)
 }
 
 /**

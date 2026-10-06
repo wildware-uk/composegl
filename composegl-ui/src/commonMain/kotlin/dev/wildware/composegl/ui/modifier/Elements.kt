@@ -485,6 +485,9 @@ data class DrawBehindElement(val draw: UiCanvas.(Rect) -> Unit) : Modifier.Eleme
 /** Draw whatever you like, on top of this node and its children. */
 data class DrawInFrontElement(val draw: UiCanvas.(Rect) -> Unit) : Modifier.Element
 
+/** @see dev.wildware.composegl.ui.modifier.drawsOutside */
+object DrawsOutsideElement : Modifier.Element
+
 /** @see dev.wildware.composegl.ui.modifier.debugBounds */
 data class DebugBoundsElement(val colour: Colour, val label: Boolean) : Modifier.Element
 
@@ -1742,6 +1745,25 @@ fun Modifier.perspective(distance: Float, origin: Alignment = Alignment.Centre) 
 fun Modifier.drawBehind(draw: UiCanvas.(Rect) -> Unit) = then(DrawBehindElement(draw))
 
 fun Modifier.drawInFront(draw: UiCanvas.(Rect) -> Unit) = then(DrawInFrontElement(draw))
+
+/**
+ * Says this node draws outside its own box in a way layout cannot see, so it is drawn even when its
+ * box is off the screen.
+ *
+ * The draw pass skips a node, and everything under it, when nothing it draws can reach the screen
+ * or the clip it is inside: the rows of a long page below the fold, a card scrolled out of its
+ * window. It knows how far a node reaches from its box, its children and its chain — a [shadow], a
+ * [borderOutside], an [effect]'s bleed, a turn, a slant or a scale. What a [drawBehind], a
+ * [drawInFront] or a widget's own drawing paints is taken to stay inside the rectangle it is handed.
+ * A node that paints past it — a halo, a badge hanging off a corner, a line out to somewhere else on
+ * the screen — says so with this, and it and every node above it are then drawn wherever they are.
+ * A clip above it still cuts its drawing off at the clip's edge, as it always did.
+ *
+ * ```kotlin
+ * Box(Modifier.size(40f).drawBehind { box -> circle(box.centre, 60f, halo) }.drawsOutside())
+ * ```
+ */
+fun Modifier.drawsOutside() = then(DrawsOutsideElement)
 
 /**
  * Shows where this node is: an outline in [colour] over it and its children, and a faint wash.

@@ -16,6 +16,7 @@ import dev.wildware.composegl.ui.graphics.UiCanvas
 import dev.wildware.composegl.ui.layout.LeafLayout
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.fillMaxSize
+import dev.wildware.composegl.ui.modifier.drawsOutside
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
@@ -347,7 +348,8 @@ fun ParticleLayer(
         }
     }
 
-    LeafLayout(modifier.fillMaxSize(), name = "particles", draw = { bounds ->
+    // A particle flies wherever its emitter sends it, out of the layer's box as often as not.
+    LeafLayout(modifier.fillMaxSize().drawsOutside(), name = "particles", draw = { bounds ->
         emitter.drawInto(this, bounds)
     })
 }

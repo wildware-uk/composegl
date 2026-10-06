@@ -499,13 +499,19 @@ class UiNode(var name: String = "node") {
     // Each read also tells a layout that is measuring right now that it read a rectangle; see
     // [readsRectangles]. Outside a pass, and inside one between policies, that costs one read of a
     // global and a null check.
+    //
+    // A move is a change to where the parent's subtree reaches, and a resize to where this node's
+    // does; see [reachLeft]. Said only when the number really changes, so a layout writing every
+    // rectangle back as it found it says nothing.
     var x: Float
         get() {
             noteRead()
             return rawX
         }
         set(value) {
+            if (value == rawX) return
             rawX = value
+            parent?.forgetReach()
         }
     var y: Float
         get() {
@@ -513,7 +519,9 @@ class UiNode(var name: String = "node") {
             return rawY
         }
         set(value) {
+            if (value == rawY) return
             rawY = value
+            parent?.forgetReach()
         }
     var width: Float
         get() {
@@ -521,7 +529,9 @@ class UiNode(var name: String = "node") {
             return rawWidth
         }
         set(value) {
+            if (value == rawWidth) return
             rawWidth = value
+            forgetReach()
         }
     var height: Float
         get() {
@@ -529,7 +539,9 @@ class UiNode(var name: String = "node") {
             return rawHeight
         }
         set(value) {
+            if (value == rawHeight) return
             rawHeight = value
+            forgetReach()
         }
 
     // The same four, read without telling anybody: for the draw pass, which reads every node's
@@ -539,6 +551,44 @@ class UiNode(var name: String = "node") {
     internal var rawY = 0f
     internal var rawWidth = 0f
     internal var rawHeight = 0f
+
+    // How far this node and its subtree can draw, in its own coordinates — its top-left corner is
+    // (0, 0) — with its own scale, turn and slant applied: the rectangle the draw pass tests against
+    // the clip to skip the whole subtree. Worked out by layout at the end of the node's measure; see
+    // [dev.wildware.composegl.ui.draw.Reach]. Infinite on every side when it is not known — never
+    // worked out, or forgotten since — or when the node can draw anywhere, and such a node is
+    // always drawn. Never infinite on some sides and not others.
+    internal var reachLeft = Float.NEGATIVE_INFINITY
+    internal var reachTop = Float.NEGATIVE_INFINITY
+    internal var reachRight = Float.POSITIVE_INFINITY
+    internal var reachBottom = Float.POSITIVE_INFINITY
+
+    /** Whether this node's reach is known and bounded. */
+    internal val hasReach: Boolean get() = reachLeft != Float.NEGATIVE_INFINITY
+
+    /** This node may draw anywhere: always drawn, and so is every ancestor that does not clip. */
+    internal fun reachAnywhere() {
+        reachLeft = Float.NEGATIVE_INFINITY
+        reachTop = Float.NEGATIVE_INFINITY
+        reachRight = Float.POSITIVE_INFINITY
+        reachBottom = Float.POSITIVE_INFINITY
+    }
+
+    /**
+     * Forgets this node's reach and its ancestors': something about where its subtree draws has
+     * changed, and until a layout works them out again they are drawn wherever they are.
+     *
+     * Stops at the first that has none to forget. Above that, every ancestor either reaches
+     * anywhere already or clips, and a clipping node's reach does not depend on what is inside it.
+     * So a frame moving many nodes walks each ancestor once, not once per node.
+     */
+    internal fun forgetReach() {
+        var node: UiNode? = this
+        while (node != null && node.hasReach) {
+            node.reachAnywhere()
+            node = node.parent
+        }
+    }
 
     /** If a layout is measuring, it read where this node is: from the last pass, as far as it knows. */
     private fun noteRead() {
@@ -987,6 +1037,8 @@ class UiNode(var name: String = "node") {
      * layout cannot see, a state holder's field say, calls this on its own node when that changes.
      */
     fun invalidate() {
+        // Whatever changed may change where this node draws: its chain, its content, a child.
+        forgetReach()
         val tree = tree
         // A node with no tree still keeps its mark, for a test that builds nodes by hand and runs
         // a pass over them itself.

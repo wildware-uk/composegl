@@ -214,12 +214,15 @@ class DebugBoundsTest {
         }
         val before = ui.node("row").boundsInRoot
 
-        ui.scroll("area", Offset(0f, 10f))
+        // Far enough to bring the row up into the area, which is 100 tall: a row scrolled past it
+        // is not drawn at all, and nor is its box.
+        ui.scroll("area", Offset(0f, 5f))
         ui.advanceBy(300)
 
         assertTrue(state.y > 0f, "the wheel scrolled the area")
         val after = ui.node("row").boundsInRoot
         assertNotEquals(before.top, after.top)
+        assertTrue(after.top >= 0f && after.bottom <= 100f, "the row is in the area now: $after")
         val calls = drawn(ui)
         assertEquals(after, calls.outlines(Colour.Red).single().rect)
         assertEquals("120x30", readLabel(calls, after, Colour.Red))

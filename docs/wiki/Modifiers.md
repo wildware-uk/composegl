@@ -457,7 +457,7 @@ Modifier.drawBehind { bounds ->
         image(spark, bounds, degrees = ray * 360f / 14f, pivotX = 0f)
     }
     popBlend()
-}
+}.drawsOutside()                         // the rays turn out of the box: see below
 ```
 
 `degrees` turns clockwise, because y grows downwards here. `destination` is the box
@@ -471,6 +471,26 @@ screen, see [where the draw calls go](Debugging.md#where-the-draw-calls-go).
 Both degrade honestly on a backend that cannot do them: the picture is drawn upright
 and the glow is drawn as ordinary paint. Ask `canvas.rotatesImages` and
 `canvas.supports(BlendMode.Additive)` first if you would rather draw something else.
+
+**Drawing outside the box.** A widget that cannot be seen is not drawn at all, and
+nor is anything inside it: the rows of a long page below the fold, a card scrolled out
+of its window. Layout works out how far each widget's drawing reaches — its box, grown
+by its `shadow`, `borderOutside`, an effect's bleed, a turn, a slant or a scale, and by
+its children unless it clips — and the draw pass skips one whose reach misses the
+screen or a clip it is inside. A still screen keeps what layout worked out, so the
+check is four comparisons a widget. The screen counts when the draw pass is handed the
+viewport, as `UiRenderer` does (see [Your first screen](Your-first-screen.md)).
+
+What `drawBehind`, `drawInFront` or a widget's own drawing paints is taken to stay
+inside the rectangle it is handed. A drawing that reaches past it — a halo, a badge
+hanging off a corner, the sunburst above, whose rays turn out of the box — says so:
+
+```kotlin
+Box(Modifier.size(40f).drawBehind { box -> circle(box.centre, 60f, halo) }.drawsOutside())
+```
+
+`drawsOutside()` draws that widget, and the ones it sits in, wherever they are. A clip
+above it still cuts its drawing off at the clip's edge, as it always did.
 
 **Seeing where a widget went**
 

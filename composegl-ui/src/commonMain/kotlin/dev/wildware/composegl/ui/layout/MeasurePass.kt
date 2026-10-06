@@ -1,5 +1,6 @@
 package dev.wildware.composegl.ui.layout
 
+import dev.wildware.composegl.ui.draw.Reach
 import dev.wildware.composegl.ui.modifier.MarqueeRun
 import dev.wildware.composegl.ui.modifier.ResolvedModifier
 import dev.wildware.composegl.ui.modifier.WrapContentElement
@@ -278,6 +279,10 @@ class MeasurePass {
 
         // Measured again next pass whatever happens, because what it read moves without telling it.
         if (node.readsRectangles) node.markForMeasure()
+
+        // Last, with the node's size settled and every child where it stays: how far its drawing
+        // reaches, for the draw pass to skip it when that misses the screen.
+        Reach.settle(node)
 
         measuringNow = reader
         return placeable

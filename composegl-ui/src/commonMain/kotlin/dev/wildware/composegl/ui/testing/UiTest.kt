@@ -477,7 +477,8 @@ class UiTest(
      * Read off a drawing rather than off a widget's state, so it is what a player reads: the label
      * on a button, the lines in a field, a field's placeholder while it is empty. Nothing is drawn
      * under a node that something above it has faded or shrunk to nothing, and that comes back
-     * empty too.
+     * empty too. Nor is anything a clip inside [tag] cuts off whole: the rows of a list scrolled out
+     * of its area are not among the texts of the list. The screen's own edge does not count here.
      */
     fun texts(tag: String): List<String> {
         val node = node(tag)
