@@ -26,3 +26,14 @@ application {
 /** Never shipped, only run — the same reason the example has none. */
 tasks.named("distTar") { enabled = false }
 tasks.named("distZip") { enabled = false }
+
+// PROFILING ONLY (#242).
+dependencies { implementation(project(":composegl-demo-web")) }
+tasks.register<JavaExec>("probe") {
+    mainClass.set("dev.wildware.composegl.snake.ProbeMainKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = rootDir
+    environment("COMPOSEGL_PROBE_OUT", System.getenv("COMPOSEGL_PROBE_OUT") ?: "build/probe")
+    // PROFILING ONLY (#267): -PprobeJvmArgs="-XX:-DoEscapeAnalysis ..." for the timing runs.
+    (findProperty("probeJvmArgs") as String?)?.let { jvmArgs(it.split(" ")) }
+}
