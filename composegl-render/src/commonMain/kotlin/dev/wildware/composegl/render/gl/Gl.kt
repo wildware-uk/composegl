@@ -140,12 +140,18 @@ data class GlProfile(val api: GlApi, val major: Int, val minor: Int, val core: B
         this.major > major || (this.major == major && this.minor >= minor)
 }
 
-/** Float storage a binding can upload directly. Written by absolute index, or many at once. */
+/**
+ * Float storage a binding can upload directly. Written by absolute index, or many at once.
+ *
+ * Both move bits, not numbers: a vertex's fill and border are a colour's four bytes riding in a
+ * float's place (see [dev.wildware.composegl.render.ShapeVertex]), and opaque white is a NaN. A copy
+ * through a number that canonicalises NaNs, a JavaScript number say, changes the colour.
+ */
 interface GlFloats {
     val capacity: Int
     operator fun set(index: Int, value: Float)
 
-    /** [count] floats of [from], starting at [offset], written from [at] in one copy. */
+    /** [count] floats of [from], starting at [offset], written from [at] in one copy, bit for bit. */
     fun put(at: Int, from: FloatArray, offset: Int, count: Int)
 }
 
