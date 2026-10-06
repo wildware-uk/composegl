@@ -28,6 +28,7 @@ import dev.wildware.composegl.ui.layout.SizeChangedHandler
 import dev.wildware.composegl.ui.layout.Viewport
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.align
+import dev.wildware.composegl.ui.modifier.clip
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.fillMaxWidth
 import dev.wildware.composegl.ui.modifier.offset
@@ -43,6 +44,7 @@ import dev.wildware.composegl.ui.node.UiNode
 import dev.wildware.composegl.ui.widget.Button
 import dev.wildware.composegl.ui.widget.Panel
 import dev.wildware.composegl.ui.widget.ProvideFonts
+import dev.wildware.composegl.ui.widget.ScrollArea
 import dev.wildware.composegl.ui.widget.Slider
 import dev.wildware.composegl.ui.widget.Text
 import org.junit.jupiter.api.AfterEach
@@ -93,12 +95,27 @@ class FrameCostTest {
     /** Plain boxes beside the HUD, none focusable and none drawing anything: nodes for a walk to visit. */
     private var plain by mutableIntStateOf(0)
 
+    /** Small windows beside the HUD, standing still: a settings page or an inventory has several. */
+    private var windows by mutableIntStateOf(0)
+
+    /** Whether those windows scroll, or are plain clipped boxes with the same thing inside. */
+    private var scrolling by mutableStateOf(true)
+
     /** A combat HUD: about twenty widgets, the sort of thing a game actually leaves on screen. */
     private fun hud() {
         host.setContent {
             ProvideFonts(MonospaceFontProvider()) {
                 Box(Modifier.fillMaxSize()) {
                     repeat(plain) { Box(Modifier.size(4f)) {} }
+                    repeat(windows) {
+                        if (scrolling) {
+                            // No bars: a bar draws its thumb through a new rectangle every frame,
+                            // which is drawing rather than asking for frames (#258).
+                            ScrollArea(Modifier.size(40f), bars = false) { Box(Modifier.size(40f, 400f)) {} }
+                        } else {
+                            Box(Modifier.size(40f).clip()) { Box(Modifier.size(40f, 400f)) {} }
+                        }
+                    }
                     Panel(Modifier.align(Alignment.BottomStart).padding(left = 28f, bottom = 28f).width(280f)) {
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10f)) {
                             Text("HULL")
@@ -347,6 +364,29 @@ class FrameCostTest {
         val more = stillFrameCost(renderer, viewport, boxes = 80)
 
         assertEquals(fewer, more, "seventy more nodes on a still screen should cost not one byte more a frame")
+    }
+
+    /**
+     * A scroll area on a still screen costs a frame no more than the clipped box it is drawn as.
+     * Each one's fling loop used to wait on every frame in case a fling started, which woke the
+     * recomposer on every frame of a screen where nothing moved, and made garbage doing it: 7,960
+     * bytes a frame for fifteen of them (#249).
+     */
+    @Test
+    @Tag("allocation")
+    fun `still scroll areas cost a frame no more than clipped boxes`() {
+        hud()
+        val renderer = UiRenderer(host, Silent())
+        renderer.focus = FocusManager(host.root)
+        val viewport = Viewport.oneToOne(Size(1280f, 720f))
+        windows = 15
+
+        scrolling = false
+        val clipped = stillFrameCost(renderer, viewport, boxes = 0)
+        scrolling = true
+        val scrollAreas = stillFrameCost(renderer, viewport, boxes = 0)
+
+        assertEquals(clipped, scrollAreas, "fifteen still scroll areas should cost not one byte more a frame than fifteen clipped boxes")
     }
 
     /** What a still frame of the HUD with [boxes] plain boxes beside it allocates: the fewest of five rounds of twenty. */

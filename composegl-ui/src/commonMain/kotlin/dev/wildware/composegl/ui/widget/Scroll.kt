@@ -57,6 +57,10 @@ class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
 
     val canScrollY: Boolean get() = down.canScroll
 
+    /**
+     * Whether a flick is still carrying it. Snapshot state: a composable that reads it is recomposed
+     * when a fling starts and when it stops, and not on the frames between.
+     */
     val isFlinging: Boolean get() = across.isFlinging || down.isFlinging
 
     /** Straight to a position, clamped to the ends. Stops a fling. */

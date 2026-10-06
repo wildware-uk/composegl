@@ -1,12 +1,15 @@
 package dev.wildware.composegl.ui.widget
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
+import dev.wildware.composegl.ui.host.LocalFrameTimes
 import dev.wildware.composegl.ui.geometry.Offset
 import dev.wildware.composegl.ui.geometry.Rect
 import dev.wildware.composegl.ui.graphics.UiCanvas
@@ -30,6 +33,7 @@ import dev.wildware.composegl.ui.skin.rememberStates
 import dev.wildware.composegl.ui.skin.rememberStyle
 import kotlin.math.abs
 import kotlin.math.pow
+import kotlinx.coroutines.flow.first
 
 /**
  * One axis that can be scrolled, as everything that moves one needs to see it.
@@ -67,6 +71,10 @@ internal interface ScrollAxis {
     /** Keeps going at this speed, in units per second, after the finger has gone. */
     fun fling(velocity: Float)
 
+    /**
+     * Whether a fling is carrying it. Snapshot state, so the loop that drives a fling can sleep
+     * until this turns true rather than asking every frame.
+     */
     val isFlinging: Boolean
 
     /** One frame of a fling. [seconds] is real time, so the feel does not follow the frame rate. */
@@ -93,9 +101,16 @@ internal class MeasuredAxis(initial: Float = 0f) : ScrollAxis {
 
     override val maximum: Float get() = (total - visible).coerceAtLeast(0f)
 
-    private var velocity = 0f
+    override var isFlinging: Boolean by mutableStateOf(false)
+        private set
 
-    override val isFlinging: Boolean get() = velocity != 0f
+    private var velocity = 0f
+        set(value) {
+            val was = field != 0f
+            field = value
+            // Written only when it starts or stops, so the frames of a fling write no state here.
+            if ((value != 0f) != was) isFlinging = value != 0f
+        }
 
     override fun scrollTo(position: Float) {
         stop()
@@ -283,29 +298,56 @@ internal class ScrollGestures {
 }
 
 /**
- * Keeps a fling going, one frame at a time.
+ * Keeps a fling going, one frame at a time, and asks for no frames while nothing is flinging.
  *
- * The loop watches every frame and does nothing on almost all of them. Waking a coroutine costs a
- * resume; starting the loop only when a fling begins would cost the first two frames of the fling,
- * which is the part a player can feel.
+ * A loop waiting on every frame in case a fling started would keep the Compose recomposer awake on
+ * every frame of a still screen: one scroll area anywhere and the screen is never idle. So it
+ * sleeps until an axis says it is flinging, and goes back to sleep once every axis has stopped.
+ *
+ * Waking costs the fling nothing. The release that starts it is input, between frames, and a frame
+ * publishes state changes before it sends the frame — so the loop wakes in time to be handed that
+ * same frame. Its first step is timed from the host's frame before, which is when the finger was
+ * last seen, just as it would be had the loop been watching all along.
+ *
+ * A fling belongs to the widget driving it. When the widget leaves — its host disposed with it — or
+ * is handed other axes, the fling stops where it is, rather than leaving a state that says it is
+ * flinging with nothing to move it. A disposable effect rather than the loop's `finally`, because a
+ * disposed host cancels the loop but never runs it again to finish.
  */
 @Composable
-internal fun DriveFling(vararg axes: ScrollAxis?) {
-    val moving = remember(axes.size) { axes.filterNotNull() }
-    LaunchedEffect(moving) {
-        var last = withFrameNanos { it }
+internal fun DriveFling(one: ScrollAxis, other: ScrollAxis? = null) {
+    val frames = LocalFrameTimes.current
+    DisposableEffect(one, other) {
+        onDispose {
+            one.stop()
+            other?.stop()
+        }
+    }
+    LaunchedEffect(one, other, frames) {
         while (true) {
-            withFrameNanos { now ->
-                val seconds = (now - last).toFloat() / 1_000_000_000f
+            snapshotFlow { one.isFlinging || other?.isFlinging == true }.first { it }
+            var last = 0L
+            var going = withFrameNanos { now ->
                 last = now
-                // By index: this runs every frame, and an iterator a frame is garbage on a phone.
-                for (index in moving.indices) {
-                    val axis = moving[index]
-                    if (axis.isFlinging) axis.advance(seconds)
+                step(one, other, frames?.sincePrevious() ?: 0L)
+            }
+            while (going) {
+                going = withFrameNanos { now ->
+                    val nanos = now - last
+                    last = now
+                    step(one, other, nanos)
                 }
             }
         }
     }
+}
+
+/** One frame of a fling on both axes. True while either is still moving. */
+private fun step(one: ScrollAxis, other: ScrollAxis?, nanos: Long): Boolean {
+    val seconds = nanos.toFloat() / 1_000_000_000f
+    one.advance(seconds)
+    other?.advance(seconds)
+    return one.isFlinging || other?.isFlinging == true
 }
 
 /**
