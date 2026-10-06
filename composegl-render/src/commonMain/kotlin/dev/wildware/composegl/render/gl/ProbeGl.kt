@@ -139,6 +139,10 @@ class ProbeGl(private val gl: Gl) : Gl {
     private val uploads = HashMap<Int, ProbeFloats>() // buffer -> what was last uploaded
     private val uploadCounts = HashMap<Int, Int>()
     private var stride0 = 0
+
+    /** Attribute 0's stride as each vertex array was last set up: with vertex arrays a device lays one out once and then only binds it. */
+    private var vertexArray = 0
+    private val arrayStride0 = HashMap<Int, Int>()
     private val uniformNames = HashMap<Int, HashMap<Int, String>>() // program -> location -> name
     private val uniformValues = HashMap<Long, FloatArray>()
     private val projections = HashMap<Int, FloatArray>()
@@ -354,12 +358,20 @@ class ProbeGl(private val gl: Gl) : Gl {
 
     override fun vertexAttribPointer(index: Int, size: Int, type: Int, normalized: Boolean, stride: Int, offset: Int) {
         count("vertexAttribPointer")
-        if (index == 0) stride0 = stride
+        if (index == 0) {
+            stride0 = stride
+            if (vertexArray != 0) arrayStride0[vertexArray] = stride
+        }
         gl.vertexAttribPointer(index, size, type, normalized, stride, offset)
     }
 
     override fun createVertexArray(): Int { count("createVertexArray"); return gl.createVertexArray() }
-    override fun bindVertexArray(array: Int) { count("bindVertexArray"); gl.bindVertexArray(array) }
+    override fun bindVertexArray(array: Int) {
+        count("bindVertexArray")
+        vertexArray = array
+        arrayStride0[array]?.let { stride0 = it }
+        gl.bindVertexArray(array)
+    }
     override fun deleteVertexArray(array: Int) { count("deleteVertexArray"); gl.deleteVertexArray(array) }
 
     override fun drawElements(mode: Int, count: Int, type: Int, offset: Int) {
