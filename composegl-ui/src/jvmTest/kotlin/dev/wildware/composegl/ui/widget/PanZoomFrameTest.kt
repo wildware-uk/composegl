@@ -133,6 +133,34 @@ class PanZoomFrameTest {
     }
 
     @Test
+    fun `a drag let go past an edge springs back from the very next frame and plays as before`() {
+        // Looking at the left edge of the world, so a drag to the right pulls past it.
+        val camera = PanZoomState(1f, 0.25f, 3f, world, Offset(200f, 400f))
+        show(camera)
+
+        // Slowly, so nothing is flung when it is let go: only the spring moves it.
+        pointer.onPointer(PointerEvent.Press(PointerId.Mouse, Offset(100f, 150f), timeMillis = 0L))
+        pointer.onPointer(PointerEvent.Move(PointerId.Mouse, Offset(140f, 150f), setOf(PointerButton.Primary), timeMillis = 10_000L))
+        pointer.onPointer(PointerEvent.Move(PointerId.Mouse, Offset(180f, 150f), setOf(PointerButton.Primary), timeMillis = 20_000L))
+        pointer.onPointer(PointerEvent.Release(PointerId.Mouse, Offset(180f, 150f), timeMillis = 20_000L))
+        assertTrue(camera.pan.x > 30f, "the hand pulled it past the edge: ${camera.pan}")
+        assertFalse(camera.isFlinging, "a slow drag flings nothing")
+
+        // The same pull, let go.
+        val reference = PanZoomState(1f, 0.25f, 3f, world, Offset(200f, 400f)).apply {
+            measured(400f, 300f)
+            holding(true)
+            dragBy(camera.pan.x - pan.x, camera.pan.y - pan.y)
+            holding(false)
+        }
+        assertAt(reference, camera, "when let go")
+        assertPlaysLike(reference, camera, moving = { reference.wantsFrames })
+        frame()
+        assertEquals(0f, camera.pan.x, 0.01f, "it came to rest against the edge")
+        assertFalse(host.hasPendingWork, "and went back to sleep")
+    }
+
+    @Test
     fun `a stick pushed on a still canvas moves on the very next frame and plays as before`() {
         val camera = camera()
         show(camera)

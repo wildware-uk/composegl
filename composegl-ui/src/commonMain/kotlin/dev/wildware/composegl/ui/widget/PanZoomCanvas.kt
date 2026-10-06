@@ -7,7 +7,6 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import dev.wildware.composegl.ui.animation.Clock
 import dev.wildware.composegl.ui.animation.LocalClocks
@@ -66,7 +65,6 @@ import dev.wildware.composegl.ui.skin.styled
 import kotlin.math.floor
 import kotlin.math.pow
 import kotlin.math.sqrt
-import kotlinx.coroutines.flow.first
 
 /**
  * Where a child of a [PanZoomCanvas] sits in its world. See [worldPosition].
@@ -199,16 +197,27 @@ fun PanZoomCanvas(
 
     val clocks = LocalClocks.current
     state.attach(camera, clocks)
-    DisposableEffect(state) { onDispose { state.detach(camera) } }
+    val alarm = remember { FlingAlarm() }
+    DisposableEffect(state) {
+        state.wakeOnMove(alarm)
+        onDispose {
+            state.stopWaking(alarm)
+            state.detach(camera)
+        }
+    }
     // One loop drives a flick, the spring back from an edge, the pad's stick and triggers and
     // animateTo alike, and it asks for no frames while none of them is moving: a loop waiting on every
     // frame in case one started would keep the recomposer awake on every frame of a still screen.
+    // It sleeps on its own alarm, which the state rings when the camera starts moving, and nothing
+    // else wakes it. A snapshot flow over wantsFrames woke nothing either, but it heard about every
+    // state change anywhere and asked each time whether its own was among them (#265).
     // Woken, its first step is timed from when it was woken. Input and calls between frames wake it
-    // at the time of the frame before, and a frame publishes state before it sends the frame, so the
-    // loop is handed the next frame and steps a whole one, as an always-awake loop did. Something that
-    // starts the camera inside a frame — a held press's callback, a coroutine resuming in it — wakes
-    // it at that frame's own time, so the camera first moves on the frame after: where the
-    // always-awake loop gave it a frame of travel for time before it had started.
+    // at the time of the frame before, and the ring queues the loop on the host's dispatcher, which a
+    // frame drains before it sends the frame, so the loop is handed the next frame and steps a whole
+    // one, as an always-awake loop did. Something that starts the camera inside a frame — a held
+    // press's callback, a coroutine resuming in it — wakes it at that frame's own time, so the camera
+    // first moves on the frame after: where the always-awake loop gave it a frame of travel for time
+    // before it had started.
     // A loop that starts with the camera already moving — a canvas shown again, or moved to another
     // place in the tree, mid-flight — times its first step from now, as it always has: the time the
     // camera was woken at is long gone, and was the last loop's to step from.
@@ -216,7 +225,7 @@ fun PanZoomCanvas(
         var last = clocks.time(Clock.Ui)
         while (true) {
             if (!state.wantsFrames) {
-                snapshotFlow { state.wantsFrames }.first { it }
+                while (!state.wantsFrames) alarm.sleep()
                 last = if (state.wokeOn === clocks) state.wokeAt else clocks.time(Clock.Ui)
             }
             var going = true

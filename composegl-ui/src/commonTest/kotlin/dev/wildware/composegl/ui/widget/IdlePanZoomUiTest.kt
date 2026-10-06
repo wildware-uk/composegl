@@ -13,6 +13,7 @@ import dev.wildware.composegl.ui.input.GamepadEvent
 import dev.wildware.composegl.ui.input.GamepadId
 import dev.wildware.composegl.ui.layout.Alignment
 import dev.wildware.composegl.ui.layout.Box
+import dev.wildware.composegl.ui.layout.Row
 import dev.wildware.composegl.ui.modifier.Modifier
 import dev.wildware.composegl.ui.modifier.fillMaxSize
 import dev.wildware.composegl.ui.modifier.size
@@ -177,5 +178,46 @@ class IdlePanZoomUiTest {
         near(300f, second.centre.x, "the new state arrived")
         assertEquals(Offset(500f, 400f), first.centre, "the old state was not moved")
         ui.assertAsleep("after the new state's animation the screen")
+    }
+
+    @Test
+    fun `a canvas that leaves or is handed another state is woken by the old one no more`() {
+        // A state can outlive its screen, remembered and saved, so every canvas that ever showed it
+        // must take its loop back with it rather than leave the state ringing a dead one (#265).
+        val first = state()
+        val second = state()
+        var current by mutableStateOf(first)
+        var shown by mutableStateOf(true)
+        var twice by mutableStateOf(true)
+        val ui = open {
+            Row {
+                if (shown) PanZoomCanvas(current, Modifier.size(200f, 300f)) {}
+                if (twice) PanZoomCanvas(first, Modifier.size(200f, 300f)) {}
+            }
+        }
+        assertEquals(2, first.drivers, "two canvases show the first state and its camera starting wakes both")
+
+        twice = false
+        ui.settle()
+        assertEquals(1, first.drivers, "the canvas that left is woken no more")
+
+        current = second
+        ui.settle()
+        assertEquals(0, first.drivers, "nor is a canvas handed another state")
+        assertEquals(1, second.drivers, "the new state wakes it instead")
+
+        shown = false
+        ui.settle()
+        assertEquals(0, second.drivers, "a canvas that leaves takes its loop with it")
+    }
+
+    @Test
+    fun `a closed screen leaves nothing for its camera to wake`() {
+        val camera = state()
+        val ui = open { Plane(camera) }
+        assertEquals(1, camera.drivers)
+
+        ui.close()
+        assertEquals(0, camera.drivers, "a camera kept past its screen wakes nothing of it")
     }
 }

@@ -725,6 +725,39 @@ class FrameCostTest {
         )
     }
 
+    /**
+     * A change anywhere on screen does no work in an idle pan-and-zoom canvas either.
+     *
+     * Its frame loop slept in a snapshot flow over whether the camera wanted frames, which ran one
+     * question per canvas on every change anywhere, as the scroll areas' did (#259). Now a canvas is
+     * woken by whatever starts its camera moving, and by nothing else (#265).
+     *
+     * Timed, so loose in the same way as the scroll areas' test: a hundred and fifty canvases against
+     * a hundred and fifty clipped boxes.
+     */
+    @Test
+    fun `a change elsewhere costs idle pan-and-zoom canvases nothing`() {
+        hud()
+        windows = 150
+        var elsewhere by mutableIntStateOf(0)
+        val change = {
+            elsewhere++
+            Snapshot.sendApplyNotifications()
+        }
+
+        window = Window.Clipped
+        repeat(3) { frame() }
+        val clipped = nanosEach(change)
+        window = Window.PanZoom
+        repeat(3) { frame() }
+        val canvases = nanosEach(change)
+
+        assertTrue(
+            canvases < clipped * 2 + 500,
+            "a change with 150 idle pan-and-zoom canvases on screen took $canvases ns, against $clipped ns with 150 clipped boxes",
+        )
+    }
+
     /** How long [what] takes, in nanoseconds: the fastest of five rounds of two thousand, after a warm-up. */
     private fun nanosEach(what: () -> Unit): Long {
         repeat(20_000) { what() }
